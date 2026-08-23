@@ -69,6 +69,55 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: false
 
+  # The whole vertical slice against a real PostGIS: migrate, seed, boot the
+  # API, then the 84-assertion journey and the gateway security suite.
+  integration:
+    name: e2e journey · gateway security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABASE_URL: postgres://roadassist:devpassword@localhost:5432/roadassist_test
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: roadassist
+          POSTGRES_PASSWORD: devpassword
+          POSTGRES_DB: roadassist_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U roadassist"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install
+        run: npm ci --no-audit --no-fund
+      - name: Build schema package
+        run: npm run build -w @roadassist/db
+      - name: Migrate
+        run: npm run db:migrate
+      - name: Seed (small volumes for CI speed)
+        run: SEED_USERS=80 SEED_MECHANICS=160 SEED_BOOKINGS=80 npm run db:seed
+      - name: Seed RAKSHA corridor
+        run: npm run db:seed:raksha
+      - name: Start API
+        run: |
+          node --import tsx apps/api/src/server.ts &
+          for i in $(seq 1 40); do
+            curl -sf http://localhost:4000/health > /dev/null && break
+            sleep 1
+          done
+          curl -sf http://localhost:4000/health
+      - name: End-to-end journey (84 assertions)
+        run: node scripts/e2e-journey.mjs
+      - name: Gateway security suite
+        run: node scripts/gateway-security-test.mjs
+
   # Architecture fitness function: module boundaries are part of the design,
   # so a violation should fail the build rather than be found in review.
   boundaries:
