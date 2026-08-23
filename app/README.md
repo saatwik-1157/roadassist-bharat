@@ -26,7 +26,7 @@ npm run verify && npm run test:e2e                          # 9 unit + 84 end-to
 | 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS | ◐ slice complete, full surface pending |
 | 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web only; no React Native app |
-| 7 · AI | Rules engine live behind the model contract (ADR-0006) | ◐ rules only, no trained models |
+| 7 · AI | Rules engine + first trained CV model: YOLO11n on RDD2022-India (5.4 MB, mAP50 0.134 smoke baseline, see ai/) | ◐ smoke-scale model live, full training pending |
 | R · RAKSHA | Edge simulator → offline queue → idempotent sync → segments → road health → authority verify/close | ◐ MVP slice live, detector SIMULATED (ADR-0007) |
 | 8+ | SMS/IVR gateway, government portal, analytics, real CV model | ⏸ not started |
 

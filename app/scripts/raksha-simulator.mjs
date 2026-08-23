@@ -10,6 +10,11 @@
  * the replay is idempotent by sending the same batch twice.
  *
  * Usage:  node scripts/raksha-simulator.mjs            (API on :4000, seeded DB)
+ *         node scripts/raksha-simulator.mjs --from-json <detect.py output>
+ *           Real-CV mode: uploads detections produced by ai/road_damage/detect.py
+ *           (a genuine YOLO model, usedFallback=false). The RDD2022 images carry
+ *           no GPS, so LOCATIONS remain SIMULATED along the NH-48 corridor and
+ *           are labeled as such — the detections themselves are real model output.
  * State:  scripts/.raksha-sim-state.json (gitignored — holds the device credential)
  */
 import { readFileSync, writeFileSync } from "node:fs";
@@ -86,11 +91,46 @@ if (!deviceToken) {
   deviceToken = t.data.accessToken;
 }
 
-// ── 2. OFFLINE patrol: walk the track, detect, queue locally — zero network
-banner("OFFLINE PATROL (no network — events queue locally)");
+// ── 2. build the queue: either a SIMULATED patrol, or REAL CV output ──────
+const fromJsonIdx = process.argv.indexOf("--from-json");
 const queue = [];
 const runTag = Date.now().toString(36);
 let battery = 87;
+
+if (fromJsonIdx > -1) {
+  // REAL-CV mode: detections come from ai/road_damage/detect.py (a genuine
+  // YOLO model). Locations stay SIMULATED along NH-48 — RDD2022 images have
+  // no GPS — and op ids are deterministic per image+index so re-uploading the
+  // same detection file is idempotent.
+  const file = process.argv[fromJsonIdx + 1];
+  if (!file) { console.error("✗ --from-json needs a path to detect.py output"); process.exit(1); }
+  banner("REAL CV DETECTIONS (model output · locations SIMULATED)");
+  const report = JSON.parse(readFileSync(file, "utf8"));
+  let n = 0;
+  for (const img of report.results ?? []) {
+    for (const [i, det] of (img.detections ?? []).entries()) {
+      const f = (n * 7 + 3) % 100 / 100;               // spread along the corridor
+      const leg = Math.min(TRACK.length - 2, Math.floor(f * (TRACK.length - 1)));
+      const t = f * (TRACK.length - 1) - leg;
+      queue.push({
+        opId: `cv-${img.imageRef.replace(/[^a-zA-Z0-9]/g, "").slice(-24)}-${i}`,
+        type: det.type, severity: det.severity, confidence: det.confidence,
+        lat: Number((TRACK[leg][1] + (TRACK[leg + 1][1] - TRACK[leg][1]) * t).toFixed(6)),
+        lng: Number((TRACK[leg][0] + (TRACK[leg + 1][0] - TRACK[leg][0]) * t).toFixed(6)),
+        capturedAt: new Date(Date.now() - n * 30_000).toISOString(),
+        ranOffline: true,
+        imageRef: img.imageRef,
+        modelVersion: det.modelVersion,
+        usedFallback: false,                            // honest: real model output
+      });
+      n++;
+      console.log(`  [REAL CV] ${det.type.padEnd(12)} sev ${det.severity} conf ${det.confidence} ← ${img.imageRef}`);
+    }
+  }
+  console.log(`→ ${queue.length} real detections from ${report.model} queued (locations SIMULATED)`);
+} else {
+
+banner("OFFLINE PATROL (no network — events queue locally)");
 for (let i = 0; i < TRACK.length - 1; i++) {
   // interpolate 3 points per leg for a denser patrol
   for (let s = 0; s < 3; s++) {
@@ -121,6 +161,7 @@ for (let i = 0; i < TRACK.length - 1; i++) {
   battery -= rand() < 0.3 ? 1 : 0;
 }
 console.log(`→ patrol complete: ${queue.length} events in the local queue, battery ${battery}% — still NO network used`);
+}
 
 // ── 3. connectivity returns: sync, then replay to prove idempotency
 banner("CONNECTIVITY RESTORED — SYNCING QUEUE");
@@ -148,4 +189,6 @@ for (const s of health.data) {
 }
 
 banner("DONE");
-console.log(`Dashboard: ${BASE}/raksha.html  ·  every event above is SIMULATED\n`);
+console.log(fromJsonIdx > -1
+  ? `Dashboard: ${BASE}/raksha.html  ·  detections above are REAL model output; their GPS locations are SIMULATED\n`
+  : `Dashboard: ${BASE}/raksha.html  ·  every event above is SIMULATED\n`);
