@@ -13,8 +13,9 @@ import * as identity from "../src/schema/identity.js";
 import * as fleet from "../src/schema/fleet.js";
 import * as service from "../src/schema/service.js";
 import * as ops from "../src/schema/ops.js";
+import * as raksha from "../src/schema/raksha.js";
 
-const MODULES = { identity, fleet, service, ops } as Record<string, Record<string, unknown>>;
+const MODULES = { identity, fleet, service, ops, raksha } as Record<string, Record<string, unknown>>;
 
 function tablesOf(mod: Record<string, unknown>): PgTable[] {
   return Object.values(mod).filter((v): v is PgTable => v instanceof PgTable);

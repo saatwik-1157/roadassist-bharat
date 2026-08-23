@@ -20,6 +20,7 @@ const ALLOWED = {
   fleet: ["_shared", "identity"],
   service: ["_shared", "identity", "fleet"],
   ops: ["_shared", "identity", "fleet", "service"],
+  raksha: ["_shared", "identity", "service"],   // ADR-0007
 };
 
 const violations = [];
