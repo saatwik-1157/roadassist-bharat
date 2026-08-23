@@ -11,13 +11,26 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #070707; --panel: #10100e; --gold: #d8b46a; --cream: #f5f1e8; --muted: #93897a;
-    --line: rgba(216,180,106,0.14);
+    --bg: #08090b; --panel: #0f1113; --gold: #e3b96a; --cream: #f4f2ec; --muted: #8f948f;
+    --teal: #38dcc8; --teal-soft: rgba(56,220,200,0.14);
+    --line: rgba(227,185,106,0.14); --line-teal: rgba(56,220,200,0.16);
     --ok: #3ddc97; --warn: #ffd166; --bad: #ff9f43; --crit: #ff4d5a;
     --serif: "Fraunces", Georgia, serif;
     --sans: "Manrope", system-ui, sans-serif;
     --ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
+  /* aurora depth layers — two drifting glows behind everything */
+  body::before, body::after {
+    content: ""; position: fixed; z-index: 0; pointer-events: none;
+    width: 60vmax; height: 60vmax; border-radius: 50%; filter: blur(90px);
+  }
+  body::before { top: -25vmax; right: -20vmax; background: radial-gradient(circle, rgba(227,185,106,0.10), transparent 65%);
+    animation: aur1 26s ease-in-out infinite alternate; }
+  body::after { bottom: -30vmax; left: -22vmax; background: radial-gradient(circle, rgba(56,220,200,0.09), transparent 65%);
+    animation: aur2 32s ease-in-out infinite alternate; }
+  @keyframes aur1 { to { transform: translate(-8vmax, 6vmax) scale(1.15); } }
+  @keyframes aur2 { to { transform: translate(9vmax, -7vmax) scale(1.1); } }
+  body > * { position: relative; z-index: 1; }
   html { scroll-behavior: smooth; }
   html, body { background: var(--bg); color: var(--cream); }
   body { font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
@@ -56,7 +69,9 @@
     padding: 20px clamp(18px, 4vw, 52px) 80px; max-width: 900px; }
   .kicker { font-size: 12px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--gold); margin-bottom: 18px; }
   h1 { font-family: var(--serif); font-weight: 380; font-variation-settings: "opsz" 100; letter-spacing: -0.01em; font-size: clamp(42px, 7vw, 92px); line-height: 1.02; }
-  h1 em { font-style: italic; color: var(--gold); }
+  h1 em { font-style: italic;
+    background: linear-gradient(105deg, var(--gold) 20%, var(--teal) 90%);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
   .hero-copy p { margin-top: 22px; max-width: 560px; color: #cfc8ba; font-weight: 300; line-height: 1.85; font-size: clamp(15px, 1.6vw, 18px); }
   .cta-row { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
   .btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px;
@@ -135,6 +150,43 @@
   .tilt figcaption b { color: var(--cream); font-weight: 600; }
   .lp { font-size: 9.5px; letter-spacing: 0.2em; color: var(--ok); align-self: center; white-space: nowrap; }
 
+  /* ═══ LIVE EDGE FEED — real frames, real model boxes, 3D monitor ═══ */
+  .feed-stage { perspective: 1300px; display: grid; place-items: center; }
+  .monitor {
+    position: relative; width: min(880px, 94%); border-radius: 20px; overflow: hidden;
+    border: 1px solid var(--line-teal); background: #05070a;
+    box-shadow: 0 46px 90px rgba(0,0,0,0.65), 0 0 70px rgba(56,220,200,0.10);
+    transform-style: preserve-3d; will-change: transform; aspect-ratio: 3 / 2;
+  }
+  .monitor .frame { position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; opacity: 0; transition: opacity 0.9s var(--ease); }
+  .monitor .frame.show { opacity: 1; }
+  .monitor .scan { position: absolute; inset: 0; pointer-events: none; z-index: 3;
+    background: repeating-linear-gradient(180deg, transparent 0 3px, rgba(0,0,0,0.12) 3px 4px); }
+  .monitor .hud { position: absolute; inset: 0; z-index: 4; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: space-between; padding: 16px 18px;
+    font-size: 10.5px; letter-spacing: 0.2em; font-weight: 800; }
+  .hud .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .hud .rec { display: inline-flex; align-items: center; gap: 8px; color: var(--crit);
+    background: rgba(5,7,10,0.65); padding: 5px 12px; border-radius: 999px; backdrop-filter: blur(4px); }
+  .hud .rec::before { content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--crit); box-shadow: 0 0 12px var(--crit); animation: blink 1.2s infinite; }
+  .hud .chip { color: var(--teal); background: rgba(5,7,10,0.65); padding: 5px 12px;
+    border-radius: 999px; backdrop-filter: blur(4px); border: 1px solid var(--line-teal); }
+  .hud .cnt { color: var(--cream); background: rgba(5,7,10,0.65); padding: 5px 12px;
+    border-radius: 999px; font-variant-numeric: tabular-nums; }
+  .hud .corner { position: absolute; width: 26px; height: 26px; border: 2px solid var(--teal); opacity: 0.75; }
+  .hud .c1 { top: 12px; left: 12px; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+  .hud .c2 { top: 12px; right: 12px; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; }
+  .hud .c3 { bottom: 12px; left: 12px; border-right: 0; border-top: 0; border-radius: 0 0 0 8px; }
+  .hud .c4 { bottom: 12px; right: 12px; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+  .feed-cred { text-align: center; color: var(--muted); font-size: 10.5px; margin-top: 18px; letter-spacing: 0.06em; }
+  .feed-cred a { text-decoration: underline; }
+
+  /* image perfection — every photo fades in only once decoded */
+  .fade-img { opacity: 0; transition: opacity 0.8s var(--ease); }
+  .fade-img.ready { opacity: 1; }
+
   /* ═══ VIDEO ═══ */
   .theatre { position: relative; border-radius: 22px; overflow: hidden;
     border: 1px solid var(--line); box-shadow: 0 40px 90px rgba(0,0,0,0.6), 0 0 60px rgba(216,180,106,0.08); }
@@ -170,6 +222,7 @@
     <span class="raksha-chip">RAKSHA · LIVE</span>
     <div class="links">
       <a href="#pipeline">How it works</a>
+      <a href="#feed">Live feed</a>
       <a href="#gallery">Gallery</a>
       <a href="#film">Demo film</a>
     </div>
@@ -217,6 +270,26 @@
     </div>
   </div>
   <p class="pipe-note">Every number on this page is measured, not asserted — the same pipeline passes 84/84 end-to-end assertions in CI.</p>
+</section>
+
+<section id="feed">
+  <div class="sec-head rv">
+    <h2>Through the device's <em>eyes</em></h2>
+    <p>Real Indian road frames, boxed live by the trained model — nothing hand-drawn. Move your pointer to tilt.</p>
+  </div>
+  <div class="feed-stage rv d1">
+    <div class="monitor" id="monitor">
+      <img class="frame" alt="Road frame with model detection boxes">
+      <img class="frame" alt="">
+      <span class="scan" aria-hidden="true"></span>
+      <div class="hud" aria-hidden="true">
+        <div class="row"><span class="rec">REC · EDGE-01</span><span class="chip">YOLO11n · RDD2022-IN</span></div>
+        <div class="row"><span class="cnt" id="feed-cnt">FRAME 01/08</span><span class="chip">CONF ≥ 0.35 · 65 MS</span></div>
+        <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+      </div>
+    </div>
+  </div>
+  <p class="feed-cred">Frames: RDD2022 India subset — <a href="https://arxiv.org/abs/2209.08538" target="_blank" rel="noopener">Arya et al.</a>, CC BY-SA 4.0 · detection boxes are the model's own output</p>
 </section>
 
 <section id="gallery">
@@ -335,6 +408,57 @@
     slabs.forEach(function (s, i) { s.classList.toggle("on", i === lit); });
     lit = (lit + 1) % slabs.length;
   }, 1400);
+
+  // image perfection: every photo fades in only after it has decoded
+  document.querySelectorAll(".gallery img, .theatre video").forEach(function (el) {
+    el.classList.add("fade-img");
+    if (el.tagName === "IMG") {
+      if (el.complete && el.naturalWidth) el.classList.add("ready");
+      else el.addEventListener("load", function () { el.classList.add("ready"); }, { once: true });
+    } else el.classList.add("ready");
+  });
+
+  // live edge feed: double-buffered crossfade over the model-annotated frames
+  var FEED_N = 8;
+  var monitor = document.getElementById("monitor");
+  var frames = monitor.querySelectorAll(".frame");
+  var cnt = document.getElementById("feed-cnt");
+  var cur = 0, buf = 0;
+  function feedSrc(i) { return "assets/feed/feed-0" + i + ".jpg"; }
+  function showFrame(i) {
+    var next = frames[1 - buf];
+    var img = new Image();
+    img.onload = function () {
+      next.src = img.src;
+      next.classList.add("show");
+      frames[buf].classList.remove("show");
+      buf = 1 - buf;
+      cnt.textContent = "FRAME 0" + (i + 1) + "/0" + FEED_N;
+    };
+    img.src = feedSrc(i);
+  }
+  showFrame(0);
+  setInterval(function () {
+    if (document.hidden || reduced) return;
+    cur = (cur + 1) % FEED_N;
+    showFrame(cur);
+  }, 3200);
+
+  // monitor tilt — same lerp glide as the pipeline
+  if (!reduced) {
+    var mtx = 0, mty = 0, mcx = 0, mcy = 0;
+    monitor.parentElement.addEventListener("pointermove", function (e) {
+      var r = monitor.getBoundingClientRect();
+      mtx = ((e.clientX - r.left) / r.width - 0.5) * 10;
+      mty = (0.5 - (e.clientY - r.top) / r.height) * 7;
+    });
+    monitor.parentElement.addEventListener("pointerleave", function () { mtx = 0; mty = 0; });
+    (function msteer() {
+      mcx += (mtx - mcx) * 0.08; mcy += (mty - mcy) * 0.08;
+      monitor.style.transform = "rotateY(" + mcx.toFixed(2) + "deg) rotateX(" + mcy.toFixed(2) + "deg)";
+      requestAnimationFrame(msteer);
+    })();
+  }
 
   // gallery tilt cards — lerped pointer rotation + glare tracking
   document.querySelectorAll("[data-tilt]").forEach(function (card) {
