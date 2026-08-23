@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoadAssist — demo client</title>
+<style>
+  :root{
+    --ground:#E6E4DF; --paper:#F7F6F3; --ink:#16181C; --ink-2:#4A4E56; --ink-3:#6A6F78;
+    --hazard:#FFB61E; --hazard-t:#8A5B00; --nh:#0F7A4A; --nh-t:#0B5C38; --red:#D6382F; --red-t:#A82A22;
+    --soft:rgba(22,24,28,.14);
+    --display:"Arial Black","Helvetica Neue",system-ui,sans-serif;
+    --body:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+  button{font:inherit;color:inherit;cursor:pointer}
+  :focus-visible{outline:3px solid var(--hazard);outline-offset:2px}
+
+  .shell{display:grid;grid-template-columns:1fr;gap:0;min-height:100vh}
+  @media(min-width:1000px){.shell{grid-template-columns:400px 1fr}}
+
+  /* ── phone ─────────────────────────────────────────────── */
+  .phone-col{background:var(--ink);padding:22px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .phone{width:344px;max-width:100%;background:var(--paper);border:10px solid #000;height:660px;display:flex;flex-direction:column;overflow:hidden}
+  .bar{background:var(--ink);color:#F2F1ED;padding:9px 13px;display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:11px}
+  .bar .net{display:flex;align-items:center;gap:6px}
+  .dot{width:8px;height:8px;background:var(--red)}
+  .online .dot{background:#3FD07E}
+  .screen{flex:1;overflow-y:auto;padding:15px}
+  .screen h2{font-family:var(--display);font-size:20px;margin:0 0 4px;letter-spacing:-.02em}
+  .sub{color:var(--ink-2);font-size:13px;margin:0 0 14px}
+
+  label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);margin:12px 0 5px}
+  input,select,textarea{width:100%;padding:10px;border:1px solid var(--ink);background:#fff;font:inherit;font-size:14px}
+  .btn{width:100%;padding:12px;background:var(--hazard);border:1px solid var(--hazard);font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-top:14px}
+  .btn.ghost{background:transparent;border-color:var(--ink)}
+  .btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+
+  .card{border:1px solid var(--soft);background:#fff;padding:12px;margin-top:10px}
+  .row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0}
+  .row span:first-child{color:var(--ink-2)}
+  .k{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+  .k.ok{color:var(--nh-t)} .k.warn{color:var(--hazard-t)} .k.bad{color:var(--red-t)}
+  .pill{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;padding:3px 7px;border:1px solid var(--soft);text-transform:uppercase}
+  .steps{display:flex;gap:4px;margin-bottom:14px}
+  .steps i{flex:1;height:3px;background:var(--soft);font-style:normal}
+  .steps i.on{background:var(--hazard)}
+  .queued{border-left:3px solid var(--hazard);padding-left:9px;margin-top:10px;font-size:12px;color:var(--hazard-t)}
+
+  /* ── console ───────────────────────────────────────────── */
+  .log-col{padding:22px;display:flex;flex-direction:column;gap:12px;min-width:0}
+  .log-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px}
+  .log-head h1{font-family:var(--display);font-size:19px;margin:0;letter-spacing:-.02em}
+  .log-head p{margin:0;color:var(--ink-2);font-size:13px}
+  .log{flex:1;background:var(--ink);color:#CBD5E0;font-family:var(--mono);font-size:11.5px;line-height:1.65;padding:13px;overflow:auto;min-height:340px}
+  .log div{white-space:pre-wrap;word-break:break-word;border-bottom:1px solid rgba(255,255,255,.06);padding:4px 0}
+  .log .m{color:var(--hazard)} .log .u{color:#6FD3FF} .log .g{color:#5BE49B} .log .r{color:#FF8A80} .log .d{color:#7C818A}
+  .hint{font-size:12px;color:var(--ink-3)}
+
+  /* ── feature phone ─────────────────────────────────────── */
+  .feature-phone{border:1px solid var(--ink);background:#fff}
+  .fp-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--soft);background:var(--paper)}
+  .fp-head b{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+  .fp-thread{max-height:190px;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:7px;font-family:var(--mono);font-size:11.5px}
+  .fp-thread p{margin:0;padding:6px 9px;max-width:82%;white-space:pre-wrap}
+  .fp-thread .out{align-self:flex-end;background:var(--ink);color:#F2F1ED}
+  .fp-thread .in{align-self:flex-start;background:var(--paper);border:1px solid var(--soft)}
+  .fp-input{display:flex;gap:7px;padding:10px 12px;border-top:1px solid var(--soft)}
+  .fp-input input{font-family:var(--mono);font-size:12px}
+  .fp-quick{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 11px}
+  .fp-quick button{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:5px 8px;border:1px solid var(--soft);background:#fff}
+  .fp-quick button:hover{border-color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="phone-col">
+    <div class="phone">
+      <div class="bar" id="bar">
+        <span class="net"><i class="dot"></i><span id="netlabel">NO SIGNAL</span></span>
+        <span id="whoami">not signed in</span>
+      </div>
+      <div class="screen" id="screen"></div>
+    </div>
+    <button class="btn ghost" id="toggle-net" style="width:344px;max-width:100%;background:#fff">Go online</button>
+    <p class="hint" style="color:#8FA5B8;text-align:center;max-width:344px">
+      Everything the phone does runs against the live API. Offline actions queue on
+      the device and replay when you come back online.
+    </p>
+  </div>
+
+  <div class="log-col">
+    <div class="log-head">
+      <div>
+        <h1>Request console</h1>
+        <p>Every call the client makes, with the server's reply.</p>
+      </div>
+      <div>
+        <span class="pill" id="api-state">checking API…</span>
+        <button class="btn ghost" id="clear" style="width:auto;margin:0;padding:6px 12px">Clear</button>
+      </div>
+    </div>
+    <div class="log" id="log"></div>
+
+    <div class="feature-phone">
+      <div class="fp-head">
+        <b>Feature phone</b>
+        <span class="hint">No app, no data — the same platform over SMS.</span>
+      </div>
+      <div class="fp-thread" id="fp-thread"></div>
+      <div class="fp-input">
+        <input id="fp-text" value="MADAD" maxlength="60" aria-label="SMS to send">
+        <button class="btn" id="fp-send" style="width:auto;margin:0;padding:9px 15px">Send SMS</button>
+      </div>
+      <div class="fp-quick">
+        <button data-sms="HELP">HELP</button><button data-sms="HELP TRACTOR">HELP TRACTOR</button>
+        <button data-sms="STATUS">STATUS</button><button data-sms="CANCEL">CANCEL</button>
+        <button data-sms="SOS">SOS</button><button data-sms="STOP">STOP</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+const API = location.origin;
+const $ = (id) => document.getElementById(id);
+const log = $("log");
+
+const state = {
+  online: false,
+  token: null, refresh: null, msisdn: null,
+  vehicle: null, booking: null, offers: [], incident: null, contacts: [],
+  queue: JSON.parse(localStorage.getItem("ra.queue") || "[]"),
+  step: 0,
+};
+
+function write(cls, text) {
+  const el = document.createElement("div");
+  el.className = cls;
+  el.textContent = text;
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+const saveQueue = () => localStorage.setItem("ra.queue", JSON.stringify(state.queue));
+
+async function api(method, path, body, opts = {}) {
+  if (!state.online && !opts.force) {
+    const op = { opId: "op-" + crypto.randomUUID().slice(0, 12), method, path, body,
+                 clientUpdatedAt: new Date().toISOString() };
+    state.queue.push(op); saveQueue();
+    write("m", `⧗ QUEUED  ${method} ${path}   (no signal — stored on device as ${op.opId})`);
+    return { queued: true, opId: op.opId };
+  }
+  write("u", `→ ${method} ${path}${body ? "  " + JSON.stringify(body) : ""}`);
+  const res = await fetch(API + path, {
+    method,
+    headers: { "content-type": "application/json", ...(state.token ? { authorization: "Bearer " + state.token } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const json = await res.json().catch(() => ({}));
+  write(res.ok ? "g" : "r", `← ${res.status}  ${JSON.stringify(json).slice(0, 420)}`);
+  if (!res.ok) throw Object.assign(new Error(json?.error?.title || "Request failed"), { payload: json });
+  return json;
+}
+
+// ── screens ───────────────────────────────────────────────────────────────
+const screens = {};
+
+screens.login = () => `
+  <div class="steps"><i class="on"></i><i></i><i></i><i></i></div>
+  <h2>Sign in</h2>
+  <p class="sub">A one-time code is sent by SMS. In development the code is always 000000 and the API returns it.</p>
+  <label for="msisdn">Mobile number</label>
+  <input id="msisdn" value="+919876543210" inputmode="tel">
+  <button class="btn" data-act="send-otp">Send code</button>`;
+
+screens.otp = () => `
+  <div class="steps"><i class="on"></i><i class="on"></i><i></i><i></i></div>
+  <h2>Enter the code</h2>
+  <p class="sub">Sent to ${state.msisdn}.</p>
+  <label for="code">6-digit code</label>
+  <input id="code" value="000000" inputmode="numeric" maxlength="6">
+  <button class="btn" data-act="verify-otp">Verify</button>
+  <button class="btn ghost" data-act="wrong-otp">Try a wrong code</button>`;
+
+screens.garage = () => `
+  <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+  <h2>Your garage</h2>
+  <p class="sub">Add the vehicle you need help with.</p>
+  ${state.vehicle ? `
+    <div class="card">
+      <div class="row"><span>Registration</span><b>${state.vehicle.registrationNo}</b></div>
+      <div class="row"><span>Type</span><b>${state.vehicle.vehicleClass}</b></div>
+    </div>
+    <div class="card">
+      <div class="row"><span>Emergency contacts</span><b>${state.contacts.length}</b></div>
+      ${state.contacts.map((c) => `<div class="row"><span>${c.relation ?? "contact"}</span><b>${c.name} · ${c.msisdn}</b></div>`).join("")}
+      ${state.contacts.length === 0 ? `<p class="sub" style="margin:6px 0 0">Add one, so an SOS has somewhere to go.</p>` : ""}
+    </div>
+    <button class="btn ghost" data-act="add-contact">Add emergency contact</button>
+    <button class="btn" data-act="go-request">Request assistance</button>` : `
+    <label for="reg">Registration number</label>
+    <input id="reg" value="TS09AB${Math.floor(1000 + Math.random() * 8999)}">
+    <label for="cls">Vehicle type</label>
+    <select id="cls">
+      <option value="car">Car</option><option value="motorcycle">Motorcycle</option>
+      <option value="auto_rickshaw">Auto rickshaw</option><option value="truck">Truck</option>
+      <option value="tractor">Tractor</option><option value="ev">Electric vehicle</option>
+    </select>
+    <button class="btn" data-act="add-vehicle">Add vehicle</button>`}`;
+
+screens.request = () => `
+  <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+  <h2>What's wrong?</h2>
+  <p class="sub">Diagnosis runs on rules, so it works with no signal.</p>
+  <label for="sym">Describe the problem</label>
+  <textarea id="sym" rows="3">Engine won't start, just a clicking sound and the lights are dim</textarea>
+  <button class="btn" data-act="diagnose">Diagnose</button>
+  ${state.diagnosis ? `
+    <div class="card">
+      <div class="row"><span>Likely cause</span><b style="text-align:right">${state.diagnosis.cause}</b></div>
+      <div class="row"><span>Confidence</span><span class="k ${state.diagnosis.confidence > .6 ? "ok" : "warn"}">${Math.round(state.diagnosis.confidence * 100)}%</span></div>
+      <div class="row"><span>Severity</span><b>${state.diagnosis.severity} / 5</b></div>
+      <div class="row"><span>Safe to drive</span><span class="k ${state.diagnosis.driveable ? "ok" : "bad"}">${state.diagnosis.driveable ? "Yes" : "Do not drive"}</span></div>
+      <div class="row"><span>Parts</span><span style="text-align:right">${state.diagnosis.parts.join(", ")}</span></div>
+      <p class="sub" style="margin:8px 0 0">${state.diagnosis.advice}</p>
+    </div>
+    <button class="btn" data-act="book">Request a mechanic</button>` : ""}
+  <button class="btn danger" data-act="sos">SOS — I've had a crash</button>`;
+
+screens.tracking = () => {
+  const b = state.booking, o = state.offers[0];
+  return `
+  <h2>${b.reference}</h2>
+  <p class="sub">NH-48, KM 212 · Gurugram</p>
+  <div class="card">
+    <div class="row"><span>Status</span><span class="k ${b.status === "PAID" || b.status === "COMPLETED" ? "ok" : "warn"}">${b.status}</span></div>
+    ${o ? `<div class="row"><span>Mechanic</span><b>${o.mechanic.displayName}</b></div>
+    <div class="row"><span>Distance</span><b>${o.mechanic.distanceKm} km</b></div>
+    <div class="row"><span>ETA</span><b>${o.etaMinutes} min</b></div>
+    <div class="row"><span>Rating</span><b>${o.mechanic.rating} ★</b></div>` : ""}
+    ${state.invoice ? `<div class="row"><span>Invoice</span><b>₹${(state.invoice.totalPaise / 100).toFixed(2)}</b></div>` : ""}
+  </div>
+  ${state.next?.length ? `<p class="sub" style="margin-top:12px">Next: ${state.next.join(", ")}</p>` : ""}
+  ${b.status === "REQUESTED" ? `<button class="btn" data-act="dispatch">Find a mechanic</button>` : ""}
+  ${b.status === "MATCHING" && o ? `<button class="btn" data-act="accept">Mechanic accepts</button>` : ""}
+  ${["ASSIGNED","EN_ROUTE","ON_SITE","IN_PROGRESS"].includes(b.status) ? `<button class="btn" data-act="advance">${
+    { ASSIGNED:"Mechanic starts travel", EN_ROUTE:"Mechanic arrives", ON_SITE:"Work starts", IN_PROGRESS:"Work complete" }[b.status]
+  }</button>` : ""}
+  ${b.status === "COMPLETED" ? `<button class="btn" data-act="pay">Pay ₹${(state.invoice?.totalPaise ?? 0) / 100}</button>` : ""}
+  ${b.status === "PAID" ? `<div class="card"><b>Done.</b><p class="sub" style="margin:6px 0 0">The full event history is stored server-side and shown in the console.</p></div>
+    <button class="btn ghost" data-act="restart">Start again</button>` : ""}
+  <button class="btn ghost" data-act="cancel">Cancel booking</button>`;
+};
+
+screens.sos = () => {
+  const responding = state.incident.status === "RESPONDING";
+  return `
+  <h2 style="color:var(--red-t)">${responding ? "Help is coming" : "Crash detected"}</h2>
+  <p class="sub">${responding
+    ? "Your contacts have been alerted and the nearest responder is on the way."
+    : "Nothing has been dispatched. Confirm or cancel."}</p>
+  <div class="card" style="border-color:var(--red)">
+    <div class="row"><span>Status</span><span class="k ${responding ? "warn" : "bad"}">${state.incident.status}</span></div>
+    ${responding ? `
+      <div class="row"><span>Contacts alerted</span><b>${state.incident.contactsAlerted ?? 0}</b></div>
+      <div class="row"><span>Nearest responder</span><b>${state.incident.nearestResponder?.name ?? "none in range"}</b></div>
+      <div class="row"><span>Escalated in</span><b>${state.incident.elapsedMs ?? "—"} ms</b></div>`
+    : `<div class="row"><span>Cancel window</span><b id="countdown">${state.incident.cancelWindowSeconds}s</b></div>`}
+  </div>
+  ${responding ? `
+    <button class="btn ghost" data-act="restart">Back to garage</button>`
+  : `
+    <button class="btn danger" data-act="confirm-sos">Confirm — send help</button>
+    <button class="btn ghost" data-act="cancel-sos">I'm fine, cancel</button>`}
+  <p class="sub" style="margin-top:12px">The on-device model can raise an incident. It can never dispatch one.</p>`;
+};
+
+function render(name) {
+  state.step = name;
+  $("screen").innerHTML = screens[name]();
+  const q = state.queue.length;
+  if (q) $("screen").insertAdjacentHTML("beforeend",
+    `<div class="queued">${q} action${q > 1 ? "s" : ""} waiting to sync</div>`);
+}
+
+// ── actions ───────────────────────────────────────────────────────────────
+const acts = {
+  async "send-otp"() {
+    state.msisdn = $("msisdn").value.trim();
+    const r = await api("POST", "/v1/auth/otp/request", { msisdn: state.msisdn }, { force: true });
+    if (r.meta?.devOtp) write("d", `   dev OTP: ${r.meta.devOtp}`);
+    render("otp");
+  },
+  async "verify-otp"() {
+    const r = await api("POST", "/v1/auth/otp/verify",
+      { msisdn: state.msisdn, code: $("code").value.trim() }, { force: true });
+    state.token = r.data.accessToken; state.refresh = r.data.refreshToken;
+    $("whoami").textContent = state.msisdn;
+    write("d", `   roles: ${r.data.roles.join(", ")}`);
+    render("garage");
+  },
+  async "wrong-otp"() {
+    try { await api("POST", "/v1/auth/otp/verify", { msisdn: state.msisdn, code: "999999" }, { force: true }); }
+    catch { write("d", "   rejected, as expected"); }
+  },
+  async "add-vehicle"() {
+    const r = await api("POST", "/v1/vehicles",
+      { registrationNo: $("reg").value.trim(), vehicleClass: $("cls").value });
+    if (r.queued) return render("garage");
+    state.vehicle = r.data; render("garage");
+  },
+  "go-request"() { render("request"); },
+  async "add-contact"() {
+    const names = [["Priya", "spouse"], ["Ravi", "brother"], ["Anita", "mother"]];
+    const [name, relation] = names[state.contacts.length % names.length];
+    const r = await api("POST", "/v1/me/emergency-contacts", {
+      name, relation, msisdn: "+9198" + Math.floor(10000000 + Math.random() * 89999999),
+    });
+    if (r.queued) return render("garage");
+    state.contacts.push(r.data);
+    render("garage");
+  },
+  async diagnose() {
+    const symptoms = $("sym").value;
+    const r = await api("POST", "/v1/diagnose",
+      { vehicleId: state.vehicle?.id, symptoms, ranOffline: !state.online }, { force: true });
+    state.diagnosis = r.data;
+    write("d", `   model=${r.meta.modelVersion} fallback=${r.meta.usedFallback}`);
+    render("request");
+  },
+  async book() {
+    const r = await api("POST", "/v1/bookings", {
+      vehicleId: state.vehicle.id, serviceTypeCode: "battery_jumpstart",
+      lat: 28.4595, lng: 77.0266, symptoms: $("sym")?.value,
+      highwayMarker: "NH-48, KM 212", createdOffline: !state.online,
+      idempotencyKey: "web-" + crypto.randomUUID().slice(0, 12),
+    });
+    if (r.queued) return render("request");
+    state.booking = r.data; state.next = r.meta.nextCommands; render("tracking");
+  },
+  async dispatch() {
+    const r = await api("POST", `/v1/bookings/${state.booking.id}/dispatch`, { radiusKm: 30, limit: 5 });
+    if (r.queued) return;
+    state.offers = r.data.offers; state.booking.status = r.data.status;
+    if (!r.data.offers.length) write("m", "   no supply in range — widen the radius");
+    render("tracking");
+  },
+  async accept() {
+    const r = await api("POST", `/v1/offers/${state.offers[0].id}/accept`);
+    if (r.queued) return;
+    state.booking.status = r.data.status; state.next = r.meta.nextCommands; render("tracking");
+  },
+  async advance() {
+    const cmd = { ASSIGNED: "mechanic.start_travel", EN_ROUTE: "arrive",
+                  ON_SITE: "work.start", IN_PROGRESS: "work.complete" }[state.booking.status];
+    const r = await api("POST", `/v1/bookings/${state.booking.id}/transition`, { command: cmd });
+    if (r.queued) return;
+    state.booking.status = r.data.status; state.next = r.meta.nextCommands;
+    if (r.data.invoice) state.invoice = r.data.invoice;
+    render("tracking");
+  },
+  async pay() {
+    const r = await api("POST", `/v1/bookings/${state.booking.id}/transition`, { command: "payment.settled" });
+    if (r.queued) return;
+    state.booking.status = r.data.status; render("tracking");
+  },
+  async cancel() {
+    try {
+      const r = await api("POST", `/v1/bookings/${state.booking.id}/transition`, { command: "cancel" });
+      if (r.queued) return;
+      state.booking.status = r.data.status;
+      if (r.data.cancellationFee) write("m", "   a cancellation fee applies at this stage");
+      render("tracking");
+    } catch { /* the error envelope is already in the console */ }
+  },
+  async sos() {
+    const r = await api("POST", "/v1/sos",
+      { vehicleId: state.vehicle?.id, lat: 28.4595, lng: 77.0266,
+        source: "crash_model", modelConfidence: 0.94 }, { force: true });
+    state.incident = r.data; render("sos");
+    let left = r.data.cancelWindowSeconds;
+    clearInterval(window.__t);
+    window.__t = setInterval(() => {
+      left--; const el = $("countdown");
+      if (el) el.textContent = left + "s";
+      if (left <= 0) clearInterval(window.__t);
+    }, 1000);
+  },
+  async "confirm-sos"() {
+    clearInterval(window.__t);
+    const r = await api("POST", `/v1/sos/${state.incident.id}/confirm`, undefined, { force: true });
+    Object.assign(state.incident, r.data);
+    write("d", `   contacts alerted: ${r.data.contactsAlerted} · elapsed ${r.data.elapsedMs}ms`);
+    render("sos");
+  },
+  async "cancel-sos"() {
+    clearInterval(window.__t);
+    await api("POST", `/v1/sos/${state.incident.id}/cancel`, undefined, { force: true });
+    write("d", "   false alarm recorded for the false-positive dataset");
+    render("request");
+  },
+  restart() {
+    Object.assign(state, { booking: null, offers: [], invoice: null, diagnosis: null });
+    render("garage");
+  },
+};
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  btn.disabled = true;
+  try { await acts[btn.dataset.act](); }
+  catch (err) { write("r", `   ✗ ${err.message}`); }
+  finally { btn.disabled = false; }
+});
+
+// ── connectivity ──────────────────────────────────────────────────────────
+$("toggle-net").addEventListener("click", async () => {
+  state.online = !state.online;
+  $("bar").classList.toggle("online", state.online);
+  $("netlabel").textContent = state.online ? "4G" : "NO SIGNAL";
+  $("toggle-net").textContent = state.online ? "Go offline" : "Go online";
+  write("m", state.online ? "▲ network restored" : "▼ network lost");
+
+  if (state.online && state.queue.length) {
+    write("m", `↻ replaying ${state.queue.length} queued operation(s)`);
+    const ops = state.queue.map((o) => ({
+      opId: o.opId, entity: "request", operation: "create",
+      payload: { method: o.method, path: o.path, body: o.body },
+      clientUpdatedAt: o.clientUpdatedAt,
+    }));
+    try {
+      const r = await api("POST", "/v1/sync/operations", { operations: ops }, { force: true });
+      for (const res of r.data.results) write("d", `   ${res.opId}: ${res.status}${res.reason ? " — " + res.reason : ""}`);
+      state.queue = []; saveQueue();
+    } catch { /* envelope already logged */ }
+  }
+  render(state.step);
+});
+
+$("clear").addEventListener("click", () => { log.innerHTML = ""; });
+
+// ── feature phone ─────────────────────────────────────────────────────────
+// A separate MSISDN, so this is genuinely a different user reaching the same
+// platform without an app — not the signed-in session in disguise.
+const fpNumber = "+9198" + Math.floor(10000000 + Math.random() * 89999999);
+const thread = $("fp-thread");
+const bubble = (cls, text) => {
+  const p = document.createElement("p");
+  p.className = cls; p.textContent = text;
+  thread.appendChild(p); thread.scrollTop = thread.scrollHeight;
+};
+
+async function sendSms(text) {
+  if (!text.trim()) return;
+  bubble("out", text);
+  write("u", `→ SMS from ${fpNumber}: ${text}`);
+  try {
+    const res = await fetch(API + "/v1/telecom/sms", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ from: fpNumber, text }),
+    });
+    const json = await res.json();
+    const body = json?.data?.reply ?? json?.error?.title ?? "no reply";
+    bubble("in", body);
+    write(res.ok ? "g" : "r", `← SMS to ${fpNumber}: ${body.replace(/\n/g, " / ")}`);
+  } catch (err) {
+    bubble("in", "Could not reach the network.");
+    write("r", `   ✗ ${err.message}`);
+  }
+}
+
+$("fp-send").addEventListener("click", () => { sendSms($("fp-text").value); $("fp-text").value = ""; });
+$("fp-text").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { sendSms($("fp-text").value); $("fp-text").value = ""; }
+});
+document.querySelectorAll("[data-sms]").forEach((b) =>
+  b.addEventListener("click", () => sendSms(b.dataset.sms)));
+bubble("in", `This phone is ${fpNumber}. Send MADAD or HELP to begin.`);
+
+// ── boot ──────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const h = await fetch(API + "/health").then((r) => r.json());
+    $("api-state").textContent = `API ${h.data.status} · db ${h.data.dbLatencyMs}ms · ai:${h.data.providers.ai}`;
+    write("g", `API ready — providers: ${JSON.stringify(h.data.providers)}`);
+  } catch {
+    $("api-state").textContent = "API unreachable";
+    write("r", "API unreachable — is the server running on :4000?");
+  }
+  write("d", "Start offline to see actions queue on the device, then go online to replay them.");
+  render("login");
+})();
+</script>
+</body>
+</html>

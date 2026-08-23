@@ -1,0 +1,17 @@
+# dependencies & build output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# environment & secrets — only .env.example is ever committed
+.env
+.env.*
+!.env.example
+
+# simulator local state (contains a device credential)
+app/scripts/.raksha-sim-state.json
+
+# editor noise
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,1358 @@
+<title>RoadAssist &#8212; Help that works where the network doesn't</title>
+
+<style>
+  /* === tokens ==============================================================
+     Palette drawn from Indian highway furniture: concrete, hazard-lamp amber,
+     NH direction-board green, sign red. The subject supplies the colours.     */
+  :root {
+    --ground:#E6E4DF; --ground-2:#DCD9D2; --retro:#F7F6F3;
+    --ink:#16181C; --ink-2:#4A4E56; --ink-3:#6A6F78;
+    /* Fills keep the true signage colours ... */
+    --hazard:#FFB61E; --nh:#0F7A4A; --red:#D6382F;
+    /* ... while text uses a per-theme variant that stays legible on the ground. */
+    --hazard-t:#8A5B00; --nh-t:#0B5C38; --red-t:#A82A22;
+    --hazard-panel:#FFB61E;          /* accent that sits on the inverted panel */
+    --rule:#16181C; --soft:rgba(22,24,28,.14);
+    --panel:#16181C; --panel-ink:#F2F1ED;
+    --display:"Arial Black","Helvetica Neue",system-ui,sans-serif;
+    --body:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",Menlo,monospace;
+    --pad:clamp(1.15rem,4vw,4.5rem); --maxw:1300px;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --ground:#101215; --ground-2:#171A1E; --retro:#1C1F24;
+    --ink:#F0EEE9; --ink-2:#B4B8BF; --ink-3:#989DA6;
+    --hazard-t:#FFC64D; --nh-t:#4FC98D; --red-t:#FF7A70;
+    --hazard-panel:#8A5B00;
+    --rule:#F0EEE9; --soft:rgba(240,238,233,.16);
+    --panel:#F0EEE9; --panel-ink:#101215;
+  }}
+  :root[data-theme=dark]{
+    --ground:#101215; --ground-2:#171A1E; --retro:#1C1F24;
+    --ink:#F0EEE9; --ink-2:#B4B8BF; --ink-3:#989DA6;
+    --hazard-t:#FFC64D; --nh-t:#4FC98D; --red-t:#FF7A70;
+    --hazard-panel:#8A5B00;
+    --rule:#F0EEE9; --soft:rgba(240,238,233,.16);
+    --panel:#F0EEE9; --panel-ink:#101215;
+  }
+  :root[data-theme=light]{
+    --ground:#E6E4DF; --ground-2:#DCD9D2; --retro:#F7F6F3;
+    --ink:#16181C; --ink-2:#4A4E56; --ink-3:#6A6F78;
+    --hazard-t:#8A5B00; --nh-t:#0B5C38; --red-t:#A82A22;
+    --hazard-panel:#FFB61E;
+    --rule:#16181C; --soft:rgba(22,24,28,.14);
+    --panel:#16181C; --panel-ink:#F2F1ED;
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth; scroll-padding-top:64px}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);
+       font-size:17px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  ::selection{background:var(--hazard);color:#16181C}
+  a{color:inherit}
+  :focus-visible{outline:3px solid var(--hazard);outline-offset:3px}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+  .wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--pad)}
+  .band{border-bottom:1px solid var(--rule)}
+  .sec{padding:clamp(3rem,6vw,5.5rem) 0}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;
+           text-transform:uppercase;color:var(--ink-2)}
+  .eyebrow b{color:var(--ink);font-weight:700}
+  h1,h2,h3{font-family:var(--display);font-weight:900;margin:0;text-wrap:balance}
+  h1{font-size:clamp(2.7rem,7.8vw,6.4rem);line-height:.93;letter-spacing:-.035em}
+  h2{font-size:clamp(1.9rem,4.4vw,3.4rem);line-height:.98;letter-spacing:-.03em}
+  h3{font-size:1.1rem;line-height:1.2;letter-spacing:-.01em}
+  p{margin:0}
+  .lede{font-size:clamp(1.02rem,1.4vw,1.25rem);color:var(--ink-2);max-width:60ch}
+  .sec-head{display:grid;gap:1rem;margin-bottom:clamp(1.8rem,3.6vw,2.8rem)}
+  @media(min-width:880px){.sec-head{grid-template-columns:1fr 1fr;gap:3rem;align-items:start}}
+
+  /* === nav ================================================================ */
+  nav{position:sticky;top:0;z-index:50;background:var(--ground);
+      border-bottom:1px solid var(--rule)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+          padding-block:.85rem}
+  .brand{font-family:var(--display);font-size:1.05rem;letter-spacing:-.02em;
+         text-decoration:none;display:flex;align-items:center;gap:.5rem}
+  .brand i{width:11px;height:11px;background:var(--hazard);display:block;font-style:normal}
+  .nav-links{display:none;gap:1.6rem}
+  @media(min-width:900px){.nav-links{display:flex}}
+  .nav-links a{font-family:var(--mono);font-size:.74rem;letter-spacing:.1em;
+               text-transform:uppercase;text-decoration:none;color:var(--ink-2);
+               padding-block:.3rem;border-bottom:2px solid transparent}
+  .nav-links a:hover{color:var(--ink)}
+  .nav-links a[aria-current=true]{color:var(--ink);border-bottom-color:var(--hazard)}
+  /* Supplementary, and it cannot wrap ? so it is hidden rather than allowed to
+     push the page sideways on a narrow screen. */
+  .nav-tag{display:none;font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;
+           text-transform:uppercase;border:1px solid var(--soft);padding:.35rem .6rem;
+           color:var(--ink-2);white-space:nowrap}
+  @media(min-width:700px){.nav-tag{display:inline-block}}
+
+  /* === hero =============================================================== */
+  .hero{padding:clamp(2.6rem,6vw,5.2rem) 0 clamp(2.2rem,4vw,3.4rem)}
+  .hero-grid{display:grid;gap:clamp(1.8rem,3.5vw,3rem)}
+  @media(min-width:980px){.hero-grid{grid-template-columns:1.3fr .9fr;align-items:end}}
+  /* Amber as a marker block, not amber text: the hazard punch survives and the
+     contrast is 10:1 on both themes instead of 1.4:1 on the light one.
+
+     Arial Black's font box is ~1.4em, so at a display line-height a plain
+     background paints ~20px into the lines above and below. The highlight is
+     therefore drawn as a gradient band shorter than the line advance, which
+     cannot collide however tight the leading gets. */
+  .hero h1{line-height:1.04}
+  .hero h1 em{font-style:normal;color:#16181C;padding:0 .12em;
+              background-image:linear-gradient(var(--hazard),var(--hazard));
+              background-repeat:no-repeat;
+              background-size:100% .96em;
+              background-position:0 .20em;
+              box-decoration-break:clone;-webkit-box-decoration-break:clone}
+  .actions{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.9rem}
+  .btn{font-family:var(--mono);font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;
+       padding:.9rem 1.4rem;border:1px solid var(--rule);text-decoration:none;
+       display:inline-block;transition:transform .12s ease,box-shadow .12s ease}
+  .btn-solid{background:var(--hazard);color:#16181C;border-color:var(--hazard);font-weight:700}
+  .btn:hover{transform:translate(-2px,-2px);box-shadow:3px 3px 0 var(--rule)}
+
+  /* === the network switch ? the page's central interaction ================ */
+  .sim{border:1px solid var(--rule);background:var(--retro)}
+  .sim-top{display:flex;justify-content:space-between;align-items:center;gap:.75rem;
+           padding:.85rem 1.1rem;border-bottom:1px solid var(--soft);flex-wrap:wrap}
+  .switch{display:flex;border:1px solid var(--rule)}
+  .switch button{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;
+                 text-transform:uppercase;padding:.45rem .75rem}
+  .switch button[aria-pressed=true]{background:var(--ink);color:var(--ground)}
+  .sim-bars{display:flex;align-items:flex-end;gap:4px;height:20px}
+  .sim-bars i{width:8px;background:var(--ink-3);display:block;font-style:normal}
+  .sim-bars i:nth-child(1){height:26%}.sim-bars i:nth-child(2){height:46%}
+  .sim-bars i:nth-child(3){height:66%}.sim-bars i:nth-child(4){height:100%}
+  .sim.online .sim-bars i{background:var(--nh)}
+  .sim-list{list-style:none;margin:0;padding:0}
+  .sim-list li{display:flex;gap:.8rem;align-items:baseline;padding:.72rem 1.1rem;
+               border-bottom:1px solid var(--soft);font-size:.94rem}
+  .sim-list li:last-child{border-bottom:0}
+  .sim-list .mk{font-family:var(--mono);font-size:.74rem;font-weight:700;flex:none;
+                width:5.4rem;letter-spacing:.04em}
+  .ok .mk{color:var(--nh-t)} .no .mk{color:var(--red-t)} .deg .mk{color:var(--hazard-t)}
+  .no .txt{color:var(--ink-3)}
+  .sim-foot{padding:.8rem 1.1rem;font-size:.85rem;color:var(--ink-2);
+            border-top:1px solid var(--soft);background:var(--ground-2)}
+
+  /* === marquee ============================================================ */
+  .marq{overflow:hidden;background:var(--hazard);color:#16181C;padding:.65rem 0}
+  .marq-t{display:flex;gap:2.4rem;white-space:nowrap;width:max-content;
+          animation:slide 36s linear infinite}
+  .marq span{font-family:var(--mono);font-size:.78rem;letter-spacing:.13em;
+             text-transform:uppercase;font-weight:700}
+  @keyframes slide{to{transform:translateX(-50%)}}
+
+  /* === stats ============================================================== */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+         border-top:1px solid var(--rule)}
+  .stat{padding:1.6rem 0 1.4rem;border-bottom:1px solid var(--soft)}
+  @media(min-width:880px){.stat{border-right:1px solid var(--soft);padding-inline:1.6rem}
+    .stat:first-child{padding-left:0}.stat:last-child{border-right:0;padding-right:0}}
+  .stat .n{font-family:var(--display);font-size:clamp(2.4rem,4.6vw,3.6rem);line-height:1;
+           letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+  .stat .l{font-weight:650;margin-top:.55rem;font-size:.96rem}
+  .stat .d{color:var(--ink-2);font-size:.88rem;margin-top:.28rem}
+
+  /* === KM journey ========================================================= */
+  .km-list{border-top:1px solid var(--rule)}
+  .km{display:grid;gap:.9rem;padding:1.7rem 0;border-bottom:1px solid var(--soft)}
+  @media(min-width:880px){.km{grid-template-columns:120px 1fr 1.1fr;gap:2.4rem;align-items:start}}
+  .km-badge{background:var(--nh);color:#F7F6F3;font-family:var(--mono);padding:.5rem .65rem;
+            text-align:center;justify-self:start;min-width:104px}
+  .km-badge b{display:block;font-size:1.28rem;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .km-badge i{font-style:normal;font-size:.6rem;letter-spacing:.17em;opacity:.85}
+  .km p{color:var(--ink-2)}
+
+  /* === inverted panel + layer explorer ==================================== */
+  .panel{background:var(--panel);color:var(--panel-ink)}
+  .panel .eyebrow,.panel .lede{color:color-mix(in srgb,var(--panel-ink) 68%,transparent)}
+  .panel .eyebrow b{color:var(--panel-ink)}
+  .tabs{display:flex;flex-wrap:wrap;gap:0;border:1px solid color-mix(in srgb,var(--panel-ink) 30%,transparent)}
+  .tabs button{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;
+               padding:.7rem 1.05rem;border-right:1px solid color-mix(in srgb,var(--panel-ink) 22%,transparent);flex:1 1 auto}
+  .tabs button:last-child{border-right:0}
+  .tabs button[aria-selected=true]{background:var(--hazard);color:#16181C;font-weight:700}
+  .tabpanel{border:1px solid color-mix(in srgb,var(--panel-ink) 30%,transparent);border-top:0;padding:1.5rem}
+  .tabpanel .role{font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;
+                  color:var(--hazard-panel);font-weight:700}
+  .tabpanel h3{color:var(--panel-ink);margin-top:.5rem}
+  .tabpanel .why{color:color-mix(in srgb,var(--panel-ink) 70%,transparent);margin-top:.5rem;font-size:.96rem;max-width:62ch}
+  .parts{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:1.1rem}
+  .parts span{font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;padding:.35rem .6rem;
+              border:1px solid color-mix(in srgb,var(--panel-ink) 28%,transparent)}
+
+  /* === layers list (offline) ============================================== */
+  .layers{border-top:1px solid var(--soft)}
+  .layer{display:grid;gap:.3rem;padding:1.3rem 0;border-bottom:1px solid var(--soft)}
+  @media(min-width:880px){.layer{grid-template-columns:250px 1fr auto;gap:2rem;align-items:baseline}}
+  .layer p{color:var(--ink-2);font-size:.94rem}
+  .chip{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;
+        border:1px solid var(--soft);padding:.32rem .55rem;white-space:nowrap;justify-self:start}
+
+  /* === emergency ========================================================== */
+  .emg{border-top:3px solid var(--red)}
+  .clock{display:grid;gap:1px;background:var(--soft);border:1px solid var(--soft);margin-top:1.6rem}
+  @media(min-width:740px){.clock{grid-template-columns:repeat(5,1fr)}}
+  .tick{background:var(--ground);padding:1.15rem;opacity:.34;transition:opacity .3s ease}
+  .tick.on{opacity:1}
+  .tick .t{font-family:var(--mono);font-size:.92rem;font-weight:700;color:var(--red-t);
+           font-variant-numeric:tabular-nums}
+  .tick .w{font-weight:650;margin-top:.4rem;font-size:.94rem}
+  .tick .s{color:var(--ink-2);font-size:.84rem;margin-top:.22rem}
+  .rule-line{margin-top:1.6rem;border:1px solid var(--red);padding:1rem 1.25rem;
+             font-family:var(--display);font-size:clamp(1rem,2.1vw,1.42rem);
+             letter-spacing:-.02em;line-height:1.22}
+
+  /* === cards ============================================================== */
+  .cards{display:grid;gap:1px;background:var(--soft);border:1px solid var(--soft)}
+  @media(min-width:780px){.cards{grid-template-columns:repeat(3,1fr)}}
+  .card{background:var(--ground);padding:1.6rem;display:grid;gap:.55rem;align-content:start}
+  .card .tag{font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;
+             color:var(--nh-t);font-weight:700}
+  .card p{color:var(--ink-2);font-size:.93rem}
+
+  /* === decisions accordion ================================================ */
+  .adr{border-top:1px solid var(--rule)}
+  .adr-item{border-bottom:1px solid var(--soft)}
+  .adr-btn{width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:1rem;
+           align-items:center;padding:1.15rem 0;text-align:left}
+  .adr-btn .no{font-family:var(--mono);font-size:.74rem;color:var(--ink-3);font-weight:700}
+  .adr-btn .ti{font-family:var(--display);font-size:clamp(1rem,1.9vw,1.28rem);letter-spacing:-.02em}
+  .adr-btn .pm{font-family:var(--mono);font-size:1.1rem;color:var(--hazard-t);line-height:1}
+  .adr-body{display:none;padding:0 0 1.35rem;max-width:74ch}
+  .adr-item.open .adr-body{display:block}
+  .adr-body p{color:var(--ink-2);font-size:.95rem}
+  .adr-body p+p{margin-top:.7rem}
+  .adr-body b{color:var(--ink)}
+
+  /* === status / team / footer ============================================= */
+  .phases{display:grid;gap:1px;background:var(--soft);border:1px solid var(--soft)}
+  @media(min-width:720px){.phases{grid-template-columns:repeat(3,1fr)}}
+  .ph{background:var(--ground);padding:1.4rem;display:grid;gap:.4rem;align-content:start}
+  .ph .st{font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;font-weight:700}
+  .ph.done .st{color:var(--nh-t)} .ph.now .st{color:var(--hazard-t)} .ph.next .st{color:var(--ink-3)}
+  .ph ul{margin:.5rem 0 0;padding-left:1.05rem;color:var(--ink-2);font-size:.9rem}
+  .ph li{margin-bottom:.24rem}
+
+  .team{display:grid;gap:1px;background:var(--soft);border:1px solid var(--soft)}
+  @media(min-width:780px){.team{grid-template-columns:repeat(4,1fr)}}
+  .member{background:var(--ground);padding:1.4rem;display:grid;gap:.28rem;align-content:start}
+  .member .who{font-weight:700;font-size:.96rem}
+  .member .id{font-family:var(--mono);font-size:.76rem;color:var(--hazard-t);font-weight:700}
+  .member .area{color:var(--ink-2);font-size:.86rem;margin-top:.3rem}
+
+  footer{padding:2.4rem 0 3.2rem}
+  .foot{display:flex;flex-wrap:wrap;gap:1rem 2rem;justify-content:space-between;align-items:baseline}
+
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .marq-t{animation:none}
+    .btn{transition:none}
+    .tick{transition:none}
+  }
+
+  /* -- SMS transcript -------------------------------------- */
+  .sms{border:1px solid color-mix(in srgb,var(--panel-ink) 30%,transparent);padding:1.1rem;
+       display:flex;flex-direction:column;gap:.55rem}
+  .sms-row{display:flex;justify-content:flex-end}
+  .sms-row.in{justify-content:flex-start}
+  .sms-out,.sms-in{font-family:var(--mono);font-size:.78rem;line-height:1.55;padding:.5rem .75rem;
+                   max-width:74%;white-space:pre-wrap}
+  .sms-out{background:var(--hazard);color:#16181C;font-weight:700}
+  .sms-in{background:color-mix(in srgb,var(--panel-ink) 12%,transparent);color:var(--panel-ink)}
+
+  /* -- code block ------------------------------------------ */
+  .code{background:#0E1116;color:#D6E2EC;font-family:var(--mono);font-size:.82rem;
+        line-height:1.85;padding:1.1rem 1.3rem;overflow-x:auto;margin:0;
+        border:1px solid #2A3038}
+  .code .c{color:#8AA0B4}
+
+  /* === 3D wireframe canvases ============================================== */
+  .hero{position:relative;overflow:hidden;background:#080B0F;border-bottom:1px solid var(--rule)}
+  #road{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0}
+  .hero .wrap{position:relative;z-index:1}
+  /* The hero sits on its own dark ground in both themes, so its type is pinned. */
+  .hero h1{color:#F4F2ED}
+  .hero .lede{color:#AEBCC9}
+  .hero .eyebrow{color:#FFC64D}
+  .hero .btn{border-color:#F4F2ED;color:#F4F2ED}
+  .hero .btn-solid{background:var(--hazard);border-color:var(--hazard);color:#16181C}
+  .hero .btn:hover{box-shadow:3px 3px 0 var(--hazard)}
+  .hero .sim{background:rgba(10,14,19,.86);border-color:#39424D;backdrop-filter:blur(6px)}
+  .hero .sim .eyebrow{color:#93A3B3}
+  .hero .sim .eyebrow b{color:#F4F2ED}
+  .hero .sim-list li{border-color:rgba(244,242,237,.12);color:#E4E9EE}
+  .hero .sim-list .no .txt{color:#8A94A0}
+  .hero .sim-foot{background:rgba(244,242,237,.06);border-color:rgba(244,242,237,.12);color:#AEBCC9}
+  .hero .switch{border-color:#6C7783}
+  .hero .switch button{color:#E4E9EE}
+  .hero .switch button[aria-pressed=true]{background:var(--hazard);color:#16181C;font-weight:700}
+  .hero .ok .mk{color:#4FC98D} .hero .deg .mk{color:#FFC64D} .hero .no .mk{color:#FF7A70}
+
+  .demo{position:relative;background:#080B0F;border:1px solid var(--rule)}
+  #dispatch{display:block;width:100%;height:auto}
+  .demo-cap{position:absolute;left:0;right:0;bottom:0;padding:.85rem 1.1rem;
+            background:linear-gradient(transparent,rgba(8,11,15,.92) 42%);
+            display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap}
+  .demo-cap b{font-family:var(--display);font-size:1.02rem;color:#F4F2ED;letter-spacing:-.01em}
+  .demo-cap span{font-family:var(--mono);font-size:.72rem;color:#AEBCC9;letter-spacing:.06em}
+  .demo-cap .t{color:var(--hazard);font-weight:700}
+  .demo-steps{display:flex;gap:.3rem;margin-top:.55rem}
+  .demo-steps i{width:26px;height:3px;background:rgba(244,242,237,.22);font-style:normal}
+  .demo-steps i.on{background:var(--hazard)}
+</style>
+
+<nav>
+  <div class="wrap nav-in">
+    <a class="brand" href="#top"><i></i>RoadAssist</a>
+    <div class="nav-links">
+      <a href="#problem">Problem</a>
+      <a href="#proof">What runs</a>
+      <a href="#channels">Channels</a>
+      <a href="#offline">Offline</a>
+      <a href="#cloud">Cloud</a>
+      <a href="#emergency">Emergency</a>
+      <a href="#decisions">Decisions</a>
+      <a href="#run">Run it</a>
+    </div>
+    <span class="nav-tag">Working system &#183; 60 tests green</span>
+  </div>
+</nav>
+
+<section class="band hero" id="top">
+  <canvas id="road" aria-hidden="true"></canvas>
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow" style="margin-bottom:1.6rem">[ ROADSIDE ASSISTANCE PLATFORM &#183; INDIA ]</p>
+      <h1>Help that works<br>where the<br><em>network doesn't.</em></h1>
+      <p class="lede" style="margin-top:1.6rem">
+        India has 63 lakh kilometres of road. Most of it sits outside any organised
+        assistance network, and a good share of it has no signal. RoadAssist reaches
+        every vehicle, every phone and every road &#8212; including the ones with no bars.
+      </p>
+      <p class="lede" style="margin-top:.9rem">
+        This is not a mockup. The platform runs: 52 database tables, a live API, a
+        booking state machine, geospatial dispatch, and a complete journey that works
+        from a &#8377;1,200 feature phone over SMS.
+      </p>
+      <div class="actions">
+        <a class="btn btn-solid" href="#proof">See what actually runs</a>
+        <a class="btn" href="#run">Run it yourself</a>
+      </div>
+    </div>
+
+    <aside class="sim" id="sim" aria-labelledby="sim-h">
+      <div class="sim-top">
+        <div>
+          <p class="eyebrow" id="sim-h"><b>NH-48</b> &#183; KM 212 &#183; GURUGRAM</p>
+          <p style="font-family:var(--mono);font-size:.78rem;margin-top:.3rem" id="sim-state">&#9670; NO SIGNAL</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:.7rem">
+          <span class="sim-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span class="switch" role="group" aria-label="Network state">
+            <button type="button" data-net="off" aria-pressed="true">No signal</button>
+            <button type="button" data-net="on" aria-pressed="false">Connected</button>
+          </span>
+        </div>
+      </div>
+      <ul class="sim-list" id="sim-list"></ul>
+      <p class="sim-foot" id="sim-foot"></p>
+    </aside>
+  </div>
+</section>
+
+<div class="marq band" aria-hidden="true">
+  <div class="marq-t">
+    <span>CARS</span><span>&#9670;</span><span>MOTORCYCLES</span><span>&#9670;</span><span>SCOOTERS</span><span>&#9670;</span><span>AUTO RICKSHAWS</span><span>&#9670;</span><span>TRUCKS</span><span>&#9670;</span><span>BUSES</span><span>&#9670;</span><span>TRACTORS</span><span>&#9670;</span><span>ELECTRIC VEHICLES</span><span>&#9670;</span><span>FLEETS</span><span>&#9670;</span>
+    <span>CARS</span><span>&#9670;</span><span>MOTORCYCLES</span><span>&#9670;</span><span>SCOOTERS</span><span>&#9670;</span><span>AUTO RICKSHAWS</span><span>&#9670;</span><span>TRUCKS</span><span>&#9670;</span><span>BUSES</span><span>&#9670;</span><span>TRACTORS</span><span>&#9670;</span><span>ELECTRIC VEHICLES</span><span>&#9670;</span><span>FLEETS</span><span>&#9670;</span>
+  </div>
+</div>
+
+<section class="band sec" id="problem">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ THE PROBLEM ]</p>
+        <h2>Breakdowns don't<br>happen near help.</h2>
+      </div>
+      <p class="lede">Existing assistance assumes three things that are usually false on
+        an Indian highway: that you have signal, that you have a smartphone, and that
+        you drive a car.</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="n">63 L</div><div class="l">km of road network</div>
+        <div class="d">Second largest on earth; most of it outside any service network</div></div>
+      <div class="stat"><div class="n">1.7 L</div><div class="l">road deaths a year</div>
+        <div class="d">The highest recorded annual count of any country</div></div>
+      <div class="stat"><div class="n">&lt;20%</div><div class="l">have organised assistance</div>
+        <div class="d">Today it is a car-owner, metro-city privilege</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">platforms cover all three</div>
+        <div class="d">Every vehicle class, no connectivity, no smartphone</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="band sec" id="proof">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ WHAT ACTUALLY RUNS ]</p>
+        <h2>Measured,<br>not claimed.</h2>
+      </div>
+      <p class="lede">Every number here comes from the running system &#8212; a live PostgreSQL
+        database with PostGIS, a live API, and a test suite that asserts each claim
+        rather than describing it.</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n">60</div><div class="l">end-to-end assertions</div>
+        <div class="d">All passing against the live API, not mocks</div></div>
+      <div class="stat"><div class="n">19.8<span style="font-size:.5em"> ms</span></div><div class="l">nearest-mechanic dispatch</div>
+        <div class="d">PostGIS query over 600 mechanics, measured with EXPLAIN ANALYZE</div></div>
+      <div class="stat"><div class="n">30<span style="font-size:.5em"> ms</span></div><div class="l">crash to responder</div>
+        <div class="d">Contacts alerted and nearest unit found. Target was 10 seconds</div></div>
+      <div class="stat"><div class="n">52</div><div class="l">tables live</div>
+        <div class="d">Migrated and seeded with ~38,000 rows across 8 districts</div></div>
+    </div>
+
+    <div class="cards" style="margin-top:2rem">
+      <article class="card">
+        <span class="tag">Proven by test</span>
+        <h3>Illegal transitions are impossible</h3>
+        <p>Sending <span style="font-family:var(--mono);font-size:.9em">work.complete</span>
+          to a booking that is still matching returns 409 and lists the commands that
+          <em>are</em> legal there. The state machine is the authority, not the client.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Proven by test</span>
+        <h3>A stolen session dies instantly</h3>
+        <p>Refresh tokens rotate on every use. Replaying a consumed one is treated as
+          theft: the entire token family is revoked, including the token that had
+          legitimately replaced it.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Proven by test</span>
+        <h3>Nobody reads anyone else's data</h3>
+        <p>A second account gets 403 reading the booking, and 403 trying to book
+          against a vehicle it does not own. Authorisation is checked at the resource,
+          not just the route.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Proven by test</span>
+        <h3>Replaying a request cannot double-book</h3>
+        <p>Every write accepts an idempotency key. Sending the same booking twice on a
+          flaky connection returns the original reference instead of creating a second
+          job &#8212; because on 2G, retries are normal.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Proven by test</span>
+        <h3>The AI can be switched off</h3>
+        <p>Diagnosis runs on a deterministic rules engine behind the same contract a
+          model will use. There is nothing to fall back <em>from</em> &#8212; the fallback is
+          what ships, and every response says which one answered.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Proven by test</span>
+        <h3>Queued work replays exactly once</h3>
+        <p>Actions taken offline carry a client-generated operation id. Submitting the
+          same batch twice returns <span style="font-family:var(--mono);font-size:.9em">applied</span>
+          then <span style="font-family:var(--mono);font-size:.9em">duplicate</span>.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="band sec panel" id="channels">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ THREE CHANNELS, ONE PLATFORM ]</p>
+        <h2>The same journey,<br>whatever you're holding.</h2>
+      </div>
+      <p class="lede">An app, a browser, or a feature phone with no data at all. All three
+        go through the same booking state machine, so an SMS cancellation passes exactly
+        the same guard as one from the app.</p>
+    </div>
+
+    <div class="layers">
+      <div class="layer"><h3>Smartphone app</h3>
+        <p>Full journey with on-device diagnosis, a local write queue and automatic
+          replay when signal returns.</p><span class="chip">Offline-first</span></div>
+      <div class="layer"><h3>Web client</h3>
+        <p>The same API, in a browser. Used for the demo console that shows every
+          request and reply live.</p><span class="chip">Zero install</span></div>
+      <div class="layer"><h3>Feature phone</h3>
+        <p>No app, no data, no smartphone. The SIM is the identity, and the capability
+          set is deliberately reduced because that is weaker authentication.</p>
+        <span class="chip">SMS &#183; IVR &#183; USSD</span></div>
+    </div>
+
+    <p class="eyebrow" style="margin:2.2rem 0 .8rem">[ A REAL TRANSCRIPT FROM THE RUNNING SYSTEM ]</p>
+    <div class="sms">
+      <div class="sms-row"><span class="sms-out">asdf</span></div>
+      <div class="sms-row in"><span class="sms-in">RoadAssist commands:
+HELP CAR / BIKE / AUTO / TRUCK &#8212; request assistance
+STATUS &#8212; your current request
+CANCEL &#8212; cancel it
+SOS &#8212; emergency
+STOP &#8212; opt out</span></div>
+      <div class="sms-row"><span class="sms-out">MADAD</span></div>
+      <div class="sms-row in"><span class="sms-in">Which vehicle? Reply HELP CAR, HELP BIKE, HELP AUTO, HELP TRUCK or HELP TRACTOR.</span></div>
+      <div class="sms-row"><span class="sms-out">HELP TRACTOR</span></div>
+      <div class="sms-row in"><span class="sms-in">Request RA016F8E13 received. We are finding a mechanic near you. Reply STATUS for an update or CANCEL to stop.</span></div>
+      <div class="sms-row"><span class="sms-out">STATUS</span></div>
+      <div class="sms-row in"><span class="sms-in">RA016F8E13: REQUESTED. We are still finding a mechanic. Reply CANCEL to cancel.</span></div>
+    </div>
+    <p class="lede" style="margin-top:1rem;font-size:1rem">
+      Unrecognised input returns the command list, never an error &#8212; a user who mistypes
+      on a numeric keypad must not be stuck. <b>STOP</b> is honoured because TRAI
+      requires it.
+    </p>
+  </div>
+</section>
+
+<section class="band sec" id="demo">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ SEE IT WORK ]</p>
+        <h2>Dispatch,<br>in real time.</h2>
+      </div>
+      <p class="lede">A breakdown appears on a stretch of highway. The platform finds every
+        available mechanic in range, ranks them, and routes the nearest one &#8212; the same
+        sequence the live API runs in 19.8 milliseconds.</p>
+    </div>
+
+    <div class="demo">
+      <canvas id="dispatch" width="1600" height="760" aria-label="Animated dispatch demonstration"></canvas>
+      <div class="demo-cap">
+        <div>
+          <b id="demo-title">Locating</b>
+          <div class="demo-steps" id="demo-steps"><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <span id="demo-detail">Vehicle stopped on NH-48</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band sec" id="journey">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ THE JOURNEY ]</p>
+        <h2>From breakdown<br>to back on the road.</h2>
+      </div>
+      <p class="lede">Marked in kilometres, because that is how RoadAssist actually
+        locates you when there is no street address &#8212; by the nearest highway marker.</p>
+    </div>
+    <div class="km-list">
+      <article class="km"><span class="km-badge"><b>KM 00</b><i>BREAKDOWN</i></span>
+        <h3>Something goes wrong</h3>
+        <p>A vehicle stops, or the on-device model detects a crash. Neither needs a
+          network &#8212; detection runs on the handset.</p></article>
+      <article class="km"><span class="km-badge"><b>KM 00</b><i>DIAGNOSE</i></span>
+        <h3>The phone works out what's wrong</h3>
+        <p>Describe it, photograph it, or plug in an OBD reader. The rules engine returns
+          the likely fault, a severity, the parts needed and a drivability verdict &#8212;
+          offline, in milliseconds.</p></article>
+      <article class="km"><span class="km-badge"><b>KM 04</b><i>DISPATCH</i></span>
+        <h3>The nearest verified mechanic is found</h3>
+        <p>A PostGIS query ranks mechanics by distance, rating, availability and a small
+          exploration bonus that keeps work from concentrating on a handful of names.</p></article>
+      <article class="km"><span class="km-badge"><b>KM 12</b><i>TRACK</i></span>
+        <h3>You watch them arrive</h3>
+        <p>Live location, sampled less often while the mechanic is stationary so it costs
+          roughly 4% battery an hour.</p></article>
+      <article class="km"><span class="km-badge"><b>KM 12</b><i>RESOLVE</i></span>
+        <h3>Fixed, invoiced, paid</h3>
+        <p>Itemised invoice with GST, cashless or cash, and a rating that feeds back into
+          how dispatch ranks that mechanic next time.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="band sec" id="offline">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ THE DIFFERENCE ]</p>
+        <h2>Offline is the<br>normal case.</h2>
+      </div>
+      <p class="lede">An assistance app that needs the internet fails at exactly the
+        moment it is needed. So the network is treated as absent by default and its
+        presence as a bonus. Flip the switch in the panel at the top to see it.</p>
+    </div>
+    <div class="layers">
+      <div class="layer"><h3>On-device intelligence</h3>
+        <p>Diagnosis and crash detection run on the handset &#8212; no round trip, no
+          dependency on a tower being in range.</p><span class="chip">&#8804; 15 MB &#183; 120 ms</span></div>
+      <div class="layer"><h3>Local write queue</h3>
+        <p>The request is stored on the device and marked pending. SOS always jumps
+          ahead of everything else in the queue.</p><span class="chip">Priority ordered</span></div>
+      <div class="layer"><h3>Deferred sync</h3>
+        <p>On reconnect the queue replays. Conflict rules were written before any sync
+          code, and booking state is always decided by the server.</p>
+        <span class="chip">Server authoritative</span></div>
+      <div class="layer"><h3>SMS fallback</h3>
+        <p>When there is no data at all, the whole core journey still completes over
+          text &#8212; and the SOS path shares no runtime dependency with the platform.</p>
+        <span class="chip">Degraded path</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="band sec panel" id="cloud">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ CLOUD ARCHITECTURE ]</p>
+        <h2>We consume two layers<br>and provide a third.</h2>
+      </div>
+      <p class="lede">Demand swings roughly ten times between the quietest and busiest
+        hour of a day, and spikes again through monsoon. Owned hardware would be sized
+        for the peak and idle for twenty hours. Cloud is the enabling condition, not
+        the hosting choice.</p>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Cloud service layers">
+      <button type="button" role="tab" id="t-saas" aria-controls="p-saas" aria-selected="true">SaaS &#8212; we provide</button>
+      <button type="button" role="tab" id="t-paas" aria-controls="p-paas" aria-selected="false">PaaS &#8212; we consume</button>
+      <button type="button" role="tab" id="t-iaas" aria-controls="p-iaas" aria-selected="false">IaaS &#8212; we consume</button>
+    </div>
+
+    <div class="tabpanel" role="tabpanel" id="p-saas" aria-labelledby="t-saas">
+      <p class="role">Software as a Service</p>
+      <h3>What our users actually touch</h3>
+      <p class="why">Seven client types share one multi-tenant deployment. Citizens,
+        mechanics, fleet operators and government officers are isolated by row-level
+        security and a separate encryption key per tenant &#8212; which is why one deployment
+        can serve four audiences without their data ever meeting.</p>
+      <div class="parts"><span>Android / iOS app</span><span>Web PWA</span><span>Mechanic app</span>
+        <span>Fleet dashboard</span><span>Government portal</span><span>Admin console</span>
+        <span>SMS &#183; IVR &#183; USSD</span></div>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="p-paas" aria-labelledby="t-paas" hidden>
+      <p class="role">Platform as a Service</p>
+      <h3>What we build on and never patch</h3>
+      <p class="why">Managed services carry the operational work a four-person team
+        cannot: failover, patching, backups. Provider portability is kept through
+        containers and infrastructure as code, so lock-in stays a migration rather
+        than a rewrite.</p>
+      <div class="parts"><span>Managed Kubernetes</span><span>Managed PostgreSQL + PostGIS</span>
+        <span>Managed Redis</span><span>Managed event bus</span><span>Object storage</span>
+        <span>Metrics &#183; logs &#183; traces</span></div>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="p-iaas" aria-labelledby="t-iaas" hidden>
+      <p class="role">Infrastructure as a Service</p>
+      <h3>What runs it all</h3>
+      <p class="why">Virtual servers built from hardened images inside a private network
+        with exactly one internet-facing gateway. Nodes are replaced, never patched in
+        place &#8212; affordable only because the services on them are stateless. Every byte
+        stays in Indian regions.</p>
+      <div class="parts"><span>Virtual servers</span><span>Virtual private cloud</span>
+        <span>Private subnets</span><span>Block volumes</span><span>Security groups</span>
+        <span>Indian regions only</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="band sec emg" id="emergency">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ LIFE-SAFETY PATH ]</p>
+        <h2>Crash to responder<br>in under ten seconds.</h2>
+      </div>
+      <div>
+        <p class="lede">The emergency service is the one component deployed on its own &#8212;
+          its own quota, its own zones, and a degraded SMS path that shares no runtime
+          dependency with the rest of the platform.</p>
+        <button class="btn" type="button" id="run-emg" style="margin-top:1.2rem">Run the sequence</button>
+      </div>
+    </div>
+    <div class="clock" id="clock">
+      <div class="tick"><div class="t">T+0.0s</div><div class="w">Detected on device</div><div class="s">Sensor model, no network needed</div></div>
+      <div class="tick"><div class="t">T+0.0s</div><div class="w">30-second cancel</div><div class="s">Nothing dispatched yet</div></div>
+      <div class="tick"><div class="t">T+2.0s</div><div class="w">Contacts alerted</div><div class="s">SMS with a live location link</div></div>
+      <div class="tick"><div class="t">T+4.0s</div><div class="w">Responder notified</div><div class="s">Nearest unit, geospatial query</div></div>
+      <div class="tick"><div class="t">T+9.0s</div><div class="w">ERSS 112 handoff</div><div class="s">Signed payload, after confirmation</div></div>
+    </div>
+    <p class="rule-line">The model can raise an incident. It can never dispatch one.</p>
+    <p class="lede" style="margin-top:1.2rem;font-size:1rem">
+      In the running system this completes in about <b>30 milliseconds</b>, against a
+      10-second target. A model-detected crash sits in
+      <span style="font-family:var(--mono);font-size:.9em">AWAITING_CONFIRMATION</span>
+      until a human confirms; a manual SOS is already a human act and escalates at once.
+    </p>
+  </div>
+</section>
+
+<section class="band sec" id="decisions">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ ARCHITECTURE DECISIONS ]</p>
+        <h2>Six decisions<br>worth defending.</h2>
+      </div>
+      <p class="lede">Recorded before implementation. Each names the options considered
+        and what the choice costs us &#8212; a decision without a stated cost is a preference.</p>
+    </div>
+    <div class="adr" id="adr">
+      <div class="adr-item"><button class="adr-btn" type="button" aria-expanded="false">
+        <span class="no">ADR-0001</span><span class="ti">Modular monolith, not microservices</span><span class="pm">+</span></button>
+        <div class="adr-body">
+          <p>The architecture shows twelve services. A four-person team has to
+            <b>operate</b> whatever it builds, and every independently deployed service adds
+            a pipeline, a dashboard, an alert route and a failure mode.</p>
+          <p>So: one deployable with enforced modules, each owning its own schema &#8212; plus
+            <b>one exception</b>, the emergency service.</p>
+          <p><b>What it costs:</b> we have to say plainly that this is one deployable, not
+            twelve running services. Claiming otherwise fails the first follow-up question.</p></div></div>
+
+      <div class="adr-item"><button class="adr-btn" type="button" aria-expanded="false">
+        <span class="no">ADR-0002</span><span class="ti">Boundaries enforced by CI, not by convention</span><span class="pm">+</span></button>
+        <div class="adr-body">
+          <p>Every team that kept a monolith modular by asking people nicely has failed,
+            usually in the last fortnight before a deadline.</p>
+          <p>A build gate checks the dependency graph on every pull request:
+            <span style="font-family:var(--mono);font-size:.9em">_shared &#8592; identity &#8592; fleet &#8592; service &#8592; ops</span>.
+            Adding an edge is a deliberate act that shows up in the diff.</p>
+          <p><b>What it costs:</b> a legitimate new dependency needs a config change and a
+            reviewer's attention. That friction is the point.</p></div></div>
+
+      <div class="adr-item"><button class="adr-btn" type="button" aria-expanded="false">
+        <span class="no">ADR-0003</span><span class="ti">PostgreSQL with PostGIS as the single database</span><span class="pm">+</span></button>
+        <div class="adr-body">
+          <p>The domain is transactional &#8212; bookings, invoices and state transitions need
+            real constraints &#8212; and heavily geospatial. PostGIS turns "nearest available
+            mechanic" into an indexed query that measures <b>19.8 ms</b> on real data.</p>
+          <p><b>What it costs:</b> telemetry at national scale will eventually need
+            partitioning. The column layout is already designed for that migration.</p></div></div>
+
+      <div class="adr-item"><button class="adr-btn" type="button" aria-expanded="false">
+        <span class="no">ADR-0004</span><span class="ti">Offline conflict rules decided before any sync code</span><span class="pm">+</span></button>
+        <div class="adr-body">
+          <p>Two devices can edit the same booking while both are disconnected. Discover
+            the rules while implementing and you encode whichever behaviour was easiest.</p>
+          <p>So every field's rule was fixed first. Booking status: <b>server wins,
+            always</b>. Odometer: <b>max wins</b>, because odometers only increase.
+            Emergency contacts: <b>the user decides</b> &#8212; too important to guess.</p>
+          <p><b>What it costs:</b> more design before the first line of sync code, and a
+            conflict log we have to actually read.</p></div></div>
+
+      <div class="adr-item"><button class="adr-btn" type="button" aria-expanded="false">
+        <span class="no">ADR-0005</span><span class="ti">Emergency is isolated, and the model can never dispatch</span><span class="pm">+</span></button>
+        <div class="adr-body">
+          <p>Every other feature can fail for ten minutes and cost money. This one carries
+            the opposite risk too: a false positive sending a real ambulance to a speed
+            breaker.</p>
+          <p><b>Isolation</b> &#8212; its own deployable, quota and zones, with a degraded path
+            sharing no runtime dependency. <b>Confirmation</b> &#8212; the model writes a signal;
+            escalation requires recorded human confirmation, enforced in code by a column
+            that must be non-null before any handoff.</p>
+          <p><b>What it costs:</b> emergency is exempt from spot instances and aggressive
+            downscaling. It costs more, deliberately.</p></div></div>
+
+      <div class="adr-item"><button class="adr-btn" type="button" aria-expanded="false">
+        <span class="no">ADR-0006</span><span class="ti">Every AI capability ships rules-first</span><span class="pm">+</span></button>
+        <div class="adr-body">
+          <p>We have no proprietary training data at project start. Wait for models and the
+            product does not exist for two reviews; depend on models and a bad model becomes
+            an outage.</p>
+          <p>So every capability is an endpoint with a fixed contract, implemented with
+            deterministic rules first. A model may only ever make a drivability verdict
+            <em>stricter</em> &#8212; never declare safe what the rules called unsafe.</p>
+          <p><b>What it costs:</b> the rules are not scaffolding &#8212; they are the permanent
+            production fallback and carry the same test coverage as the models.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="band sec" id="run">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ RUN IT YOURSELF ]</p>
+        <h2>Four commands<br>to a working system.</h2>
+      </div>
+      <p class="lede">Needs Docker and Node 20+. No cloud account, no API keys &#8212; every
+        external provider falls back to a local implementation, which is exactly how the
+        offline story is testable.</p>
+    </div>
+
+    <pre class="code">git clone &lt;repo&gt; &amp;&amp; cd app
+npm install
+npm run infra:up          <span class="c"># PostgreSQL + PostGIS + Redis</span>
+npm run db:migrate &amp;&amp; npm run db:seed
+npm start                 <span class="c"># &#8594; http://localhost:4000</span></pre>
+
+    <div class="cards" style="margin-top:1.6rem">
+      <article class="card">
+        <span class="tag">Verify</span>
+        <h3><span style="font-family:var(--mono);font-size:.85em">npm run verify</span></h3>
+        <p>Typecheck, lint, the module-boundary fitness function, and 9 schema tests that
+          enforce the ADRs &#8212; including one asserting that raw model input is never stored,
+          only a hash.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Prove</span>
+        <h3><span style="font-family:var(--mono);font-size:.85em">npm run test:e2e</span></h3>
+        <p>60 assertions driving the live API through the whole journey: auth, theft
+          detection, diagnosis, dispatch, the state machine, invoicing, offline replay,
+          tenant isolation, the emergency path and the SMS channel.</p>
+      </article>
+      <article class="card">
+        <span class="tag">Demo</span>
+        <h3>Open the client</h3>
+        <p>A phone mockup, a live request console, and a feature-phone panel with its own
+          number &#8212; so you can watch all three channels hit the same platform at once.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="band sec" id="status">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ WHERE WE ARE ]</p>
+        <h2>Honest<br>status.</h2>
+      </div>
+      <p class="lede">Including what is <em>not</em> done. A status page that only lists
+        wins is not a status page.</p>
+    </div>
+    <div class="phases">
+      <div class="ph done"><span class="st">&#10003; Done</span><h3>Design</h3>
+        <ul><li>Research, planning, C4 model</li><li>Six architecture decision records</li>
+          <li>Event catalogue, degraded-mode matrix</li><li>STRIDE model, 20 threats mapped</li></ul></div>
+      <div class="ph done"><span class="st">&#10003; Done</span><h3>Running</h3>
+        <ul><li>52 tables migrated and seeded</li><li>OTP auth, rotation, theft detection</li>
+          <li>Booking state machine + PostGIS dispatch</li><li>Rules diagnosis, offline replay</li>
+          <li>Emergency path, SMS channel</li></ul></div>
+      <div class="ph next"><span class="st">Not yet</span><h3>Remaining</h3>
+        <ul><li>React Native app (web client only)</li><li>Trained models &#8212; rules only today</li>
+          <li>Maps UI, IVR and USSD</li><li>Government portal, analytics</li>
+          <li>Load, chaos and security testing</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<section class="band sec">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.9rem">[ THE TEAM ]</p>
+        <h2>Four people,<br>four verticals.</h2>
+      </div>
+      <p class="lede">Each person owns a vertical end to end and presents the part they
+        built &#8212; so a follow-up question always reaches someone who can answer it.</p>
+    </div>
+    <div class="team">
+      <div class="member"><span class="who">V Saatwik Sairaam</span><span class="id">24MIC7131</span>
+        <span class="area">Backend, database, API contracts, dispatch engine</span></div>
+      <div class="member"><span class="who">P Sai Nirisha Chowdary</span><span class="id">24MIC7122</span>
+        <span class="area">Frontend, mobile, offline client, design system</span></div>
+      <div class="member"><span class="who">T V S Jignesh</span><span class="id">24MIC7190</span>
+        <span class="area">AI services, diagnosis rules, data pipeline</span></div>
+      <div class="member"><span class="who">G Parthavi</span><span class="id">24MIC145</span>
+        <span class="area">DevOps, CI/CD, QA, cloud security, telecom gateway</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="marq band" aria-hidden="true">
+  <div class="marq-t">
+    <span>EVERY VEHICLE</span><span>&#9670;</span><span>EVERY PHONE</span><span>&#9670;</span><span>EVERY ROAD</span><span>&#9670;</span>
+    <span>EVERY VEHICLE</span><span>&#9670;</span><span>EVERY PHONE</span><span>&#9670;</span><span>EVERY ROAD</span><span>&#9670;</span>
+    <span>EVERY VEHICLE</span><span>&#9670;</span><span>EVERY PHONE</span><span>&#9670;</span><span>EVERY ROAD</span><span>&#9670;</span>
+    <span>EVERY VEHICLE</span><span>&#9670;</span><span>EVERY PHONE</span><span>&#9670;</span><span>EVERY ROAD</span><span>&#9670;</span>
+  </div>
+</div>
+
+<footer class="wrap">
+  <div class="foot">
+    <p class="eyebrow" style="max-width:40ch;line-height:1.8">
+      SWE4004 &#183; CLOUD COMPUTING AND APPLICATIONS<br>
+      FACULTY: DR. NAGENDRA PANINI CHALLA<br>
+      VIT-AP &#183; TEAM OF FOUR
+    </p>
+    <p class="eyebrow" style="text-align:right;line-height:1.8">
+      STUDENT PROJECT &#8212; NOT A COMMERCIAL SERVICE<br>
+      NO REAL EMERGENCY DISPATCH IS CONNECTED<br>
+      SMS REPLIES ARE LOGGED, NOT SENT
+    </p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* \u2500\u2500 network switch: the product's thesis, made operable \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+  const CAPS = [
+    ["Request roadside assistance", "queued", "works"],
+    ["Diagnose the fault",          "works",  "works"],
+    ["Crash detection & SOS",       "works",  "works"],
+    ["Maps and navigation",         "works",  "works"],
+    ["See live mechanic location",  "down",   "works"],
+    ["Chat with the mechanic",      "down",   "works"],
+    ["Pay by UPI",                  "down",   "works"],
+  ];
+  const NOTE = {
+    off: "Queued actions replay automatically on reconnect. SOS goes out over SMS immediately \u2014 it never waits for the queue.",
+    on:  "Everything available. The queue is empty and location streams live over a websocket."
+  };
+  const LABEL = { works: "AVAILABLE", queued: "QUEUED", down: "UNAVAILABLE" };
+  const CLASS = { works: "ok", queued: "deg", down: "no" };
+
+  const sim = document.getElementById("sim");
+  const list = document.getElementById("sim-list");
+  const foot = document.getElementById("sim-foot");
+  const stateEl = document.getElementById("sim-state");
+
+  function render(net) {
+    if (!list) return;
+    list.innerHTML = "";
+    for (const [name, offState, onState] of CAPS) {
+      const s = net === "on" ? onState : offState;
+      const li = document.createElement("li");
+      li.className = CLASS[s];
+      li.innerHTML = '<span class="mk">' + LABEL[s] + '</span><span class="txt"></span>';
+      li.querySelector(".txt").textContent = name;
+      list.appendChild(li);
+    }
+    foot.textContent = NOTE[net];
+    stateEl.textContent = net === "on" ? "\u25c6 CONNECTED \u2014 4G" : "\u25c6 NO SIGNAL";
+    stateEl.style.color = net === "on" ? "var(--nh-t)" : "var(--red-t)";
+    sim.classList.toggle("online", net === "on");
+  }
+
+  document.querySelectorAll("[data-net]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-net]").forEach((b) =>
+        b.setAttribute("aria-pressed", String(b === btn)));
+      render(btn.dataset.net);
+    });
+  });
+  render("off");
+
+  /* \u2500\u2500 cloud layer tabs \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  function selectTab(tab) {
+    tabs.forEach((t) => {
+      const on = t === tab;
+      t.setAttribute("aria-selected", String(on));
+      const p = document.getElementById(t.getAttribute("aria-controls"));
+      if (p) p.hidden = !on;
+    });
+  }
+  tabs.forEach((t, i) => {
+    t.addEventListener("click", () => selectTab(t));
+    t.addEventListener("keydown", (e) => {
+      const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!d) return;
+      e.preventDefault();
+      const next = tabs[(i + d + tabs.length) % tabs.length];
+      next.focus(); selectTab(next);
+    });
+  });
+
+  /* \u2500\u2500 emergency sequence \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+  const ticks = [...document.querySelectorAll("#clock .tick")];
+  const runBtn = document.getElementById("run-emg");
+  let timers = [];
+  function runSequence() {
+    timers.forEach(clearTimeout); timers = [];
+    ticks.forEach((t) => t.classList.remove("on"));
+    if (reduced) { ticks.forEach((t) => t.classList.add("on")); return; }
+    const at = [0, 500, 1400, 2200, 3400];
+    ticks.forEach((t, i) => timers.push(setTimeout(() => t.classList.add("on"), at[i])));
+  }
+  if (runBtn) runBtn.addEventListener("click", runSequence);
+
+  // Play once when the section is first reached.
+  const clock = document.getElementById("clock");
+  if (clock && "IntersectionObserver" in window) {
+    const once = new IntersectionObserver((entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) { runSequence(); once.disconnect(); } });
+    }, { threshold: .4 });
+    once.observe(clock);
+  } else {
+    ticks.forEach((t) => t.classList.add("on"));
+  }
+
+  /* \u2500\u2500 decisions accordion \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+  document.querySelectorAll(".adr-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = btn.closest(".adr-item");
+      const open = item.classList.toggle("open");
+      btn.setAttribute("aria-expanded", String(open));
+      btn.querySelector(".pm").textContent = open ? "\u2212" : "+";
+    });
+  });
+
+  /* \u2500\u2500 nav: mark the section in view \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
+  const links = [...document.querySelectorAll(".nav-links a")];
+  const targets = links.map((a) => document.querySelector(a.getAttribute("href"))).filter(Boolean);
+  if (targets.length && "IntersectionObserver" in window) {
+    const spy = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        links.forEach((a) =>
+          a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + e.target.id)));
+      });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+    targets.forEach((t) => spy.observe(t));
+  }
+})();
+</script>
+
+<script>
+/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+   Two hand-rolled 3D canvases. No library \u2014 the Artifact CSP blocks external
+   scripts, and a perspective projection is twenty lines anyway.
+
+   1. #road     \u2014 an endless wireframe highway flying toward the viewer.
+   2. #dispatch \u2014 the dispatch sequence, played out on a wireframe map.
+   \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+(() => {
+  "use strict";
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const AMBER = "#FFB61E", STEEL = "#2E5D86", GRID = "#1B2C3D", RED = "#D6382F", GREEN = "#2E9E6B";
+
+  /** Fit a canvas to its box at device pixel ratio. Returns CSS-pixel size. */
+  function fit(cv) {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const r = cv.getBoundingClientRect();
+    const w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
+    if (cv.width !== w * dpr || cv.height !== h * dpr) {
+      cv.width = w * dpr; cv.height = h * dpr;
+    }
+    const ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w, h };
+  }
+
+  // \u2500\u2500 1. infinite wireframe highway \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+  const road = document.getElementById("road");
+  if (road) {
+    // Every world constant is derived from the viewport, so the composition is
+    // the same on a 320px phone and a 1600px monitor. Hard-coding them made the
+    // carriageway project ~2400px wide on mobile - a grey slab, not a road.
+    const NEAR = 14, FAR = 1400, SPACING = 62;
+    let travelled = 0, last = 0, raf = 0;
+
+    function geom(w, h) {
+      // On a phone the hero stacks and grows very tall, so a bottom-anchored
+      // scene falls entirely below the fold. Raise the horizon there instead,
+      // and the wireframe sits behind the headline where it can be seen.
+      const horizon = w < 760 ? h * 0.17 : h - Math.min(h, 560);
+      const sceneH = h - horizon;
+      const focal = Math.max(200, Math.min(w, 1400) * 0.36);
+      return {
+        horizon, focal,
+        eye: sceneH * NEAR / focal,             // road meets the bottom edge
+        lane: 0.75 * w * NEAR / focal,          // ~1.5x viewport at the near plane
+        xstep: 1.6 * (0.75 * w * NEAR / focal),
+      };
+    }
+    const proj = (x, z, g, w) => [w / 2 + x * g.focal / z, g.horizon + g.eye * g.focal / z];
+
+    function frame(now) {
+      const { ctx, w, h } = fit(road);
+      const g = geom(w, h);
+      const dt = last ? Math.min((now - last) / 1000, 0.05) : 0;
+      last = now;
+      if (!reduced) travelled = (travelled + dt * 190) % SPACING;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const sky = ctx.createLinearGradient(0, 0, 0, g.horizon);
+      sky.addColorStop(0, "#080B0F"); sky.addColorStop(1, "#0D1621");
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, w, g.horizon + 1);
+      const glow = ctx.createRadialGradient(w / 2, g.horizon, 0, w / 2, g.horizon, w * 0.5);
+      glow.addColorStop(0, "rgba(255,182,30,.22)"); glow.addColorStop(1, "rgba(255,182,30,0)");
+      ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#080B0F"; ctx.fillRect(0, g.horizon, w, h - g.horizon);
+
+      ctx.lineWidth = 1;
+      for (let z = NEAR + travelled; z < FAR; z += SPACING) {
+        const [, y] = proj(0, z, g, w);
+        const fade = Math.max(0, 1 - z / FAR);
+        ctx.strokeStyle = "rgba(46,93,134," + (fade * 0.55).toFixed(3) + ")";
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      for (let i = -8; i <= 8; i++) {
+        const [ax, ay] = proj(i * g.xstep, NEAR, g, w);
+        const [bx, by] = proj(i * g.xstep, FAR, g, w);
+        ctx.strokeStyle = i === 0 ? "rgba(46,93,134,.30)" : "rgba(27,44,61,.85)";
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      }
+
+      const [rl0, ry0] = proj(-g.lane, NEAR, g, w), [rr0] = proj(g.lane, NEAR, g, w);
+      const [rl1, ry1] = proj(-g.lane, FAR, g, w), [rr1] = proj(g.lane, FAR, g, w);
+      ctx.fillStyle = "rgba(20,30,42,.8)";
+      ctx.beginPath(); ctx.moveTo(rl0, ry0); ctx.lineTo(rr0, ry0);
+      ctx.lineTo(rr1, ry1); ctx.lineTo(rl1, ry1); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(46,93,134,.7)"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(rl0, ry0); ctx.lineTo(rl1, ry1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(rr0, ry0); ctx.lineTo(rr1, ry1); ctx.stroke();
+
+      for (let z = NEAR + travelled; z < FAR; z += SPACING) {
+        const [ax, ay] = proj(0, z, g, w);
+        const [bx, by] = proj(0, Math.min(z + SPACING * 0.4, FAR), g, w);
+        const fade = Math.max(0, 1 - z / (FAR * 0.7));
+        ctx.strokeStyle = "rgba(226,232,238," + (fade * 0.8).toFixed(3) + ")";
+        ctx.lineWidth = Math.max(0.7, g.lane * 0.05 * g.focal / z);
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      }
+
+      for (let z = NEAR + travelled; z < FAR; z += SPACING * 2) {
+        const fade = Math.max(0, 1 - z / (FAR * 0.8));
+        if (fade <= 0.03) continue;
+        const sc = g.focal / z;
+        for (const side of [-1, 1]) {
+          const [px, py] = proj(side * g.lane * 1.35, z, g, w);
+          const hgt = g.lane * 0.3 * sc;
+          ctx.strokeStyle = "rgba(46,93,134," + (fade * 0.85).toFixed(3) + ")";
+          ctx.lineWidth = Math.max(0.7, g.lane * 0.03 * sc);
+          ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - hgt); ctx.stroke();
+          ctx.fillStyle = "rgba(255,182,30," + (fade * 0.9).toFixed(3) + ")";
+          const cap = Math.max(2, g.lane * 0.05 * sc);
+          ctx.fillRect(px - cap / 2, py - hgt - cap * 0.5, cap, cap * 0.7);
+        }
+      }
+
+      const vz = 120, sc = g.focal / vz;
+      const [vx, vy] = proj(g.lane * 0.62, vz, g, w);
+      const unit = g.lane * 0.3 * sc;
+      const pulse = reduced ? 0.6 : 0.45 + 0.4 * Math.abs(Math.sin(now / 520));
+      const halo = ctx.createRadialGradient(vx, vy, 0, vx, vy, unit * 5);
+      halo.addColorStop(0, "rgba(255,182,30," + (0.5 * pulse).toFixed(3) + ")");
+      halo.addColorStop(1, "rgba(255,182,30,0)");
+      ctx.fillStyle = halo; ctx.fillRect(vx - unit * 5, vy - unit * 5, unit * 10, unit * 10);
+      ctx.fillStyle = "#22374B"; ctx.fillRect(vx - unit, vy - unit * 0.8, unit * 2, unit * 0.8);
+      ctx.fillStyle = "#2E4A63"; ctx.fillRect(vx - unit * 0.62, vy - unit * 1.3, unit * 1.24, unit * 0.55);
+      ctx.fillStyle = AMBER;
+      for (const dx of [-0.9, 0.9]) {
+        ctx.beginPath(); ctx.arc(vx + dx * unit, vy - unit * 0.7, Math.max(1.5, unit * 0.16 * (1 + pulse)), 0, 7); ctx.fill();
+      }
+      const t = now / 1000;
+      for (let i = 0; i < 3; i++) {
+        const k = reduced ? 0.5 : ((t * 0.4 + i / 3) % 1);
+        ctx.strokeStyle = "rgba(255,182,30," + (0.45 * (1 - k)).toFixed(3) + ")";
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(vx, vy - unit * 1.5 - k * unit * 4, unit * (1 + k * 4), unit * (0.35 + k * 1.4) * 0.4, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Keep the headline on calm ground. A side vignette suits a wide screen
+      // where the text sits left; on a narrow one the content fills the width,
+      // so an even scrim is used and the wireframe stays faintly visible.
+      if (w >= 760) {
+        const vig = ctx.createLinearGradient(0, 0, w * 0.9, 0);
+        vig.addColorStop(0, "rgba(8,11,15,.92)");
+        vig.addColorStop(0.55, "rgba(8,11,15,.3)");
+        vig.addColorStop(1, "rgba(8,11,15,0)");
+        ctx.fillStyle = vig;
+      } else {
+        ctx.fillStyle = "rgba(8,11,15,.55)";
+      }
+      ctx.fillRect(0, 0, w, h);
+
+      raf = requestAnimationFrame(frame);
+    }
+
+    const io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (e.isIntersecting) { if (!raf) { last = 0; raf = requestAnimationFrame(frame); } }
+        else { cancelAnimationFrame(raf); raf = 0; }
+      });
+    }, { threshold: 0.02 });
+    io.observe(road);
+    requestAnimationFrame(frame);
+    addEventListener("resize", function () { last = 0; });
+  }
+
+  const dispatch = document.getElementById("dispatch");
+  if (dispatch) {
+    const titleEl = document.getElementById("demo-title");
+    const detailEl = document.getElementById("demo-detail");
+    const stepEls = [...document.querySelectorAll("#demo-steps i")];
+
+    const PHASES = [
+      { t: 2.2, title: "Breakdown",  detail: "Vehicle stopped \u00b7 NH-48, KM 212" },
+      { t: 2.4, title: "Diagnose",   detail: "Battery discharged \u00b7 severity 3 \u00b7 do not drive" },
+      { t: 2.8, title: "Search",     detail: "Querying available mechanics within 25 km" },
+      { t: 2.6, title: "Rank",       detail: "Scored by distance, rating and acceptance" },
+      { t: 4.2, title: "Dispatch",   detail: "Nearest verified mechanic en route" },
+    ];
+    const TOTAL = PHASES.reduce((a, p) => a + p.t, 0);
+
+    // Fixed layout so the sequence reads the same on every play.
+    const MECHS = [
+      { x: -0.30, y: -0.22, r: 4.6 }, { x:  0.26, y: -0.30, r: 4.8 },
+      { x: -0.36, y:  0.20, r: 4.2 }, { x:  0.34, y:  0.16, r: 4.9 },
+      { x:  0.12, y:  0.31, r: 4.4 }, { x: -0.14, y: -0.34, r: 4.1 },
+      { x:  0.40, y: -0.06, r: 4.7 },
+    ];
+    const HERO_I = 4;                       // the one that wins the ranking
+    let t0 = 0, raf2 = 0;
+
+    const iso = (x, y, w, h) => [w / 2 + (x - y) * w * 0.44, h * 0.52 + (x + y) * h * 0.40];
+
+    function draw(now) {
+      const { ctx, w, h } = fit(dispatch);
+      if (!t0) t0 = now;
+      let t = ((now - t0) / 1000) % TOTAL;
+      if (reduced) t = TOTAL - 0.1;
+
+      let phase = 0, acc = 0, local = 0;
+      for (let i = 0; i < PHASES.length; i++) {
+        if (t < acc + PHASES[i].t) { phase = i; local = (t - acc) / PHASES[i].t; break; }
+        acc += PHASES[i].t;
+      }
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = "#080B0F"; ctx.fillRect(0, 0, w, h);
+
+      // Wireframe ground plane.
+      ctx.lineWidth = 1;
+      for (let i = -6; i <= 6; i++) {
+        const u = i / 12;
+        ctx.strokeStyle = i === 0 ? "rgba(46,93,134,.45)" : "rgba(27,44,61,.9)";
+        let [ax, ay] = iso(u, -0.5, w, h), [bx, by] = iso(u, 0.5, w, h);
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+        [ax, ay] = iso(-0.5, u, w, h); [bx, by] = iso(0.5, u, w, h);
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      }
+
+      // The highway running through the scene.
+      const [hx0, hy0] = iso(-0.5, 0.02, w, h), [hx1, hy1] = iso(0.5, -0.02, w, h);
+      ctx.strokeStyle = "rgba(46,93,134,.75)"; ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.moveTo(hx0, hy0); ctx.lineTo(hx1, hy1); ctx.stroke();
+      ctx.strokeStyle = "rgba(226,232,238,.35)"; ctx.lineWidth = 1.5;
+      ctx.setLineDash([14, 12]);
+      ctx.beginPath(); ctx.moveTo(hx0, hy0); ctx.lineTo(hx1, hy1); ctx.stroke();
+      ctx.setLineDash([]);
+
+      const [bx, by] = iso(0, 0, w, h);
+
+      // Search radius sweeping outward.
+      if (phase >= 2) {
+        const grow = phase === 2 ? local : 1;
+        for (let i = 0; i < 2; i++) {
+          const k = phase === 2 ? Math.max(0, grow - i * 0.25) : 1;
+          if (k <= 0) continue;
+          ctx.strokeStyle = `rgba(255,182,30,${(0.3 * (1 - i * 0.4)).toFixed(3)})`;
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.ellipse(bx, by, w * 0.40 * k, h * 0.33 * k, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+
+      // Mechanics.
+      MECHS.forEach((m, i) => {
+        const [mx, my] = iso(m.x, m.y, w, h);
+        const found = phase >= 2 && (phase > 2 || local > 0.15 + i * 0.1);
+        const isHero = i === HERO_I;
+        const ranked = phase >= 3;
+        const dim = ranked && !isHero;
+
+        if (!found) return;
+        const col = dim ? "rgba(46,93,134,.5)" : (isHero && ranked ? GREEN : STEEL);
+        if (isHero && ranked) {
+          const g = ctx.createRadialGradient(mx, my, 0, mx, my, 46);
+          g.addColorStop(0, "rgba(46,158,107,.42)"); g.addColorStop(1, "rgba(46,158,107,0)");
+          ctx.fillStyle = g; ctx.fillRect(mx - 50, my - 50, 100, 100);
+        }
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(mx, my, isHero && ranked ? 9 : 6.5, 0, 7); ctx.fill();
+        ctx.strokeStyle = dim ? "rgba(46,93,134,.35)" : "rgba(226,232,238,.5)";
+        ctx.lineWidth = 1; ctx.stroke();
+
+        if (phase === 3 && !dim) {
+          ctx.fillStyle = "rgba(226,232,238,.75)";
+          ctx.font = "600 12px ui-monospace, Consolas, monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(m.r.toFixed(1) + "\u2605", mx, my - 15);
+        }
+      });
+
+      // The winning route being drawn in.
+      if (phase >= 4) {
+        const m = MECHS[HERO_I];
+        const [mx, my] = iso(m.x, m.y, w, h);
+        const cx = (mx + bx) / 2, cy = (my + by) / 2 - h * 0.16;
+        const k = phase === 4 ? Math.min(1, local * 1.5) : 1;
+
+        ctx.strokeStyle = "rgba(255,182,30,.30)"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(mx, my); ctx.quadraticCurveTo(cx, cy, bx, by); ctx.stroke();
+
+        ctx.strokeStyle = AMBER; ctx.lineWidth = 3.4; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(mx, my);
+        const steps = 40;
+        for (let i = 1; i <= steps * k; i++) {
+          const u = i / steps;
+          ctx.lineTo((1 - u) * (1 - u) * mx + 2 * (1 - u) * u * cx + u * u * bx,
+                     (1 - u) * (1 - u) * my + 2 * (1 - u) * u * cy + u * u * by);
+        }
+        ctx.stroke(); ctx.lineCap = "butt";
+
+        const u = Math.min(1, k);
+        const px = (1 - u) * (1 - u) * mx + 2 * (1 - u) * u * cx + u * u * bx;
+        const py = (1 - u) * (1 - u) * my + 2 * (1 - u) * u * cy + u * u * by;
+        ctx.fillStyle = AMBER;
+        ctx.beginPath(); ctx.arc(px, py, 7, 0, 7); ctx.fill();
+
+        const eta = Math.max(0, Math.round(13 * (1 - k)));
+        ctx.fillStyle = "#F4F2ED";
+        ctx.font = "700 15px ui-monospace, Consolas, monospace";
+        ctx.textAlign = "left";
+        ctx.fillText(eta ? `ETA ${eta} min` : "ARRIVED", bx + 26, by - 30);
+      }
+
+      // The breakdown itself, always on top.
+      const beat = reduced ? 0.7 : 0.5 + 0.5 * Math.abs(Math.sin(now / 420));
+      const bg = ctx.createRadialGradient(bx, by, 0, bx, by, 70);
+      bg.addColorStop(0, `rgba(214,56,47,${(0.42 * beat).toFixed(3)})`);
+      bg.addColorStop(1, "rgba(214,56,47,0)");
+      ctx.fillStyle = bg; ctx.fillRect(bx - 80, by - 80, 160, 160);
+      ctx.fillStyle = "#22374B"; ctx.fillRect(bx - 17, by - 11, 34, 13);
+      ctx.fillStyle = "#2E4A63"; ctx.fillRect(bx - 11, by - 19, 22, 9);
+      ctx.fillStyle = phase >= 1 ? AMBER : RED;
+      ctx.beginPath(); ctx.arc(bx, by - 26, 4.5 + 2 * beat, 0, 7); ctx.fill();
+
+      if (phase === 1) {
+        ctx.fillStyle = "rgba(226,232,238,.9)";
+        ctx.font = "600 13px ui-monospace, Consolas, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("DO NOT DRIVE", bx, by + 34);
+      }
+
+      if (titleEl.textContent !== PHASES[phase].title) {
+        titleEl.textContent = PHASES[phase].title;
+        detailEl.textContent = PHASES[phase].detail;
+        stepEls.forEach((el, i) => el.classList.toggle("on", i <= phase));
+      }
+
+      raf2 = requestAnimationFrame(draw);
+    }
+
+    const io2 = new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting) { if (!raf2) { t0 = 0; raf2 = requestAnimationFrame(draw); } }
+      else { cancelAnimationFrame(raf2); raf2 = 0; }
+    }), { threshold: 0.15 });
+    io2.observe(dispatch);
+  }
+})();
+</script>
