@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoadAssist — Every Road. Every Rescue.</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cg transform='rotate(-30 12 12)'%3E%3Ccircle cx='7.3' cy='3.2' r='1.45'/%3E%3Crect x='5.5' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Crect x='14.9' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Ccircle cx='16.7' cy='20.8' r='1.45'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #000; color: #fff; }
+  body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; color: inherit; cursor: pointer; }
+
+  /* ── background video (z 0) ── */
+  .bg-video {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; z-index: 0;
+  }
+
+  /* ── bottom blur overlay — mask only, NO dark gradient (z 1) ── */
+  .blur-bottom {
+    position: fixed; inset: 0; z-index: 1; pointer-events: none;
+    -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);
+    -webkit-mask-image: linear-gradient(to top, black 0%, transparent 45%);
+    mask-image: linear-gradient(to top, black 0%, transparent 45%);
+  }
+
+  /* ── liquid glass ── */
+  .liquid-glass {
+    background: rgba(255, 255, 255, 0.01);
+    background-blend-mode: luminosity;
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+    border: none;
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    position: relative; overflow: hidden;
+  }
+  .liquid-glass::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.4px;
+    background: linear-gradient(180deg,
+      rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 20%,
+      rgba(255,255,255,0) 40%, rgba(255,255,255,0) 60%,
+      rgba(255,255,255,0.15) 80%, rgba(255,255,255,0.45) 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* ── blur-fade-up ── */
+  @keyframes blurFadeUp {
+    from { opacity: 0; filter: blur(20px); transform: translateY(40px); }
+    to   { opacity: 1; filter: blur(0);   transform: translateY(0); }
+  }
+  .animate-blur-fade-up { opacity: 0; animation: blurFadeUp 1s ease-out forwards; }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-blur-fade-up { animation: none; opacity: 1; }
+  }
+
+  /* ── layout ── */
+  .page { position: relative; z-index: 10; height: 100dvh; display: flex; flex-direction: column; }
+
+  nav.topbar {
+    position: relative; z-index: 50;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 16px;
+  }
+  .logo { font-weight: 700; letter-spacing: 0.22em; font-size: 17px; display: flex; align-items: center; gap: 10px; height: 32px; }
+  .logo svg { width: 24px; height: 24px; }
+  .navlinks { display: none; gap: 30px; position: absolute; left: 50%; transform: translateX(-50%); }
+  .navlinks a { font-size: 14px; transition: color 0.3s; }
+  .navlinks a:hover { color: #d1d5db; }
+  .nav-right { display: flex; align-items: center; gap: 10px; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 9999px; padding: 8px 16px; font-size: 14px; }
+  .circle { width: 40px; height: 40px; border-radius: 9999px; display: none; place-items: center; }
+  .search-pill { display: none; }
+  .burger { width: 40px; height: 40px; border-radius: 9999px; display: grid; place-items: center; position: relative; }
+  .burger svg { position: absolute; transition: transform 0.5s ease-out, opacity 0.5s ease-out; }
+  .burger .ic-x { opacity: 0; transform: rotate(-180deg) scale(0.5); }
+  .burger.open .ic-menu { opacity: 0; transform: rotate(180deg) scale(0.5); }
+  .burger.open .ic-x { opacity: 1; transform: rotate(0) scale(1); }
+
+  .mobile-menu {
+    position: absolute; top: 72px; left: 0; right: 0; z-index: 40;
+    background: rgba(17, 24, 39, 0.95);
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border-top: 1px solid #1f2937; border-bottom: 1px solid #1f2937;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7);
+    padding: 12px 16px;
+    transform: translateY(-16px); opacity: 0; pointer-events: none;
+    transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+  }
+  .mobile-menu.open { transform: translateY(0); opacity: 1; pointer-events: auto; }
+  .mobile-menu a {
+    display: block; padding: 12px; border-radius: 8px; font-size: 15px;
+    transform: translateX(-12px); opacity: 0; transition: transform 0.4s ease-out, opacity 0.4s ease-out, background 0.25s;
+  }
+  .mobile-menu.open a { transform: translateX(0); opacity: 1; }
+  .mobile-menu a:hover { background: rgba(31, 41, 55, 0.5); }
+  .mobile-menu .extras { border-top: 1px solid #1f2937; margin-top: 8px; padding-top: 12px; display: flex; gap: 10px; }
+
+  .hero {
+    flex: 1; display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 0 16px 32px; position: relative; z-index: 10;
+  }
+  .hero-inner { display: flex; flex-direction: column; align-items: flex-start; gap: 32px; }
+  .hero-left { flex: 1; width: 100%; }
+
+  .meta-row { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 24px; font-size: 12px; align-items: center; }
+  .meta-row span { display: inline-flex; align-items: center; gap: 7px; }
+  .meta-row svg { width: 16px; height: 16px; }
+  .meta-row .strong { font-weight: 500; }
+
+  h1.title { font-size: 30px; font-weight: 400; letter-spacing: -0.04em; line-height: 1.06; margin-bottom: 16px; }
+  p.desc { font-size: 16px; color: #9ca3af; margin-bottom: 24px; max-width: 42rem; font-weight: 300; line-height: 1.6; }
+
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn-solid {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: #fff; color: #000; border: 0; border-radius: 9999px;
+    padding: 10px 24px; font-weight: 500; font-size: 15px; transition: background 0.3s;
+  }
+  .btn-solid:hover { background: #e5e7eb; }
+  .btn-glass { border-radius: 9999px; padding: 10px 24px; font-weight: 500; font-size: 15px; }
+
+  .arrows { display: flex; gap: 10px; }
+  .arrow-pill { display: inline-flex; align-items: center; gap: 7px; border-radius: 9999px; padding: 10px 16px; font-size: 14px; }
+  .arrow-pill svg { width: 18px; height: 18px; }
+
+  .credit {
+    position: fixed; bottom: 6px; right: 10px; z-index: 20;
+    font-size: 9.5px; color: rgba(255,255,255,0.45); letter-spacing: 0.03em;
+  }
+  .credit a { text-decoration: underline; }
+
+  @media (min-width: 640px) {
+    nav.topbar { padding: 16px 24px; }
+    .hero { padding: 0 24px 32px; }
+    .search-pill { display: inline-flex; }
+    .circle { display: grid; }
+    h1.title { font-size: 48px; }
+    p.desc { font-size: 18px; }
+    .meta-row { font-size: 14px; gap: 12px 24px; }
+    .meta-row svg { width: 20px; height: 20px; }
+  }
+  @media (min-width: 768px) {
+    nav.topbar { padding: 24px 48px; }
+    .hero { padding: 0 48px 64px; }
+    .hero-inner { flex-direction: row; align-items: flex-end; }
+    h1.title { font-size: 60px; margin-bottom: 24px; }
+    p.desc { font-size: 20px; margin-bottom: 48px; }
+    .btn-solid, .btn-glass { padding: 12px 32px; }
+  }
+  @media (min-width: 1024px) {
+    .navlinks { display: flex; }
+    .burger, .mobile-menu { display: none; }
+    h1.title { font-size: 72px; }
+  }
+</style>
+</head>
+<body>
+
+<video class="bg-video" autoplay muted loop playsinline
+       poster="assets/nh48-expressway.jpg"
+       src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260406_094145_4a271a6c-3869-4f1c-8aa7-aeb0cb227994.mp4"></video>
+<div class="blur-bottom" aria-hidden="true"></div>
+
+<div class="page">
+  <nav class="topbar">
+    <a class="logo animate-blur-fade-up" style="animation-delay:0ms" href="#" aria-label="RoadAssist">
+      <svg viewBox="0 0 24 24" fill="white" aria-hidden="true"><g transform="rotate(-30 12 12)">
+        <circle cx="7.3" cy="3.2" r="1.45"/><rect x="5.5" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+        <rect x="14.9" y="4.7" width="3.6" height="14.6" rx="1.8"/><circle cx="16.7" cy="20.8" r="1.45"/>
+      </g></svg>
+      ROADASSIST
+    </a>
+
+    <div class="navlinks">
+      <a class="animate-blur-fade-up" style="animation-delay:100ms" href="#services">Services</a>
+      <a class="animate-blur-fade-up" style="animation-delay:150ms" href="#coverage">Coverage</a>
+      <a class="animate-blur-fade-up" style="animation-delay:200ms" href="#raksha">RAKSHA</a>
+      <a class="animate-blur-fade-up" style="animation-delay:250ms" href="#fleet">Fleet</a>
+      <a class="animate-blur-fade-up" style="animation-delay:300ms" href="#support">Support</a>
+    </div>
+
+    <div class="nav-right">
+      <button class="pill liquid-glass search-pill animate-blur-fade-up" style="animation-delay:350ms">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        Search
+      </button>
+      <button class="circle liquid-glass animate-blur-fade-up" style="animation-delay:400ms" aria-label="Profile">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+      </button>
+      <button class="burger liquid-glass animate-blur-fade-up" style="animation-delay:350ms" id="burger"
+              aria-controls="mobile-menu" aria-expanded="false" aria-label="Open menu">
+        <svg class="ic-menu" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        <svg class="ic-x" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+  </nav>
+
+  <div class="mobile-menu" id="mobile-menu">
+    <a href="#services" style="transition-delay:50ms">Services</a>
+    <a href="#coverage" style="transition-delay:100ms">Coverage</a>
+    <a href="#raksha" style="transition-delay:150ms">RAKSHA</a>
+    <a href="#fleet" style="transition-delay:200ms">Fleet</a>
+    <a href="#support" style="transition-delay:250ms">Support</a>
+    <div class="extras">
+      <button class="pill liquid-glass" style="flex:1; justify-content:center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        Search
+      </button>
+      <button class="pill liquid-glass" style="flex:1; justify-content:center">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+        Profile
+      </button>
+    </div>
+  </div>
+
+  <main class="hero">
+    <div class="hero-inner">
+      <div class="hero-left">
+        <div class="meta-row animate-blur-fade-up" style="animation-delay:300ms">
+          <span><svg viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1.5" stroke-linejoin="round"><path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></svg><span class="strong">4.8/5 · 1.2k rescues</span></span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>&lt;20 ms dispatch</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>24×7 · Every road in India</span>
+        </div>
+
+        <h1 class="title animate-blur-fade-up" style="animation-delay:400ms">Every Road. Every Rescue.</h1>
+
+        <p class="desc animate-blur-fade-up" style="animation-delay:500ms">
+          Verified mechanics dispatched in milliseconds — even where the network ends,
+          from city expressways to forest roads nobody is watching.
+        </p>
+
+        <div class="cta-row">
+          <a class="btn-solid animate-blur-fade-up" style="animation-delay:600ms" href="premium.html">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="black"><path d="M8 5v14l11-7z"/></svg>
+            Get Help Now
+          </a>
+          <a class="btn-glass liquid-glass animate-blur-fade-up" style="animation-delay:700ms" href="index.html">Learn More</a>
+        </div>
+      </div>
+
+      <div class="arrows">
+        <button class="arrow-pill liquid-glass animate-blur-fade-up" style="animation-delay:800ms">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          Previous
+        </button>
+        <button class="arrow-pill liquid-glass animate-blur-fade-up" style="animation-delay:900ms">
+          Next
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="credit">
+  Fallback photo: <a href="https://commons.wikimedia.org/wiki/File:Delhi-Gurgaon_Expressway_-_Aerial_View_-_New_Delhi_2016-08-04_5808.JPG" rel="license noopener" target="_blank">Biswarup Ganguly, CC BY 3.0</a>, via Wikimedia Commons
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var burger = document.getElementById("burger");
+  var menu = document.getElementById("mobile-menu");
+  function setMenu(open) {
+    burger.classList.toggle("open", open);
+    menu.classList.toggle("open", open);
+    burger.setAttribute("aria-expanded", String(open));
+    burger.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  }
+  burger.addEventListener("click", function () { setMenu(!menu.classList.contains("open")); });
+  menu.addEventListener("click", function (e) { if (e.target.closest("a")) setMenu(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") setMenu(false); });
+
+  // if the remote video cannot load, the poster image + black stay — no blank page
+  var v = document.querySelector(".bg-video");
+  v.addEventListener("error", function () {
+    v.style.backgroundImage = "url(assets/nh48-expressway.jpg)";
+    v.style.backgroundSize = "cover";
+  });
+})();
+</script>
+</body>
+</html>
