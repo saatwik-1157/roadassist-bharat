@@ -24,29 +24,79 @@ const consoleSms: SmsProvider = {
   },
 };
 
-function httpSms(): SmsProvider {
-  return {
-    name: env.sms.provider,
-    async send(to, body, opts) {
-      if (!env.sms.apiKey || !env.sms.baseUrl) {
-        throw new Error(`SMS provider "${env.sms.provider}" is selected but SMS_API_KEY / SMS_BASE_URL are not set`);
-      }
-      const res = await fetch(env.sms.baseUrl, {
-        method: "POST",
-        headers: { "content-type": "application/json", authkey: env.sms.apiKey },
-        body: JSON.stringify({
-          to, message: body, sender: env.sms.senderId,
-          template_id: opts?.templateId ?? env.sms.dltTemplateId,
-        }),
-      });
-      if (!res.ok) throw new Error(`SMS send failed: ${res.status} ${await res.text()}`);
-      const json = (await res.json().catch(() => ({}))) as { id?: string };
-      return { id: json.id ?? "unknown", delivered: true };
-    },
-  };
-}
+/**
+ * Twilio Messages API (shape per docs: POST
+ * /2010-04-01/Accounts/{SID}/Messages.json, HTTP Basic SID:token, form-encoded
+ * From/To/Body). SMS_API_KEY holds "ACCOUNT_SID:AUTH_TOKEN"; SMS_SENDER_ID is
+ * the From number or alphanumeric sender. SMS_BASE_URL overrides the API host
+ * for stub testing only.
+ */
+const twilioSms: SmsProvider = {
+  name: "twilio",
+  async send(to, body) {
+    const [sid, token] = env.sms.apiKey.split(":");
+    if (!sid || !token) throw new Error('Twilio needs SMS_API_KEY="ACCOUNT_SID:AUTH_TOKEN"');
+    const base = env.sms.baseUrl || "https://api.twilio.com";
+    const res = await fetch(`${base}/2010-04-01/Accounts/${sid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        authorization: "Basic " + Buffer.from(`${sid}:${token}`).toString("base64"),
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ From: env.sms.senderId, To: to, Body: body }).toString(),
+    });
+    if (!res.ok) throw new Error(`Twilio send failed: ${res.status} ${await res.text()}`);
+    const json = (await res.json().catch(() => ({}))) as { sid?: string };
+    return { id: json.sid ?? "unknown", delivered: true };
+  },
+};
 
-export const sms: SmsProvider = env.sms.provider === "console" ? consoleSms : httpSms();
+/**
+ * MSG91 Flow API (shape per docs: POST https://api.msg91.com/api/v5/flow/ with
+ * an `authkey` header and a DLT-registered template). Indian SMS is
+ * template-bound under TRAI DLT, so the message content travels as the
+ * template variable named by SMS_DLT_VAR — it must match the variable name in
+ * the registered template exactly. SMS_BASE_URL overrides the host for stubs.
+ */
+const msg91Sms: SmsProvider = {
+  name: "msg91",
+  async send(to, body, opts) {
+    if (!env.sms.apiKey) throw new Error("MSG91 needs SMS_API_KEY (authkey)");
+    const templateId = opts?.templateId ?? env.sms.dltTemplateId;
+    if (!templateId) throw new Error("MSG91 needs SMS_DLT_TEMPLATE_ID (DLT-registered)");
+    const base = env.sms.baseUrl || "https://api.msg91.com";
+    const res = await fetch(`${base}/api/v5/flow/`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authkey: env.sms.apiKey },
+      body: JSON.stringify({
+        template_id: templateId,
+        sender: env.sms.senderId,
+        short_url: "0",
+        recipients: [{ mobiles: to.replace(/^\+/, ""), [env.sms.dltVar]: body }],
+      }),
+    });
+    if (!res.ok) throw new Error(`MSG91 send failed: ${res.status} ${await res.text()}`);
+    const json = (await res.json().catch(() => ({}))) as { data?: string; message?: string };
+    return { id: json.data ?? json.message ?? "unknown", delivered: true };
+  },
+};
+
+/** Never guess a vendor's wire format: unverified providers refuse loudly. */
+const unsupportedSms = (name: string): SmsProvider => ({
+  name,
+  async send() {
+    throw new Error(
+      `SMS provider "${name}" has no verified adapter yet — use twilio, msg91, or console, ` +
+      `or add an adapter after checking the vendor's current API documentation`,
+    );
+  },
+});
+
+export const sms: SmsProvider =
+  env.sms.provider === "console" ? consoleSms :
+  env.sms.provider === "twilio" ? twilioSms :
+  env.sms.provider === "msg91" ? msg91Sms :
+  unsupportedSms(env.sms.provider);
 
 // ── Maps ──────────────────────────────────────────────────────────────────
 export interface MapsProvider {

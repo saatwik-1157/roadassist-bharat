@@ -158,6 +158,20 @@ export function requireRole(...allowed: string[]) {
   };
 }
 
+/**
+ * Per-IP OTP request ceiling (threat #1's second axis). Counts every request
+ * from the address in the window, consumed or not — an SMS-flood costs money
+ * whether or not the codes get redeemed.
+ */
+export async function otpRequestsFromIp(db: Db, ip: string): Promise<number> {
+  const since = new Date(Date.now() - env.otpWindowMinutes * 60_000);
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(S.otpChallenges)
+    .where(and(eq(S.otpChallenges.ip, ip), gt(S.otpChallenges.createdAt, since)));
+  return row?.n ?? 0;
+}
+
 /** Rate limit for OTP requests — threat #1. Counts unconsumed challenges. */
 export async function otpAttemptsInWindow(db: Db, msisdn: string): Promise<number> {
   const since = new Date(Date.now() - env.otpWindowMinutes * 60_000);

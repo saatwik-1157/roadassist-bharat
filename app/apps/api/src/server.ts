@@ -5,14 +5,14 @@ import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import { z } from "zod";
 import { and, desc, eq, isNull, sql as raw } from "drizzle-orm";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 import { env, assertProductionSafe } from "./env.js";
 import { db, sql } from "./db.js";
 import * as S from "@roadassist/db";
 import {
-  authenticate, constantTimeEquals, otpAttemptsInWindow, requireRole,
-  rotateSession, sha256, startSession,
+  authenticate, constantTimeEquals, otpAttemptsInWindow, otpRequestsFromIp,
+  requireRole, rotateSession, sha256, startSession,
 } from "./auth.js";
 import { apply, allowedFrom, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
 import { rankMechanics } from "./domain/ai-rules.js";
@@ -35,8 +35,11 @@ await app.register(cors, { origin: true });
  * `content-type: application/json` with nothing after it, and Fastify's default
  * parser rejects that with a 400 the caller cannot act on.
  */
-app.addContentTypeParser("application/json", { parseAs: "string" }, (_req, body, done) => {
+app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, done) => {
   const text = typeof body === "string" ? body.trim() : "";
+  // Webhook signatures are computed over the exact bytes the vendor sent, so
+  // the raw text is kept alongside the parsed object.
+  (req as { rawBody?: string }).rawBody = typeof body === "string" ? body : "";
   if (!text) return done(null, {});
   try {
     done(null, JSON.parse(text));
@@ -123,10 +126,20 @@ app.post("/v1/auth/otp/request", async (req, reply) => {
       },
     });
   }
+  // Second axis of threat #1: one address hammering many numbers.
+  if (await otpRequestsFromIp(db, req.ip) >= env.otpIpMax) {
+    return reply.code(429).send({
+      error: {
+        code: "otp_ip_limited",
+        title: `Too many codes requested from this connection. Try again in ${env.otpWindowMinutes} minutes.`,
+        retryable: true,
+      },
+    });
+  }
 
   const code = env.nodeEnv === "production" ? String(Math.floor(100000 + Math.random() * 900000)) : env.devOtp;
   await db.insert(S.otpChallenges).values({
-    msisdn, codeHash: sha256(code),
+    msisdn, codeHash: sha256(code), ip: req.ip,
     expiresAt: new Date(Date.now() + 5 * 60_000),
   });
   await sms.send(msisdn, `${code} is your RoadAssist verification code. It expires in 5 minutes.`);
@@ -609,8 +622,11 @@ app.delete("/v1/me/emergency-contacts/:id", { preHandler: authenticate }, async 
  * that is weaker than app auth, this path is deliberately limited — request,
  * status, cancel and SOS. No payment, no profile changes (threat #12).
  *
- * In production the telecom vendor calls this with a signed webhook; the
- * signature check is the gate and is not implemented at this stage.
+ * In production the telecom vendor calls this with a signed webhook. When
+ * TELECOM_WEBHOOK_SECRET is set, every request must carry
+ * x-roadassist-signature = HMAC-SHA256(secret, raw body) as hex; production
+ * refuses to boot without the secret (assertProductionSafe). With no secret
+ * configured the endpoint stays open for development and says so.
  */
 const SMS_HELP = [
   "RoadAssist commands:",
@@ -627,7 +643,19 @@ const CLASS_WORDS: Record<string, string> = {
   bus: "bus", tractor: "tractor", ev: "ev",
 };
 
-app.post("/v1/telecom/sms", async (req) => {
+app.post("/v1/telecom/sms", async (req, res) => {
+  if (env.telecomWebhookSecret) {
+    const presented = String(req.headers["x-roadassist-signature"] ?? "");
+    const expected = createHmac("sha256", env.telecomWebhookSecret)
+      .update((req as { rawBody?: string }).rawBody ?? "")
+      .digest("hex");
+    if (!presented || !constantTimeEquals(presented, expected)) {
+      return res.code(401).send({
+        error: { code: "webhook_unsigned", title: "Missing or invalid webhook signature", retryable: false },
+      });
+    }
+  }
+
   const { from, text } = z.object({
     from: msisdnSchema,
     text: z.string().max(160),

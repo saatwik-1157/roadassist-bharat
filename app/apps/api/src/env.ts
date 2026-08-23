@@ -37,13 +37,24 @@ export const env = {
   devOtp: process.env.DEV_OTP ?? "000000",
   otpMaxAttempts: Number(process.env.OTP_MAX_ATTEMPTS ?? 5),
   otpWindowMinutes: Number(process.env.OTP_WINDOW_MINUTES ?? 15),
+  /** Per-IP OTP request ceiling in the same window (threat #1 needs both). */
+  otpIpMax: Number(process.env.OTP_IP_MAX ?? 30),
+
+  /**
+   * HMAC secret for the inbound telecom webhook. When set, every
+   * POST /v1/telecom/sms must carry x-roadassist-signature =
+   * HMAC-SHA256(raw body). Unset = development mode (endpoint open, flagged).
+   */
+  telecomWebhookSecret: process.env.TELECOM_WEBHOOK_SECRET ?? "",
 
   // ── pluggable providers ────────────────────────────────────────────────
   sms: {
-    provider: process.env.SMS_PROVIDER ?? "console", // console | msg91 | gupshup | twilio
+    provider: process.env.SMS_PROVIDER ?? "console", // console | twilio | msg91
     apiKey: process.env.SMS_API_KEY ?? "",
     senderId: process.env.SMS_SENDER_ID ?? "RDASST",
     dltTemplateId: process.env.SMS_DLT_TEMPLATE_ID ?? "",
+    /** MSG91 template variable name that carries the message text. */
+    dltVar: process.env.SMS_DLT_VAR ?? "otp",
     baseUrl: process.env.SMS_BASE_URL ?? "",
   },
   maps: {
@@ -77,6 +88,7 @@ export function assertProductionSafe() {
   if (env.jwtSecret.startsWith("dev-only")) problems.push("JWT_SECRET is still the development default");
   if (env.exposeDevOtp) problems.push("EXPOSE_DEV_OTP must be false in production");
   if (env.sms.provider === "console") problems.push("SMS_PROVIDER is 'console' — no real messages would be sent");
+  if (!env.telecomWebhookSecret) problems.push("TELECOM_WEBHOOK_SECRET is unset — the inbound SMS webhook would accept unsigned requests");
   if (problems.length) {
     throw new Error("Refusing to start in production:\n  - " + problems.join("\n  - "));
   }
