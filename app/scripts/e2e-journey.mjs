@@ -231,6 +231,91 @@ ok("SOS works over SMS on the degraded path", /SOS received/i.test(smsSos.data?.
 const stop = await sms("STOP");
 ok("STOP opt-out is honoured (TRAI)", /no further messages/i.test(stop.data?.reply ?? ""));
 
+// ── 14. RAKSHA — autonomous road monitoring (ADR-0007/0008) ────────────────
+console.log("\n14. RAKSHA autonomous monitoring (device data is SIMULATED)");
+// The demo admin comes from `npm run db:seed:raksha`.
+const adminOtp = await call("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } });
+const adminVer = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: "+919999900001", code: adminOtp.meta.devOtp } });
+const adminToken = adminVer.data?.accessToken;
+ok("demo admin signs in with an authority role", adminVer.data?.roles?.includes("admin"),
+   JSON.stringify(adminVer.data?.roles ?? []));
+
+const citizenReg = await call("POST", "/v1/raksha/devices", {
+  token, body: { name: "E2E-ROGUE [SIMULATED]", lat: 28.4, lng: 77.0 },
+});
+ok("a citizen cannot register a device", citizenReg.status === 403, `got ${citizenReg.status}`);
+
+const devReg = await call("POST", "/v1/raksha/devices", {
+  token: adminToken, body: { name: "E2E-EDGE [SIMULATED]", lat: 28.44, lng: 77.01 },
+});
+ok("admin registers an edge device", devReg.status === 201 && Boolean(devReg.data?.deviceSecret));
+
+const badTok = await call("POST", "/v1/raksha/devices/token", {
+  body: { deviceId: devReg.data.id, deviceSecret: "wrong-credential-000000000000" },
+});
+ok("wrong device credential is rejected", badTok.status === 401);
+const devTok = await call("POST", "/v1/raksha/devices/token", {
+  body: { deviceId: devReg.data.id, deviceSecret: devReg.data.deviceSecret },
+});
+ok("device exchanges its credential for a token", Boolean(devTok.data?.accessToken));
+const deviceToken = devTok.data.accessToken;
+
+const tag = Math.random().toString(36).slice(2, 8);
+const edgeBatch = { detections: [
+  { opId: `e2e-${tag}-p1`, type: "pothole", confidence: 0.86, severity: 4,
+    lat: 28.443, lng: 77.014, capturedAt: new Date(Date.now() - 3600_000).toISOString(),
+    ranOffline: true, modelVersion: "sim-rules-0.1.0", usedFallback: true },
+  { opId: `e2e-${tag}-d1`, type: "road_damage", confidence: 0.71, severity: 2,
+    lat: 28.412, lng: 76.988, capturedAt: new Date().toISOString(), modelVersion: "sim-rules-0.1.0" },
+  { opId: `e2e-${tag}-o1`, type: "obstruction", confidence: 0.92, severity: 5,
+    lat: 28.393, lng: 76.964, capturedAt: new Date().toISOString(), modelVersion: "sim-rules-0.1.0" },
+]};
+const anonUp = await call("POST", "/v1/raksha/detections", { body: edgeBatch });
+ok("anonymous detection upload is impossible", anonUp.status === 401, `got ${anonUp.status}`);
+const citizenUp = await call("POST", "/v1/raksha/detections", { token, body: edgeBatch });
+ok("a citizen token cannot upload detections", citizenUp.status === 403, `got ${citizenUp.status}`);
+
+const up1 = await call("POST", "/v1/raksha/detections", { token: deviceToken, body: edgeBatch });
+ok("device uploads a queued batch", up1.meta?.applied === 3, `applied=${up1.meta?.applied}`);
+ok("a severe obstruction raises an incident signal, never a dispatch",
+   Boolean(up1.data?.results?.find((r) => r.opId === `e2e-${tag}-o1`)?.incidentId));
+const up2 = await call("POST", "/v1/raksha/detections", { token: deviceToken, body: edgeBatch });
+ok("replaying the same batch is idempotent", up2.meta?.duplicates === 3 && up2.meta?.applied === 0,
+   `applied=${up2.meta?.applied} duplicates=${up2.meta?.duplicates}`);
+
+const hb = await call("POST", "/v1/raksha/devices/heartbeat", {
+  token: deviceToken, body: { batteryPercent: 78, storagePercent: 22, queueDepth: 0 },
+});
+ok("device heartbeat recorded", hb.data?.status === "ACTIVE");
+
+const list = await call("GET", "/v1/raksha/detections?limit=100", { token: adminToken });
+const mine = (list.data ?? []).filter((d) => d.op_id?.startsWith(`e2e-${tag}`));
+ok("detections attributed to the device with GPS", mine.length === 3 && mine.every((d) => d.lat != null));
+ok("detections auto-attached to the nearest road segment",
+   mine.some((d) => d.segment_code), mine.map((d) => d.segment_code).join(","));
+ok("capture timestamps preserved through offline sync",
+   Math.abs(new Date(mine.find((d) => d.op_id === `e2e-${tag}-p1`).captured_at).getTime()
+            - (Date.now() - 3600_000)) < 60_000);
+
+const health = await call("POST", "/v1/raksha/road-health/recompute", { token: adminToken });
+const scored = (health.data ?? []).find((s) => s.score < 100);
+ok("road health recomputed with a transparent factor breakdown",
+   Boolean(scored?.factors?.note), scored ? `${scored.code}=${scored.score}` : "");
+const citizenHealth = await call("POST", "/v1/raksha/road-health/recompute", { token });
+ok("a citizen cannot recompute road health", citizenHealth.status === 403);
+
+const target = mine.find((d) => d.op_id === `e2e-${tag}-p1`);
+const citizenVerify = await call("POST", `/v1/raksha/detections/${target.id}/verify`, {
+  token, body: { action: "verify" },
+});
+ok("a citizen cannot verify a detection", citizenVerify.status === 403);
+const verify = await call("POST", `/v1/raksha/detections/${target.id}/verify`, {
+  token: adminToken, body: { action: "verify", notes: "e2e confirmation" },
+});
+ok("authority verifies the detection", verify.data?.status === "VERIFIED");
+const close = await call("POST", `/v1/raksha/detections/${target.id}/close`, { token: adminToken });
+ok("verified detection is closed after repair confirmation", close.data?.status === "CLOSED");
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

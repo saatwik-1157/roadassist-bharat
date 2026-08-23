@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAKSHA — Authority Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d8b46a'%3E%3Cg transform='rotate(-30 12 12)'%3E%3Ccircle cx='7.3' cy='3.2' r='1.45'/%3E%3Crect x='5.5' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Crect x='14.9' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Ccircle cx='16.7' cy='20.8' r='1.45'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0a0a; --panel: #111110; --panel-2: #171511;
+    --gold: #d8b46a; --cream: #f5f1e8; --muted: #8f8878;
+    --line: rgba(216,180,106,0.22);
+    --green: #59b374; --yellow: #e3c451; --orange: #e08a3c; --red: #e4574a;
+  }
+  html, body { height: 100%; background: var(--bg); color: var(--cream);
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; }
+  body { display: flex; flex-direction: column; }
+
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 18px;
+    border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header b { font-size: 16px; letter-spacing: 0.06em; }
+  header b i { font-style: normal; color: var(--gold); }
+  .sim-banner { font-size: 11px; letter-spacing: 0.18em; color: #0a0805;
+    background: var(--gold); padding: 4px 10px; border-radius: 3px; font-weight: 700; }
+  header .who { margin-left: auto; color: var(--muted); font-size: 12.5px; }
+
+  .layout { flex: 1; display: grid; grid-template-columns: 380px 1fr; min-height: 0; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; grid-template-rows: 45vh 1fr; } }
+
+  aside { border-right: 1px solid var(--line); overflow-y: auto; background: var(--panel); }
+  #map { min-height: 300px; }
+  .leaflet-container { background: #1a1a1a; }
+
+  section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
+
+  .login input { width: 100%; padding: 10px; background: var(--panel-2); color: var(--cream);
+    border: 1px solid var(--line); margin-bottom: 8px; font-family: inherit; }
+  button { font-family: inherit; cursor: pointer; }
+  .btn { width: 100%; padding: 10px; background: var(--gold); border: 0; color: #0a0805;
+    font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 11.5px; }
+  .btn-line { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+  .hint { color: var(--muted); font-size: 11.5px; margin-top: 6px; line-height: 1.5; }
+
+  .seg { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(216,180,106,0.12); }
+  .seg:last-child { border-bottom: 0; }
+  .chip { min-width: 44px; text-align: center; padding: 4px 6px; border-radius: 3px; font-weight: 700; color: #0a0805; font-size: 12.5px; }
+  .seg small { color: var(--muted); display: block; font-size: 11px; }
+
+  .det { padding: 10px 0; border-bottom: 1px dashed rgba(216,180,106,0.12); }
+  .det:last-child { border-bottom: 0; }
+  .det .row1 { display: flex; align-items: center; gap: 8px; }
+  .tag { font-size: 10.5px; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 3px; color: #0a0805; font-weight: 700; text-transform: uppercase; }
+  .det .meta { color: var(--muted); font-size: 11.5px; margin-top: 4px; line-height: 1.5; }
+  .det .acts { display: flex; gap: 6px; margin-top: 7px; }
+  .det .acts button { flex: 1; padding: 6px; font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; background: transparent; border: 1px solid var(--line); color: var(--cream); }
+  .det .acts button:hover { border-color: var(--gold); color: var(--gold); }
+  .st { margin-left: auto; font-size: 10.5px; color: var(--muted); letter-spacing: 0.08em; }
+
+  .dev { padding: 7px 0; font-size: 12.5px; border-bottom: 1px dashed rgba(216,180,106,0.12); }
+  .dev small { color: var(--muted); display: block; font-size: 11px; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+
+  .legend { position: absolute; bottom: 18px; right: 12px; z-index: 1000; background: rgba(10,10,10,0.88);
+    border: 1px solid var(--line); padding: 10px 12px; font-size: 11px; line-height: 1.8; }
+  .legend .disclaimer { color: var(--muted); max-width: 200px; line-height: 1.4; margin-top: 6px; font-size: 10px; }
+  .toolbar { display: flex; gap: 8px; }
+  .toolbar select { flex: 1; padding: 8px; background: var(--panel-2); color: var(--cream); border: 1px solid var(--line); font-family: inherit; }
+  #status { color: var(--muted); font-size: 11.5px; padding: 8px 16px; }
+</style>
+</head>
+<body>
+<header>
+  <b>RAKSHA <i>· Authority Dashboard</i></b>
+  <span class="sim-banner">SIMULATED DATA</span>
+  <span class="who" id="who">not signed in</span>
+</header>
+
+<div class="layout">
+  <aside>
+    <section class="login" id="login-panel">
+      <h2>Sign in (authority)</h2>
+      <input id="msisdn" value="+919999900001" aria-label="Mobile number">
+      <button class="btn" id="login-btn">Send OTP &amp; sign in</button>
+      <p class="hint">Development build: the OTP is auto-filled from the API response (dev OTP). The demo admin
+        +919999900001 is created by <code>npm run db:seed:raksha</code>.</p>
+    </section>
+
+    <section hidden id="health-panel">
+      <h2>Road health — NH-48 corridor</h2>
+      <div id="segments"></div>
+      <button class="btn btn-line" id="recompute" style="margin-top:10px">Recompute scores</button>
+      <p class="hint">Rule-based score v1 with a visible factor breakdown. Not an official safety standard.</p>
+    </section>
+
+    <section hidden id="det-panel">
+      <h2>Detections</h2>
+      <div class="toolbar">
+        <select id="f-status" aria-label="Filter status">
+          <option value="">All statuses</option>
+          <option>DETECTED</option><option>VERIFIED</option><option>REJECTED</option><option>CLOSED</option>
+        </select>
+        <select id="f-type" aria-label="Filter type">
+          <option value="">All types</option>
+          <option value="pothole">Pothole</option>
+          <option value="road_damage">Road damage</option>
+          <option value="obstruction">Obstruction</option>
+        </select>
+      </div>
+      <div id="detections" style="margin-top:8px"></div>
+    </section>
+
+    <section hidden id="dev-panel">
+      <h2>Device fleet</h2>
+      <div id="devices"></div>
+    </section>
+  </aside>
+
+  <div style="position:relative">
+    <div id="map"></div>
+    <div class="legend">
+      <div><span class="dot" style="background:var(--green)"></span>Low severity / good</div>
+      <div><span class="dot" style="background:var(--yellow)"></span>Medium / fair</div>
+      <div><span class="dot" style="background:var(--orange)"></span>High / poor</div>
+      <div><span class="dot" style="background:var(--red)"></span>Critical</div>
+      <div class="disclaimer">Colors are this project's own scale — not an official government classification.</div>
+    </div>
+  </div>
+</div>
+<div id="status">Loading…</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function () {
+  "use strict";
+  var API = location.origin;
+  var token = null;
+  var map, detLayer, segLayer, devLayer;
+
+  var SEV = { 1: "var(--green)", 2: "var(--green)", 3: "var(--yellow)", 4: "var(--orange)", 5: "var(--red)" };
+  var SEVHEX = { 1: "#59b374", 2: "#59b374", 3: "#e3c451", 4: "#e08a3c", 5: "#e4574a" };
+  var LEVEL = { good: "#59b374", fair: "#e3c451", poor: "#e08a3c", critical: "#e4574a" };
+
+  var status = function (m) { document.getElementById("status").textContent = m; };
+
+  async function call(method, path, body) {
+    var res = await fetch(API + path, {
+      method: method,
+      headers: Object.assign({ "content-type": "application/json" },
+        token ? { authorization: "Bearer " + token } : {}),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    var json = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error((json.error && json.error.title) || res.status);
+    return json;
+  }
+
+  function initMap() {
+    map = L.map("map").setView([28.41, 76.97], 12);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(map);
+    segLayer = L.layerGroup().addTo(map);
+    detLayer = L.layerGroup().addTo(map);
+    devLayer = L.layerGroup().addTo(map);
+  }
+
+  async function loadSegments() {
+    var r = await call("GET", "/v1/raksha/segments");
+    segLayer.clearLayers();
+    var listEl = document.getElementById("segments");
+    listEl.innerHTML = "";
+    r.data.forEach(function (s) {
+      var color = s.level ? LEVEL[s.level] : "#666";
+      if (s.geometry && s.geometry.coordinates) {
+        var latlngs = s.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
+        L.polyline(latlngs, { color: color, weight: 6, opacity: 0.85 })
+          .bindPopup("<b>" + s.name + "</b><br>" + s.code +
+            (s.score != null ? "<br>Health: <b>" + s.score + "/100</b> (" + s.level + ")" : "<br>No score yet") +
+            "<br>Open detections: " + s.open_detections)
+          .addTo(segLayer);
+      }
+      var row = document.createElement("div");
+      row.className = "seg";
+      row.innerHTML =
+        '<span class="chip" style="background:' + color + '">' + (s.score != null ? s.score : "—") + "</span>" +
+        "<span>" + s.code + "<small>" + s.name + " · " + s.open_detections + " open</small></span>";
+      listEl.appendChild(row);
+    });
+  }
+
+  async function loadDetections() {
+    var st = document.getElementById("f-status").value;
+    var ty = document.getElementById("f-type").value;
+    var qs = [];
+    if (st) qs.push("status=" + st);
+    if (ty) qs.push("type=" + ty);
+    var r = await call("GET", "/v1/raksha/detections?limit=100" + (qs.length ? "&" + qs.join("&") : ""));
+    detLayer.clearLayers();
+    var listEl = document.getElementById("detections");
+    listEl.innerHTML = r.data.length ? "" : '<p class="hint">No detections match the filter.</p>';
+    r.data.forEach(function (d) {
+      if (d.lat != null) {
+        L.circleMarker([d.lat, d.lng], {
+          radius: 7, color: SEVHEX[d.severity], fillColor: SEVHEX[d.severity], fillOpacity: 0.8, weight: 1,
+        }).bindPopup(
+          "<b>" + d.detection_type + "</b> · severity " + d.severity +
+          "<br>Confidence: " + Math.round(d.confidence * 100) + "% · " + d.model_version +
+          (d.used_fallback ? " (fallback)" : "") +
+          "<br>Status: " + d.status +
+          "<br>Device: " + d.device_name + (d.simulated ? " <b>[SIMULATED]</b>" : "") +
+          (d.segment_code ? "<br>Segment: " + d.segment_code : "") +
+          "<br>Captured: " + new Date(d.captured_at).toLocaleString() +
+          (d.ran_offline ? " · offline" : "")
+        ).addTo(detLayer);
+      }
+      var el = document.createElement("div");
+      el.className = "det";
+      el.innerHTML =
+        '<div class="row1"><span class="tag" style="background:' + SEVHEX[d.severity] + '">' +
+        d.detection_type.replace("_", " ") + " · s" + d.severity + "</span>" +
+        '<span class="st">' + d.status + "</span></div>" +
+        '<div class="meta">' + Math.round(d.confidence * 100) + "% · " + d.model_version +
+        " · " + (d.segment_code || "off-segment") + " · " + d.device_name +
+        (d.simulated ? " [SIMULATED]" : "") + "<br>" +
+        new Date(d.captured_at).toLocaleString() + (d.ran_offline ? " · captured offline" : "") + "</div>";
+      if (d.status === "DETECTED") {
+        var acts = document.createElement("div");
+        acts.className = "acts";
+        [["Verify", "verify"], ["Reject", "reject"]].forEach(function (a) {
+          var b = document.createElement("button");
+          b.textContent = a[0];
+          b.onclick = function () {
+            call("POST", "/v1/raksha/detections/" + d.id + "/verify", { action: a[1] })
+              .then(refresh).catch(function (e) { status("✗ " + e.message); });
+          };
+          acts.appendChild(b);
+        });
+        el.appendChild(acts);
+      } else if (d.status === "VERIFIED") {
+        var acts2 = document.createElement("div");
+        acts2.className = "acts";
+        var c = document.createElement("button");
+        c.textContent = "Close (repaired & confirmed)";
+        c.onclick = function () {
+          call("POST", "/v1/raksha/detections/" + d.id + "/close")
+            .then(refresh).catch(function (e) { status("✗ " + e.message); });
+        };
+        acts2.appendChild(c);
+        el.appendChild(acts2);
+      }
+      listEl.appendChild(el);
+    });
+  }
+
+  async function loadDevices() {
+    var r = await call("GET", "/v1/raksha/devices");
+    devLayer.clearLayers();
+    var el = document.getElementById("devices");
+    el.innerHTML = r.data.length ? "" : '<p class="hint">No devices registered.</p>';
+    r.data.forEach(function (d) {
+      if (d.lat != null) {
+        L.marker([d.lat, d.lng]).bindPopup(
+          "<b>" + d.name + "</b><br>" + d.status + (d.simulated ? " · SIMULATED" : "") +
+          (d.battery_percent != null ? "<br>Battery " + d.battery_percent + "%" : "")
+        ).addTo(devLayer);
+      }
+      var row = document.createElement("div");
+      row.className = "dev";
+      var col = d.status === "ACTIVE" ? "#59b374" : d.status === "DEGRADED" ? "#e08a3c" : "#8f8878";
+      row.innerHTML = '<span class="dot" style="background:' + col + '"></span>' + d.name +
+        "<small>" + d.status + (d.simulated ? " · SIMULATED" : "") +
+        (d.battery_percent != null ? " · 🔋" + d.battery_percent + "%" : "") +
+        (d.last_seen_at ? " · seen " + new Date(d.last_seen_at).toLocaleTimeString() : " · never seen") + "</small>";
+      el.appendChild(row);
+    });
+  }
+
+  function refresh() {
+    status("Refreshing…");
+    return Promise.all([loadSegments(), loadDetections(), loadDevices()])
+      .then(function () { status("Up to date · " + new Date().toLocaleTimeString() + " · all device data on this build is SIMULATED"); })
+      .catch(function (e) { status("✗ " + e.message); });
+  }
+
+  document.getElementById("login-btn").onclick = async function () {
+    try {
+      status("Requesting OTP…");
+      var msisdn = document.getElementById("msisdn").value.trim();
+      var otp = await call("POST", "/v1/auth/otp/request", { msisdn: msisdn });
+      var code = otp.meta && otp.meta.devOtp;
+      if (!code) { status("✗ dev OTP not exposed — enter the code manually via the demo client"); return; }
+      var v = await call("POST", "/v1/auth/otp/verify", { msisdn: msisdn, code: code });
+      token = v.data.accessToken;
+      var roles = v.data.roles.join(", ") || "citizen";
+      document.getElementById("who").textContent = msisdn + " · " + roles;
+      document.getElementById("login-panel").hidden = true;
+      ["health-panel", "det-panel", "dev-panel"].forEach(function (id) {
+        document.getElementById(id).hidden = false;
+      });
+      if (!v.data.roles.includes("admin") && !v.data.roles.includes("gov_officer")) {
+        status("Signed in without an authority role — read-only (verify/close will be refused).");
+      }
+      refresh();
+    } catch (e) { status("✗ " + e.message); }
+  };
+
+  document.getElementById("recompute").onclick = function () {
+    call("POST", "/v1/raksha/road-health/recompute")
+      .then(refresh).catch(function (e) { status("✗ " + e.message); });
+  };
+  document.getElementById("f-status").onchange = loadDetections;
+  document.getElementById("f-type").onchange = loadDetections;
+
+  initMap();
+  status("Sign in to load the corridor. Data on this build is SIMULATED.");
+})();
+</script>
+</body>
+</html>
