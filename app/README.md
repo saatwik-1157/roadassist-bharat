@@ -10,7 +10,7 @@ offline replay and the emergency path — against real PostgreSQL + PostGIS.
 ```bash
 npm run infra:up && npm run db:migrate && npm run db:seed   # once
 npm start                                                   # → http://localhost:4000
-npm run verify && npm run test:e2e                          # 9 unit + 63 end-to-end
+npm run verify && npm run test:e2e                          # 9 unit + 82 end-to-end
 ```
 
 ---
@@ -22,15 +22,27 @@ npm run verify && npm run test:e2e                          # 9 unit + 63 end-to
 | 0 · Research | Problem validation, integration feasibility, constraints | ✅ [`../docs/`](../docs/) |
 | 1 · Planning | Backlog, repo scaffold, CI pipeline, quality gates | ✅ |
 | 2 · Architecture | C4 diagrams, 6 ADRs, event catalogue, API style guide, threat model | ✅ [`docs/`](docs/) |
-| 3 · Database | 51 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
-| 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC | ✅ |
+| 3 · Database | 56 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
+| 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS | ◐ slice complete, full surface pending |
-| 6 · Frontend | Demo web client at `/` with an offline queue | ◐ demo client only; no React Native app |
+| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web only; no React Native app |
 | 7 · AI | Rules engine live behind the model contract (ADR-0006) | ◐ rules only, no trained models |
-| 8+ | Maps UI, SMS/IVR journey, government portal, analytics | ⏸ not started |
+| R · RAKSHA | Edge simulator → offline queue → idempotent sync → segments → road health → authority verify/close | ◐ MVP slice live, detector SIMULATED (ADR-0007) |
+| 8+ | SMS/IVR gateway, government portal, analytics, real CV model | ⏸ not started |
+
+### RAKSHA — autonomous road monitoring (MVP slice)
+
+Every RAKSHA event on this build is **SIMULATED** — the detector is a labeled
+deterministic generator (`sim-rules-0.1.0`), not a trained model.
+
+```bash
+npm run db:seed:raksha                  # demo admin (+919999900001) + NH-48 segments
+node scripts/raksha-simulator.mjs       # offline patrol → sync → replay (idempotent) → road health
+# dashboard: http://localhost:4000/raksha.html  ·  citizen app: /app.html
+```
 
 **Measured, not asserted:** nearest-mechanic dispatch at 19.8 ms · emergency
-escalation at ~30 ms · 63 end-to-end assertions covering illegal transitions,
+escalation at ~30 ms · 82 end-to-end assertions covering illegal transitions,
 idempotent replay, refresh-token theft detection and cross-tenant isolation.
 
 ---

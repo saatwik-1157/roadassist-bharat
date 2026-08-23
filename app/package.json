@@ -21,6 +21,7 @@
     "db:generate": "npm run generate -w @roadassist/db",
     "db:migrate": "npm run migrate -w @roadassist/db",
     "db:seed": "npm run seed -w @roadassist/db",
+    "db:seed:raksha": "npm run seed:raksha -w @roadassist/db",
     "db:reset": "npm run reset -w @roadassist/db",
     "dev": "npm run dev -w @roadassist/api",
     "start": "npm run start -w @roadassist/api",
