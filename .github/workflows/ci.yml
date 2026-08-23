@@ -38,6 +38,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # gitleaks diffs the pushed commit range — needs full history
 
       - uses: actions/setup-node@v4
         with:
