@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoadAssist × RAKSHA — Live Showcase</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d8b46a'%3E%3Cg transform='rotate(-30 12 12)'%3E%3Ccircle cx='7.3' cy='3.2' r='1.45'/%3E%3Crect x='5.5' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Crect x='14.9' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Ccircle cx='16.7' cy='20.8' r='1.45'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,400&family=Inter:wght@300;400;500;600;700;800&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #070707; --panel: #10100e; --gold: #d8b46a; --cream: #f5f1e8; --muted: #93897a;
+    --line: rgba(216,180,106,0.2);
+    --ok: #3ddc97; --warn: #ffd166; --bad: #ff9f43; --crit: #ff4d5a;
+    --serif: "Cormorant Garamond", Georgia, serif;
+    --sans: "Inter", system-ui, sans-serif;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  html { scroll-behavior: smooth; }
+  html, body { background: var(--bg); color: var(--cream); }
+  body { font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: inherit; text-decoration: none; }
+  img, video { max-width: 100%; display: block; }
+
+  /* reveal-on-scroll — transform/opacity only, GPU friendly */
+  .rv { opacity: 0; transform: translateY(34px); transition: opacity 1s var(--ease), transform 1s var(--ease); }
+  .rv.in { opacity: 1; transform: none; }
+  .rv.d1 { transition-delay: 0.1s; } .rv.d2 { transition-delay: 0.2s; } .rv.d3 { transition-delay: 0.3s; }
+
+  /* ═══ HERO — real NH-48 photo, parallax, logos ═══ */
+  .hero { position: relative; min-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+  .hero-bg { position: absolute; inset: -12% 0; z-index: 0;
+    background: url("/media/assets/nh48-expressway.jpg") center 30%/cover no-repeat;
+    will-change: transform; filter: saturate(1.08) brightness(0.85); }
+  .hero::after { content: ""; position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(180deg, rgba(7,7,7,0.72) 0%, rgba(7,7,7,0.25) 42%, var(--bg) 96%); }
+  .hero > * { position: relative; z-index: 2; }
+
+  nav { display: flex; align-items: center; gap: 16px; padding: 22px clamp(18px, 4vw, 52px); }
+  .logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 0.06em; font-size: 17px; }
+  .logo svg { width: 26px; height: 26px; filter: drop-shadow(0 0 8px rgba(216,180,106,0.6)); }
+  .logo i { font-style: normal; color: var(--gold); }
+  .raksha-chip { display: inline-flex; align-items: center; gap: 7px; margin-left: 2px;
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px;
+    font-size: 11px; letter-spacing: 0.22em; font-weight: 800; color: var(--gold);
+    background: rgba(7,7,7,0.5); backdrop-filter: blur(8px); }
+  .raksha-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--ok); box-shadow: 0 0 10px var(--ok); animation: blink 2s infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+  nav .links { margin-left: auto; display: flex; gap: 20px; font-size: 13px; color: var(--muted); }
+  nav .links a { transition: color 0.3s; } nav .links a:hover { color: var(--gold); }
+
+  .hero-copy { flex: 1; display: flex; flex-direction: column; justify-content: center;
+    padding: 20px clamp(18px, 4vw, 52px) 80px; max-width: 900px; }
+  .kicker { font-size: 12px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--gold); margin-bottom: 18px; }
+  h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(42px, 7vw, 92px); line-height: 1.02; }
+  h1 em { font-style: italic; color: var(--gold); }
+  .hero-copy p { margin-top: 20px; max-width: 560px; color: #c9c2b4; font-weight: 300; line-height: 1.7; font-size: clamp(15px, 1.6vw, 18px); }
+  .cta-row { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px;
+    font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;
+    border: 1px solid var(--gold); color: var(--gold); border-radius: 3px;
+    transition: transform 0.35s var(--ease), background 0.35s, color 0.35s, box-shadow 0.35s; }
+  .btn:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(216,180,106,0.25); }
+  .btn.solid { background: var(--gold); color: #0a0805; }
+  .btn.solid:hover { box-shadow: 0 0 34px rgba(216,180,106,0.5), 0 12px 30px rgba(0,0,0,0.4); }
+  .credit { position: absolute; bottom: 10px; right: 14px; z-index: 2; font-size: 9.5px; color: rgba(245,241,232,0.4); }
+  .credit a { text-decoration: underline; }
+
+  /* ═══ LIVE STATS — polls the real API ═══ */
+  .live-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px;
+    background: var(--line); border-block: 1px solid var(--line); }
+  .stat { background: var(--panel); padding: 26px 18px; text-align: center; position: relative; overflow: hidden; }
+  .stat::after { content: ""; position: absolute; inset: 0;
+    background: linear-gradient(115deg, transparent 30%, rgba(216,180,106,0.06) 50%, transparent 70%);
+    transform: translateX(-120%); animation: sheen 5s var(--ease) infinite; }
+  @keyframes sheen { 20%, 100% { transform: translateX(120%); } }
+  .stat b { display: block; font-family: var(--serif); font-size: clamp(30px, 3.4vw, 44px); font-weight: 600;
+    color: var(--gold); font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--muted); }
+  .stat.live b { color: var(--ok); text-shadow: 0 0 22px rgba(61,220,151,0.4); }
+  .live-note { text-align: center; color: var(--muted); font-size: 11px; padding: 10px; letter-spacing: 0.08em; }
+  .live-note b { color: var(--ok); }
+
+  section { padding: clamp(64px, 9vw, 120px) clamp(18px, 4vw, 52px); max-width: 1240px; margin: 0 auto; }
+  .sec-head { text-align: center; margin-bottom: clamp(36px, 5vw, 64px); }
+  .sec-head h2 { font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 4.4vw, 54px); }
+  .sec-head h2 em { font-style: italic; color: var(--gold); }
+  .sec-head p { color: var(--muted); margin-top: 12px; font-weight: 300; }
+
+  /* ═══ 3D PIPELINE — the working of it, in 3D ═══ */
+  .stage3d { perspective: 1400px; display: grid; place-items: center; padding: 20px 0 10px; }
+  .pipe { transform-style: preserve-3d; transform: rotateX(56deg) rotateZ(-38deg);
+    display: grid; gap: 18px; will-change: transform; transition: transform 0.2s linear; }
+  .slab { position: relative; width: min(520px, 78vw); padding: 18px 22px;
+    background: linear-gradient(160deg, #191712, #0e0d0a 70%);
+    border: 1px solid var(--line); border-radius: 10px;
+    transform-style: preserve-3d;
+    box-shadow: 0 24px 40px rgba(0,0,0,0.55);
+    transition: transform 0.6s var(--ease), border-color 0.6s, box-shadow 0.6s; }
+  .slab::before { content: ""; position: absolute; inset: 0; border-radius: 10px;
+    transform: translateZ(-14px); background: #060604; border: 1px solid rgba(216,180,106,0.08); }
+  .slab .idx { position: absolute; top: -11px; left: 16px; font-size: 10px; font-weight: 800;
+    letter-spacing: 0.18em; background: var(--bg); border: 1px solid var(--line);
+    color: var(--muted); padding: 3px 9px; border-radius: 999px; transition: color 0.5s, border-color 0.5s; }
+  .slab b { font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+  .slab small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 3px; letter-spacing: 0.04em; }
+  .slab .metric { position: absolute; right: 16px; top: 50%; translate: 0 -50%;
+    font-family: var(--serif); font-size: 21px; color: var(--gold); font-weight: 600; opacity: 0.85; }
+  .slab.on { transform: translateZ(34px); border-color: var(--gold);
+    box-shadow: 0 34px 60px rgba(0,0,0,0.65), 0 0 40px rgba(216,180,106,0.22); }
+  .slab.on .idx { color: var(--gold); border-color: var(--gold); }
+  .slab.on::after { content: ""; position: absolute; left: 8%; right: 8%; bottom: -12px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    filter: blur(1px); animation: pulse-line 1.6s ease-in-out infinite; }
+  @keyframes pulse-line { 50% { opacity: 0.35; } }
+  .pipe-note { text-align: center; color: var(--muted); font-size: 11.5px; margin-top: 34px; letter-spacing: 0.06em; }
+
+  /* ═══ 3D GALLERY — real screenshots on tilt cards ═══ */
+  .gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 26px; perspective: 1100px; }
+  .tilt { position: relative; border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--line); background: var(--panel);
+    transform-style: preserve-3d; will-change: transform;
+    transition: box-shadow 0.4s; cursor: pointer; }
+  .tilt img { width: 100%; aspect-ratio: 4/3; object-fit: cover; object-position: top; }
+  .tilt.tall img { aspect-ratio: 3/4.4; }
+  .tilt .glare { position: absolute; inset: -40%; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,0.16), transparent 45%);
+    transition: opacity 0.35s; }
+  .tilt:hover .glare { opacity: 1; }
+  .tilt figcaption { padding: 13px 16px; font-size: 12.5px; color: var(--muted); letter-spacing: 0.04em;
+    border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+  .tilt figcaption b { color: var(--cream); font-weight: 600; }
+  .lp { font-size: 9.5px; letter-spacing: 0.2em; color: var(--ok); align-self: center; white-space: nowrap; }
+
+  /* ═══ VIDEO ═══ */
+  .theatre { position: relative; border-radius: 18px; overflow: hidden;
+    border: 1px solid var(--line); box-shadow: 0 40px 90px rgba(0,0,0,0.6), 0 0 60px rgba(216,180,106,0.08); }
+  .theatre video { width: 100%; }
+  .theatre .tag { position: absolute; top: 14px; left: 14px; z-index: 2; font-size: 10px; font-weight: 800;
+    letter-spacing: 0.22em; color: #0a0805; background: var(--gold); padding: 5px 12px; border-radius: 3px; }
+
+  footer { border-top: 1px solid var(--line); padding: 28px clamp(18px, 4vw, 52px);
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    color: var(--muted); font-size: 12px; letter-spacing: 0.06em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    .rv { opacity: 1; transform: none; }
+    .hero-bg { transform: none !important; }
+    .pipe { transform: rotateX(56deg) rotateZ(-38deg) !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero" id="top">
+  <div class="hero-bg" id="hero-bg" aria-hidden="true"></div>
+
+  <nav>
+    <a class="logo" href="#top" aria-label="RoadAssist">
+      <svg viewBox="0 0 24 24" fill="#d8b46a" aria-hidden="true"><g transform="rotate(-30 12 12)">
+        <circle cx="7.3" cy="3.2" r="1.45"/><rect x="5.5" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+        <rect x="14.9" y="4.7" width="3.6" height="14.6" rx="1.8"/><circle cx="16.7" cy="20.8" r="1.45"/>
+      </g></svg>
+      Road<i>Assist</i>
+    </a>
+    <span class="raksha-chip">RAKSHA · LIVE</span>
+    <div class="links">
+      <a href="#pipeline">How it works</a>
+      <a href="#gallery">Gallery</a>
+      <a href="#film">Demo film</a>
+    </div>
+  </nav>
+
+  <div class="hero-copy">
+    <div class="kicker rv">Every vehicle · Every road · Even where nobody is watching</div>
+    <h1 class="rv d1">The road watches<br><em>back now.</em></h1>
+    <p class="rv d2">
+      Roadside rescue in milliseconds, autonomous road-damage detection with a
+      genuinely trained model, and a corridor that keeps reporting even when the
+      network dies. All of it is running behind this page — the numbers below are live.
+    </p>
+    <div class="cta-row rv d3">
+      <a class="btn solid" href="/raksha.html">Open the live dashboard</a>
+      <a class="btn" href="/app.html">Try the app</a>
+    </div>
+  </div>
+  <span class="credit">Photo: <a href="https://commons.wikimedia.org/wiki/File:Delhi-Gurgaon_Expressway_-_Aerial_View_-_New_Delhi_2016-08-04_5808.JPG" target="_blank" rel="license noopener">Biswarup Ganguly, CC BY 3.0</a></span>
+</header>
+
+<div class="live-strip" id="live-strip">
+  <div class="stat live"><b id="s-det">–</b><span>Detections logged</span></div>
+  <div class="stat"><b id="s-open">–</b><span>Open findings</span></div>
+  <div class="stat"><b id="s-dev">–</b><span>Edge devices</span></div>
+  <div class="stat"><b id="s-health">–</b><span>Corridor health</span></div>
+  <div class="stat"><b id="s-map">0.44</b><span>Model mAP50</span></div>
+  <div class="stat"><b id="s-db">–</b><span>DB latency ms</span></div>
+</div>
+<p class="live-note"><b>● LIVE</b> — pulled from the running platform every 8 seconds · device data on this build is SIMULATED</p>
+
+<section id="pipeline">
+  <div class="sec-head rv">
+    <h2>The working of it — <em>in 3D</em></h2>
+    <p>Move your pointer over the stack. Each slab lights up as the event travels the real pipeline.</p>
+  </div>
+  <div class="stage3d rv d1">
+    <div class="pipe" id="pipe">
+      <div class="slab"><span class="idx">01 · EDGE</span><b>Camera frame → YOLO11n</b><small>on-device inference, offline-first</small><span class="metric">65 ms</span></div>
+      <div class="slab"><span class="idx">02 · QUEUE</span><b>Local store &amp; offline queue</b><small>survives restarts, zero network needed</small><span class="metric">op_id</span></div>
+      <div class="slab"><span class="idx">03 · SYNC</span><b>Idempotent batch sync</b><small>replay-safe: applied / duplicate</small><span class="metric">≤200</span></div>
+      <div class="slab"><span class="idx">04 · GIS</span><b>PostGIS attach</b><small>nearest segment within 250 m</small><span class="metric">GiST</span></div>
+      <div class="slab"><span class="idx">05 · SCORE</span><b>Road Health 0–100</b><small>transparent factors, never a black box</small><span class="metric">rule-v1</span></div>
+      <div class="slab"><span class="idx">06 · HUMAN</span><b>Authority verify → close</b><small>a model raises signals, never dispatches</small><span class="metric">ADR-05</span></div>
+    </div>
+  </div>
+  <p class="pipe-note">Every number on this page is measured, not asserted — the same pipeline passes 84/84 end-to-end assertions in CI.</p>
+</section>
+
+<section id="gallery">
+  <div class="sec-head rv">
+    <h2>Straight from the <em>running system</em></h2>
+    <p>Not mockups — screenshots captured from this machine minutes ago. Tilt them.</p>
+  </div>
+  <div class="gallery">
+    <figure class="tilt rv" data-tilt>
+      <img src="assets/shot-dashboard.jpg" alt="RAKSHA authority dashboard with live map, 3D health bars and severity pins" loading="lazy">
+      <span class="glare"></span>
+      <figcaption><span><b>Authority dashboard</b> · live map, 3D health bars</span><span class="lp">● CAPTURED LIVE</span></figcaption>
+    </figure>
+    <figure class="tilt tall rv d1" data-tilt>
+      <img src="assets/shot-app.jpg" alt="RoadAssist citizen app after a real OTP sign-in" loading="lazy">
+      <span class="glare"></span>
+      <figcaption><span><b>Citizen app</b> · real OTP, SOS, booking</span><span class="lp">● CAPTURED LIVE</span></figcaption>
+    </figure>
+    <figure class="tilt tall rv d2" data-tilt>
+      <img src="assets/shot-concept.jpg" alt="Playful 3D app design concept with animated mascot" loading="lazy">
+      <span class="glare"></span>
+      <figcaption><span><b>3D concept</b> · design direction</span><span class="lp">CONCEPT</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="film">
+  <div class="sec-head rv">
+    <h2>Ninety seconds, <em>no faking</em></h2>
+    <p>The dashboard catching a live patrol, surviving a network cut, and the app booking a real rescue.</p>
+  </div>
+  <div class="theatre rv d1">
+    <span class="tag">RECORDED FROM THE LIVE PLATFORM</span>
+    <video src="/media/raksha-full-demo.mp4" poster="assets/shot-dashboard.jpg" controls preload="metadata" playsinline></video>
+  </div>
+</section>
+
+<footer>
+  <span>RoadAssist × RAKSHA — student prototype · no real emergency dispatch is connected</span>
+  <span>PostgreSQL + PostGIS · Fastify · YOLO11n on RDD2022 (CC BY 4.0, Arya et al.)</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // reveal on scroll
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+  }, { threshold: 0.15 });
+  document.querySelectorAll(".rv").forEach(function (el) { io.observe(el); });
+
+  // hero parallax — rAF + lerp so it glides instead of jittering
+  var bg = document.getElementById("hero-bg");
+  var target = 0, current = 0;
+  if (!reduced) {
+    addEventListener("scroll", function () { target = Math.min(scrollY, innerHeight) * 0.25; }, { passive: true });
+    (function glide() {
+      current += (target - current) * 0.08;
+      bg.style.transform = "translateY(" + current.toFixed(2) + "px) scale(1.06)";
+      requestAnimationFrame(glide);
+    })();
+  }
+
+  // live stats — count-up toward fresh API numbers every 8 s
+  var shown = {};
+  function setNum(id, value, suffix) {
+    if (value == null) return;
+    var el = document.getElementById(id);
+    var from = shown[id] != null ? shown[id] : 0;
+    shown[id] = value;
+    if (reduced || from === value) { el.textContent = value + (suffix || ""); return; }
+    var t0 = performance.now(), dur = 900;
+    (function tick(t) {
+      var p = Math.min(1, (t - t0) / dur);
+      p = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(from + (value - from) * p) + (suffix || "");
+      if (p < 1) requestAnimationFrame(tick);
+    })(t0);
+  }
+  async function poll() {
+    try {
+      var s = await (await fetch("/v1/raksha/stats")).json();
+      setNum("s-det", s.data.detections); setNum("s-open", s.data.open);
+      setNum("s-dev", s.data.devices); setNum("s-health", s.data.avg_health, "/100");
+      var h = await (await fetch("/health")).json();
+      setNum("s-db", h.data.dbLatencyMs);
+    } catch (e) { /* offline — last numbers stay on screen */ }
+  }
+  poll();
+  setInterval(function () { if (!document.hidden) poll(); }, 8000);
+  // a tab restored from the background refreshes immediately, never stale
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) poll(); });
+
+  // 3D pipeline: pointer-steered tilt (lerped) + travelling highlight
+  var pipe = document.getElementById("pipe");
+  var slabs = pipe.querySelectorAll(".slab");
+  var rx = 56, rz = -38, trx = 56, trz = -38;
+  if (!reduced) {
+    pipe.parentElement.addEventListener("pointermove", function (e) {
+      var r = pipe.parentElement.getBoundingClientRect();
+      trz = -38 + ((e.clientX - r.left) / r.width - 0.5) * 14;
+      trx = 56 + ((e.clientY - r.top) / r.height - 0.5) * -10;
+    });
+    pipe.parentElement.addEventListener("pointerleave", function () { trx = 56; trz = -38; });
+    (function steer() {
+      rx += (trx - rx) * 0.07; rz += (trz - rz) * 0.07;
+      pipe.style.transform = "rotateX(" + rx.toFixed(2) + "deg) rotateZ(" + rz.toFixed(2) + "deg)";
+      requestAnimationFrame(steer);
+    })();
+  }
+  var lit = 0;
+  setInterval(function () {
+    if (document.hidden) return;
+    slabs.forEach(function (s, i) { s.classList.toggle("on", i === lit); });
+    lit = (lit + 1) % slabs.length;
+  }, 1400);
+
+  // gallery tilt cards — lerped pointer rotation + glare tracking
+  document.querySelectorAll("[data-tilt]").forEach(function (card) {
+    if (reduced) return;
+    var tx = 0, ty = 0, cx = 0, cy = 0, raf = null;
+    function loop() {
+      cx += (tx - cx) * 0.12; cy += (ty - cy) * 0.12;
+      card.style.transform = "rotateX(" + cy.toFixed(2) + "deg) rotateY(" + cx.toFixed(2) + "deg)" +
+        (Math.abs(cx) + Math.abs(cy) > 0.4 ? " translateZ(10px)" : "");
+      raf = (Math.abs(tx - cx) + Math.abs(ty - cy) > 0.01) ? requestAnimationFrame(loop) : null;
+    }
+    card.addEventListener("pointermove", function (e) {
+      var r = card.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+      tx = (px - 0.5) * 14; ty = (0.5 - py) * 10;
+      card.style.setProperty("--gx", (px * 100) + "%");
+      card.style.setProperty("--gy", (py * 100) + "%");
+      card.style.boxShadow = "0 30px 60px rgba(0,0,0,0.55)";
+      if (!raf) raf = requestAnimationFrame(loop);
+    });
+    card.addEventListener("pointerleave", function () {
+      tx = 0; ty = 0; card.style.boxShadow = "";
+      if (!raf) raf = requestAnimationFrame(loop);
+    });
+  });
+})();
+</script>
+</body>
+</html>

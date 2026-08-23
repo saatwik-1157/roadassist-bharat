@@ -81,6 +81,13 @@ await app.register(fastifyStatic, {
   prefix: "/",
   index: ["index.html"],
 });
+// Demo media (videos, photos) live in the repo's site/ folder — served here so
+// the showcase page can embed them without duplicating megabytes into app/.
+await app.register(fastifyStatic, {
+  root: resolve(dirname(fileURLToPath(import.meta.url)), "../../../../site"),
+  prefix: "/media/",
+  decorateReply: false,
+});
 
 const ok = <T>(data: T, meta: Record<string, unknown> = {}) => ({ data, meta });
 
