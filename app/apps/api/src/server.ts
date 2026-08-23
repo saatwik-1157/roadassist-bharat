@@ -17,6 +17,7 @@ import {
 import { apply, allowedFrom, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
 import { rankMechanics } from "./domain/ai-rules.js";
 import { diagnoseWithFallback, maps, providerSummary, sms } from "./providers.js";
+import { rakshaRoutes } from "./raksha.js";
 
 assertProductionSafe();
 
@@ -855,6 +856,9 @@ app.get("/v1/mechanic/offers", { preHandler: [authenticate, requireRole("mechani
     .orderBy(desc(S.dispatchOffers.createdAt)).limit(20);
   return ok(rows);
 });
+
+// ══ RAKSHA — autonomous road monitoring (ADR-0007) ═════════════════════════
+await app.register(rakshaRoutes);
 
 // ══ boot ═══════════════════════════════════════════════════════════════════
 const close = async () => { await app.close(); await sql.end({ timeout: 5 }); process.exit(0); };

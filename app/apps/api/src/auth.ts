@@ -165,7 +165,12 @@ export async function otpAttemptsInWindow(db: Db, msisdn: string): Promise<numbe
     .select({ n: sql<number>`count(*)::int` })
     .from(S.otpChallenges)
     // gt() rather than a raw sql fragment: inside sql`` a JS Date is passed to the
-    // driver untyped and postgres-js rejects it.
-    .where(and(eq(S.otpChallenges.msisdn, msisdn), gt(S.otpChallenges.createdAt, since)));
+    // driver untyped and postgres-js rejects it. Consumed challenges don't count:
+    // a successful sign-in is not brute-force signal, only unredeemed codes are.
+    .where(and(
+      eq(S.otpChallenges.msisdn, msisdn),
+      gt(S.otpChallenges.createdAt, since),
+      isNull(S.otpChallenges.consumedAt),
+    ));
   return row?.n ?? 0;
 }
