@@ -59,15 +59,19 @@ async function main() {
       .from(roadSegments).where(eq(roadSegments.code, code)).limit(1);
     if (existing) continue;
 
-    const [seg] = await db.insert(roadSegments).values({
-      code, name, highwayRef: "NH-48", kmStart, kmEnd, lengthKm: kmEnd - kmStart,
-    }).returning({ id: roadSegments.id });
+    // Row and geometry commit together — a rerun can never see a pathless
+    // segment it refuses to repair.
+    await db.transaction(async (tx) => {
+      const [seg] = await tx.insert(roadSegments).values({
+        code, name, highwayRef: "NH-48", kmStart, kmEnd, lengthKm: kmEnd - kmStart,
+      }).returning({ id: roadSegments.id });
 
-    const wkt = `LINESTRING(${points.map(([lng, lat]) => `${lng} ${lat}`).join(", ")})`;
-    await db.execute(sql`
-      UPDATE road_segments
-         SET path = ST_SetSRID(ST_GeomFromText(${wkt}), 4326)
-       WHERE id = ${seg.id}`);
+      const wkt = `LINESTRING(${points.map(([lng, lat]) => `${lng} ${lat}`).join(", ")})`;
+      await tx.execute(sql`
+        UPDATE road_segments
+           SET path = ST_SetSRID(ST_GeomFromText(${wkt}), 4326)
+         WHERE id = ${seg.id}`);
+    });
     created++;
   }
   console.log(`✓ RAKSHA seed complete — demo admin ready, ${created} segment(s) created, ${SEGMENTS.length - created} already present`);

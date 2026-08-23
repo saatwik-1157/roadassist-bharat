@@ -228,6 +228,8 @@
   };
 
   // ── plumbing ──────────────────────────────────────────────────────────────
+  var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", """: "&quot;", "'": "&#39;" }[c]; }); };
   var toastTimer;
   function toast(m) {
     var el = document.getElementById("toast");
@@ -283,13 +285,15 @@
     try {
       var r = await api("POST", "/v1/sync/operations", { operations: ops }, { force: true });
       var applied = r.meta.applied, dup = ops.length - applied;
+      var failed = [];
       // journal recorded — now actually perform the queued calls (client-side applier)
       for (var i = 0; i < state.queue.length; i++) {
         var q = state.queue[i];
-        try { await api(q.method, q.path, q.body, { force: true }); } catch (e) { /* server rejected — drop */ }
+        try { await api(q.method, q.path, q.body, { force: true }); } catch (e) { failed.push(q.path + ": " + e.message); }
       }
       state.queue = []; saveQueue();
-      toast("Synced: " + applied + " journaled" + (dup ? ", " + dup + " already known" : "") + " — queue clear");
+      toast("Synced: " + applied + " journaled" + (dup ? ", " + dup + " already known" : "") + (failed.length ? " · " + failed.length + " rejected by the server" : " — queue clear"));
+      if (failed.length) console.warn("replay rejections:", failed);
     } catch (e) { toast("Sync failed: " + e.message); }
   }
 
@@ -392,8 +396,8 @@
       d.data.offers.forEach(function (o) {
         var c = document.createElement("div");
         c.className = "card offer";
-        c.innerHTML = "<span class='avatar'>" + o.mechanic.displayName[0] + "</span>" +
-          "<span><b>" + o.mechanic.displayName + "</b><br><small style='color:var(--muted)'>★ " +
+        c.innerHTML = "<span class='avatar'>" + esc(o.mechanic.displayName[0]) + "</span>" +
+          "<span><b>" + esc(o.mechanic.displayName) + "</b><br><small style='color:var(--muted)'>★ " +
           o.mechanic.rating + " · " + o.mechanic.distanceKm + " km · ETA " + o.etaMinutes + " min</small></span>";
         var b = document.createElement("button");
         b.textContent = "Accept";
@@ -423,7 +427,7 @@
   };
   function trackView(status, cmds, mech, eta) {
     var el = document.getElementById("t-body");
-    el.innerHTML = "<div class='card'><h3>" + (mech || "Booking") + "</h3>" +
+    el.innerHTML = "<div class='card'><h3>" + esc(mech || "Booking") + "</h3>" +
       (eta ? "<p class='meta'>ETA " + eta + " minutes</p>" : "") +
       "<span class='status-pill'>" + status + "</span>" +
       "<div class='cmds' id='t-cmds'></div><div id='t-invoice'></div></div>";

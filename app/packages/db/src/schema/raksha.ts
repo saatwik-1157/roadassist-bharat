@@ -79,7 +79,11 @@ export const rakshaDetections = pgTable("raksha_detections", {
   ...base,
   deviceId: uuid("device_id").notNull().references(() => edgeDevices.id),
   segmentId: uuid("segment_id").references(() => roadSegments.id),
-  /** Device-generated idempotency key — replaying a queued batch is a no-op. */
+  /**
+   * Device-generated idempotency key — replaying a queued batch is a no-op.
+   * Scoped per device: one device's op ids can never collide with (or censor)
+   * another's, so uniqueness is on (device_id, op_id), never op_id alone.
+   */
   opId: varchar("op_id", { length: 64 }).notNull(),
   detectionType: rakshaDetectionTypeEnum("detection_type").notNull(),
   confidence: doublePrecision("confidence").notNull(),
@@ -98,7 +102,7 @@ export const rakshaDetections = pgTable("raksha_detections", {
   notes: text("notes"),
   raw: jsonb("raw"),
 }, (t) => ({
-  opUq: uniqueIndex("raksha_detections_op_uq").on(t.opId),
+  opUq: uniqueIndex("raksha_detections_op_uq").on(t.deviceId, t.opId),
   deviceIdx: index("raksha_detections_device_idx").on(t.deviceId, t.createdAt),
   statusIdx: index("raksha_detections_status_idx").on(t.status),
   segmentIdx: index("raksha_detections_segment_idx").on(t.segmentId),

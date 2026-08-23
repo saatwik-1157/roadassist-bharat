@@ -10,7 +10,7 @@ offline replay and the emergency path — against real PostgreSQL + PostGIS.
 ```bash
 npm run infra:up && npm run db:migrate && npm run db:seed   # once
 npm start                                                   # → http://localhost:4000
-npm run verify && npm run test:e2e                          # 9 unit + 82 end-to-end
+npm run verify && npm run test:e2e                          # 9 unit + 84 end-to-end
 ```
 
 ---
@@ -42,7 +42,7 @@ node scripts/raksha-simulator.mjs       # offline patrol → sync → replay (id
 ```
 
 **Measured, not asserted:** nearest-mechanic dispatch at 19.8 ms · emergency
-escalation at ~30 ms · 82 end-to-end assertions covering illegal transitions,
+escalation at ~30 ms · 84 end-to-end assertions covering illegal transitions,
 idempotent replay, refresh-token theft detection and cross-tenant isolation.
 
 ---

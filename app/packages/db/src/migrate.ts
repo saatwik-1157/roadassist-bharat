@@ -69,33 +69,22 @@ async function main() {
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS road_segments_path_gix
       ON road_segments USING GIST (path)`);
-  await db.execute(sql`
-    ALTER TABLE raksha_detections DROP CONSTRAINT IF EXISTS raksha_severity_range`);
-  await db.execute(sql`
-    ALTER TABLE raksha_detections ADD CONSTRAINT raksha_severity_range
-      CHECK (severity BETWEEN 1 AND 5)`);
-  await db.execute(sql`
-    ALTER TABLE raksha_detections DROP CONSTRAINT IF EXISTS raksha_confidence_range`);
-  await db.execute(sql`
-    ALTER TABLE raksha_detections ADD CONSTRAINT raksha_confidence_range
-      CHECK (confidence >= 0 AND confidence <= 1)`);
-  await db.execute(sql`
-    ALTER TABLE road_health_scores DROP CONSTRAINT IF EXISTS road_health_score_range`);
-  await db.execute(sql`
-    ALTER TABLE road_health_scores ADD CONSTRAINT road_health_score_range
-      CHECK (score BETWEEN 0 AND 100)`);
-
-  // Ratings must be 1..5 — a CHECK the ORM does not generate.
-  await db.execute(sql`
-    ALTER TABLE reviews DROP CONSTRAINT IF EXISTS reviews_rating_range`);
-  await db.execute(sql`
-    ALTER TABLE reviews ADD CONSTRAINT reviews_rating_range
-      CHECK (rating BETWEEN 1 AND 5)`);
-  // Money is never negative.
-  await db.execute(sql`
-    ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_total_nonneg`);
-  await db.execute(sql`
-    ALTER TABLE invoices ADD CONSTRAINT invoices_total_nonneg CHECK (total_paise >= 0)`);
+  // Each DROP+ADD pair travels as ONE multi-statement command (implicit
+  // transaction), so a mid-run failure can never leave a range check missing.
+  const checkPairs: Array<[string, string, string]> = [
+    ["raksha_detections", "raksha_severity_range", "CHECK (severity BETWEEN 1 AND 5)"],
+    ["raksha_detections", "raksha_confidence_range", "CHECK (confidence >= 0 AND confidence <= 1)"],
+    ["road_health_scores", "road_health_score_range", "CHECK (score BETWEEN 0 AND 100)"],
+    // Ratings must be 1..5 and money is never negative — CHECKs the ORM does not generate.
+    ["reviews", "reviews_rating_range", "CHECK (rating BETWEEN 1 AND 5)"],
+    ["invoices", "invoices_total_nonneg", "CHECK (total_paise >= 0)"],
+  ];
+  for (const [table, name, check] of checkPairs) {
+    await raw.unsafe(
+      `ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${name};
+       ALTER TABLE ${table} ADD CONSTRAINT ${name} ${check};`,
+    );
+  }
   // The audit log is append-only from the application's point of view.
   await db.execute(sql`
     CREATE OR REPLACE RULE audit_log_no_update AS
