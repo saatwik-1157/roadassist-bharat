@@ -114,8 +114,8 @@ more epochs, GPU, and an Apache-2.0 model scored alongside.
 
 End-to-end proof: detect.py output (34 detections over 40 val images at
 conf ≥0.30) was ingested through the live platform via
- — 34 applied, replay returned 34
+`raksha-simulator.mjs --from-json` — 34 applied, replay returned 34
 duplicates (idempotent), all 34 auto-attached to NH-48 segments, road health
-recomputed. Detections carry  and the real model
+recomputed. Detections carry `usedFallback=false` and the real model
 version; their GPS locations are SIMULATED (RDD2022 images carry no geodata)
 and labeled as such.
