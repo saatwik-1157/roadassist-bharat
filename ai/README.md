@@ -58,3 +58,15 @@ run and recorded in `docs/raksha/05-dataset-license-verification.md` addendum
 after each accepted run; latency and model size come from `detect.py` output
 and the weights file. The severity number is a documented box-area heuristic —
 an engineering assumption, not a safety standard.
+
+## Edge runtime (ONNX)
+
+```bash
+../.venv/Scripts/yolo export model=../runs/runs/smoke/weights/best.pt format=onnx imgsz=480 dynamic=True
+../.venv/Scripts/python detect.py --weights ../runs/runs/smoke/weights/best.onnx --source <images> --imgsz 480
+```
+
+Measured on this machine (CPU): `best.onnx` 10.2 MB (dynamic batch),
+72.5 ms/image average through ONNX Runtime — the documented runtime for
+Pi-class hardware. `detect.py` loads `.pt` and `.onnx` transparently and keeps
+stdout pure JSON (library chatter is redirected to stderr).

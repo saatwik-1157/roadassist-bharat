@@ -17,10 +17,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
+import sys
 from pathlib import Path
 
 from ultralytics import YOLO
+from ultralytics.utils import LOGGER
 
 TYPES = {0: "pothole", 1: "road_damage"}
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -60,12 +64,21 @@ def main() -> None:
     if not images:
         raise SystemExit(f"no images at {src}")
 
-    model = YOLO(args.weights)
+    # stdout is a JSON contract: capture every stray library print (the ONNX
+    # backend announces itself on stdout) and keep the log level quiet.
+    LOGGER.setLevel("ERROR")
+    chatter = io.StringIO()
+    with contextlib.redirect_stdout(chatter):
+        model = YOLO(args.weights, task="detect")
+        predictions = model.predict([str(p) for p in images], imgsz=args.imgsz,
+                                    conf=args.min_conf, verbose=False)
+    if chatter.getvalue().strip():
+        print(chatter.getvalue().strip(), file=sys.stderr)
+
     model_version = f"yolo-rdd2022in-{Path(args.weights).stem}"
 
     out = []
-    for r in model.predict([str(p) for p in images], imgsz=args.imgsz,
-                           conf=args.min_conf, verbose=False):
+    for r in predictions:
         h, w = r.orig_shape
         frame = float(w * h)
         dets = []
