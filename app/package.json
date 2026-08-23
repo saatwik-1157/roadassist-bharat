@@ -25,7 +25,8 @@
     "db:reset": "npm run reset -w @roadassist/db",
     "dev": "npm run dev -w @roadassist/api",
     "start": "npm run start -w @roadassist/api",
-    "test:e2e": "node scripts/e2e-journey.mjs"
+    "test:e2e": "node scripts/e2e-journey.mjs",
+    "test:gateway": "node scripts/gateway-security-test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
