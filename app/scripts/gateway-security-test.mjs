@@ -24,7 +24,8 @@ const DATABASE_URL = process.env.DATABASE_URL ?? "postgres://roadassist:devpassw
 let pass = 0, fail = 0;
 const ok = (label, cond, detail = "") => {
   console.log(`  ${cond ? "✓" : "✗"} ${label}${detail ? "  " + detail : ""}`);
-  cond ? pass++ : fail++;
+  if (cond) pass++;
+  else fail++;
 };
 
 // The per-IP test needs a deterministic starting count. OTP challenges are
