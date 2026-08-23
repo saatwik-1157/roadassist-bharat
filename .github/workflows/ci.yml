@@ -1,5 +1,9 @@
 name: CI
 
+# GitHub Actions only reads workflows from the repository root — this file
+# moved here from app/.github/workflows/ (where it could never trigger).
+# The npm workspace lives in app/, hence the working-directory defaults.
+
 on:
   pull_request:
   push:
@@ -8,6 +12,10 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: app
 
 jobs:
   verify:
@@ -35,6 +43,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          cache-dependency-path: app/package-lock.json
 
       - name: Install
         run: npm ci --no-audit --no-fund
@@ -67,7 +76,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
       - run: npm ci --no-audit --no-fund
       - name: No cross-module imports outside the contract
         run: node scripts/check-boundaries.mjs
