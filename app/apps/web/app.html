@@ -228,8 +228,8 @@
   };
 
   // ── plumbing ──────────────────────────────────────────────────────────────
-  var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
-    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", """: "&quot;", "'": "&#39;" }[c]; }); };
+  var ESC_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; }); };
   var toastTimer;
   function toast(m) {
     var el = document.getElementById("toast");

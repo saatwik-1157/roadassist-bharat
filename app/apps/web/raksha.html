@@ -13,45 +13,109 @@
     --bg: #0a0a0a; --panel: #111110; --panel-2: #171511;
     --gold: #d8b46a; --cream: #f5f1e8; --muted: #8f8878;
     --line: rgba(216,180,106,0.22);
-    --green: #59b374; --yellow: #e3c451; --orange: #e08a3c; --red: #e4574a;
+    /* live severity / health palette — this project's own scale */
+    --ok: #3ddc97; --warn: #ffd166; --bad: #ff9f43; --crit: #ff4d5a;
+    --ok-glow: rgba(61,220,151,0.45); --warn-glow: rgba(255,209,102,0.45);
+    --bad-glow: rgba(255,159,67,0.5); --crit-glow: rgba(255,77,90,0.55);
   }
   html, body { height: 100%; background: var(--bg); color: var(--cream);
     font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; }
   body { display: flex; flex-direction: column; }
+  button { font-family: inherit; cursor: pointer; }
 
-  header { display: flex; align-items: center; gap: 14px; padding: 12px 18px;
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 18px;
     border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
   header b { font-size: 16px; letter-spacing: 0.06em; }
   header b i { font-style: normal; color: var(--gold); }
   .sim-banner { font-size: 11px; letter-spacing: 0.18em; color: #0a0805;
     background: var(--gold); padding: 4px 10px; border-radius: 3px; font-weight: 700; }
+  .live {
+    display: none; align-items: center; gap: 7px;
+    font-size: 10.5px; letter-spacing: 0.22em; font-weight: 800; color: var(--crit);
+  }
+  .live.on { display: inline-flex; }
+  .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--crit); box-shadow: 0 0 10px var(--crit-glow); animation: blink 1.4s infinite; }
+  .live.offline { color: var(--bad); }
+  .live.offline::before { background: var(--bad); box-shadow: 0 0 10px var(--bad-glow); }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
   header .who { margin-left: auto; color: var(--muted); font-size: 12.5px; }
 
-  .layout { flex: 1; display: grid; grid-template-columns: 380px 1fr; min-height: 0; }
+  /* live stat chips — extruded 3D look */
+  .chips { display: none; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .chips.on { display: flex; flex-wrap: wrap; }
+  .chip3d {
+    flex: 1; min-width: 110px; padding: 12px 14px 10px; border-radius: 12px;
+    background: linear-gradient(160deg, #1e1a14, #121009 65%);
+    border: 1px solid var(--line);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.5);
+    transform: perspective(500px) rotateX(4deg);
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s;
+  }
+  .chip3d:hover { transform: perspective(500px) rotateX(0) translateY(-3px); }
+  .chip3d .n { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+  .chip3d .l { font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+  .chip3d.c-open .n { color: var(--warn); text-shadow: 0 0 18px var(--warn-glow); }
+  .chip3d.c-crit .n { color: var(--crit); text-shadow: 0 0 18px var(--crit-glow); }
+  .chip3d.c-dev .n { color: var(--ok); text-shadow: 0 0 18px var(--ok-glow); }
+  .chip3d.c-score .n { color: var(--gold); text-shadow: 0 0 18px rgba(216,180,106,0.4); }
+
+  .layout { flex: 1; display: grid; grid-template-columns: 400px 1fr; min-height: 0; }
   @media (max-width: 900px) { .layout { grid-template-columns: 1fr; grid-template-rows: 45vh 1fr; } }
 
   aside { border-right: 1px solid var(--line); overflow-y: auto; background: var(--panel); }
   #map { min-height: 300px; }
-  .leaflet-container { background: #1a1a1a; }
+  .leaflet-container { background: #141414; }
+  .leaflet-popup-content-wrapper { background: #171511; color: var(--cream); border: 1px solid var(--line); border-radius: 8px; }
+  .leaflet-popup-tip { background: #171511; }
 
   section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
   h2 { font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
 
   .login input { width: 100%; padding: 10px; background: var(--panel-2); color: var(--cream);
     border: 1px solid var(--line); margin-bottom: 8px; font-family: inherit; }
-  button { font-family: inherit; cursor: pointer; }
   .btn { width: 100%; padding: 10px; background: var(--gold); border: 0; color: #0a0805;
     font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 11.5px; }
   .btn-line { background: transparent; border: 1px solid var(--line); color: var(--muted); }
   .hint { color: var(--muted); font-size: 11.5px; margin-top: 6px; line-height: 1.5; }
+
+  /* 3D corridor health bars */
+  .bars {
+    display: flex; align-items: flex-end; gap: 18px;
+    height: 130px; padding: 8px 6px 0;
+    perspective: 600px;
+  }
+  .barwrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+  .bar {
+    width: 100%; max-width: 54px; position: relative;
+    transform-style: preserve-3d; transform: rotateX(-12deg);
+    transition: height 0.9s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s;
+    border-radius: 4px 4px 0 0;
+  }
+  .barwrap:hover .bar { transform: rotateX(-12deg) translateY(-4px); }
+  .bar .face { position: absolute; inset: 0; border-radius: 4px 4px 0 0; }
+  .bar .top {
+    position: absolute; left: 0; right: 0; top: -7px; height: 14px;
+    border-radius: 50%; filter: brightness(1.45);
+  }
+  .bar .score {
+    position: absolute; left: 50%; top: -26px; transform: translateX(-50%);
+    font-size: 12.5px; font-weight: 800;
+  }
+  .barwrap small { font-size: 9px; letter-spacing: 0.06em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
   .seg { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(216,180,106,0.12); }
   .seg:last-child { border-bottom: 0; }
   .chip { min-width: 44px; text-align: center; padding: 4px 6px; border-radius: 3px; font-weight: 700; color: #0a0805; font-size: 12.5px; }
   .seg small { color: var(--muted); display: block; font-size: 11px; }
 
-  .det { padding: 10px 0; border-bottom: 1px dashed rgba(216,180,106,0.12); }
+  .det { padding: 10px 0; border-bottom: 1px dashed rgba(216,180,106,0.12); border-radius: 6px; }
   .det:last-child { border-bottom: 0; }
+  .det.flash { animation: flash 2.4s ease-out; }
+  @keyframes flash {
+    0% { background: rgba(255,77,90,0.28); box-shadow: 0 0 24px var(--crit-glow); }
+    100% { background: transparent; box-shadow: none; }
+  }
   .det .row1 { display: flex; align-items: center; gap: 8px; }
   .tag { font-size: 10.5px; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 3px; color: #0a0805; font-weight: 700; text-transform: uppercase; }
   .det .meta { color: var(--muted); font-size: 11.5px; margin-top: 4px; line-height: 1.5; }
@@ -63,22 +127,56 @@
 
   .dev { padding: 7px 0; font-size: 12.5px; border-bottom: 1px dashed rgba(216,180,106,0.12); }
   .dev small { color: var(--muted); display: block; font-size: 11px; }
-  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot.on { box-shadow: 0 0 10px currentColor; animation: blink 2.2s infinite; }
 
-  .legend { position: absolute; bottom: 18px; right: 12px; z-index: 1000; background: rgba(10,10,10,0.88);
-    border: 1px solid var(--line); padding: 10px 12px; font-size: 11px; line-height: 1.8; }
+  /* 3D map pins — CSS spheres with severity glow, drop-in + pulse */
+  .pin { position: relative; display: block; width: 100%; height: 100%; }
+  .pin .ball {
+    position: absolute; inset: 0; border-radius: 50%;
+    box-shadow: inset -3px -4px 6px rgba(0,0,0,0.45), inset 2px 3px 5px rgba(255,255,255,0.5),
+                0 4px 12px rgba(0,0,0,0.6), 0 0 14px var(--pg, transparent);
+    background: radial-gradient(circle at 32% 28%, #ffffff 0%, var(--pc, #888) 42%, color-mix(in srgb, var(--pc, #888) 55%, #000) 100%);
+  }
+  .pin.fresh .ball { animation: drop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  @keyframes drop { 0% { transform: translateY(-26px) scale(0.4); opacity: 0; } 100% { transform: none; opacity: 1; } }
+  .pin.pulse::after {
+    content: ""; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid var(--pc, #f00);
+    animation: ring 1.8s ease-out infinite;
+  }
+  @keyframes ring { 0% { transform: scale(0.7); opacity: 0.9; } 100% { transform: scale(2.1); opacity: 0; } }
+
+  .dev-pin .ball { background: radial-gradient(circle at 32% 28%, #fff 0%, #d8b46a 45%, #7a5c22 100%); }
+
+  .legend { position: absolute; bottom: 18px; right: 12px; z-index: 1000; background: rgba(10,10,10,0.9);
+    border: 1px solid var(--line); padding: 10px 12px; font-size: 11px; line-height: 1.9; border-radius: 8px; }
   .legend .disclaimer { color: var(--muted); max-width: 200px; line-height: 1.4; margin-top: 6px; font-size: 10px; }
+  .lg { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: -1px;
+    box-shadow: inset -2px -2px 3px rgba(0,0,0,0.4), 0 0 8px currentColor; }
   .toolbar { display: flex; gap: 8px; }
   .toolbar select { flex: 1; padding: 8px; background: var(--panel-2); color: var(--cream); border: 1px solid var(--line); font-family: inherit; }
   #status { color: var(--muted); font-size: 11.5px; padding: 8px 16px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
 <header>
   <b>RAKSHA <i>· Authority Dashboard</i></b>
   <span class="sim-banner">SIMULATED DATA</span>
+  <span class="live" id="live">LIVE · 10s</span>
   <span class="who" id="who">not signed in</span>
 </header>
+
+<div class="chips" id="chips">
+  <div class="chip3d c-open"><div class="n" id="n-open">–</div><div class="l">Open detections</div></div>
+  <div class="chip3d c-crit"><div class="n" id="n-crit">–</div><div class="l">Severity 4–5</div></div>
+  <div class="chip3d c-dev"><div class="n" id="n-dev">–</div><div class="l">Devices online</div></div>
+  <div class="chip3d c-score"><div class="n" id="n-score">–</div><div class="l">Corridor avg</div></div>
+</div>
 
 <div class="layout">
   <aside>
@@ -86,19 +184,29 @@
       <h2>Sign in (authority)</h2>
       <input id="msisdn" value="+919999900001" aria-label="Mobile number">
       <button class="btn" id="login-btn">Send OTP &amp; sign in</button>
+      <button class="btn btn-line" id="cached-btn" style="margin-top:8px" hidden>View cached snapshot (offline)</button>
       <p class="hint">Development build: the OTP is auto-filled from the API response (dev OTP). The demo admin
         +919999900001 is created by <code>npm run db:seed:raksha</code>.</p>
     </section>
 
+    <section hidden id="export-panel">
+      <h2>Offline snapshot</h2>
+      <button class="btn btn-line" id="dl-geojson">Download GeoJSON (map data)</button>
+      <button class="btn btn-line" id="dl-csv" style="margin-top:8px">Download CSV (detections)</button>
+      <p class="hint" id="cache-note">Every successful refresh is cached on this device, so the corridor keeps
+        showing — and stays downloadable — even with zero connectivity.</p>
+    </section>
+
     <section hidden id="health-panel">
       <h2>Road health — NH-48 corridor</h2>
-      <div id="segments"></div>
+      <div class="bars" id="bars"></div>
+      <div id="segments" style="margin-top:10px"></div>
       <button class="btn btn-line" id="recompute" style="margin-top:10px">Recompute scores</button>
       <p class="hint">Rule-based score v1 with a visible factor breakdown. Not an official safety standard.</p>
     </section>
 
     <section hidden id="det-panel">
-      <h2>Detections</h2>
+      <h2>Detections <span id="new-note" style="color:var(--crit)"></span></h2>
       <div class="toolbar">
         <select id="f-status" aria-label="Filter status">
           <option value="">All statuses</option>
@@ -123,10 +231,10 @@
   <div style="position:relative">
     <div id="map"></div>
     <div class="legend">
-      <div><span class="dot" style="background:var(--green)"></span>Low severity / good</div>
-      <div><span class="dot" style="background:var(--yellow)"></span>Medium / fair</div>
-      <div><span class="dot" style="background:var(--orange)"></span>High / poor</div>
-      <div><span class="dot" style="background:var(--red)"></span>Critical</div>
+      <div><span class="lg" style="color:var(--ok);background:var(--ok)"></span>Low severity / good</div>
+      <div><span class="lg" style="color:var(--warn);background:var(--warn)"></span>Medium / fair</div>
+      <div><span class="lg" style="color:var(--bad);background:var(--bad)"></span>High / poor</div>
+      <div><span class="lg" style="color:var(--crit);background:var(--crit)"></span>Critical (pulsing = needs review)</div>
       <div class="disclaimer">Colors are this project's own scale — not an official government classification.</div>
     </div>
   </div>
@@ -139,16 +247,57 @@
 (function () {
   "use strict";
   var API = location.origin;
+
   // Every server-derived string is escaped before touching innerHTML/popups —
   // device firmware controls model_version, registrants control names.
-  var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
-    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", """: "&quot;", "'": "&#39;" }[c]; }); };
+  var ESC_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  var esc = function (v) {
+    return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; });
+  };
+
   var token = null;
   var map, detLayer, segLayer, devLayer;
+  var seenIds = null;          // detection ids already shown (null = first load)
+  var liveTimer = null;
+  var REFRESH_MS = 10000;
+  var offline = false;         // true when the last fetch fell back to cache
 
-  var SEV = { 1: "var(--green)", 2: "var(--green)", 3: "var(--yellow)", 4: "var(--orange)", 5: "var(--red)" };
-  var SEVHEX = { 1: "#59b374", 2: "#59b374", 3: "#e3c451", 4: "#e08a3c", 5: "#e4574a" };
-  var LEVEL = { good: "#59b374", fair: "#e3c451", poor: "#e08a3c", critical: "#e4574a" };
+  // ── offline cache: every good response is stored, so the corridor keeps
+  //    showing (and stays downloadable) when connectivity disappears ──────
+  var CACHE = { seg: "raksha.cache.segments", det: "raksha.cache.detections", dev: "raksha.cache.devices" };
+  function cachePut(key, data) {
+    try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data: data })); } catch (e) { /* storage full — live view unaffected */ }
+  }
+  function cacheGet(key) {
+    try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+  function cacheTime() {
+    var c = cacheGet(CACHE.det) || cacheGet(CACHE.seg);
+    return c ? new Date(c.t).toLocaleString() : null;
+  }
+  /** Fetch fresh and cache it; on network failure serve the cached copy. */
+  async function getData(path, cacheKey) {
+    try {
+      var r = await call("GET", path);
+      offline = false;
+      cachePut(cacheKey, r.data);
+      return r.data;
+    } catch (e) {
+      var c = cacheGet(cacheKey);
+      if (c) { offline = true; return c.data; }
+      throw e;
+    }
+  }
+  function download(filename, text, mime) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+    a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  var SEVHEX = { 1: "#3ddc97", 2: "#3ddc97", 3: "#ffd166", 4: "#ff9f43", 5: "#ff4d5a" };
+  var LEVEL = { good: "#3ddc97", fair: "#ffd166", poor: "#ff9f43", critical: "#ff4d5a" };
 
   var status = function (m) { document.getElementById("status").textContent = m; };
 
@@ -175,21 +324,54 @@
     devLayer = L.layerGroup().addTo(map);
   }
 
+  /** 3D-styled sphere pin. pulse = open + severe; fresh = drop-in animation. */
+  function pinIcon(color, glow, opts) {
+    var cls = "pin" + (opts.pulse ? " pulse" : "") + (opts.fresh ? " fresh" : "") + (opts.dev ? " dev-pin" : "");
+    return L.divIcon({
+      className: "",
+      html: '<span class="' + cls + '" style="--pc:' + color + ';--pg:' + glow + '"><span class="ball"></span></span>',
+      iconSize: opts.size || [18, 18],
+      iconAnchor: [(opts.size || [18, 18])[0] / 2, (opts.size || [18, 18])[1] / 2],
+    });
+  }
+
   async function loadSegments() {
-    var r = await call("GET", "/v1/raksha/segments");
+    var r = { data: await getData("/v1/raksha/segments", CACHE.seg) };
     segLayer.clearLayers();
     var listEl = document.getElementById("segments");
-    listEl.innerHTML = "";
+    var barsEl = document.getElementById("bars");
+    listEl.innerHTML = ""; barsEl.innerHTML = "";
+    var scores = [];
+
     r.data.forEach(function (s) {
       var color = s.level ? LEVEL[s.level] : "#666";
       if (s.geometry && s.geometry.coordinates) {
         var latlngs = s.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
-        L.polyline(latlngs, { color: color, weight: 6, opacity: 0.85 })
+        // glow underlay + crisp line + slow marching dashes = alive corridor
+        L.polyline(latlngs, { color: color, weight: 14, opacity: 0.18 }).addTo(segLayer);
+        L.polyline(latlngs, { color: color, weight: 5, opacity: 0.95 })
           .bindPopup("<b>" + esc(s.name) + "</b><br>" + esc(s.code) +
-            (s.score != null ? "<br>Health: <b>" + s.score + "/100</b> (" + s.level + ")" : "<br>No score yet") +
+            (s.score != null ? "<br>Health: <b>" + s.score + "/100</b> (" + esc(s.level) + ")" : "<br>No score yet") +
             "<br>Open detections: " + s.open_detections)
           .addTo(segLayer);
+        L.polyline(latlngs, { color: "#ffffff", weight: 1.5, opacity: 0.5, dashArray: "2 12", className: "march" }).addTo(segLayer);
       }
+
+      if (s.score != null) scores.push(s.score);
+
+      // 3D bar
+      var wrap = document.createElement("div");
+      wrap.className = "barwrap";
+      var h = s.score != null ? Math.max(8, s.score) : 8;
+      wrap.innerHTML =
+        '<div class="bar" style="height:' + h + 'px">' +
+          '<span class="face" style="background:linear-gradient(180deg,' + color + ',color-mix(in srgb,' + color + ' 45%, #000));box-shadow:0 0 18px ' + color + '55"></span>' +
+          '<span class="top" style="background:' + color + '"></span>' +
+          '<span class="score" style="color:' + color + '">' + (s.score != null ? s.score : "—") + "</span>" +
+        "</div>" +
+        "<small>" + esc(s.code.replace("NH48-", "")) + "</small>";
+      barsEl.appendChild(wrap);
+
       var row = document.createElement("div");
       row.className = "seg";
       row.innerHTML =
@@ -197,6 +379,10 @@
         "<span>" + esc(s.code) + "<small>" + esc(s.name) + " · " + s.open_detections + " open</small></span>";
       listEl.appendChild(row);
     });
+
+    var avg = scores.length ? Math.round(scores.reduce(function (a, b) { return a + b; }, 0) / scores.length) : null;
+    document.getElementById("n-score").textContent = avg != null ? avg : "–";
+    return r.data;
   }
 
   async function loadDetections() {
@@ -205,14 +391,39 @@
     var qs = [];
     if (st) qs.push("status=" + st);
     if (ty) qs.push("type=" + ty);
-    var r = await call("GET", "/v1/raksha/detections?limit=100" + (qs.length ? "&" + qs.join("&") : ""));
+    var data = await getData("/v1/raksha/detections?limit=100" + (qs.length ? "&" + qs.join("&") : ""), CACHE.det);
+    // offline: the cache may hold a different filter's result — filter locally
+    if (offline) {
+      data = data.filter(function (d) {
+        return (!st || d.status === st) && (!ty || d.detection_type === ty);
+      });
+    }
+    var r = { data: data };
     detLayer.clearLayers();
     var listEl = document.getElementById("detections");
     listEl.innerHTML = r.data.length ? "" : '<p class="hint">No detections match the filter.</p>';
+
+    var firstLoad = seenIds === null;
+    if (firstLoad) seenIds = {};
+    var freshCount = 0;
+    var open = 0, crit = 0;
+
     r.data.forEach(function (d) {
+      var isFresh = !firstLoad && !seenIds[d.id];
+      if (isFresh) freshCount++;
+      seenIds[d.id] = true;
+
+      var openState = d.status === "DETECTED" || d.status === "VERIFIED";
+      if (openState) { open++; if (d.severity >= 4) crit++; }
+
       if (d.lat != null) {
-        L.circleMarker([d.lat, d.lng], {
-          radius: 7, color: SEVHEX[d.severity], fillColor: SEVHEX[d.severity], fillOpacity: 0.8, weight: 1,
+        var c = SEVHEX[d.severity];
+        L.marker([d.lat, d.lng], {
+          icon: pinIcon(c, c + "88", {
+            pulse: d.status === "DETECTED" && d.severity >= 4,
+            fresh: isFresh,
+            size: d.severity >= 4 ? [22, 22] : [16, 16],
+          }),
         }).bindPopup(
           "<b>" + esc(d.detection_type) + "</b> · severity " + esc(d.severity) +
           "<br>Confidence: " + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
@@ -224,8 +435,9 @@
           (d.ran_offline ? " · offline" : "")
         ).addTo(detLayer);
       }
+
       var el = document.createElement("div");
-      el.className = "det";
+      el.className = "det" + (isFresh ? " flash" : "");
       el.innerHTML =
         '<div class="row1"><span class="tag" style="background:' + SEVHEX[d.severity] + '">' +
         esc(d.detection_type).replace("_", " ") + " · s" + esc(d.severity) + "</span>" +
@@ -250,47 +462,127 @@
       } else if (d.status === "VERIFIED") {
         var acts2 = document.createElement("div");
         acts2.className = "acts";
-        var c = document.createElement("button");
-        c.textContent = "Close (repaired & confirmed)";
-        c.onclick = function () {
+        var cbtn = document.createElement("button");
+        cbtn.textContent = "Close (repaired & confirmed)";
+        cbtn.onclick = function () {
           call("POST", "/v1/raksha/detections/" + d.id + "/close")
             .then(refresh).catch(function (e) { status("✗ " + e.message); });
         };
-        acts2.appendChild(c);
+        acts2.appendChild(cbtn);
         el.appendChild(acts2);
       }
       listEl.appendChild(el);
     });
+
+    document.getElementById("n-open").textContent = open;
+    document.getElementById("n-crit").textContent = crit;
+    document.getElementById("new-note").textContent = freshCount ? "· +" + freshCount + " new" : "";
+    return freshCount;
   }
 
   async function loadDevices() {
-    var r = await call("GET", "/v1/raksha/devices");
+    var r = { data: await getData("/v1/raksha/devices", CACHE.dev) };
     devLayer.clearLayers();
     var el = document.getElementById("devices");
     el.innerHTML = r.data.length ? "" : '<p class="hint">No devices registered.</p>';
+    var online = 0;
     r.data.forEach(function (d) {
+      var active = d.status === "ACTIVE" || d.status === "DEGRADED";
+      if (active) online++;
       if (d.lat != null) {
-        L.marker([d.lat, d.lng]).bindPopup(
-          "<b>" + esc(d.name) + "</b><br>" + esc(d.status) + (d.simulated ? " · SIMULATED" : "") +
-          (d.battery_percent != null ? "<br>Battery " + d.battery_percent + "%" : "")
-        ).addTo(devLayer);
+        L.marker([d.lat, d.lng], { icon: pinIcon("#d8b46a", "rgba(216,180,106,0.5)", { dev: true, size: [20, 20] }) })
+          .bindPopup(
+            "<b>" + esc(d.name) + "</b><br>" + esc(d.status) + (d.simulated ? " · SIMULATED" : "") +
+            (d.battery_percent != null ? "<br>Battery " + d.battery_percent + "%" : "")
+          ).addTo(devLayer);
       }
       var row = document.createElement("div");
       row.className = "dev";
-      var col = d.status === "ACTIVE" ? "#59b374" : d.status === "DEGRADED" ? "#e08a3c" : "#8f8878";
-      row.innerHTML = '<span class="dot" style="background:' + col + '"></span>' + esc(d.name) +
+      var col = d.status === "ACTIVE" ? "#3ddc97" : d.status === "DEGRADED" ? "#ff9f43" : "#8f8878";
+      row.innerHTML = '<span class="dot' + (active ? " on" : "") + '" style="background:' + col + ';color:' + col + '"></span>' + esc(d.name) +
         "<small>" + esc(d.status) + (d.simulated ? " · SIMULATED" : "") +
         (d.battery_percent != null ? " · 🔋" + d.battery_percent + "%" : "") +
         (d.last_seen_at ? " · seen " + new Date(d.last_seen_at).toLocaleTimeString() : " · never seen") + "</small>";
       el.appendChild(row);
     });
+    document.getElementById("n-dev").textContent = online;
   }
 
   function refresh() {
-    status("Refreshing…");
     return Promise.all([loadSegments(), loadDetections(), loadDevices()])
-      .then(function () { status("Up to date · " + new Date().toLocaleTimeString() + " · all device data on this build is SIMULATED"); })
+      .then(function (results) {
+        var fresh = results[1];
+        var liveEl = document.getElementById("live");
+        liveEl.classList.toggle("offline", offline);
+        liveEl.textContent = offline ? "OFFLINE · CACHED" : "LIVE · 10s";
+        document.getElementById("export-panel").hidden = false;
+        if (offline) {
+          status("⚠ OFFLINE — showing the cached snapshot from " + (cacheTime() || "earlier") +
+            ". Downloads still work. Reconnects automatically. · SIMULATED data");
+        } else {
+          status("LIVE · updated " + new Date().toLocaleTimeString() +
+            (fresh ? " · " + fresh + " new detection(s) just arrived" : "") +
+            " · all device data on this build is SIMULATED");
+        }
+      })
       .catch(function (e) { status("✗ " + e.message); });
+  }
+
+  // ── snapshot export: built entirely from local data, so it works offline ──
+  function snapshotGeoJSON() {
+    var seg = (cacheGet(CACHE.seg) || {}).data || [];
+    var det = (cacheGet(CACHE.det) || {}).data || [];
+    var dev = (cacheGet(CACHE.dev) || {}).data || [];
+    var features = [];
+    seg.forEach(function (s) {
+      if (!s.geometry) return;
+      features.push({ type: "Feature", geometry: s.geometry, properties: {
+        layer: "road_segment", code: s.code, name: s.name, highway: s.highway_ref,
+        km_start: s.km_start, km_end: s.km_end, health_score: s.score, health_level: s.level,
+        open_detections: s.open_detections } });
+    });
+    det.forEach(function (d) {
+      if (d.lat == null) return;
+      features.push({ type: "Feature", geometry: { type: "Point", coordinates: [d.lng, d.lat] }, properties: {
+        layer: "detection", type: d.detection_type, severity: d.severity, confidence: d.confidence,
+        status: d.status, device: d.device_name, simulated: d.simulated, segment: d.segment_code,
+        captured_at: d.captured_at, model_version: d.model_version, ran_offline: d.ran_offline } });
+    });
+    dev.forEach(function (d) {
+      if (d.lat == null) return;
+      features.push({ type: "Feature", geometry: { type: "Point", coordinates: [d.lng, d.lat] }, properties: {
+        layer: "edge_device", name: d.name, status: d.status, simulated: d.simulated,
+        battery_percent: d.battery_percent, last_seen_at: d.last_seen_at } });
+    });
+    return JSON.stringify({
+      type: "FeatureCollection",
+      features: features,
+      metadata: { exported_at: new Date().toISOString(), source: "RAKSHA dashboard snapshot",
+        note: "SIMULATED data — student prototype, not survey-grade" },
+    }, null, 1);
+  }
+  function snapshotCSV() {
+    var det = (cacheGet(CACHE.det) || {}).data || [];
+    var cols = ["op_id", "detection_type", "severity", "confidence", "status", "lat", "lng",
+                "segment_code", "device_name", "simulated", "model_version", "ran_offline", "captured_at"];
+    var lines = [cols.join(",")];
+    det.forEach(function (d) {
+      lines.push(cols.map(function (c) {
+        var v = d[c]; if (v == null) return "";
+        v = String(v);
+        return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+      }).join(","));
+    });
+    return lines.join("\n");
+  }
+
+  function startLive() {
+    document.getElementById("live").classList.add("on");
+    document.getElementById("chips").classList.add("on");
+    if (liveTimer) clearInterval(liveTimer);
+    liveTimer = setInterval(function () {
+      if (!document.hidden) refresh();   // don't poll a hidden tab
+    }, REFRESH_MS);
   }
 
   document.getElementById("login-btn").onclick = async function () {
@@ -310,8 +602,10 @@
       });
       if (!v.data.roles.includes("admin") && !v.data.roles.includes("gov_officer")) {
         status("This account has no authority role — RAKSHA data is admin/gov-officer only.");
+        return;
       }
-      refresh();
+      await refresh();
+      startLive();
     } catch (e) { status("✗ " + e.message); }
   };
 
@@ -322,7 +616,39 @@
   document.getElementById("f-status").onchange = loadDetections;
   document.getElementById("f-type").onchange = loadDetections;
 
+  document.getElementById("dl-geojson").onclick = function () {
+    download("raksha-snapshot-" + Date.now() + ".geojson", snapshotGeoJSON(), "application/geo+json");
+    status("GeoJSON snapshot downloaded — built from the on-device cache, works with zero connectivity.");
+  };
+  document.getElementById("dl-csv").onclick = function () {
+    download("raksha-detections-" + Date.now() + ".csv", snapshotCSV(), "text/csv");
+    status("Detection CSV downloaded — built from the on-device cache, works with zero connectivity.");
+  };
+
+  // Net down before sign-in? The last authorized session's cache still shows
+  // the corridor and still exports. (Cache lives only on this device.)
+  document.getElementById("cached-btn").onclick = function () {
+    offline = true;
+    document.getElementById("login-panel").hidden = true;
+    ["health-panel", "det-panel", "dev-panel", "export-panel"].forEach(function (id) {
+      document.getElementById(id).hidden = false;
+    });
+    document.getElementById("who").textContent = "offline · cached snapshot";
+    var liveEl = document.getElementById("live");
+    liveEl.classList.add("on", "offline");
+    liveEl.textContent = "OFFLINE · CACHED";
+    document.getElementById("chips").classList.add("on");
+    refresh();
+  };
+  window.addEventListener("online", function () { if (token) refresh(); });
+
   initMap();
+  if (cacheGet(CACHE.det) || cacheGet(CACHE.seg)) {
+    document.getElementById("cached-btn").hidden = false;
+    var when = cacheTime();
+    if (when) document.getElementById("cache-note").textContent =
+      "Cached snapshot from " + when + " is available on this device — it shows and downloads even offline.";
+  }
   status("Sign in to load the corridor. Data on this build is SIMULATED.");
 })();
 </script>
