@@ -36,6 +36,28 @@ const HEALTH = {
 };
 
 export async function rakshaRoutes(app: FastifyInstance) {
+  // ── public aggregate stats — counts only, no locations, no identifiers ───
+  // Powers the live showcase page. Nothing here can re-identify a device,
+  // detection site, or person (the k-anonymity concern applies to detail
+  // reads, which stay authority-gated).
+  app.get("/v1/raksha/stats", async () => {
+    const [row] = await db.execute<{
+      detections: number; open: number; verified: number;
+      devices: number; segments: number; avg_health: number | null;
+    }>(raw`
+      SELECT (SELECT count(*)::int FROM raksha_detections WHERE deleted_at IS NULL) AS detections,
+             (SELECT count(*)::int FROM raksha_detections WHERE deleted_at IS NULL
+               AND status IN ('DETECTED', 'VERIFIED')) AS open,
+             (SELECT count(*)::int FROM raksha_detections WHERE deleted_at IS NULL
+               AND status = 'VERIFIED') AS verified,
+             (SELECT count(*)::int FROM edge_devices WHERE deleted_at IS NULL) AS devices,
+             (SELECT count(*)::int FROM road_segments WHERE deleted_at IS NULL) AS segments,
+             (SELECT round(avg(score))::int FROM (
+                SELECT DISTINCT ON (segment_id) score FROM road_health_scores
+                ORDER BY segment_id, computed_at DESC) latest) AS avg_health`);
+    return ok(row, { note: "aggregate counts only — demo build, device data SIMULATED" });
+  });
+
   // ── device registration (human act: admin or gov officer) ────────────────
   app.post("/v1/raksha/devices", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req, reply) => {
     const body = z.object({
