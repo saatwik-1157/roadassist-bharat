@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RoadAssist — App</title>
+<meta name="theme-color" content="#050505">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d8b46a'%3E%3Cg transform='rotate(-30 12 12)'%3E%3Ccircle cx='7.3' cy='3.2' r='1.45'/%3E%3Crect x='5.5' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Crect x='14.9' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Ccircle cx='16.7' cy='20.8' r='1.45'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400&family=Inter:wght@300;400;500;600&display=swap">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #050505; --panel: #0e0d0a; --panel-2: #14110c;
+    --gold: #d8b46a; --cream: #f5f1e8; --muted: #8f8878;
+    --line: rgba(216,180,106,0.2); --red: #e4574a; --green: #59b374;
+    --serif: "Cormorant Garamond", Georgia, serif;
+    --sans: "Inter", system-ui, sans-serif;
+  }
+  html, body { background: var(--bg); color: var(--cream); }
+  body {
+    font-family: var(--sans); -webkit-font-smoothing: antialiased;
+    max-width: 430px; margin: 0 auto; min-height: 100dvh;
+    display: flex; flex-direction: column;
+    border-left: 1px solid rgba(216,180,106,0.08); border-right: 1px solid rgba(216,180,106,0.08);
+  }
+  button { font-family: inherit; cursor: pointer; }
+  input, select { font-family: inherit; }
+
+  .top { display: flex; align-items: center; justify-content: space-between;
+    padding: calc(14px + env(safe-area-inset-top)) 20px 14px;
+    border-bottom: 1px solid var(--line); position: sticky; top: 0;
+    background: rgba(5,5,5,0.92); backdrop-filter: blur(12px); z-index: 5; }
+  .brand { display: flex; align-items: center; gap: 8px; }
+  .brand svg { width: 20px; height: 20px; }
+  .brand b { font-family: var(--serif); font-size: 17px; font-weight: 500; }
+  .brand b i { font-style: normal; color: var(--gold); }
+  .net { font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: 6px; cursor: pointer; border: 0; background: none; }
+  .net::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  body.offline .net::before { background: var(--red); }
+
+  main { flex: 1; overflow-y: auto; }
+  .screen { display: none; padding: 22px 20px 30px; animation: rise 0.4s cubic-bezier(0.16,1,0.3,1); }
+  .screen.active { display: block; }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; } }
+
+  h1 { font-family: var(--serif); font-weight: 500; font-size: 28px; line-height: 1.15; }
+  h1 em { font-style: italic; color: var(--gold); }
+  .sub { color: var(--muted); font-size: 13px; font-weight: 300; margin-top: 6px; line-height: 1.6; }
+
+  .field { margin-top: 14px; }
+  .field label { font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+  .field input, .field select { width: 100%; margin-top: 7px; padding: 13px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--cream); font-size: 15px; outline: none; }
+  .field input:focus, .field select:focus { border-color: var(--gold); }
+
+  .btn { width: 100%; margin-top: 18px; padding: 15px; background: var(--gold); color: #0a0805;
+    border: 0; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 600; }
+  .btn:disabled { opacity: 0.4; }
+  .btn-line { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+  .btn-red { background: var(--red); color: #fff; }
+  .row-btns { display: flex; gap: 8px; }
+  .row-btns .btn { flex: 1; }
+
+  .card { border: 1px solid var(--line); background: var(--panel); padding: 15px; margin-top: 14px; }
+  .card h3 { font-family: var(--serif); font-size: 19px; font-weight: 500; }
+  .card .meta { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.6; }
+  .status-pill { display: inline-block; padding: 3px 10px; border: 1px solid var(--gold);
+    color: var(--gold); font-size: 10.5px; letter-spacing: 0.14em; margin-top: 8px; }
+
+  .offer { display: flex; align-items: center; gap: 12px; }
+  .offer .avatar { width: 40px; height: 40px; border-radius: 50%; flex: none;
+    background: radial-gradient(circle at 35% 30%, #f0d9a8, #9a7b3f); color: #0a0805;
+    display: grid; place-items: center; font-family: var(--serif); font-size: 18px; font-weight: 600; }
+  .offer button { margin-left: auto; padding: 9px 16px; background: var(--gold); border: 0;
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+
+  .cmds { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+  .cmds button { padding: 9px 13px; background: transparent; border: 1px solid var(--line);
+    color: var(--cream); font-size: 11px; letter-spacing: 0.08em; }
+  .cmds button:hover { border-color: var(--gold); color: var(--gold); }
+
+  .sos-wrap { display: grid; place-items: center; padding: 26px 0 8px; }
+  .sos { width: 150px; height: 150px; border-radius: 50%; border: 1px solid rgba(228,87,74,0.6);
+    background: radial-gradient(circle at 34% 30%, rgba(228,87,74,0.32), rgba(90,20,14,0.5) 65%), #170a08;
+    color: var(--cream); font-size: 20px; letter-spacing: 0.3em; text-transform: uppercase; font-weight: 600;
+    animation: pulse 2.4s infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(228,87,74,0.35); } 70% { box-shadow: 0 0 0 24px rgba(228,87,74,0); } 100% { box-shadow: 0 0 0 0 rgba(228,87,74,0); } }
+  .countdown { font-family: var(--serif); font-size: 44px; color: var(--red); text-align: center; }
+
+  .queue-note { border: 1px dashed var(--line); padding: 10px 12px; margin-top: 14px;
+    color: var(--muted); font-size: 12px; line-height: 1.6; }
+  .queue-note b { color: var(--gold); }
+
+  .toast { position: fixed; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) translateY(20px); background: var(--gold); color: #0a0805;
+    padding: 12px 20px; font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s; max-width: 88vw; text-align: center; z-index: 30; }
+  .toast.show { opacity: 1; transform: translateX(-50%); }
+
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line);
+    background: rgba(5,5,5,0.94); backdrop-filter: blur(12px);
+    padding-bottom: env(safe-area-inset-bottom); position: sticky; bottom: 0; z-index: 10; }
+  .tab { background: transparent; border: 0; color: var(--muted); padding: 11px 4px;
+    display: grid; place-items: center; gap: 4px; font-size: 9.5px; letter-spacing: 0.14em;
+    text-transform: uppercase; transition: color 0.25s; }
+  .tab svg { width: 20px; height: 20px; }
+  .tab.active { color: var(--gold); }
+  .hint { color: var(--muted); font-size: 11.5px; margin-top: 8px; line-height: 1.55; }
+  .exp { border: 1px solid var(--line); padding: 3px 8px; font-size: 9.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="top">
+    <span class="brand">
+      <svg viewBox="0 0 24 24" fill="#d8b46a" aria-hidden="true"><g transform="rotate(-30 12 12)">
+        <circle cx="7.3" cy="3.2" r="1.45"/><rect x="5.5" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+        <rect x="14.9" y="4.7" width="3.6" height="14.6" rx="1.8"/><circle cx="16.7" cy="20.8" r="1.45"/>
+      </g></svg>
+      <b>Road<i>Assist</i></b>
+    </span>
+    <button class="net" id="net" title="Toggle simulated offline mode">Online</button>
+  </div>
+
+  <main>
+    <!-- AUTH -->
+    <section class="screen active" id="scr-auth">
+      <h1>Sign in with your <em>phone.</em></h1>
+      <p class="sub">Real OTP flow against the live API. In development the code is returned by the server (dev OTP).</p>
+      <div class="field"><label for="a-msisdn">Mobile number</label>
+        <input id="a-msisdn" value="+919876543210" inputmode="tel"></div>
+      <button class="btn" id="a-send">Send OTP</button>
+      <div id="a-step2" hidden>
+        <div class="field"><label for="a-code">6-digit code</label>
+          <input id="a-code" maxlength="6" inputmode="numeric" placeholder="000000"></div>
+        <button class="btn" id="a-verify">Verify &amp; sign in</button>
+      </div>
+    </section>
+
+    <!-- HOME -->
+    <section class="screen" id="scr-home">
+      <h1 id="home-title">Namaste.</h1>
+      <p class="sub" id="home-sub">Signed in.</p>
+      <div class="sos-wrap"><button class="sos" id="sos-btn">SOS</button></div>
+      <p class="hint" style="text-align:center">Manual SOS escalates immediately. A crash detected by a model
+        always waits for your confirmation — it can never dispatch on its own.</p>
+      <div class="card" id="vehicle-card">
+        <h3>Add your vehicle</h3>
+        <div class="field"><label for="v-reg">Registration number</label>
+          <input id="v-reg" placeholder="TS09 AB 1234"></div>
+        <div class="field"><label for="v-class">Type</label>
+          <select id="v-class">
+            <option value="car">Car</option><option value="motorcycle">Motorcycle</option>
+            <option value="scooter">Scooter</option><option value="auto_rickshaw">Auto</option>
+            <option value="truck">Truck</option><option value="bus">Bus</option>
+            <option value="tractor">Tractor</option><option value="ev">EV</option>
+          </select></div>
+        <button class="btn" id="v-add">Add vehicle</button>
+      </div>
+      <div class="queue-note" id="queue-note" hidden></div>
+    </section>
+
+    <!-- BOOK -->
+    <section class="screen" id="scr-book">
+      <h1>Request <em>assistance.</em></h1>
+      <p class="sub">Nearest verified mechanics, ranked by a real PostGIS query.</p>
+      <div class="field"><label for="b-service">Service</label>
+        <select id="b-service"></select></div>
+      <div class="field"><label for="b-symptoms">What happened?</label>
+        <input id="b-symptoms" placeholder="Won't start, clicking sound…"></div>
+      <button class="btn" id="b-book">Book &amp; dispatch</button>
+      <p class="hint">Uses your device location when permitted; otherwise the NH-48 demo location. Offline?
+        The booking queues locally and replays when you reconnect — no duplicates.</p>
+      <div id="b-offers"></div>
+    </section>
+
+    <!-- TRACK -->
+    <section class="screen" id="scr-track">
+      <h1>Your <em>rescue.</em></h1>
+      <div id="t-body"><p class="sub">No active booking yet — book from the Assist tab.</p></div>
+    </section>
+
+    <!-- MORE -->
+    <section class="screen" id="scr-more">
+      <h1>Devices &amp; <em>more.</em></h1>
+      <div class="card">
+        <h3>Bluetooth device <span class="exp">experimental</span></h3>
+        <p class="meta">Pair an OBD-II dongle or a RAKSHA edge unit over Web Bluetooth. Requires a Chromium
+          browser and physical hardware — this build only lists the chosen device; telemetry pairing
+          ships with the mobile app (react-native-ble-plx).</p>
+        <button class="btn btn-line" id="ble-btn">Scan for BLE devices</button>
+        <p class="hint" id="ble-out"></p>
+      </div>
+      <div class="card">
+        <h3>Offline queue</h3>
+        <p class="meta" id="q-meta">Empty.</p>
+        <button class="btn btn-line" id="q-flush">Sync now</button>
+      </div>
+      <div class="card">
+        <h3>Session</h3>
+        <p class="meta" id="s-meta">—</p>
+        <button class="btn btn-line" id="s-out">Sign out</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <nav class="tabs" id="tabs" hidden>
+    <button class="tab active" data-nav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5"/></svg>Home</button>
+    <button class="tab" data-nav="book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3 2.3-2.3z"/></svg>Assist</button>
+    <button class="tab" data-nav="track"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="10" r="3"/><path d="M12 21c4-4.5 7-8 7-11a7 7 0 1 0-14 0c0 3 3 6.5 7 11z"/></svg>Track</button>
+    <button class="tab" data-nav="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>More</button>
+  </nav>
+
+<script>
+(function () {
+  "use strict";
+  var API = location.origin;
+  var state = {
+    token: null, refresh: null, msisdn: null,
+    vehicleId: null, bookingId: null,
+    online: navigator.onLine,
+    queue: JSON.parse(localStorage.getItem("ra.app.queue") || "[]"),
+  };
+
+  // ── plumbing ──────────────────────────────────────────────────────────────
+  var toastTimer;
+  function toast(m) {
+    var el = document.getElementById("toast");
+    el.textContent = m; el.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2800);
+  }
+  function nav(name) {
+    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+    document.getElementById("scr-" + name).classList.add("active");
+    document.querySelectorAll(".tab").forEach(function (t) {
+      t.classList.toggle("active", t.getAttribute("data-nav") === name);
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-nav]"); if (el) nav(el.getAttribute("data-nav"));
+  });
+
+  function saveQueue() {
+    localStorage.setItem("ra.app.queue", JSON.stringify(state.queue));
+    var n = state.queue.length;
+    var note = document.getElementById("queue-note");
+    note.hidden = n === 0;
+    note.innerHTML = "<b>" + n + " action(s) queued offline.</b> They replay automatically when you reconnect — safely, with no duplicates.";
+    document.getElementById("q-meta").textContent = n ? n + " operation(s) waiting." : "Empty.";
+  }
+
+  async function api(method, path, body, opts) {
+    opts = opts || {};
+    if (!state.online && !opts.force) {
+      state.queue.push({ opId: "app-" + crypto.randomUUID().slice(0, 12), method: method, path: path,
+        body: body, clientUpdatedAt: new Date().toISOString() });
+      saveQueue();
+      toast("Offline — queued (" + state.queue.length + " waiting)");
+      return null;
+    }
+    var res = await fetch(API + path, {
+      method: method,
+      headers: Object.assign({ "content-type": "application/json" },
+        state.token ? { authorization: "Bearer " + state.token } : {}),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    var json = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error((json.error && json.error.title) || ("HTTP " + res.status));
+    return json;
+  }
+
+  async function flushQueue() {
+    if (!state.queue.length || !state.token) return;
+    var ops = state.queue.map(function (q) {
+      return { opId: q.opId, entity: "request", operation: "create",
+        payload: { method: q.method, path: q.path, body: q.body }, clientUpdatedAt: q.clientUpdatedAt };
+    });
+    try {
+      var r = await api("POST", "/v1/sync/operations", { operations: ops }, { force: true });
+      var applied = r.meta.applied, dup = ops.length - applied;
+      // journal recorded — now actually perform the queued calls (client-side applier)
+      for (var i = 0; i < state.queue.length; i++) {
+        var q = state.queue[i];
+        try { await api(q.method, q.path, q.body, { force: true }); } catch (e) { /* server rejected — drop */ }
+      }
+      state.queue = []; saveQueue();
+      toast("Synced: " + applied + " journaled" + (dup ? ", " + dup + " already known" : "") + " — queue clear");
+    } catch (e) { toast("Sync failed: " + e.message); }
+  }
+
+  function setOnline(on) {
+    state.online = on;
+    document.body.classList.toggle("offline", !on);
+    document.getElementById("net").textContent = on ? "Online" : "Offline";
+    if (on) flushQueue();
+  }
+  window.addEventListener("online", function () { setOnline(true); });
+  window.addEventListener("offline", function () { setOnline(false); });
+  document.getElementById("net").onclick = function () { setOnline(!state.online); toast(state.online ? "Back online" : "Simulating offline mode"); };
+
+  // ── auth ──────────────────────────────────────────────────────────────────
+  document.getElementById("a-send").onclick = async function () {
+    try {
+      state.msisdn = document.getElementById("a-msisdn").value.trim();
+      var r = await api("POST", "/v1/auth/otp/request", { msisdn: state.msisdn }, { force: true });
+      document.getElementById("a-step2").hidden = false;
+      if (r.meta && r.meta.devOtp) {
+        document.getElementById("a-code").value = r.meta.devOtp;
+        toast("Dev OTP auto-filled (" + r.meta.devOtp + ") — production sends a real SMS");
+      } else toast("OTP sent by SMS");
+    } catch (e) { toast(e.message); }
+  };
+  document.getElementById("a-verify").onclick = async function () {
+    try {
+      var r = await api("POST", "/v1/auth/otp/verify",
+        { msisdn: state.msisdn, code: document.getElementById("a-code").value.trim() }, { force: true });
+      state.token = r.data.accessToken; state.refresh = r.data.refreshToken;
+      document.getElementById("tabs").hidden = false;
+      document.getElementById("home-sub").textContent = state.msisdn + " · " + (r.meta.newAccount ? "new account" : "welcome back");
+      document.getElementById("s-meta").textContent = state.msisdn + " · roles: " + (r.data.roles.join(", ") || "citizen");
+      var me = await api("GET", "/v1/me", null, { force: true });
+      if (me.data.vehicles.length) {
+        state.vehicleId = me.data.vehicles[0].id;
+        vehicleCard(me.data.vehicles[0]);
+      }
+      var svc = await api("GET", "/v1/service-types", null, { force: true });
+      var sel = document.getElementById("b-service");
+      sel.innerHTML = "";
+      svc.data.forEach(function (s) {
+        var o = document.createElement("option");
+        o.value = s.code; o.textContent = s.name + " · ₹" + Math.round(s.baseFarePaise / 100);
+        sel.appendChild(o);
+      });
+      nav("home"); toast("Signed in");
+      saveQueue();
+    } catch (e) { toast(e.message); }
+  };
+  document.getElementById("s-out").onclick = function () { location.reload(); };
+
+  // ── vehicle ───────────────────────────────────────────────────────────────
+  function vehicleCard(v) {
+    document.getElementById("vehicle-card").innerHTML =
+      "<h3>" + (v.nickname || "Your vehicle") + "</h3><p class='meta'>" + v.registrationNo +
+      " · " + v.vehicleClass + "</p><span class='status-pill'>READY</span>";
+  }
+  document.getElementById("v-add").onclick = async function () {
+    try {
+      var r = await api("POST", "/v1/vehicles", {
+        registrationNo: document.getElementById("v-reg").value,
+        vehicleClass: document.getElementById("v-class").value,
+      });
+      if (!r) return; // queued offline
+      state.vehicleId = r.data.id; vehicleCard(r.data); toast("Vehicle added");
+    } catch (e) { toast(e.message); }
+  };
+
+  // ── booking ───────────────────────────────────────────────────────────────
+  function locate() {
+    return new Promise(function (resolve) {
+      if (!navigator.geolocation) return resolve({ lat: 28.4595, lng: 77.0266, demo: true });
+      navigator.geolocation.getCurrentPosition(
+        function (p) { resolve({ lat: p.coords.latitude, lng: p.coords.longitude }); },
+        function () { resolve({ lat: 28.4595, lng: 77.0266, demo: true }); },
+        { timeout: 4000 });
+    });
+  }
+  document.getElementById("b-book").onclick = async function () {
+    if (!state.vehicleId) { toast("Add a vehicle first (Home tab)"); return nav("home"); }
+    try {
+      var pos = await locate();
+      var r = await api("POST", "/v1/bookings", {
+        vehicleId: state.vehicleId,
+        serviceTypeCode: document.getElementById("b-service").value,
+        lat: pos.lat, lng: pos.lng,
+        symptoms: document.getElementById("b-symptoms").value || undefined,
+        highwayMarker: pos.demo ? "NH-48, KM 212" : undefined,
+        createdOffline: !state.online,
+        idempotencyKey: "app-" + crypto.randomUUID().slice(0, 12),
+      });
+      if (!r) return; // queued offline
+      state.bookingId = r.data.id;
+      toast("Booking " + r.data.reference + " — dispatching…" + (pos.demo ? " (demo location)" : ""));
+      var d = await api("POST", "/v1/bookings/" + state.bookingId + "/dispatch", { radiusKm: 30, limit: 5 });
+      var box = document.getElementById("b-offers");
+      box.innerHTML = "";
+      if (!d.data.offers.length) { box.innerHTML = "<div class='card'><p class='meta'>" + d.meta.message + "</p></div>"; return; }
+      d.data.offers.forEach(function (o) {
+        var c = document.createElement("div");
+        c.className = "card offer";
+        c.innerHTML = "<span class='avatar'>" + o.mechanic.displayName[0] + "</span>" +
+          "<span><b>" + o.mechanic.displayName + "</b><br><small style='color:var(--muted)'>★ " +
+          o.mechanic.rating + " · " + o.mechanic.distanceKm + " km · ETA " + o.etaMinutes + " min</small></span>";
+        var b = document.createElement("button");
+        b.textContent = "Accept";
+        b.onclick = async function () {
+          try {
+            var a = await api("POST", "/v1/offers/" + o.id + "/accept", {});
+            if (!a) return;
+            box.innerHTML = "";
+            toast("Assigned to " + o.mechanic.displayName);
+            trackView(a.data.status, a.meta.nextCommands, o.mechanic.displayName, o.etaMinutes);
+            nav("track");
+          } catch (e) { toast(e.message); }
+        };
+        c.appendChild(b);
+        box.appendChild(c);
+      });
+    } catch (e) { toast(e.message); }
+  };
+
+  // ── tracking ──────────────────────────────────────────────────────────────
+  var CMD_LABEL = {
+    "mechanic.start_travel": "Mechanic departs", "arrive": "Mechanic arrives",
+    "work.start": "Work starts", "work.complete": "Work complete",
+    "payment.settled": "Pay invoice", "cancel": "Cancel booking",
+    "parts.required": "Parts needed", "parts.received": "Parts received",
+    "tow.required": "Needs tow", "tow.assigned": "Tow assigned", "retry.widen": "Widen search",
+  };
+  function trackView(status, cmds, mech, eta) {
+    var el = document.getElementById("t-body");
+    el.innerHTML = "<div class='card'><h3>" + (mech || "Booking") + "</h3>" +
+      (eta ? "<p class='meta'>ETA " + eta + " minutes</p>" : "") +
+      "<span class='status-pill'>" + status + "</span>" +
+      "<div class='cmds' id='t-cmds'></div><div id='t-invoice'></div></div>";
+    var cwrap = el.querySelector("#t-cmds");
+    (cmds || []).forEach(function (cmd) {
+      var b = document.createElement("button");
+      b.textContent = CMD_LABEL[cmd] || cmd;
+      if (cmd === "cancel") b.style.borderColor = "rgba(228,87,74,0.5)";
+      b.onclick = async function () {
+        try {
+          var r = await api("POST", "/v1/bookings/" + state.bookingId + "/transition", { command: cmd });
+          if (!r) return;
+          if (r.data.invoice) {
+            el.querySelector("#t-invoice").innerHTML =
+              "<p class='meta' style='margin-top:10px'>Invoice " + r.data.invoice.number + " · ₹" +
+              (r.data.invoice.totalPaise / 100).toFixed(2) + " (incl. 18% GST)</p>";
+          }
+          toast(status + " → " + r.data.status + (r.data.cancellationFee ? " · cancellation fee applies" : ""));
+          trackView(r.data.status, r.meta.nextCommands, mech, null);
+          if (r.data.invoice) el.querySelector("#t-invoice").innerHTML =
+            "<p class='meta' style='margin-top:10px'>Invoice " + r.data.invoice.number + " · ₹" +
+            (r.data.invoice.totalPaise / 100).toFixed(2) + " (incl. 18% GST)</p>";
+        } catch (e) { toast(e.message); }
+      };
+      cwrap.appendChild(b);
+    });
+  }
+
+  // ── SOS ───────────────────────────────────────────────────────────────────
+  document.getElementById("sos-btn").onclick = async function () {
+    try {
+      var pos = await locate();
+      var r = await api("POST", "/v1/sos", {
+        lat: pos.lat, lng: pos.lng, source: "manual", vehicleId: state.vehicleId || undefined,
+      }, { force: true }); // SOS never queues — it must fail loudly if unreachable
+      toast("SOS " + r.data.status + " — escalating now");
+      var c = await api("POST", "/v1/sos/" + r.data.id + "/confirm", {}, { force: true });
+      toast("Contacts alerted: " + c.data.contactsAlerted +
+        (c.data.nearestResponder ? " · " + c.data.nearestResponder.name : "") +
+        " · " + c.data.elapsedMs + " ms" + " · " + (c.meta.note || ""));
+    } catch (e) { toast("SOS failed: " + e.message + " — call 112 directly"); }
+  };
+
+  // ── Bluetooth (experimental, Web Bluetooth) ───────────────────────────────
+  document.getElementById("ble-btn").onclick = async function () {
+    var out = document.getElementById("ble-out");
+    if (!navigator.bluetooth) {
+      out.textContent = "Web Bluetooth is not available in this browser. It works in Chromium browsers over HTTPS/localhost; the React Native app will use react-native-ble-plx instead.";
+      return;
+    }
+    try {
+      var device = await navigator.bluetooth.requestDevice({ acceptAllDevices: true });
+      out.textContent = "Chosen device: " + (device.name || device.id) +
+        " — pairing/telemetry lands with the mobile app build.";
+    } catch (e) {
+      out.textContent = "No device chosen (" + e.message + "). Requires physical BLE hardware nearby.";
+    }
+  };
+
+  document.getElementById("q-flush").onclick = flushQueue;
+
+  setOnline(navigator.onLine);
+  saveQueue();
+})();
+</script>
+</body>
+</html>
