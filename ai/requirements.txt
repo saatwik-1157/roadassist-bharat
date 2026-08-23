@@ -1,0 +1,6 @@
+# RAKSHA Phase 5 — road-damage CV toolchain (Python 3.14, venv at ai/.venv)
+# ultralytics is AGPL-3.0 — acceptable for this public student project; an
+# Apache-2.0 alternative must be scored before any commercial deployment
+# (docs/raksha/05-dataset-license-verification.md §2).
+ultralytics==8.4.126
+remotezip==0.12.5

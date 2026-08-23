@@ -15,3 +15,15 @@ app/scripts/.raksha-sim-state.json
 .vscode/
 .idea/
 *.swp
+
+# AI toolchain — heavy local artifacts never enter git
+ai/.venv/
+ai/data/
+ai/runs/
+ai/*.zip
+ai/**/*.pt
+ai/**/*.onnx
+runs/
+weights/
+ai/cv-detections.json
+ai/label_map.pbtxt

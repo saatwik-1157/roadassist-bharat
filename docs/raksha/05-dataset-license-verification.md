@@ -93,3 +93,29 @@ size (≤ 15 MB target for the edge bundle).
    least one Apache-2.0 model in the same evaluation so the startup path is
    never blocked on a license.
 4. `obstruction` stays rules-first — honestly labeled — until data exists.
+
+## 5. Measured results — smoke run (2026-08-23)
+
+MEASURED, NOT ASSERTED. YOLO11n fine-tuned on the 800/200 RDD2022-India smoke
+subset, 3 epochs, imgsz 480, CPU (AMD Ryzen 5 7535HS), 12.9 minutes total.
+
+| Metric | all | pothole | road_damage |
+|---|---|---|---|
+| Precision | 0.208 | 0.259 | 0.158 |
+| Recall | 0.268 | 0.134 | 0.402 |
+| mAP50 | 0.134 | 0.105 | 0.162 |
+| mAP50-95 | 0.044 | 0.032 | 0.057 |
+
+Model size **5.4 MB** (target ≤15 MB ✅) · inference **65–114 ms/image on CPU**.
+These are pipeline-proof baseline numbers from 3 CPU epochs on 800 images —
+NOT production quality (published RDD2022 baselines with full data and proper
+training reach several times this mAP). Next step: full 3,223-image mapped set,
+more epochs, GPU, and an Apache-2.0 model scored alongside.
+
+End-to-end proof: detect.py output (34 detections over 40 val images at
+conf ≥0.30) was ingested through the live platform via
+ — 34 applied, replay returned 34
+duplicates (idempotent), all 34 auto-attached to NH-48 segments, road health
+recomputed. Detections carry  and the real model
+version; their GPS locations are SIMULATED (RDD2022 images carry no geodata)
+and labeled as such.
