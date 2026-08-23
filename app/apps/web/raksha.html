@@ -139,6 +139,10 @@
 (function () {
   "use strict";
   var API = location.origin;
+  // Every server-derived string is escaped before touching innerHTML/popups —
+  // device firmware controls model_version, registrants control names.
+  var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", """: "&quot;", "'": "&#39;" }[c]; }); };
   var token = null;
   var map, detLayer, segLayer, devLayer;
 
@@ -181,7 +185,7 @@
       if (s.geometry && s.geometry.coordinates) {
         var latlngs = s.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
         L.polyline(latlngs, { color: color, weight: 6, opacity: 0.85 })
-          .bindPopup("<b>" + s.name + "</b><br>" + s.code +
+          .bindPopup("<b>" + esc(s.name) + "</b><br>" + esc(s.code) +
             (s.score != null ? "<br>Health: <b>" + s.score + "/100</b> (" + s.level + ")" : "<br>No score yet") +
             "<br>Open detections: " + s.open_detections)
           .addTo(segLayer);
@@ -190,7 +194,7 @@
       row.className = "seg";
       row.innerHTML =
         '<span class="chip" style="background:' + color + '">' + (s.score != null ? s.score : "—") + "</span>" +
-        "<span>" + s.code + "<small>" + s.name + " · " + s.open_detections + " open</small></span>";
+        "<span>" + esc(s.code) + "<small>" + esc(s.name) + " · " + s.open_detections + " open</small></span>";
       listEl.appendChild(row);
     });
   }
@@ -210,12 +214,12 @@
         L.circleMarker([d.lat, d.lng], {
           radius: 7, color: SEVHEX[d.severity], fillColor: SEVHEX[d.severity], fillOpacity: 0.8, weight: 1,
         }).bindPopup(
-          "<b>" + d.detection_type + "</b> · severity " + d.severity +
-          "<br>Confidence: " + Math.round(d.confidence * 100) + "% · " + d.model_version +
+          "<b>" + esc(d.detection_type) + "</b> · severity " + esc(d.severity) +
+          "<br>Confidence: " + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
           (d.used_fallback ? " (fallback)" : "") +
-          "<br>Status: " + d.status +
-          "<br>Device: " + d.device_name + (d.simulated ? " <b>[SIMULATED]</b>" : "") +
-          (d.segment_code ? "<br>Segment: " + d.segment_code : "") +
+          "<br>Status: " + esc(d.status) +
+          "<br>Device: " + esc(d.device_name) + (d.simulated ? " <b>[SIMULATED]</b>" : "") +
+          (d.segment_code ? "<br>Segment: " + esc(d.segment_code) : "") +
           "<br>Captured: " + new Date(d.captured_at).toLocaleString() +
           (d.ran_offline ? " · offline" : "")
         ).addTo(detLayer);
@@ -224,10 +228,10 @@
       el.className = "det";
       el.innerHTML =
         '<div class="row1"><span class="tag" style="background:' + SEVHEX[d.severity] + '">' +
-        d.detection_type.replace("_", " ") + " · s" + d.severity + "</span>" +
-        '<span class="st">' + d.status + "</span></div>" +
-        '<div class="meta">' + Math.round(d.confidence * 100) + "% · " + d.model_version +
-        " · " + (d.segment_code || "off-segment") + " · " + d.device_name +
+        esc(d.detection_type).replace("_", " ") + " · s" + esc(d.severity) + "</span>" +
+        '<span class="st">' + esc(d.status) + "</span></div>" +
+        '<div class="meta">' + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
+        " · " + esc(d.segment_code || "off-segment") + " · " + esc(d.device_name) +
         (d.simulated ? " [SIMULATED]" : "") + "<br>" +
         new Date(d.captured_at).toLocaleString() + (d.ran_offline ? " · captured offline" : "") + "</div>";
       if (d.status === "DETECTED") {
@@ -267,15 +271,15 @@
     r.data.forEach(function (d) {
       if (d.lat != null) {
         L.marker([d.lat, d.lng]).bindPopup(
-          "<b>" + d.name + "</b><br>" + d.status + (d.simulated ? " · SIMULATED" : "") +
+          "<b>" + esc(d.name) + "</b><br>" + esc(d.status) + (d.simulated ? " · SIMULATED" : "") +
           (d.battery_percent != null ? "<br>Battery " + d.battery_percent + "%" : "")
         ).addTo(devLayer);
       }
       var row = document.createElement("div");
       row.className = "dev";
       var col = d.status === "ACTIVE" ? "#59b374" : d.status === "DEGRADED" ? "#e08a3c" : "#8f8878";
-      row.innerHTML = '<span class="dot" style="background:' + col + '"></span>' + d.name +
-        "<small>" + d.status + (d.simulated ? " · SIMULATED" : "") +
+      row.innerHTML = '<span class="dot" style="background:' + col + '"></span>' + esc(d.name) +
+        "<small>" + esc(d.status) + (d.simulated ? " · SIMULATED" : "") +
         (d.battery_percent != null ? " · 🔋" + d.battery_percent + "%" : "") +
         (d.last_seen_at ? " · seen " + new Date(d.last_seen_at).toLocaleTimeString() : " · never seen") + "</small>";
       el.appendChild(row);
@@ -305,7 +309,7 @@
         document.getElementById(id).hidden = false;
       });
       if (!v.data.roles.includes("admin") && !v.data.roles.includes("gov_officer")) {
-        status("Signed in without an authority role — read-only (verify/close will be refused).");
+        status("This account has no authority role — RAKSHA data is admin/gov-officer only.");
       }
       refresh();
     } catch (e) { status("✗ " + e.message); }

@@ -67,7 +67,9 @@ export async function rakshaRoutes(app: FastifyInstance) {
     ));
   });
 
-  app.get("/v1/raksha/devices", { preHandler: authenticate }, async () => {
+  // Fleet locations and detection streams are operational intelligence:
+  // authority-only, so a citizen or a device credential cannot enumerate them.
+  app.get("/v1/raksha/devices", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async () => {
     const rows = await db.execute<{
       id: string; name: string; hardware_ref: string; status: string; simulated: boolean;
       battery_percent: number | null; storage_percent: number | null;
@@ -112,7 +114,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
   });
 
   // ── heartbeat ─────────────────────────────────────────────────────────────
-  app.post("/v1/raksha/devices/heartbeat", { preHandler: [authenticate, requireRole("device")] }, async (req) => {
+  app.post("/v1/raksha/devices/heartbeat", { preHandler: [authenticate, requireRole("device")] }, async (req, reply) => {
     const body = z.object({
       batteryPercent: z.number().int().min(0).max(100).optional(),
       storagePercent: z.number().int().min(0).max(100).optional(),
@@ -124,19 +126,31 @@ export async function rakshaRoutes(app: FastifyInstance) {
     }).parse(req.body ?? {});
 
     const deviceId = req.user!.sub;
+    const degraded = body.batteryPercent !== undefined && body.batteryPercent < 15;
+
+    // Guarded: a retired or soft-deleted device must not resurrect itself
+    // through a heartbeat while its last access token is still live.
+    const updated = await db.update(S.edgeDevices).set({
+      lastSeenAt: new Date(), updatedAt: new Date(),
+      batteryPercent: body.batteryPercent, storagePercent: body.storagePercent,
+      status: degraded ? "DEGRADED" : "ACTIVE",
+    }).where(and(
+      eq(S.edgeDevices.id, deviceId),
+      isNull(S.edgeDevices.deletedAt),
+      raw`${S.edgeDevices.status} <> 'RETIRED'`,
+    )).returning({ id: S.edgeDevices.id });
+    if (!updated.length) {
+      return reply.code(403).send({
+        error: { code: "device_retired", title: "This device is no longer accepted", retryable: false },
+      });
+    }
+
     await db.insert(S.edgeDeviceTelemetry).values({
       deviceId, recordedAt: new Date(),
       batteryPercent: body.batteryPercent, storagePercent: body.storagePercent,
       temperatureC: body.temperatureC, uptimeSeconds: body.uptimeSeconds,
       queueDepth: body.queueDepth,
     });
-
-    const degraded = body.batteryPercent !== undefined && body.batteryPercent < 15;
-    await db.update(S.edgeDevices).set({
-      lastSeenAt: new Date(), updatedAt: new Date(),
-      batteryPercent: body.batteryPercent, storagePercent: body.storagePercent,
-      status: degraded ? "DEGRADED" : "ACTIVE",
-    }).where(eq(S.edgeDevices.id, deviceId));
 
     if (body.lat !== undefined && body.lng !== undefined) {
       await db.execute(raw`
@@ -147,7 +161,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
   });
 
   // ── detection ingestion (batched, idempotent on device op_id) ────────────
-  app.post("/v1/raksha/detections", { preHandler: [authenticate, requireRole("device")] }, async (req) => {
+  app.post("/v1/raksha/detections", { preHandler: [authenticate, requireRole("device")] }, async (req, reply) => {
     const { detections } = z.object({
       detections: z.array(z.object({
         opId: z.string().min(8).max(64),
@@ -164,64 +178,107 @@ export async function rakshaRoutes(app: FastifyInstance) {
     }).parse(req.body);
 
     const deviceId = req.user!.sub;
-    const results: Array<{ opId: string; status: string; detectionId?: string; incidentId?: string }> = [];
+
+    // A retired or deleted device keeps a signed token for the access TTL —
+    // the resource must refuse it, not just the token exchange (ADR-0008).
+    const [device] = await db.select({ id: S.edgeDevices.id, status: S.edgeDevices.status })
+      .from(S.edgeDevices)
+      .where(and(eq(S.edgeDevices.id, deviceId), isNull(S.edgeDevices.deletedAt))).limit(1);
+    if (!device || device.status === "RETIRED") {
+      return reply.code(403).send({
+        error: { code: "device_retired", title: "This device is no longer accepted", retryable: false },
+      });
+    }
+
+    const results: Array<{ opId: string; status: string; detectionId?: string; incidentId?: string; incidentCorroborated?: boolean }> = [];
+    // Backstop against incident-queue flooding: one batch may open at most
+    // this many NEW incidents; repeats corroborate an existing one instead.
+    // Per-device rate limiting proper is a Phase 17 control (threat model #4).
+    let newIncidentBudget = 5;
 
     for (const d of detections) {
-      const inserted = await db.insert(S.rakshaDetections).values({
-        deviceId, opId: d.opId, detectionType: d.type,
-        confidence: d.confidence, severity: d.severity,
-        capturedAt: d.capturedAt, ranOffline: d.ranOffline ?? false,
-        imageRef: d.imageRef, modelVersion: d.modelVersion,
-        usedFallback: d.usedFallback ?? false,
-      }).onConflictDoNothing().returning({ id: S.rakshaDetections.id });
+      // Everything for one item commits together, or not at all — the
+      // idempotency marker must never exist without the rest (ADR-0004).
+      const outcome = await db.transaction(async (tx) => {
+        const inserted = await tx.insert(S.rakshaDetections).values({
+          deviceId, opId: d.opId, detectionType: d.type,
+          confidence: d.confidence, severity: d.severity,
+          capturedAt: d.capturedAt, ranOffline: d.ranOffline ?? false,
+          imageRef: d.imageRef, modelVersion: d.modelVersion,
+          usedFallback: d.usedFallback ?? false,
+        }).onConflictDoNothing({ target: [S.rakshaDetections.deviceId, S.rakshaDetections.opId] })
+          .returning({ id: S.rakshaDetections.id });
 
-      if (!inserted.length) {
-        results.push({ opId: d.opId, status: "duplicate" });
-        continue;
-      }
-      const detectionId = inserted[0].id;
+        if (!inserted.length) return { opId: d.opId, status: "duplicate" as const };
+        const detectionId = inserted[0].id;
 
-      // Attach location, then the nearest monitored segment within 250 m.
-      await db.execute(raw`
-        UPDATE raksha_detections
-           SET location = ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)
-         WHERE id = ${detectionId}`);
-      await db.execute(raw`
-        UPDATE raksha_detections rd
-           SET segment_id = seg.id
-          FROM (SELECT id FROM road_segments
-                 WHERE deleted_at IS NULL
-                   AND ST_DWithin(path::geography,
-                                  ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)::geography, 250)
-                 ORDER BY path <-> ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)
-                 LIMIT 1) seg
-         WHERE rd.id = ${detectionId}`);
+        // Attach location, then the nearest monitored segment within 250 m.
+        await tx.execute(raw`
+          UPDATE raksha_detections
+             SET location = ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)
+           WHERE id = ${detectionId}`);
+        await tx.execute(raw`
+          UPDATE raksha_detections rd
+             SET segment_id = seg.id
+            FROM (SELECT id FROM road_segments
+                   WHERE deleted_at IS NULL
+                     AND ST_DWithin(path::geography,
+                                    ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)::geography, 250)
+                   ORDER BY path <-> ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)
+                   LIMIT 1) seg
+           WHERE rd.id = ${detectionId}`);
 
-      // ADR-0006 audit: hash of the event, never the frame.
-      await db.insert(S.modelPredictions).values({
-        capability: "road_damage_detect", modelVersion: d.modelVersion,
-        inputHash: sha256(JSON.stringify(d)), confidence: d.confidence,
-        usedFallback: d.usedFallback ?? false, subjectId: deviceId,
-      });
-
-      // ADR-0005: a severe obstruction raises a SIGNAL — a human must confirm.
-      let incidentId: string | undefined;
-      if (d.type === "obstruction" && d.severity >= 4 && d.confidence >= 0.75) {
-        const [incident] = await db.insert(S.incidents).values({
-          status: "AWAITING_CONFIRMATION", severity: d.severity >= 5 ? "CRITICAL" : "HIGH",
-          detectedByModel: true, modelConfidence: d.confidence,
-        }).returning({ id: S.incidents.id });
-        await db.execute(raw`
-          UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)
-          WHERE id = ${incident.id}`);
-        await db.insert(S.incidentSignals).values({
-          incidentId: incident.id, kind: "raksha_detection",
-          payload: { detectionId, opId: d.opId, deviceId, type: d.type, severity: d.severity },
+        // ADR-0006 audit: hash of the event, never the frame.
+        await tx.insert(S.modelPredictions).values({
+          capability: "road_damage_detect", modelVersion: d.modelVersion,
+          inputHash: sha256(JSON.stringify(d)), confidence: d.confidence,
+          usedFallback: d.usedFallback ?? false, subjectId: deviceId,
         });
-        incidentId = incident.id;
-      }
 
-      results.push({ opId: d.opId, status: "applied", detectionId, incidentId });
+        // ADR-0005: a severe obstruction raises a SIGNAL — a human must confirm.
+        let incidentId: string | undefined;
+        let incidentCorroborated: boolean | undefined;
+        if (d.type === "obstruction" && d.severity >= 4 && d.confidence >= 0.75) {
+          // The same hazard seen again (same device, within 200 m, last hour,
+          // still open) corroborates the existing incident — it never opens a
+          // second one, so a stuck camera cannot bury the confirmation queue.
+          const open = await tx.execute<{ id: string }>(raw`
+            SELECT i.id FROM incidents i
+              JOIN incident_signals s ON s.incident_id = i.id
+             WHERE s.kind = 'raksha_detection'
+               AND s.payload->>'deviceId' = ${deviceId}
+               AND i.status IN ('AWAITING_CONFIRMATION', 'CONFIRMED', 'RESPONDING')
+               AND i.deleted_at IS NULL AND i.location IS NOT NULL
+               AND ST_DWithin(i.location::geography,
+                              ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)::geography, 200)
+               AND i.created_at > now() - interval '60 minutes'
+             LIMIT 1`);
+
+          if (open.length) {
+            incidentId = open[0].id;
+            incidentCorroborated = true;
+          } else if (newIncidentBudget > 0) {
+            newIncidentBudget--;
+            const [incident] = await tx.insert(S.incidents).values({
+              status: "AWAITING_CONFIRMATION", severity: d.severity >= 5 ? "CRITICAL" : "HIGH",
+              detectedByModel: true, modelConfidence: d.confidence,
+            }).returning({ id: S.incidents.id });
+            await tx.execute(raw`
+              UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)
+              WHERE id = ${incident.id}`);
+            incidentId = incident.id;
+          }
+          if (incidentId) {
+            await tx.insert(S.incidentSignals).values({
+              incidentId, kind: "raksha_detection",
+              payload: { detectionId, opId: d.opId, deviceId, type: d.type, severity: d.severity },
+            });
+          }
+        }
+
+        return { opId: d.opId, status: "applied" as const, detectionId, incidentId, incidentCorroborated };
+      });
+      results.push(outcome);
     }
 
     await db.update(S.edgeDevices)
@@ -235,7 +292,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
   });
 
   // ── reads for the dashboard ───────────────────────────────────────────────
-  app.get("/v1/raksha/detections", { preHandler: authenticate }, async (req) => {
+  app.get("/v1/raksha/detections", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req) => {
     const q = z.object({
       status: z.enum(["DETECTED", "VERIFIED", "REJECTED", "REPAIR_SCHEDULED", "REPAIRED", "CLOSED"]).optional(),
       type: z.enum(["pothole", "road_damage", "obstruction"]).optional(),
@@ -260,7 +317,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
     return ok(rows, { count: rows.length });
   });
 
-  app.get("/v1/raksha/segments", { preHandler: authenticate }, async () => {
+  app.get("/v1/raksha/segments", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async () => {
     const rows = await db.execute<Record<string, unknown>>(raw`
       SELECT rs.id, rs.code, rs.name, rs.highway_ref, rs.km_start, rs.km_end, rs.length_km,
              ST_AsGeoJSON(rs.path)::json AS geometry,
@@ -327,25 +384,48 @@ export async function rakshaRoutes(app: FastifyInstance) {
       notes: z.string().max(500).optional(),
     }).parse(req.body);
 
+    const [current] = await db.select({ status: S.rakshaDetections.status }).from(S.rakshaDetections)
+      .where(and(eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt))).limit(1);
+    if (!current) {
+      return reply.code(404).send({ error: { code: "not_found", title: "Detection not found", retryable: false } });
+    }
+    // Verification is a one-way gate: only a fresh detection can be judged,
+    // and prior verification evidence is never silently overwritten.
     const rows = await db.update(S.rakshaDetections).set({
       status: action === "verify" ? "VERIFIED" : "REJECTED",
       verifiedBy: req.user!.sub, verifiedAt: new Date(), notes, updatedAt: new Date(),
-    }).where(and(eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt)))
-      .returning({ id: S.rakshaDetections.id, status: S.rakshaDetections.status });
+    }).where(and(
+      eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt),
+      eq(S.rakshaDetections.status, "DETECTED"),
+    )).returning({ id: S.rakshaDetections.id, status: S.rakshaDetections.status });
     if (!rows.length) {
-      return reply.code(404).send({ error: { code: "not_found", title: "Detection not found", retryable: false } });
+      return reply.code(409).send({
+        error: { code: "already_reviewed", title: `This detection is already ${current.status} and cannot be re-judged`, retryable: false },
+      });
     }
     return ok(rows[0]);
   });
 
   app.post("/v1/raksha/detections/:id/close", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const [current] = await db.select({ status: S.rakshaDetections.status }).from(S.rakshaDetections)
+      .where(and(eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt))).limit(1);
+    if (!current) {
+      return reply.code(404).send({ error: { code: "not_found", title: "Detection not found", retryable: false } });
+    }
+    // Closing means a verified/repaired problem was confirmed fixed — a raw
+    // or rejected detection has nothing to close.
     const rows = await db.update(S.rakshaDetections)
       .set({ status: "CLOSED", updatedAt: new Date() })
-      .where(and(eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt)))
+      .where(and(
+        eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt),
+        raw`${S.rakshaDetections.status} IN ('VERIFIED', 'REPAIRED')`,
+      ))
       .returning({ id: S.rakshaDetections.id, status: S.rakshaDetections.status });
     if (!rows.length) {
-      return reply.code(404).send({ error: { code: "not_found", title: "Detection not found", retryable: false } });
+      return reply.code(409).send({
+        error: { code: "not_closable", title: `Only a VERIFIED or REPAIRED detection can be closed (this one is ${current.status})`, retryable: false },
+      });
     }
     return ok(rows[0]);
   });

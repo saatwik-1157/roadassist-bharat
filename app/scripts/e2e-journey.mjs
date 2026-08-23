@@ -315,6 +315,24 @@ const verify = await call("POST", `/v1/raksha/detections/${target.id}/verify`, {
 ok("authority verifies the detection", verify.data?.status === "VERIFIED");
 const close = await call("POST", `/v1/raksha/detections/${target.id}/close`, { token: adminToken });
 ok("verified detection is closed after repair confirmation", close.data?.status === "CLOSED");
+const reJudge = await call("POST", `/v1/raksha/detections/${target.id}/verify`, {
+  token: adminToken, body: { action: "reject" },
+});
+ok("a closed detection cannot be re-judged", reJudge.status === 409, `got ${reJudge.status}`);
+
+// Idempotency is scoped per device: another device reusing the same op ids
+// must never be silently censored by the first device's rows.
+const devReg2 = await call("POST", "/v1/raksha/devices", {
+  token: adminToken, body: { name: "E2E-EDGE-2 [SIMULATED]", lat: 28.41, lng: 76.99 },
+});
+const devTok2 = await call("POST", "/v1/raksha/devices/token", {
+  body: { deviceId: devReg2.data.id, deviceSecret: devReg2.data.deviceSecret },
+});
+const cross = await call("POST", "/v1/raksha/detections", {
+  token: devTok2.data.accessToken, body: edgeBatch,
+});
+ok("a second device reusing the same op ids is not censored (per-device idempotency)",
+   cross.meta?.applied === 3, `applied=${cross.meta?.applied} duplicates=${cross.meta?.duplicates}`);
 
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);

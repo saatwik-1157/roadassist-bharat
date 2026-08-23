@@ -60,4 +60,4 @@ An offline-first, AI-powered roadside assistance and vehicle-safety platform for
 
 ---
 
-*Status: the Review-2 vertical slice runs end to end (see [app/](app/)) — 9 unit + 82 e2e assertions. The **RAKSHA** autonomous road-monitoring extension (edge devices, offline detection sync, road health, authority map) has its MVP slice live; requirements in [docs/raksha/](docs/raksha/00-requirements.md), decisions in ADR-0007/0008.*
+*Status: the Review-2 vertical slice runs end to end (see [app/](app/)) — 9 unit + 84 e2e assertions. The **RAKSHA** autonomous road-monitoring extension (edge devices, offline detection sync, road health, authority map) has its MVP slice live; requirements in [docs/raksha/](docs/raksha/00-requirements.md), decisions in ADR-0007/0008.*
