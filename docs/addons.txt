@@ -1,0 +1,15 @@
+1. Edge AI & Road Hazard Engine (P3)
+On-Device Pothole & Hazard Detector: Lightweight model (≤15 MB) using mitangshu11 to detect potholes, speed-breakers, and unpaved roads.
+Pavement Distress Index (PDI): Live 0.0–1.0 road roughness score.
+Empirical Bayes Blackspot Predictor: Uses MoRTH accident data to identify high-risk crash zones.
+2. Smart Backend & Highway Mapping (P1)
+Highway Milestone (LRS) Resolution: Find exact highway locations like NH-44 KM 142.5 using PostGIS LRS.
+Uber H3 Hexagonal Grid (Res 8): Enables fast nearest-mechanic and responder lookups (<50 ms).
+Hazard-Aware Dispatch Routing: Avoids severely damaged roads when routing tow trucks and ambulances.
+3. Life-Safety & Offline Resilience (P2 & P4)
+Zero-Internet Offline Client: SQLite + offline maps for fault diagnosis and roadside requests without internet.
+Crash-to-Responder Engine: 100 Hz IMU crash detection with a 30-second cancellation countdown and automatic SMS location dispatch.
+Feature Phone Gateway: SMS & IVR commands (MADAD, SOS, STATUS) in 8 Indian languages.
+4. Government & Compliance Module (P4)
+MoRTH Statutory Blackspot Portal: District heatmaps with automatic monthly statutory PDF reports.
+DPDP Act 2023 Privacy Layer: Query-level k-anonymity (k ≥ 10) to prevent citizen re-identification.

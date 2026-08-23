@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: lint · typecheck · test · scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Phase 3 onward will run integration tests against these.
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: roadassist
+          POSTGRES_PASSWORD: devpassword
+          POSTGRES_DB: roadassist_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U roadassist"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test --if-present
+
+      # A committed secret must never reach main. This gate is non-negotiable.
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+        continue-on-error: false
+
+  # Architecture fitness function: module boundaries are part of the design,
+  # so a violation should fail the build rather than be found in review.
+  boundaries:
+    name: module boundaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci --no-audit --no-fund
+      - name: No cross-module imports outside the contract
+        run: node scripts/check-boundaries.mjs

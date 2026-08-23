@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RoadAssist App</title>
+<meta name="theme-color" content="#050505">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d8b46a'%3E%3Cg transform='rotate(-30 12 12)'%3E%3Ccircle cx='7.3' cy='3.2' r='1.45'/%3E%3Crect x='5.5' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Crect x='14.9' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Ccircle cx='16.7' cy='20.8' r='1.45'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400&family=Inter:wght@300;400;500;600&display=swap">
+<style>
+  html, body { background: #050505 !important; color: #f5f1e8; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #050505; --panel: #0e0d0a; --panel-2: #14110c;
+    --gold: #d8b46a; --cream: #f5f1e8; --muted: #8f8878;
+    --line: rgba(216, 180, 106, 0.2);
+    --red: #e4574a;
+    --serif: "Cormorant Garamond", Georgia, serif;
+    --sans: "Inter", system-ui, sans-serif;
+  }
+  body {
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    max-width: 430px;
+    margin: 0 auto;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+    border-left: 1px solid rgba(216,180,106,0.08);
+    border-right: 1px solid rgba(216,180,106,0.08);
+  }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* top bar */
+  .top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: calc(14px + env(safe-area-inset-top)) 20px 14px;
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; background: rgba(5,5,5,0.9); backdrop-filter: blur(12px); z-index: 5;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; }
+  .brand svg { width: 20px; height: 20px; }
+  .brand b { font-family: var(--serif); font-size: 17px; font-weight: 500; letter-spacing: 0.04em; }
+  .brand b i { font-style: normal; color: var(--gold); }
+  .net { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .net::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #59b374; }
+  body.offline .net::before { background: var(--red); }
+
+  main { flex: 1; overflow-y: auto; }
+  .screen { display: none; padding: 22px 20px 26px; animation: rise 0.45s cubic-bezier(0.16,1,0.3,1); }
+  .screen.active { display: block; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  h1 { font-family: var(--serif); font-weight: 500; font-size: 30px; line-height: 1.15; }
+  h1 em { font-style: italic; color: var(--gold); }
+  .sub { color: var(--muted); font-size: 13px; font-weight: 300; margin-top: 6px; line-height: 1.6; }
+
+  /* SOS */
+  .sos-wrap { display: grid; place-items: center; padding: 30px 0 12px; }
+  .sos {
+    width: 168px; height: 168px; border-radius: 50%;
+    border: 1px solid rgba(228, 87, 74, 0.6);
+    background: radial-gradient(circle at 34% 30%, rgba(228,87,74,0.32), rgba(90,20,14,0.5) 65%), #170a08;
+    color: var(--cream);
+    font-size: 22px; letter-spacing: 0.34em; text-transform: uppercase; font-weight: 600;
+    box-shadow: 0 0 0 0 rgba(228, 87, 74, 0.4);
+    animation: pulse 2.4s infinite;
+    transition: transform 0.2s;
+  }
+  .sos:active { transform: scale(0.95); }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(228, 87, 74, 0.35); }
+    70% { box-shadow: 0 0 0 26px rgba(228, 87, 74, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(228, 87, 74, 0); }
+  }
+  .sos-hint { text-align: center; color: var(--muted); font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase; margin-top: 14px; }
+
+  /* list rows / cards */
+  .rows { margin-top: 22px; border: 1px solid var(--line); }
+  .row {
+    width: 100%; text-align: left; background: var(--panel); border: 0; color: var(--cream);
+    display: flex; align-items: center; gap: 14px; padding: 17px 16px;
+    font-size: 14.5px; font-weight: 400;
+    transition: background 0.3s;
+  }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row:hover { background: var(--panel-2); }
+  .row .ico { width: 34px; height: 34px; border: 1px solid var(--line); display: grid; place-items: center; color: var(--gold); font-family: var(--serif); font-style: italic; font-size: 16px; flex: none; }
+  .row small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 300; margin-top: 3px; }
+  .row .go { margin-left: auto; color: var(--gold); }
+
+  .field { margin-top: 16px; }
+  .field label { font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); }
+  .field input, .field select {
+    width: 100%; margin-top: 8px; padding: 14px;
+    background: var(--panel); border: 1px solid var(--line); color: var(--cream);
+    font-family: inherit; font-size: 14.5px; outline: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--gold); }
+
+  .btn-gold {
+    width: 100%; margin-top: 24px; padding: 16px;
+    background: var(--gold); color: #0a0805; border: 0;
+    font-size: 12.5px; letter-spacing: 0.24em; text-transform: uppercase; font-weight: 600;
+    transition: box-shadow 0.3s;
+  }
+  .btn-gold:hover { box-shadow: 0 0 30px rgba(216,180,106,0.4); }
+  .btn-line { width: 100%; margin-top: 12px; padding: 15px; background: transparent; border: 1px solid var(--line); color: var(--muted); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; }
+
+  /* track timeline */
+  .mech {
+    display: flex; align-items: center; gap: 14px;
+    border: 1px solid var(--line); background: var(--panel); padding: 16px; margin-top: 22px;
+  }
+  .mech .avatar { width: 46px; height: 46px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f0d9a8, #9a7b3f); color: #0a0805; display: grid; place-items: center; font-family: var(--serif); font-size: 21px; font-weight: 600; }
+  .mech b { font-size: 15px; font-weight: 500; display: block; }
+  .mech small { color: var(--muted); font-size: 12px; font-weight: 300; }
+  .mech .eta { margin-left: auto; text-align: right; }
+  .mech .eta strong { font-family: var(--serif); font-size: 24px; color: var(--gold); display: block; }
+  .mech .eta span { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+
+  .timeline { margin-top: 26px; padding-left: 6px; }
+  .step { display: flex; gap: 16px; position: relative; padding-bottom: 26px; }
+  .step::before {
+    content: ""; position: absolute; left: 5px; top: 16px; bottom: 0; width: 1px; background: var(--line);
+  }
+  .step:last-child::before { display: none; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--gold); background: transparent; flex: none; margin-top: 3px; z-index: 1; }
+  .step.done .dot { background: var(--gold); box-shadow: 0 0 12px rgba(216,180,106,0.6); }
+  .step b { font-size: 14px; font-weight: 500; display: block; }
+  .step small { color: var(--muted); font-size: 12px; font-weight: 300; }
+  .step.pending { opacity: 0.4; }
+
+  /* profile */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 22px; }
+  .stat-grid div { background: var(--panel); padding: 20px 16px; }
+  .stat-grid strong { font-family: var(--serif); font-size: 26px; color: var(--gold); display: block; }
+  .stat-grid span { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+
+  /* toast */
+  .toast {
+    position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) translateY(20px);
+    background: var(--gold); color: #0a0805;
+    padding: 13px 22px; font-size: 13px; font-weight: 500; letter-spacing: 0.04em;
+    opacity: 0; pointer-events: none; transition: opacity 0.35s, transform 0.35s;
+    max-width: 88vw; text-align: center; z-index: 30;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* tab bar */
+  .tabs {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--line);
+    background: rgba(5,5,5,0.94); backdrop-filter: blur(12px);
+    padding-bottom: env(safe-area-inset-bottom);
+    position: sticky; bottom: 0; z-index: 10;
+  }
+  .tab {
+    background: transparent; border: 0; color: var(--muted);
+    padding: 12px 4px 12px; display: grid; place-items: center; gap: 4px;
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    transition: color 0.3s;
+  }
+  .tab svg { width: 20px; height: 20px; }
+  .tab.active { color: var(--gold); }
+</style>
+</head>
+<body>
+
+  <div class="top">
+    <span class="brand">
+      <svg viewBox="0 0 24 24" fill="#d8b46a" aria-hidden="true">
+        <g transform="rotate(-30 12 12)">
+          <circle cx="7.3" cy="3.2" r="1.45"/>
+          <rect x="5.5" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+          <rect x="14.9" y="4.7" width="3.6" height="14.6" rx="1.8"/>
+          <circle cx="16.7" cy="20.8" r="1.45"/>
+        </g>
+      </svg>
+      <b>Road<i>Assist</i></b>
+    </span>
+    <span class="net" id="net">Online</span>
+  </div>
+
+  <main>
+    <!-- HOME -->
+    <section class="screen active" id="scr-home">
+      <h1>Good evening,<br><em>Adithya.</em></h1>
+      <p class="sub">Your Swift · TS09 AB 1234 — all systems nominal.</p>
+
+      <div class="sos-wrap">
+        <button class="sos" id="sos-btn" aria-label="Emergency SOS">SOS</button>
+      </div>
+      <p class="sos-hint">Hold in an emergency — responders in 28 ms</p>
+
+      <div class="rows">
+        <button class="row" data-nav="book">
+          <span class="ico">I</span>
+          <span>Request assistance<small>Battery, tyre, fuel, towing &amp; more</small></span>
+          <span class="go">→</span>
+        </button>
+        <button class="row" data-nav="track">
+          <span class="ico">II</span>
+          <span>Track my rescue<small>RA1F4C2B · mechanic en route</small></span>
+          <span class="go">→</span>
+        </button>
+        <button class="row" id="diag-row">
+          <span class="ico">III</span>
+          <span>Diagnose a fault<small>Describe symptoms, get a verdict</small></span>
+          <span class="go">→</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- BOOK -->
+    <section class="screen" id="scr-book">
+      <h1>Request <em>assistance</em></h1>
+      <p class="sub">A verified mechanic, matched in under twenty milliseconds.</p>
+
+      <div class="field">
+        <label for="f-vehicle">Vehicle</label>
+        <select id="f-vehicle">
+          <option>Swift · TS09 AB 1234</option>
+          <option>Activa · TS10 CD 5566</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-service">Service</label>
+        <select id="f-service">
+          <option>Battery jumpstart</option>
+          <option>Flat tyre</option>
+          <option>Fuel delivery</option>
+          <option>Minor repair</option>
+          <option>Towing</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-where">Where are you?</label>
+        <input id="f-where" value="NH-48, KM 212 — near Manesar toll">
+      </div>
+
+      <button class="btn-gold" id="book-btn">Dispatch a mechanic</button>
+      <button class="btn-line" data-nav="home">Back</button>
+    </section>
+
+    <!-- TRACK -->
+    <section class="screen" id="scr-track">
+      <h1>Rescue <em>RA1F4C2B</em></h1>
+      <p class="sub">Battery jumpstart · NH-48, KM 212</p>
+
+      <div class="mech">
+        <span class="avatar">R</span>
+        <span><b>Ramesh Kumar</b><small>★ 4.9 · 1,240 rescues · 2.3 km away</small></span>
+        <span class="eta"><strong id="eta">12</strong><span>min</span></span>
+      </div>
+
+      <div class="timeline" id="timeline">
+        <div class="step done"><span class="dot"></span><span><b>Request received</b><small>18:42 — dispatch ranked 5 mechanics</small></span></div>
+        <div class="step done"><span class="dot"></span><span><b>Ramesh accepted</b><small>18:42 — offer #1 of 5</small></span></div>
+        <div class="step done" id="st-route"><span class="dot"></span><span><b>En route to you</b><small>Live — moving along NH-48</small></span></div>
+        <div class="step pending" id="st-arrive"><span class="dot"></span><span><b>Arrival on site</b><small>Awaiting</small></span></div>
+        <div class="step pending" id="st-done"><span class="dot"></span><span><b>Work complete &amp; invoice</b><small>GST-itemised, settled in app</small></span></div>
+      </div>
+
+      <button class="btn-line" data-nav="home">Back to home</button>
+    </section>
+
+    <!-- PROFILE -->
+    <section class="screen" id="scr-profile">
+      <h1>Your <em>membership</em></h1>
+      <p class="sub">Adithya · +91 98••• ••001 · Member since 2026</p>
+
+      <div class="stat-grid">
+        <div><strong>7</strong><span>Rescues</span></div>
+        <div><strong>2</strong><span>Vehicles</span></div>
+        <div><strong>3</strong><span>Emergency contacts</span></div>
+        <div><strong>₹0</strong><span>Due</span></div>
+      </div>
+
+      <div class="rows">
+        <button class="row"><span class="ico">अ</span><span>Language<small>English · हिन्दी · తెలుగు + 5 more</small></span><span class="go">→</span></button>
+        <button class="row" id="offline-row"><span class="ico">◌</span><span>Offline mode<small>Queue actions with zero signal</small></span><span class="go">→</span></button>
+        <button class="row"><span class="ico">✆</span><span>Emergency contacts<small>Priya, Amma, Ravi</small></span><span class="go">→</span></button>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <nav class="tabs" aria-label="App">
+    <button class="tab active" data-nav="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5"/></svg>
+      Home
+    </button>
+    <button class="tab" data-nav="book">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3 2.3-2.3z"/></svg>
+      Book
+    </button>
+    <button class="tab" data-nav="track">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="10" r="3"/><path d="M12 21c4-4.5 7-8 7-11a7 7 0 1 0-14 0c0 3 3 6.5 7 11z"/></svg>
+      Track
+    </button>
+    <button class="tab" data-nav="profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/></svg>
+      Profile
+    </button>
+  </nav>
+
+<script>
+(function () {
+  "use strict";
+  var toastEl = document.getElementById("toast");
+  var toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, 2600);
+  }
+
+  function nav(name) {
+    document.querySelectorAll(".screen").forEach(function (s) { s.classList.remove("active"); });
+    var scr = document.getElementById("scr-" + name);
+    if (scr) scr.classList.add("active");
+    document.querySelectorAll(".tab").forEach(function (t) {
+      t.classList.toggle("active", t.getAttribute("data-nav") === name);
+    });
+    document.querySelector("main").scrollTop = 0;
+  }
+
+  document.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-nav]");
+    if (el) nav(el.getAttribute("data-nav"));
+  });
+
+  document.getElementById("book-btn").addEventListener("click", function () {
+    toast("Dispatched — 5 mechanics ranked in 19.8 ms");
+    setTimeout(function () { nav("track"); }, 900);
+  });
+
+  document.getElementById("sos-btn").addEventListener("click", function () {
+    toast("SOS raised — confirm or cancel within 30 seconds");
+  });
+
+  document.getElementById("diag-row").addEventListener("click", function () {
+    toast("Verdict: battery fault · 87% confident · not driveable");
+  });
+
+  document.getElementById("offline-row").addEventListener("click", function () {
+    var off = document.body.classList.toggle("offline");
+    document.getElementById("net").textContent = off ? "Offline" : "Online";
+    toast(off ? "Offline — actions queue and replay safely" : "Back online — queue replayed, no duplicates");
+  });
+
+  // little live ETA for the track screen
+  var eta = 12;
+  setInterval(function () {
+    if (eta > 3) { eta--; document.getElementById("eta").textContent = eta; }
+  }, 4000);
+})();
+</script>
+</body>
+</html>
