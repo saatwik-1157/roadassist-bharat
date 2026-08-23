@@ -29,21 +29,21 @@ Sources: figshare API record (api.figshare.com/v2/articles/21431547),
 [arXiv:2209.08538](https://arxiv.org/abs/2209.08538),
 [Geoscience Data Journal](https://rmets.onlinelibrary.wiley.com/doi/10.1002/gdj3.260).
 
-### mitangshu11 / Indian Roads Dataset — CANDIDATE, LICENSE UNVERIFIED ⚠️
+### mitangshu11 / Indian Roads Dataset — RULED OUT ❌ (license "Unknown")
 
 | Property | Value | Label |
 |---|---|---|
 | Location | kaggle.com/datasets/mitangshu11/indian-roads-dataset | SOURCE FACT |
 | Content | 4,000+ images of Indian roads: potholes, marked/unmarked speed-breakers, poorly maintained unpaved roads | SOURCE FACT (from search snippet) |
 | Annotation | Labeled with LabelImg, YOLO format | SOURCE FACT (from search snippet) |
-| **License** | **UNKNOWN — Kaggle blocks automated access; neither scraping nor search surfaced the license** | UNVERIFIED |
+| **License** | **"Unknown" — read from the rendered dataset card in a browser on 2026-08-23** | SOURCE FACT |
 
-**Action required before ANY training use:** open the Kaggle page in a browser,
-read the License field on the dataset card, and record it here. Until then this
-dataset must not be used for anything beyond private local experimentation.
-Many Kaggle datasets ship with "unknown/other" licensing, which would rule it
-out. Its value if cleared: speed-breakers and unpaved-road classes that RDD2022
-lacks, on exactly our domain.
+**Verdict:** a Kaggle license of "Unknown" grants no usage rights, so this
+dataset is **excluded from training and evaluation** in this project. If the
+author later attaches a real license, re-open this entry. Consequence: the
+speed-breaker and unpaved-road classes currently have **no licensed data** —
+they become a data-collection item (own dashcam footage, labeled in-house)
+or await another verified source.
 
 ## 2. Model licensing
 
@@ -88,7 +88,9 @@ size (≤ 15 MB target for the edge bundle).
 1. **Proceed with RDD2022 (CC BY 4.0)** as the training/evaluation base for
    `pothole` + `road_damage`; attribute the authors in docs and any published
    model card.
-2. **Hold mitangshu11's dataset** pending a manual license check on Kaggle.
+2. **mitangshu11's dataset is ruled out** — its Kaggle card reads License
+   "Unknown" (verified in-browser 2026-08-23), which grants no usage rights.
+   Speed-breaker/unpaved classes need own data collection or another source.
 3. **Use an AGPL-tolerant setup now** (public student project) but score at
    least one Apache-2.0 model in the same evaluation so the startup path is
    never blocked on a license.
