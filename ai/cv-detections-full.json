@@ -1,0 +1,505 @@
+{
+ "model": "yolo-rdd2022in-best",
+ "images": 40,
+ "results": [
+  {
+   "imageRef": "India_000038.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000053.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.894,
+     "severity": 5,
+     "boxFraction": 0.1962,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    },
+    {
+     "type": "pothole",
+     "confidence": 0.413,
+     "severity": 2,
+     "boxFraction": 0.0034,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000102.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000104.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000114.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.805,
+     "severity": 5,
+     "boxFraction": 0.1511,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000115.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000127.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.593,
+     "severity": 5,
+     "boxFraction": 0.3516,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000131.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.465,
+     "severity": 5,
+     "boxFraction": 0.163,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000168.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "pothole",
+     "confidence": 0.362,
+     "severity": 5,
+     "boxFraction": 0.1514,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000199.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000232.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000270.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.699,
+     "severity": 5,
+     "boxFraction": 0.1597,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000271.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000285.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.439,
+     "severity": 5,
+     "boxFraction": 0.1937,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000292.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.612,
+     "severity": 4,
+     "boxFraction": 0.0953,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000299.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.572,
+     "severity": 5,
+     "boxFraction": 0.3466,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    },
+    {
+     "type": "road_damage",
+     "confidence": 0.389,
+     "severity": 5,
+     "boxFraction": 0.3573,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000316.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "pothole",
+     "confidence": 0.42,
+     "severity": 2,
+     "boxFraction": 0.0041,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000317.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.619,
+     "severity": 5,
+     "boxFraction": 0.2049,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    },
+    {
+     "type": "road_damage",
+     "confidence": 0.383,
+     "severity": 5,
+     "boxFraction": 0.2242,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000368.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "pothole",
+     "confidence": 0.613,
+     "severity": 2,
+     "boxFraction": 0.0024,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    },
+    {
+     "type": "pothole",
+     "confidence": 0.5,
+     "severity": 2,
+     "boxFraction": 0.001,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    },
+    {
+     "type": "road_damage",
+     "confidence": 0.466,
+     "severity": 2,
+     "boxFraction": 0.0139,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000384.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000399.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000409.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.648,
+     "severity": 5,
+     "boxFraction": 0.1532,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000432.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.712,
+     "severity": 4,
+     "boxFraction": 0.1447,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    },
+    {
+     "type": "road_damage",
+     "confidence": 0.38,
+     "severity": 4,
+     "boxFraction": 0.096,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000456.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.548,
+     "severity": 2,
+     "boxFraction": 0.0191,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    },
+    {
+     "type": "pothole",
+     "confidence": 0.366,
+     "severity": 2,
+     "boxFraction": 0.0026,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000462.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.503,
+     "severity": 4,
+     "boxFraction": 0.0872,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000472.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.608,
+     "severity": 5,
+     "boxFraction": 0.223,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000493.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.877,
+     "severity": 5,
+     "boxFraction": 0.2042,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000517.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.523,
+     "severity": 5,
+     "boxFraction": 0.2259,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000524.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.71,
+     "severity": 5,
+     "boxFraction": 0.3579,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000528.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000532.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000556.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.466,
+     "severity": 5,
+     "boxFraction": 0.1625,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    },
+    {
+     "type": "road_damage",
+     "confidence": 0.358,
+     "severity": 4,
+     "boxFraction": 0.0839,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000582.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000586.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.436,
+     "severity": 4,
+     "boxFraction": 0.1029,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000614.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "pothole",
+     "confidence": 0.515,
+     "severity": 3,
+     "boxFraction": 0.0104,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000656.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "road_damage",
+     "confidence": 0.578,
+     "severity": 5,
+     "boxFraction": 0.1893,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000684.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "pothole",
+     "confidence": 0.438,
+     "severity": 5,
+     "boxFraction": 0.0839,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000705.jpg",
+   "inferenceMs": 122.1,
+   "detections": [
+    {
+     "type": "pothole",
+     "confidence": 0.608,
+     "severity": 2,
+     "boxFraction": 0.0038,
+     "modelVersion": "yolo-rdd2022in-best",
+     "usedFallback": false
+    }
+   ]
+  },
+  {
+   "imageRef": "India_000731.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  },
+  {
+   "imageRef": "India_000739.jpg",
+   "inferenceMs": 122.1,
+   "detections": []
+  }
+ ],
+ "note": "severity is a documented box-area heuristic, not a safety standard"
+}
