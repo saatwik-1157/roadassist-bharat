@@ -29,8 +29,11 @@ export const otpChallenges = pgTable("otp_challenges", {
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   consumedAt: timestamp("consumed_at", { withTimezone: true }),
   channel: varchar("channel", { length: 12 }).notNull().default("sms"),
+  /** Requesting IP — threat #1 rate-limits per MSISDN AND per IP. */
+  ip: varchar("ip", { length: 45 }),
 }, (t) => ({
   msisdnIdx: index("otp_msisdn_idx").on(t.msisdn, t.expiresAt),
+  ipIdx: index("otp_ip_idx").on(t.ip, t.createdAt),
 }));
 
 export const devices = pgTable("devices", {
