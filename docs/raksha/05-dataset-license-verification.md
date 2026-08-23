@@ -114,6 +114,27 @@ NOT production quality (published RDD2022 baselines with full data and proper
 training reach several times this mAP). Next step: full 3,223-image mapped set,
 more epochs, GPU, and an Apache-2.0 model scored alongside.
 
+## 6. Measured results — full run (2026-08-23, MEASURED NOT ASSERTED)
+
+YOLO11n on the full mapped set (2,723 train / 500 val), 30 epochs, imgsz 480,
+CPU — 5h50m wall time. Validated on 500 images / 1,051 instances:
+
+| Metric | all | pothole | road_damage |
+|---|---|---|---|
+| Precision | 0.535 | 0.537 | 0.534 |
+| Recall | 0.422 | 0.389 | 0.455 |
+| mAP50 | **0.443** | 0.412 | 0.474 |
+| mAP50-95 | 0.183 | 0.152 | 0.215 |
+
+**3.3× the smoke baseline** (mAP50 0.134 → 0.443). Weights 5.4 MB (.pt) /
+10.4 MB dynamic-batch ONNX · 65.4 ms/image CPU inference. In the useful range
+for a first field pilot with human verification in the loop (which the
+authority workflow enforces anyway); still below published GPU-trained
+RDD2022 baselines — the documented path up is GPU training, larger imgsz,
+and hyperparameter/threshold tuning. End-to-end re-proof: 34 detections
+(25 road_damage, 9 pothole at conf ≥0.35) from validation images ingested
+through the live platform — 34 applied, replay 34 duplicates (idempotent).
+
 End-to-end proof: detect.py output (34 detections over 40 val images at
 conf ≥0.30) was ingested through the live platform via
 `raksha-simulator.mjs --from-json` — 34 applied, replay returned 34
