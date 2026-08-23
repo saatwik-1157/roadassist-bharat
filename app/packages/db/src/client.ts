@@ -4,8 +4,9 @@ import * as identity from "./schema/identity.js";
 import * as fleet from "./schema/fleet.js";
 import * as service from "./schema/service.js";
 import * as ops from "./schema/ops.js";
+import * as raksha from "./schema/raksha.js";
 
-export const schema = { ...identity, ...fleet, ...service, ...ops };
+export const schema = { ...identity, ...fleet, ...service, ...ops, ...raksha };
 
 export const DATABASE_URL =
   process.env.DATABASE_URL ??

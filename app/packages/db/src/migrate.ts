@@ -28,12 +28,21 @@ async function main() {
     ["mechanics", "last_location"],
     ["responder_units", "last_location"],
     ["service_zones", "centre"],
+    ["edge_devices", "location"],
+    ["raksha_detections", "location"],
   ] as const) {
     await db.execute(sql`
       ALTER TABLE ${sql.identifier(table)}
         ALTER COLUMN ${sql.identifier(col)} TYPE geometry(Point, 4326)
         USING ST_SetSRID(${sql.identifier(col)}, 4326)`);
   }
+
+  // road_segments.path is declared as bare `geometry` (drizzle-kit quotes a
+  // parenthesised custom dataType) — pin it to a LineString here (ADR-0007).
+  await db.execute(sql`
+    ALTER TABLE road_segments
+      ALTER COLUMN path TYPE geometry(LineString, 4326)
+      USING ST_SetSRID(path, 4326)`);
 
   console.log("→ applying post-migration constraints and indexes");
   // Soft delete: every read path filters on deleted_at, so index the alive rows only.
@@ -53,6 +62,29 @@ async function main() {
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS incidents_location_gix
       ON incidents USING GIST (location)`);
+  // RAKSHA (ADR-0007): spatial indexes + range CHECKs the ORM cannot express.
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS raksha_detections_location_gix
+      ON raksha_detections USING GIST (location)`);
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS road_segments_path_gix
+      ON road_segments USING GIST (path)`);
+  await db.execute(sql`
+    ALTER TABLE raksha_detections DROP CONSTRAINT IF EXISTS raksha_severity_range`);
+  await db.execute(sql`
+    ALTER TABLE raksha_detections ADD CONSTRAINT raksha_severity_range
+      CHECK (severity BETWEEN 1 AND 5)`);
+  await db.execute(sql`
+    ALTER TABLE raksha_detections DROP CONSTRAINT IF EXISTS raksha_confidence_range`);
+  await db.execute(sql`
+    ALTER TABLE raksha_detections ADD CONSTRAINT raksha_confidence_range
+      CHECK (confidence >= 0 AND confidence <= 1)`);
+  await db.execute(sql`
+    ALTER TABLE road_health_scores DROP CONSTRAINT IF EXISTS road_health_score_range`);
+  await db.execute(sql`
+    ALTER TABLE road_health_scores ADD CONSTRAINT road_health_score_range
+      CHECK (score BETWEEN 0 AND 100)`);
+
   // Ratings must be 1..5 — a CHECK the ORM does not generate.
   await db.execute(sql`
     ALTER TABLE reviews DROP CONSTRAINT IF EXISTS reviews_rating_range`);
