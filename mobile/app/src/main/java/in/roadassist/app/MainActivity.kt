@@ -56,6 +56,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -155,6 +156,10 @@ fun RoadAssistApp() {
                 onSignedIn = { vid, vlabel -> vehicleId = vid; vehicleLabel = vlabel; signedIn = true; tab = 0 },
             )
         } else {
+            // Build the map WebView once and keep it alive for the whole signed-in
+            // session, so switching to the Map tab is instant and never re-loads
+            // Leaflet or re-flashes tiles. It self-heals its token via AndroidAuth.
+            val mapWebView = remember { buildMapWebView(ctx, Api.base) }
             Scaffold(
                 containerColor = Bg,
                 topBar = {
@@ -192,30 +197,43 @@ fun RoadAssistApp() {
                     }
                 },
             ) { pad ->
-                Box(Modifier.padding(pad)) {
+                Box(Modifier.padding(pad).fillMaxSize().background(Bg)) {
+                    // The map stays mounted underneath; it's only visible on the Map
+                    // tab. Keeping it in the tree is what makes tab switches buttery —
+                    // no WebView teardown, no Leaflet reload, no tile re-fetch.
+                    Box(Modifier.fillMaxSize().then(if (tab == 2) Modifier else Modifier.alpha(0f))) {
+                        AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapWebView })
+                    }
+                    // Foreground screens paint opaquely over the map when active.
                     when (tab) {
-                        0 -> HomeScreen(
-                            msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel,
-                            onVehicle = { id, label -> vehicleId = id; vehicleLabel = label },
-                            onBook = { tab = 1 },
-                            onToast = { toast = it },
-                        )
-                        1 -> BookScreen(
-                            vehicleId = vehicleId,
-                            onToast = { toast = it },
-                            onTracked = { id -> bookingId = id; tab = 3 },
-                            onNeedVehicle = { tab = 0 },
-                        )
-                        2 -> LiveMapScreen()
-                        3 -> {
+                        0 -> Box(Modifier.fillMaxSize().background(Bg)) {
+                            HomeScreen(
+                                msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel,
+                                onVehicle = { id, label -> vehicleId = id; vehicleLabel = label },
+                                onBook = { tab = 1 },
+                                onToast = { toast = it },
+                            )
+                        }
+                        1 -> Box(Modifier.fillMaxSize().background(Bg)) {
+                            BookScreen(
+                                vehicleId = vehicleId,
+                                onToast = { toast = it },
+                                onTracked = { id -> bookingId = id; tab = 3 },
+                                onNeedVehicle = { tab = 0 },
+                            )
+                        }
+                        2 -> Unit  // map shown beneath
+                        3 -> Box(Modifier.fillMaxSize().background(Bg)) {
                             val id = bookingId
                             if (id == null) EmptyTrack(onBook = { tab = 1 })
                             else TrackScreen(bookingId = id, onToast = { toast = it })
                         }
-                        else -> MoreScreen(
-                            msisdn = msisdn,
-                            onSignOut = { Api.token = null; signedIn = false; bookingId = null },
-                        )
+                        else -> Box(Modifier.fillMaxSize().background(Bg)) {
+                            MoreScreen(
+                                msisdn = msisdn,
+                                onSignOut = { Api.clear(); signedIn = false; bookingId = null },
+                            )
+                        }
                     }
                 }
             }
@@ -241,35 +259,37 @@ fun RoadAssistApp() {
     }
 }
 
-/** A real interactive Leaflet map (in a WebView) plotting live locations —
- *  nearby mechanics, responder units and road detections — from the platform's
- *  seeded PostGIS datasets, refreshed every 10s. Token passed via URL hash so
- *  it never reaches server logs. */
-@android.annotation.SuppressLint("SetJavaScriptEnabled")
-@Composable
-private fun LiveMapScreen() {
-    val base = Api.base.trimEnd('/')
-    val token = Api.token ?: ""
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { c ->
-            android.webkit.WebView(c).apply {
-                layoutParams = android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                )
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                @Suppress("DEPRECATION") settings.setGeolocationEnabled(true)
-                webChromeClient = object : android.webkit.WebChromeClient() {
-                    override fun onGeolocationPermissionsShowPrompt(
-                        origin: String?, callback: android.webkit.GeolocationPermissions.Callback?,
-                    ) { callback?.invoke(origin, true, false) }
-                }
-                loadUrl("$base/map.html#base=$base&token=$token")
-            }
-        },
-    )
+/** Builds the interactive Leaflet map WebView once. It plots live locations —
+ *  mechanics, responder units and road detections — from the platform's seeded
+ *  PostGIS datasets over a clean whole-India basemap.
+ *
+ *  The page reads a fresh access token through the `AndroidAuth` JS bridge on
+ *  every fetch and can trigger a silent refresh on 401, so the map never shows
+ *  "session expired" — and because the instance is retained across tab switches,
+ *  returning to the Map tab is instant. */
+@android.annotation.SuppressLint("SetJavaScriptEnabled", "JavascriptInterface", "AddJavascriptInterface")
+private fun buildMapWebView(context: android.content.Context, baseRaw: String): android.webkit.WebView {
+    val base = baseRaw.trimEnd('/')
+    return android.webkit.WebView(context).apply {
+        layoutParams = android.view.ViewGroup.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+        )
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        @Suppress("DEPRECATION") settings.setGeolocationEnabled(true)
+        webChromeClient = object : android.webkit.WebChromeClient() {
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?, callback: android.webkit.GeolocationPermissions.Callback?,
+            ) { callback?.invoke(origin, true, false) }
+        }
+        // Bridge so the page always uses a current token and can self-refresh.
+        addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface fun token(): String = Api.currentToken()
+            @android.webkit.JavascriptInterface fun refresh(): Boolean = Api.refreshBlocking()
+        }, "AndroidAuth")
+        loadUrl("$base/map.html#base=$base&token=${Api.currentToken()}")
+    }
 }
 
 private val STATUS_COLOR = { s: String -> when (s) {
@@ -616,7 +636,7 @@ private fun SignInScreen(
                             "/v1/auth/otp/verify",
                             JSONObject().put("msisdn", msisdn.trim()).put("code", code.trim()),
                         )
-                        Api.token = r.getJSONObject("data").getString("accessToken")
+                        Api.adoptSession(r.getJSONObject("data"))
                         val me = Api.get("/v1/me").getJSONObject("data")
                         val vehicles = me.optJSONArray("vehicles") ?: JSONArray()
                         if (vehicles.length() > 0) {

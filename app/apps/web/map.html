@@ -43,6 +43,16 @@
   var hash = new URLSearchParams(location.hash.slice(1));
   var BASE = hash.get("base") || location.origin;
   var TOKEN = hash.get("token") || "";
+  // In the Android app a JS bridge hands us a always-current token and can
+  // silently rotate it — so the map self-heals instead of showing "expired".
+  function authToken() {
+    try { if (window.AndroidAuth && AndroidAuth.token) return AndroidAuth.token() || TOKEN; } catch (e) {}
+    return TOKEN;
+  }
+  function tryRefresh() {
+    try { if (window.AndroidAuth && AndroidAuth.refresh) return !!AndroidAuth.refresh(); } catch (e) {}
+    return false;
+  }
   var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g,
     function (c) { return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]; }); };
 
@@ -50,12 +60,23 @@
   // user zoom right down to the street.
   var INDIA = [[6.5, 68.0], [35.7, 97.5]];
   var center = [28.4595, 77.0266];   // used for the live-data query & "locate me"
-  var map = L.map("map", { zoomControl: true, minZoom: 4, maxZoom: 17 });
+  // preferCanvas: the 200+ detection markers render on one canvas instead of
+  // one SVG/DOM node each — panning and zooming stay smooth.
+  var map = L.map("map", {
+    zoomControl: true, minZoom: 4, maxZoom: 17,
+    preferCanvas: true, zoomAnimation: true, fadeAnimation: true,
+    wheelPxPerZoomLevel: 90, zoomSnap: 0.25,
+  });
   map.fitBounds(INDIA);
   // Clean CARTO Voyager basemap via the platform's proxy (polite UA + cache).
+  // updateWhenIdle / no-update-while-zooming = fewer tile churns per gesture.
   L.tileLayer(BASE + "/basemap/{z}/{x}/{y}.png", {
     minZoom: 4, maxZoom: 17, attribution: "© OpenStreetMap © CARTO",
+    updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 4,
+    crossOrigin: true,
   }).addTo(map);
+  // One shared canvas renderer for the circle detections.
+  var canvas = L.canvas({ padding: 0.5 });
   var layer = L.layerGroup().addTo(map);
   var meMarker = null;
 
@@ -75,54 +96,76 @@
   }
   var SEV = { 1:"#3ddc97",2:"#3ddc97",3:"#ffd166",4:"#ff9f43",5:"#ff4d5a" };
 
+  var lastSig = "";   // redraw only when the payload actually changes — no 10s blink
   async function load() {
     try {
       // Query from the country's centre with a nation-wide radius so all the
       // seeded cities (Delhi-NCR, Hyderabad, Pune, Jaipur, Bhopal, Coimbatore,
       // Vijayawada, Guwahati) appear on the India map.
       var url = BASE + "/v1/map/live?lat=22.6&lng=80.0&radiusKm=2500";
-      var res = await fetch(url, { headers: TOKEN ? { authorization: "Bearer " + TOKEN } : {} });
+      var tok = authToken();
+      var res = await fetch(url, { headers: tok ? { authorization: "Bearer " + tok } : {} });
+      // On expiry, ask the app to rotate the token once, then retry silently.
+      if (res.status === 401 && tryRefresh()) {
+        tok = authToken();
+        res = await fetch(url, { headers: tok ? { authorization: "Bearer " + tok } : {} });
+      }
       var j = await res.json();
       if (!res.ok) { document.getElementById("badge").innerHTML = "⚠ " + esc((j.error && j.error.title) || res.status); return; }
       var d = j.data;
-      layer.clearLayers();
-      d.mechanics.forEach(function (m) {
-        if (m.lat == null) return;
-        L.marker([m.lat, m.lng], { icon: icon("#e3b96a", "rgba(227,185,106,.6)", 18) })
-          .bindPopup("<b>" + esc(m.display_name) + "</b><br>★ " + m.rating + " · " + m.km + " km away")
-          .addTo(layer);
+
+      // Cheap fingerprint of the data (counts + a couple of sampled rows); if
+      // nothing changed, leave the markers untouched so the map never flickers.
+      function samp(a) { var f = a[0] || {}, l = a[a.length - 1] || {};
+        return (f.lat || "") + "," + (f.lng || "") + "|" + (l.lat || "") + "," + (l.lng || "") + "," + (l.severity || l.status || ""); }
+      var sig = d.mechanics.length + ":" + d.responders.length + ":" + d.detections.length +
+        "#" + samp(d.mechanics) + "#" + samp(d.detections);
+      if (sig === lastSig) return;
+      lastSig = sig;
+
+      // Rebuild off-screen in one frame, then swap in — avoids intermediate paints.
+      requestAnimationFrame(function () {
+        layer.clearLayers();
+        d.mechanics.forEach(function (m) {
+          if (m.lat == null) return;
+          L.marker([m.lat, m.lng], { icon: icon("#e3b96a", "rgba(227,185,106,.6)", 18) })
+            .bindPopup("<b>" + esc(m.display_name) + "</b><br>★ " + m.rating + " · " + m.km + " km away")
+            .addTo(layer);
+        });
+        d.responders.forEach(function (r) {
+          if (r.lat == null) return;
+          L.marker([r.lat, r.lng], { icon: icon("#4aa3ff", "rgba(74,163,255,.6)", 20) })
+            .bindPopup("<b>" + esc(r.name) + "</b><br>" + esc(r.kind)).addTo(layer);
+        });
+        d.detections.forEach(function (x) {
+          if (x.lat == null) return;
+          var c = SEV[x.severity] || "#ff9f43";
+          L.circleMarker([x.lat, x.lng], { renderer: canvas, radius: 6, color: c, fillColor: c, fillOpacity: 0.8, weight: 1 })
+            .bindPopup("<b>" + esc(x.detection_type) + "</b> · severity " + esc(x.severity) + "<br>" + esc(x.status))
+            .addTo(layer);
+        });
+        document.getElementById("badge").innerHTML =
+          "<b>" + d.mechanics.length + "</b> mechanics · <b>" + d.responders.length + "</b> responders · <b>" +
+          d.detections.length + "</b> detections<br><span style='color:#8f948f'>live · auto-refresh</span>";
       });
-      d.responders.forEach(function (r) {
-        if (r.lat == null) return;
-        L.marker([r.lat, r.lng], { icon: icon("#4aa3ff", "rgba(74,163,255,.6)", 20) })
-          .bindPopup("<b>" + esc(r.name) + "</b><br>" + esc(r.kind)).addTo(layer);
-      });
-      d.detections.forEach(function (x) {
-        if (x.lat == null) return;
-        var c = SEV[x.severity] || "#ff9f43";
-        L.circleMarker([x.lat, x.lng], { radius: 6, color: c, fillColor: c, fillOpacity: 0.8, weight: 1 })
-          .bindPopup("<b>" + esc(x.detection_type) + "</b> · severity " + esc(x.severity) + "<br>" + esc(x.status))
-          .addTo(layer);
-      });
-      document.getElementById("badge").innerHTML =
-        "<b>" + d.mechanics.length + "</b> mechanics · <b>" + d.responders.length + "</b> responders · <b>" +
-        d.detections.length + "</b> detections<br><span style='color:#8f948f'>live · updates every 10s</span>";
     } catch (e) {
       document.getElementById("badge").innerHTML = "⚠ " + esc(e.message);
     }
   }
 
-  // Center on the device's real location when granted; otherwise NH-48 default.
+  // Keep the whole-India view on open (Apple-Maps style). If the device grants
+  // location, drop a "you are here" dot without disturbing the country-wide view
+  // — the user can pinch straight to their spot.
+  load();
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function (p) {
       center = [p.coords.latitude, p.coords.longitude];
-      map.setView(center, 12);
+      if (meMarker) map.removeLayer(meMarker);
       meMarker = L.marker(center, { icon: L.divIcon({ className: "", html: '<div class="me"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
-      load();
-    }, function () { load(); }, { timeout: 5000 });
-  } else { load(); }
+    }, function () {}, { timeout: 5000 });
+  }
 
-  setInterval(function () { if (!document.hidden) load(); }, 10000);
+  setInterval(function () { if (!document.hidden) load(); }, 15000);
 })();
 </script>
 </body>
