@@ -8,10 +8,17 @@ journey — sign in, add a vehicle, diagnose, dispatch, track, complete, pay, pl
 offline replay and the emergency path — against real PostgreSQL + PostGIS.
 
 ```bash
-npm run infra:up && npm run db:migrate && npm run db:seed   # once
+npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Desktop running)
+npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run verify && npm run test:e2e                          # 9 unit + 84 end-to-end
+npm run test:gateway                                        # 8 gateway-security checks
 ```
+
+Surfaces once running: `/` demo client · `/app.html` citizen app ·
+`/raksha.html` authority dashboard (sign in `+919999900001`, dev OTP `000000`) ·
+`/showcase.html` live 3D showcase. CI runs all of the above plus the full e2e
+against a fresh PostGIS container on every push.
 
 ---
 
