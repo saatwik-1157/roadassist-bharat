@@ -16,7 +16,7 @@ import {
 } from "./auth.js";
 import { apply, allowedFrom, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
 import { rankMechanics } from "./domain/ai-rules.js";
-import { diagnoseWithFallback, maps, providerSummary, sms } from "./providers.js";
+import { diagnoseWithFallback, email, maps, providerSummary, sms } from "./providers.js";
 import { rakshaRoutes } from "./raksha.js";
 
 assertProductionSafe();
@@ -920,6 +920,27 @@ app.get("/v1/mechanic/offers", { preHandler: [authenticate, requireRole("mechani
     .where(and(eq(S.dispatchOffers.mechanicId, mech.id), eq(S.dispatchOffers.status, "SENT")))
     .orderBy(desc(S.dispatchOffers.createdAt)).limit(20);
   return ok(rows);
+});
+
+// ══ email notifications ════════════════════════════════════════════════════
+// The platform's email channel (console by default; real delivery when
+// EMAIL_PROVIDER=http + vendor creds are set — exactly like the SMS channel).
+app.post("/v1/notify/email", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req, reply) => {
+  const body = z.object({
+    to: z.string().email(),
+    subject: z.string().min(1).max(200),
+    body: z.string().min(1).max(10000),
+    html: z.string().max(50000).optional(),
+  }).parse(req.body);
+  try {
+    const result = await email.send(body.to, body.subject, body.body, { html: body.html });
+    return ok({ sent: result.delivered, id: result.id, provider: providerSummary().email },
+      { note: providerSummary().email === "console" ? "console mode — logged, not transmitted; set EMAIL_PROVIDER=http for real delivery" : undefined });
+  } catch (e) {
+    return reply.code(502).send({
+      error: { code: "email_failed", title: e instanceof Error ? e.message : "Email send failed", retryable: true },
+    });
+  }
 });
 
 // ══ RAKSHA — autonomous road monitoring (ADR-0007) ═════════════════════════

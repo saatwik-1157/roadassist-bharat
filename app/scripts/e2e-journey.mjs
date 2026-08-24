@@ -347,6 +347,22 @@ ok("offline-map tile manifest present (weather may be null offline)",
    Array.isArray(trip.data?.tiles) && trip.data.tiles.length > 0 && "weather" in (trip.data ?? {}),
    `${trip.data?.tiles?.length} tiles · weather=${trip.data?.weather ? trip.data.weather.risk : "null"}`);
 
+// ── 16. Email notification channel ─────────────────────────────────────────
+console.log("\n16. Email channel");
+const citizenEmail = await call("POST", "/v1/notify/email", {
+  token, body: { to: "test@example.com", subject: "hi", body: "hello" },
+});
+ok("a citizen cannot send platform email", citizenEmail.status === 403, `got ${citizenEmail.status}`);
+const adminEmail = await call("POST", "/v1/notify/email", {
+  token: adminToken, body: { to: "ops@example.com", subject: "RoadAssist test", body: "Channel check." },
+});
+ok("authority sends via the email channel", adminEmail.data?.sent === true,
+   `provider=${adminEmail.data?.provider}`);
+const badEmail = await call("POST", "/v1/notify/email", {
+  token: adminToken, body: { to: "not-an-email", subject: "x", body: "y" },
+});
+ok("invalid recipient rejected", badEmail.status === 400, `got ${badEmail.status}`);
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

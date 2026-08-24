@@ -76,6 +76,15 @@ export const env = {
     keySecret: process.env.PAYMENTS_KEY_SECRET ?? "",
   },
 
+  email: {
+    // console = log only (default). http = POST to an email API (SendGrid/
+    // Mailgun/Resend-style) at EMAIL_BASE_URL with a Bearer key.
+    provider: process.env.EMAIL_PROVIDER ?? "console", // console | http
+    apiKey: process.env.EMAIL_API_KEY ?? "",
+    baseUrl: process.env.EMAIL_BASE_URL ?? "",
+    from: process.env.EMAIL_FROM ?? "RoadAssist <no-reply@roadassist.in>",
+  },
+
   exposeDevOtp: bool(process.env.EXPOSE_DEV_OTP, true),
 } as const;
 
