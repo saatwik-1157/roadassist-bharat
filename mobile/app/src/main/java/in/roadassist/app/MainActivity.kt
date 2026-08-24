@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -56,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -137,6 +139,12 @@ fun RoadAssistApp() {
     var bookingId by remember { mutableStateOf<String?>(null) }
     var msisdn by remember { mutableStateOf("+919876543210") }
 
+    val ctx = LocalContext.current
+    var online by remember { mutableStateOf(true) }
+    LaunchedEffect(signedIn) {
+        while (signedIn) { online = Emergency.hasData(ctx); kotlinx.coroutines.delay(4000) }
+    }
+
     Box(Modifier.fillMaxSize().background(Bg)) {
         if (!signedIn) {
             SignInScreen(
@@ -157,7 +165,11 @@ fun RoadAssistApp() {
                     ) {
                         BrandLockup()
                         Spacer(Modifier.weight(1f))
-                        Text("● live", color = Color(0xFF3DDC97), fontSize = 10.sp, letterSpacing = 1.sp)
+                        Text(
+                            if (online) "● online" else "● offline",
+                            color = if (online) Color(0xFF3DDC97) else Color(0xFFFF9F43),
+                            fontSize = 10.sp, letterSpacing = 1.sp,
+                        )
                     }
                 },
                 bottomBar = {
@@ -226,18 +238,65 @@ fun RoadAssistApp() {
     }
 }
 
+private val STATUS_COLOR = { s: String -> when (s) {
+    "PAID", "COMPLETED" -> Color(0xFF3DDC97)
+    "CANCELLED", "NO_SUPPLY" -> Muted
+    "ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS" -> Gold
+    else -> Color(0xFFE3C451)
+} }
+
 @Composable
 private fun EmptyTrack(onBook: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().padding(22.dp),
-        verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("◉", fontSize = 48.sp, color = Muted)
-        Text("No active rescue", color = Cream, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))
-        Text("Book assistance and track it live here.", color = Muted, fontSize = 13.sp,
-            modifier = Modifier.padding(top = 4.dp))
-        OutlinedButton(onClick = onBook, shape = RoundedCornerShape(999.dp),
-            modifier = Modifier.padding(top = 18.dp)) { Text("Request assistance", color = Gold) }
+    val scope = rememberCoroutineScope()
+    var history by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        try {
+            val arr = Api.get("/v1/bookings?limit=20").getJSONArray("data")
+            history = (0 until arr.length()).map { arr.getJSONObject(it) }
+        } catch (_: Exception) {}
+        loaded = true
+    }
+
+    ScreenColumn {
+        Spacer(Modifier.height(16.dp))
+        Heading("Your", "rescues.")
+        if (history.isEmpty()) {
+            Column(
+                Modifier.fillMaxWidth().padding(top = 60.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("◉", fontSize = 48.sp, color = Muted)
+                Text(if (loaded) "No rescues yet" else "Loading…", color = Cream, fontSize = 18.sp,
+                    modifier = Modifier.padding(top = 12.dp))
+                Text("Book assistance and it appears here.", color = Muted, fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 4.dp))
+                OutlinedButton(onClick = onBook, shape = RoundedCornerShape(999.dp),
+                    modifier = Modifier.padding(top = 18.dp)) { Text("Request assistance", color = Gold) }
+            }
+        } else {
+            Sub("Your booking history — most recent first.")
+            history.forEach { b ->
+                val status = b.optString("status")
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Panel),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                ) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(b.optString("reference"), color = Cream, fontSize = 15.sp)
+                            b.optString("highwayMarker").takeIf { it.isNotBlank() && it != "null" }?.let {
+                                Text(it, color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                            }
+                        }
+                        Text(status, color = STATUS_COLOR(status), fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -248,6 +307,17 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var summary by remember { mutableStateOf(TripGuardian.cachedSummary(ctx)) }
     var mosaic by remember { mutableStateOf(TripGuardian.mosaic(ctx)?.asImageBitmap()) }
+    var contacts by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var cName by remember { mutableStateOf("") }
+    var cPhone by remember { mutableStateOf("+91") }
+    var cBusy by remember { mutableStateOf(false) }
+    suspend fun loadContacts() {
+        try {
+            val arr = Api.get("/v1/me/emergency-contacts").getJSONArray("data")
+            contacts = (0 until arr.length()).map { arr.getJSONObject(it) }
+        } catch (_: Exception) {}
+    }
+    LaunchedEffect(Unit) { loadContacts() }
 
     val riskColor = { r: String -> when (r) {
         "LOW", "GOOD" -> Color(0xFF3DDC97); "MEDIUM", "FAIR" -> Color(0xFFE3C451)
@@ -316,6 +386,60 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                 ) { Text(if (summary == null) "Prepare my route" else "Refresh route",
                     fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, fontSize = 12.sp) }
                 if (busy) Loading()
+            }
+        }
+
+        // Emergency contacts — who gets alerted when you confirm an SOS.
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        ) {
+            Column(Modifier.padding(17.dp)) {
+                Text("Emergency contacts", color = Cream, fontSize = 17.sp)
+                Text("These people are alerted with your live location when you confirm an SOS.",
+                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
+
+                if (contacts.isEmpty()) {
+                    Text("None yet — add one so SOS can reach someone.", color = Color(0xFFE3C451),
+                        fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
+                } else contacts.forEach { c ->
+                    Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(c.optString("name"), color = Cream, fontSize = 14.sp)
+                            Text(c.optString("msisdn"), color = Muted, fontSize = 12.sp)
+                        }
+                        Text("Remove", color = Alarm, fontSize = 12.sp,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !cBusy) {
+                                cBusy = true
+                                scope.launch {
+                                    try { Api.delete("/v1/me/emergency-contacts/${c.getString("id")}"); loadContacts() }
+                                    catch (e: Exception) {}
+                                    cBusy = false
+                                }
+                            }.padding(6.dp))
+                    }
+                }
+
+                Field(cName, { cName = it }, "Contact name")
+                Field(cPhone, { cPhone = it }, "Their mobile (+91…)")
+                Button(
+                    onClick = {
+                        cBusy = true
+                        scope.launch {
+                            try {
+                                Api.post("/v1/me/emergency-contacts",
+                                    JSONObject().put("name", cName.trim()).put("msisdn", cPhone.trim()))
+                                cName = ""; cPhone = "+91"; loadContacts()
+                            } catch (e: Exception) {}
+                            cBusy = false
+                        }
+                    },
+                    enabled = !cBusy && cName.length >= 2 && cPhone.length >= 13,
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color(0xFF0A0805)),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
+                ) { Text("Add contact", fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, fontSize = 12.sp) }
             }
         }
 
@@ -510,6 +634,16 @@ private fun HomeScreen(
         }
 
         Box(Modifier.fillMaxWidth().padding(vertical = 26.dp), contentAlignment = Alignment.Center) {
+            // Soft red glow behind the SOS ring — draws the eye to the one
+            // control that matters most in an emergency.
+            Box(
+                Modifier.size(230.dp).background(
+                    Brush.radialGradient(
+                        listOf(Alarm.copy(alpha = 0.28f), Alarm.copy(alpha = 0.06f), Color.Transparent),
+                    ),
+                    CircleShape,
+                ),
+            )
             Button(
                 onClick = {
                     // Arm the no-data + real-location rungs up front.
