@@ -170,7 +170,30 @@
           </select></div>
         <button class="btn" id="v-add">Add vehicle</button>
       </div>
+      <div class="card" data-nav="trip" style="cursor:pointer">
+        <h3>Trip Guardian <span class="exp">pre-trip safety</span></h3>
+        <p class="meta">Before you lose signal: forecast the weather, flag likely dead zones on the
+          corridor, and download the route maps to this device.</p>
+      </div>
       <div class="queue-note" id="queue-note" hidden></div>
+    </section>
+
+    <!-- TRIP GUARDIAN -->
+    <section class="screen" id="scr-trip">
+      <h1>Trip <em>Guardian.</em></h1>
+      <p class="sub">Prediction happens while you still have signal; everything is cached here for when
+        you don't. Dead-zone risk is learned from this platform's own device telemetry — a heuristic,
+        not carrier coverage data.</p>
+      <button class="btn" id="g-prepare">Prepare my route</button>
+      <div id="g-out"></div>
+      <div class="card" id="g-map-card" hidden>
+        <h3>Offline maps <span class="exp" id="g-tilecount"></span></h3>
+        <canvas id="g-mosaic" width="768" height="512"
+                style="width:100%;border-radius:12px;margin-top:10px;background:#0a0a0a"></canvas>
+        <p class="hint">Rendered from tiles stored on this device — this preview works with the
+          network off. Maps © OpenStreetMap contributors.</p>
+      </div>
+      <button class="btn btn-line" data-nav="home">Back</button>
     </section>
 
     <!-- BOOK -->
@@ -498,6 +521,84 @@
   };
 
   document.getElementById("q-flush").onclick = flushQueue;
+
+  // ── Trip Guardian: predict-before-you-go, cache-for-when-you-can't ──────
+  var TRIP_KEY = "ra.trip";
+  var RISK_COLOR = { LOW: "var(--green)", MEDIUM: "#e3c451", HIGH: "var(--red)", UNKNOWN: "var(--muted)" };
+
+  function renderTrip(data, preparedNote) {
+    var out = document.getElementById("g-out");
+    var html = "";
+    if (preparedNote) html += "<p class='hint'>" + esc(preparedNote) + "</p>";
+    var w = data.weather;
+    html += "<div class='card'><h3>Weather ahead" +
+      (w ? " <span class='exp' style='color:" + (RISK_COLOR[w.risk] || "var(--muted)") + "'>" + esc(w.risk) + "</span>" : "") +
+      "</h3><p class='meta'>" +
+      (w ? esc(w.factors.join(" · ")) + " (next " + w.horizonHours + " h, live forecast)"
+         : "Forecast service unreachable — prepare again when online.") +
+      "</p></div>";
+    html += "<div class='card'><h3>Signal dead-zone risk</h3>";
+    data.segments.forEach(function (s) {
+      var pct = s.offlineRatio != null ? Math.round(s.offlineRatio * 100) + "% of device reports were offline" : "no telemetry yet";
+      html += "<p class='meta' style='margin-top:8px'><span style='color:" + (RISK_COLOR[s.coverageRisk] || "var(--muted)") + "'>●</span> " +
+        "<b style='color:var(--cream)'>" + esc(s.code) + "</b> — " + esc(s.coverageRisk) + " · " + esc(pct) + "</p>";
+    });
+    html += "<p class='hint'>Heuristic v1 from this platform's own devices — not carrier coverage data.</p></div>";
+    out.innerHTML = html;
+  }
+
+  async function drawMosaic(urls) {
+    try {
+      var cache = await caches.open("ra-tiles");
+      var canvas = document.getElementById("g-mosaic");
+      var ctx = canvas.getContext("2d");
+      var drawn = 0;
+      for (var i = 0; i < urls.length && drawn < 6; i++) {
+        var resp = await cache.match(urls[i]);
+        if (!resp) continue;
+        var bmp = await createImageBitmap(await resp.blob());
+        ctx.drawImage(bmp, (drawn % 3) * 256, Math.floor(drawn / 3) * 256, 256, 256);
+        drawn++;
+      }
+      document.getElementById("g-map-card").hidden = drawn === 0;
+      return drawn;
+    } catch (e) { return 0; }
+  }
+
+  document.getElementById("g-prepare").onclick = async function () {
+    if (!state.token) { toast("Sign in first — Guardian prepares your route"); return; }
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var r = await api("GET", "/v1/trip/prepare", null, { force: true });
+      localStorage.setItem(TRIP_KEY, JSON.stringify({ t: Date.now(), data: r.data }));
+      renderTrip(r.data, null);
+      var cache = await caches.open("ra-tiles");
+      var done = 0;
+      var countEl = document.getElementById("g-tilecount");
+      for (var i = 0; i < r.data.tiles.length; i++) {
+        try {
+          var resp = await fetch(r.data.tiles[i]);
+          if (resp.ok) { await cache.put(r.data.tiles[i], resp); done++; }
+        } catch (e) { /* skip tile, keep going */ }
+        countEl.textContent = done + "/" + r.data.tiles.length + " cached";
+      }
+      await drawMosaic(r.data.tiles);
+      toast("Route prepared — " + done + " map tiles stored for offline use");
+    } catch (e) { toast(e.message); }
+    btn.disabled = false;
+  };
+
+  // restore the last prepared trip so Guardian is useful with zero signal
+  (async function restoreTrip() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(TRIP_KEY) || "null");
+      if (!saved) return;
+      renderTrip(saved.data, "Prepared " + new Date(saved.t).toLocaleString() + " — shown from this device's storage.");
+      var drawn = await drawMosaic(saved.data.tiles || []);
+      if (drawn) document.getElementById("g-tilecount").textContent = (saved.data.tiles || []).length + " tiles on device";
+    } catch (e) { /* no stored trip */ }
+  })();
 
   setOnline(navigator.onLine);
   saveQueue();

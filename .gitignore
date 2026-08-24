@@ -27,3 +27,11 @@ runs/
 weights/
 ai/cv-detections.json
 ai/label_map.pbtxt
+
+# Android app — build artifacts and machine-specific config
+mobile/.gradle/
+mobile/build/
+mobile/app/build/
+mobile/local.properties
+mobile/*.png
+mobile/build.log

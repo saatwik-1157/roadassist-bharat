@@ -58,6 +58,131 @@ export async function rakshaRoutes(app: FastifyInstance) {
     return ok(row, { note: "aggregate counts only — demo build, device data SIMULATED" });
   });
 
+  // ── Trip Guardian: prepare a route BEFORE signal disappears ──────────────
+  // Honest architecture: prediction happens while the client still has
+  // connectivity — coverage risk is a HEURISTIC learned from this platform's
+  // own devices (the share of detections each segment's hardware captured
+  // while offline), never carrier coverage data; weather is a live forecast
+  // (Open-Meteo) fetched now and cached on-device; tiles are listed for the
+  // client to pre-download. Nothing here claims to forecast without data.
+  app.get("/v1/trip/prepare", { preHandler: authenticate }, async () => {
+    const segments = await db.execute<{
+      code: string; name: string; km_start: number | null; km_end: number | null;
+      mid_lat: number | null; mid_lng: number | null;
+      total: number; offline: number; health: number | null;
+      pts: string | null;
+    }>(raw`
+      SELECT rs.code, rs.name, rs.km_start, rs.km_end,
+             ST_Y(ST_LineInterpolatePoint(rs.path, 0.5)) AS mid_lat,
+             ST_X(ST_LineInterpolatePoint(rs.path, 0.5)) AS mid_lng,
+             (SELECT count(*)::int FROM raksha_detections d
+               WHERE d.segment_id = rs.id AND d.deleted_at IS NULL) AS total,
+             (SELECT count(*)::int FROM raksha_detections d
+               WHERE d.segment_id = rs.id AND d.deleted_at IS NULL AND d.ran_offline) AS offline,
+             (SELECT score FROM road_health_scores h WHERE h.segment_id = rs.id
+               ORDER BY h.computed_at DESC LIMIT 1) AS health,
+             ST_AsGeoJSON(rs.path) AS pts
+        FROM road_segments rs
+       WHERE rs.deleted_at IS NULL AND rs.path IS NOT NULL
+       ORDER BY rs.km_start NULLS LAST`);
+
+    const notes: string[] = [
+      "coverageRisk is heuristic v1 — the share of this platform's own detections captured offline per segment; NOT carrier coverage data",
+      "weather is a live Open-Meteo forecast fetched now for on-device caching; null when the forecast service is unreachable",
+      "tiles © OpenStreetMap contributors — cache them on-device before departure",
+    ];
+
+    const segOut = segments.map((s) => {
+      const ratio = s.total > 0 ? s.offline / s.total : null;
+      const coverageRisk =
+        ratio === null ? "UNKNOWN" : ratio >= 0.6 ? "HIGH" : ratio >= 0.3 ? "MEDIUM" : "LOW";
+      return {
+        code: s.code, name: s.name, kmStart: s.km_start, kmEnd: s.km_end,
+        mid: s.mid_lat != null && s.mid_lng != null ? { lat: s.mid_lat, lng: s.mid_lng } : null,
+        coverageRisk, offlineRatio: ratio != null ? Number(ratio.toFixed(2)) : null,
+        samples: s.total, healthScore: s.health,
+      };
+    });
+
+    // Route weather: forecast at the corridor's two ends, 6-hour horizon.
+    // Degrades to null (never fails the endpoint) so offline prep still works.
+    async function forecast(lat: number, lng: number) {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 6000);
+        const res = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
+          `&hourly=precipitation_probability,precipitation,visibility,wind_speed_10m` +
+          `&forecast_hours=6&timezone=auto`,
+          { signal: ctrl.signal },
+        ).finally(() => clearTimeout(timer));
+        if (!res.ok) return null;
+        const j = (await res.json()) as {
+          hourly: { time: string[]; precipitation_probability: number[];
+            precipitation: number[]; visibility: number[]; wind_speed_10m: number[] };
+        };
+        const h = j.hourly;
+        return {
+          hours: h.time.length,
+          maxRainProbability: Math.max(...h.precipitation_probability),
+          totalPrecipitationMm: Number(h.precipitation.reduce((a, b) => a + b, 0).toFixed(1)),
+          minVisibilityM: Math.min(...h.visibility),
+          maxWindKmh: Math.max(...h.wind_speed_10m),
+        };
+      } catch { return null; }
+    }
+
+    const withMid = segOut.filter((s) => s.mid);
+    const first = withMid[0]?.mid, last = withMid[withMid.length - 1]?.mid;
+    const [wStart, wEnd] = await Promise.all([
+      first ? forecast(first.lat, first.lng) : null,
+      last ? forecast(last.lat, last.lng) : null,
+    ]);
+    const worst = [wStart, wEnd].filter(Boolean) as NonNullable<typeof wStart>[];
+    const factors: string[] = [];
+    let weatherRisk: string | null = null;
+    if (worst.length) {
+      const rain = Math.max(...worst.map((w) => w.maxRainProbability));
+      const vis = Math.min(...worst.map((w) => w.minVisibilityM));
+      const wind = Math.max(...worst.map((w) => w.maxWindKmh));
+      if (rain >= 60) factors.push(`heavy rain likely (${rain}% peak probability)`);
+      else if (rain >= 30) factors.push(`rain possible (${rain}% peak probability)`);
+      if (vis < 2000) factors.push(`low visibility ahead (${vis} m minimum)`);
+      if (wind >= 40) factors.push(`strong wind (${wind} km/h peak)`);
+      weatherRisk = factors.length >= 2 ? "HIGH" : factors.length === 1 ? "MEDIUM" : "LOW";
+      if (!factors.length) factors.push("no significant weather flags in the next 6 hours");
+    }
+
+    // Offline map manifest: z13 slippy tiles along every segment point, deduped.
+    const Z = 13;
+    const tiles = new Set<string>();
+    for (const s of segments) {
+      if (!s.pts) continue;
+      const coords = (JSON.parse(s.pts) as { coordinates: [number, number][] }).coordinates;
+      for (const [lng, lat] of coords) {
+        const x = Math.floor(((lng + 180) / 360) * 2 ** Z);
+        const latR = (lat * Math.PI) / 180;
+        const y = Math.floor(
+          ((1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2) * 2 ** Z,
+        );
+        for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) {
+          // relative: served by this API's same-origin tile proxy, so the
+          // client's Cache API copy is fully readable offline
+          tiles.add(`/tiles/${Z}/${x + dx}/${y + dy}.png`);
+        }
+      }
+    }
+
+    return ok({
+      preparedAt: new Date().toISOString(),
+      segments: segOut,
+      weather: worst.length
+        ? { risk: weatherRisk, factors, start: wStart, end: wEnd, horizonHours: 6 }
+        : null,
+      tiles: [...tiles].slice(0, 120),
+    }, { notes });
+  });
+
   // ── device registration (human act: admin or gov officer) ────────────────
   app.post("/v1/raksha/devices", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req, reply) => {
     const body = z.object({
