@@ -35,3 +35,4 @@ mobile/app/build/
 mobile/local.properties
 mobile/*.png
 mobile/build.log
+mobile/build*.log
