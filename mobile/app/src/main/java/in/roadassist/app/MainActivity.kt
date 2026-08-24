@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -51,7 +52,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -197,10 +201,22 @@ private fun EmptyTrack(onBook: () -> Unit) {
 
 @Composable
 private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var summary by remember { mutableStateOf(TripGuardian.cachedSummary(ctx)) }
+    var mosaic by remember { mutableStateOf(TripGuardian.mosaic(ctx)?.asImageBitmap()) }
+
+    val riskColor = { r: String -> when (r) {
+        "LOW", "GOOD" -> Color(0xFF3DDC97); "MEDIUM", "FAIR" -> Color(0xFFE3C451)
+        "HIGH", "POOR" -> Color(0xFFFF9F43); "CRITICAL" -> Alarm; else -> Muted
+    } }
+
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
         Heading("Account &", "more.")
         Sub("$msisdn · signed in")
+
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Panel),
@@ -208,10 +224,59 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
         ) {
             Column(Modifier.padding(17.dp)) {
                 Text("Trip Guardian", color = Cream, fontSize = 17.sp)
-                Text("Prepare a route before you lose signal — weather, dead-zone risk and offline maps. Live in the web app; coming to mobile.",
+                Text("Prepare a route before you lose signal — weather, dead-zone risk and offline maps saved to this phone.",
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
+
+                summary?.let { s ->
+                    s.weatherRisk?.let { risk ->
+                        Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Weather  ", color = Muted, fontSize = 12.sp)
+                            Text(risk, color = riskColor(risk), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Text(s.weatherFactors, color = Muted, fontSize = 11.5.sp, lineHeight = 16.sp)
+                    }
+                    Text("Dead-zone risk", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
+                    s.segments.forEach { (code, risk, ratio) ->
+                        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("●", color = riskColor(risk), fontSize = 12.sp)
+                            Text("  ${code.removePrefix("NH48-")} — $risk" +
+                                (ratio?.let { " (${(it * 100).toInt()}% offline)" } ?: ""),
+                                color = Cream, fontSize = 12.sp)
+                        }
+                    }
+                    mosaic?.let { bmp ->
+                        Image(
+                            bitmap = bmp, contentDescription = "Offline route map",
+                            contentScale = ContentScale.FillWidth,
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                        )
+                        Text("${s.tilesCached}/${s.tilesTotal} map tiles on this device · shows offline · © OpenStreetMap",
+                            color = Muted, fontSize = 10.5.sp, modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        busy = true
+                        scope.launch {
+                            try {
+                                summary = TripGuardian.prepare(ctx)
+                                mosaic = TripGuardian.mosaic(ctx)?.asImageBitmap()
+                            } catch (_: Exception) { /* offline — cached view stays */ }
+                            busy = false
+                        }
+                    },
+                    enabled = !busy,
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color(0xFF0A0805)),
+                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp).height(48.dp),
+                ) { Text(if (summary == null) "Prepare my route" else "Refresh route",
+                    fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, fontSize = 12.sp) }
+                if (busy) Loading()
             }
         }
+
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Panel),
