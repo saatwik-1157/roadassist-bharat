@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>RoadAssist — Live Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body, #map { height: 100%; width: 100%; background: #0a0a0a; }
+  #map { font-family: system-ui, sans-serif; }
+  .leaflet-container { background: #141414; }
+  .badge { position: absolute; top: 10px; left: 10px; z-index: 1000;
+    background: rgba(10,10,10,0.82); color: #f4f2ec; border: 1px solid rgba(227,185,106,0.3);
+    border-radius: 10px; padding: 8px 12px; font-size: 12px; line-height: 1.6; backdrop-filter: blur(6px); }
+  .badge b { color: #e3b96a; }
+  .legend { position: absolute; bottom: 14px; left: 10px; z-index: 1000;
+    background: rgba(10,10,10,0.82); color: #cfc8ba; border: 1px solid rgba(227,185,106,0.25);
+    border-radius: 10px; padding: 8px 12px; font-size: 11px; line-height: 1.9; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: -1px; }
+  .me { width: 16px; height: 16px; border-radius: 50%; background: #4aa3ff;
+    border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(74,163,255,0.3); }
+  .pin { width: 100%; height: 100%; border-radius: 50%;
+    box-shadow: inset -2px -3px 4px rgba(0,0,0,0.4), inset 1px 2px 3px rgba(255,255,255,0.5), 0 2px 6px rgba(0,0,0,0.6); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="badge" id="badge">Loading live map…</div>
+<div class="legend">
+  <div><span class="dot" style="background:#e3b96a"></span>Verified mechanic</div>
+  <div><span class="dot" style="background:#4aa3ff"></span>Responder unit</div>
+  <div><span class="dot" style="background:#ff9f43"></span>Road detection</div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function () {
+  "use strict";
+  // The Android app passes the base + token in the URL hash (not sent to server
+  // logs). Falls back to same-origin for browser testing.
+  var hash = new URLSearchParams(location.hash.slice(1));
+  var BASE = hash.get("base") || location.origin;
+  var TOKEN = hash.get("token") || "";
+  var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g,
+    function (c) { return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]; }); };
+
+  var center = [28.4595, 77.0266];   // NH-48 / Gurugram default
+  var map = L.map("map", { zoomControl: true, minZoom: 11, maxZoom: 15 }).setView(center, 12);
+  // Route tiles through the platform's own proxy (polite UA + cache) rather
+  // than hitting OSM directly, which blocks WebView requests.
+  L.tileLayer(BASE + "/tiles/{z}/{x}/{y}.png", {
+    minZoom: 11, maxZoom: 15, attribution: "© OpenStreetMap",
+  }).addTo(map);
+  var layer = L.layerGroup().addTo(map);
+  var meMarker = null;
+
+  // In an Android WebView the map often initializes before the view has its
+  // final size, leaving tiles unpainted — nudge Leaflet to re-measure.
+  function fix() { map.invalidateSize(true); }
+  setTimeout(fix, 300); setTimeout(fix, 900); setTimeout(fix, 1800);
+  window.addEventListener("load", fix);
+  window.addEventListener("resize", fix);
+
+  function icon(color, glow, size) {
+    return L.divIcon({ className: "",
+      html: '<div class="pin" style="background:radial-gradient(circle at 34% 30%,#fff,' + color + ' 60%,' +
+        'color-mix(in srgb,' + color + ' 55%,#000));box-shadow:inset -2px -3px 4px rgba(0,0,0,.4),' +
+        '0 0 10px ' + glow + '"></div>',
+      iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+  }
+  var SEV = { 1:"#3ddc97",2:"#3ddc97",3:"#ffd166",4:"#ff9f43",5:"#ff4d5a" };
+
+  async function load() {
+    try {
+      var url = BASE + "/v1/map/live?lat=" + center[0] + "&lng=" + center[1] + "&radiusKm=45";
+      var res = await fetch(url, { headers: TOKEN ? { authorization: "Bearer " + TOKEN } : {} });
+      var j = await res.json();
+      if (!res.ok) { document.getElementById("badge").innerHTML = "⚠ " + esc((j.error && j.error.title) || res.status); return; }
+      var d = j.data;
+      layer.clearLayers();
+      d.mechanics.forEach(function (m) {
+        if (m.lat == null) return;
+        L.marker([m.lat, m.lng], { icon: icon("#e3b96a", "rgba(227,185,106,.6)", 18) })
+          .bindPopup("<b>" + esc(m.display_name) + "</b><br>★ " + m.rating + " · " + m.km + " km away")
+          .addTo(layer);
+      });
+      d.responders.forEach(function (r) {
+        if (r.lat == null) return;
+        L.marker([r.lat, r.lng], { icon: icon("#4aa3ff", "rgba(74,163,255,.6)", 20) })
+          .bindPopup("<b>" + esc(r.name) + "</b><br>" + esc(r.kind)).addTo(layer);
+      });
+      d.detections.forEach(function (x) {
+        if (x.lat == null) return;
+        var c = SEV[x.severity] || "#ff9f43";
+        L.circleMarker([x.lat, x.lng], { radius: 6, color: c, fillColor: c, fillOpacity: 0.8, weight: 1 })
+          .bindPopup("<b>" + esc(x.detection_type) + "</b> · severity " + esc(x.severity) + "<br>" + esc(x.status))
+          .addTo(layer);
+      });
+      document.getElementById("badge").innerHTML =
+        "<b>" + d.mechanics.length + "</b> mechanics · <b>" + d.responders.length + "</b> responders · <b>" +
+        d.detections.length + "</b> detections<br><span style='color:#8f948f'>live · updates every 10s</span>";
+    } catch (e) {
+      document.getElementById("badge").innerHTML = "⚠ " + esc(e.message);
+    }
+  }
+
+  // Center on the device's real location when granted; otherwise NH-48 default.
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function (p) {
+      center = [p.coords.latitude, p.coords.longitude];
+      map.setView(center, 12);
+      meMarker = L.marker(center, { icon: L.divIcon({ className: "", html: '<div class="me"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
+      load();
+    }, function () { load(); }, { timeout: 5000 });
+  } else { load(); }
+
+  setInterval(function () { if (!document.hidden) load(); }, 10000);
+})();
+</script>
+</body>
+</html>

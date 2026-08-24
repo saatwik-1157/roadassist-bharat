@@ -943,6 +943,47 @@ app.post("/v1/notify/email", { preHandler: [authenticate, requireRole("admin", "
   }
 });
 
+// ══ live map — real geolocated data around a point (operational, no PII) ═══
+// Powers the in-app map: nearby verified mechanics, active responder units, and
+// recent RAKSHA road detections, all from PostGIS over the seeded datasets.
+app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
+  const q = z.object({
+    lat: z.coerce.number().min(-90).max(90),
+    lng: z.coerce.number().min(-180).max(180),
+    radiusKm: z.coerce.number().min(1).max(200).optional(),
+  }).parse(req.query);
+  const r = (q.radiusKm ?? 40) * 1000;
+  const pt = raw`ST_SetSRID(ST_MakePoint(${q.lng}, ${q.lat}), 4326)`;
+
+  const mechanics = await db.execute<Record<string, unknown>>(raw`
+    SELECT id, display_name, rating,
+           ST_Y(last_location) AS lat, ST_X(last_location) AS lng,
+           round((ST_Distance(last_location::geography, ${pt}::geography) / 1000)::numeric, 1) AS km
+      FROM mechanics
+     WHERE deleted_at IS NULL AND verified AND is_available AND last_location IS NOT NULL
+       AND ST_DWithin(last_location::geography, ${pt}::geography, ${r})
+     ORDER BY last_location <-> ${pt} LIMIT 150`);
+
+  const responders = await db.execute<Record<string, unknown>>(raw`
+    SELECT name, kind, ST_Y(last_location) AS lat, ST_X(last_location) AS lng
+      FROM responder_units
+     WHERE deleted_at IS NULL AND active AND last_location IS NOT NULL
+       AND ST_DWithin(last_location::geography, ${pt}::geography, ${r})
+     ORDER BY last_location <-> ${pt} LIMIT 50`);
+
+  const detections = await db.execute<Record<string, unknown>>(raw`
+    SELECT detection_type, severity, status,
+           ST_Y(location) AS lat, ST_X(location) AS lng
+      FROM raksha_detections
+     WHERE deleted_at IS NULL AND location IS NOT NULL
+       AND status NOT IN ('REJECTED', 'CLOSED')
+       AND ST_DWithin(location::geography, ${pt}::geography, ${r})
+     ORDER BY created_at DESC LIMIT 300`);
+
+  return ok({ center: { lat: q.lat, lng: q.lng }, mechanics, responders, detections },
+    { counts: { mechanics: mechanics.length, responders: responders.length, detections: detections.length } });
+});
+
 // ══ RAKSHA — autonomous road monitoring (ADR-0007) ═════════════════════════
 await app.register(rakshaRoutes);
 
