@@ -291,10 +291,11 @@ private fun HomeScreen(
 
         // SOS — the fallback ladder: data → SMS → 112 → queue. Works with no net.
         val ctx = LocalContext.current
-        val lat = 28.4595; val lng = 77.0266   // demo location; real build uses GPS
-        val smsPermission = rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestPermission(),
-        ) { /* granted or not, the ladder handles both — SMS rung is skipped if denied */ }
+        val DEMO_LAT = 28.4595; val DEMO_LNG = 77.0266   // fallback if no GPS fix yet
+        // Arm the no-data (SMS) and real-location rungs by requesting both perms.
+        val perms = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions(),
+        ) { /* granted or not, the ladder degrades gracefully per rung */ }
 
         // Any queued SOS flushes automatically when data returns.
         LaunchedEffect(Unit) {
@@ -305,10 +306,16 @@ private fun HomeScreen(
         Box(Modifier.fillMaxWidth().padding(vertical = 26.dp), contentAlignment = Alignment.Center) {
             Button(
                 onClick = {
-                    // Ask for SMS permission up front so the no-data rung is armed.
-                    smsPermission.launch(android.Manifest.permission.SEND_SMS)
+                    // Arm the no-data + real-location rungs up front.
+                    perms.launch(arrayOf(
+                        android.Manifest.permission.SEND_SMS,
+                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    ))
                     busy = true
                     scope.launch {
+                        val loc = Emergency.lastKnownLocation(ctx)
+                        val lat = loc?.first ?: DEMO_LAT
+                        val lng = loc?.second ?: DEMO_LNG
                         val result = Emergency.raise(ctx, lat, lng) {
                             val raised = Api.post(
                                 "/v1/sos",
@@ -316,7 +323,8 @@ private fun HomeScreen(
                             ).getJSONObject("data")
                             val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
                             val responder = c.optJSONObject("nearestResponder")?.optString("name") ?: "—"
-                            "Escalated · contacts ${c.optInt("contactsAlerted")} · $responder · ${c.optInt("elapsedMs")} ms"
+                            val where = if (loc != null) "real GPS" else "demo location"
+                            "Escalated ($where) · contacts ${c.optInt("contactsAlerted")} · $responder · ${c.optInt("elapsedMs")} ms"
                         }
                         sosResult = when (result.rung) {
                             Emergency.Rung.DATA -> "✓ ONLINE — ${result.detail}"
