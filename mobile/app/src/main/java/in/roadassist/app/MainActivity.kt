@@ -67,6 +67,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -125,6 +126,7 @@ private data class Tab(val label: String, val glyph: String)
 private val TABS = listOf(
     Tab("Home", "⌂"),     // house
     Tab("Assist", "⚑"),   // flag
+    Tab("Map", "◈"),      // live map
     Tab("Track", "◉"),    // fisheye/pin
     Tab("More", "☰"),     // menu
 )
@@ -201,10 +203,11 @@ fun RoadAssistApp() {
                         1 -> BookScreen(
                             vehicleId = vehicleId,
                             onToast = { toast = it },
-                            onTracked = { id -> bookingId = id; tab = 2 },
+                            onTracked = { id -> bookingId = id; tab = 3 },
                             onNeedVehicle = { tab = 0 },
                         )
-                        2 -> {
+                        2 -> LiveMapScreen()
+                        3 -> {
                             val id = bookingId
                             if (id == null) EmptyTrack(onBook = { tab = 1 })
                             else TrackScreen(bookingId = id, onToast = { toast = it })
@@ -236,6 +239,37 @@ fun RoadAssistApp() {
     if (toast != null) {
         remember(toast) { scope.launch { kotlinx.coroutines.delay(3200); toast = null } }
     }
+}
+
+/** A real interactive Leaflet map (in a WebView) plotting live locations —
+ *  nearby mechanics, responder units and road detections — from the platform's
+ *  seeded PostGIS datasets, refreshed every 10s. Token passed via URL hash so
+ *  it never reaches server logs. */
+@android.annotation.SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun LiveMapScreen() {
+    val base = Api.base.trimEnd('/')
+    val token = Api.token ?: ""
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { c ->
+            android.webkit.WebView(c).apply {
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                @Suppress("DEPRECATION") settings.setGeolocationEnabled(true)
+                webChromeClient = object : android.webkit.WebChromeClient() {
+                    override fun onGeolocationPermissionsShowPrompt(
+                        origin: String?, callback: android.webkit.GeolocationPermissions.Callback?,
+                    ) { callback?.invoke(origin, true, false) }
+                }
+                loadUrl("$base/map.html#base=$base&token=$token")
+            }
+        },
+    )
 }
 
 private val STATUS_COLOR = { s: String -> when (s) {
