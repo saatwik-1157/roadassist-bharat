@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- In-app RoadAssist mark: two pills + two dots, tilted like a road's dashes.
+     Fills the viewport (no launcher safe-zone padding). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <group android:rotation="-30" android:pivotX="12" android:pivotY="12">
+        <path android:strokeColor="#E3B96A" android:strokeWidth="3.4"
+            android:strokeLineCap="round" android:pathData="M7.3,6 L7.3,18" />
+        <path android:strokeColor="#E3B96A" android:strokeWidth="3.4"
+            android:strokeLineCap="round" android:pathData="M16.7,6 L16.7,18" />
+        <path android:fillColor="#E3B96A"
+            android:pathData="M5.85,3.2 a1.45,1.45 0 1,0 2.9,0 a1.45,1.45 0 1,0 -2.9,0" />
+        <path android:fillColor="#E3B96A"
+            android:pathData="M15.25,20.8 a1.45,1.45 0 1,0 2.9,0 a1.45,1.45 0 1,0 -2.9,0" />
+    </group>
+</vector>

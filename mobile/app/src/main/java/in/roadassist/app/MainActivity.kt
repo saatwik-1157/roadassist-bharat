@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -57,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -88,6 +92,31 @@ class MainActivity : ComponentActivity() {
 }
 
 // ── app state machine ──────────────────────────────────────────────────────
+/** The RoadAssist mark (gold, from res/drawable/ic_mark.xml). */
+@Composable
+private fun BrandMark(size: Int = 24) {
+    Image(
+        painter = painterResource(R.drawable.ic_mark),
+        contentDescription = "RoadAssist",
+        modifier = Modifier.size(size.dp),
+    )
+}
+
+/** Mark + wordmark, used in the top bar. */
+@Composable
+private fun BrandLockup() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        BrandMark(22)
+        Spacer(Modifier.width(8.dp))
+        Row {
+            Text("Road", color = Cream, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                fontSize = 18.sp, fontWeight = FontWeight.Medium)
+            Text("Assist", color = Gold, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                fontSize = 18.sp, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
 /** Bottom-nav destinations — the persistent, app-like shell every effective
  *  mobile app uses instead of full-screen page replacement. */
 private data class Tab(val label: String, val glyph: String)
@@ -118,6 +147,19 @@ fun RoadAssistApp() {
         } else {
             Scaffold(
                 containerColor = Bg,
+                topBar = {
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(Panel)
+                            .padding(WindowInsets.statusBars.asPaddingValues())
+                            .padding(horizontal = 18.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        BrandLockup()
+                        Spacer(Modifier.weight(1f))
+                        Text("● live", color = Color(0xFF3DDC97), fontSize = 10.sp, letterSpacing = 1.sp)
+                    }
+                },
                 bottomBar = {
                     NavigationBar(containerColor = Panel, tonalElevation = 0.dp) {
                         TABS.forEachIndexed { i, t ->
@@ -366,7 +408,25 @@ private fun SignInScreen(
     var busy by remember { mutableStateOf(false) }
 
     ScreenColumn {
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(40.dp))
+        Row(
+            Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BrandMark(40)
+            Spacer(Modifier.width(12.dp))
+            Row {
+                Text("Road", color = Cream, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                    fontSize = 30.sp, fontWeight = FontWeight.Medium)
+                Text("Assist", color = Gold, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                    fontSize = 30.sp, fontWeight = FontWeight.Medium)
+            }
+        }
+        Text("Every vehicle · Every road · Every phone",
+            color = Muted, fontSize = 12.sp, letterSpacing = 1.sp,
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Spacer(Modifier.height(34.dp))
         Heading("Sign in with your", "phone.")
         Sub("Real OTP against the live RoadAssist API. In development the code is returned by the server and auto-filled.")
 
