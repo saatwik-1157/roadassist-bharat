@@ -2,7 +2,9 @@ package `in`.roadassist.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +38,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -285,24 +289,42 @@ private fun HomeScreen(
         Heading("Namaste,", "traveller.")
         Sub("$msisdn · signed in")
 
-        // SOS — manual raise then immediate confirm, matching the web client.
+        // SOS — the fallback ladder: data → SMS → 112 → queue. Works with no net.
+        val ctx = LocalContext.current
+        val lat = 28.4595; val lng = 77.0266   // demo location; real build uses GPS
+        val smsPermission = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { /* granted or not, the ladder handles both — SMS rung is skipped if denied */ }
+
+        // Any queued SOS flushes automatically when data returns.
+        LaunchedEffect(Unit) {
+            val flushed = Emergency.flush(ctx)
+            if (flushed > 0) onToast("$flushed queued SOS synced now that you're online")
+        }
+
         Box(Modifier.fillMaxWidth().padding(vertical = 26.dp), contentAlignment = Alignment.Center) {
             Button(
                 onClick = {
+                    // Ask for SMS permission up front so the no-data rung is armed.
+                    smsPermission.launch(android.Manifest.permission.SEND_SMS)
                     busy = true
                     scope.launch {
-                        try {
+                        val result = Emergency.raise(ctx, lat, lng) {
                             val raised = Api.post(
                                 "/v1/sos",
-                                JSONObject().put("lat", 28.4595).put("lng", 77.0266).put("source", "manual"),
+                                JSONObject().put("lat", lat).put("lng", lng).put("source", "manual"),
                             ).getJSONObject("data")
-                            val c = Api.post("/v1/sos/${raised.getString("id")}/confirm")
-                                .getJSONObject("data")
+                            val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
                             val responder = c.optJSONObject("nearestResponder")?.optString("name") ?: "—"
-                            sosResult = "Contacts alerted: ${c.optInt("contactsAlerted")} · " +
-                                "$responder · ${c.optInt("elapsedMs")} ms"
-                            onToast("SOS escalated")
-                        } catch (e: Exception) { onToast("SOS failed: ${e.message} — call 112") }
+                            "Escalated · contacts ${c.optInt("contactsAlerted")} · $responder · ${c.optInt("elapsedMs")} ms"
+                        }
+                        sosResult = when (result.rung) {
+                            Emergency.Rung.DATA -> "✓ ONLINE — ${result.detail}"
+                            Emergency.Rung.SMS -> "✓ NO DATA → SMS — ${result.detail}"
+                            Emergency.Rung.DIALER -> "→ ${result.detail}"
+                            Emergency.Rung.QUEUED -> "◷ ${result.detail}"
+                        }
+                        onToast("SOS via ${result.rung}")
                         busy = false
                     }
                 },
@@ -313,10 +335,12 @@ private fun HomeScreen(
             ) { Text("SOS", fontSize = 20.sp, letterSpacing = 6.sp, fontWeight = FontWeight.SemiBold) }
         }
         sosResult?.let {
-            Text(it, color = Alarm, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Text(it, color = Alarm, fontSize = 12.sp, lineHeight = 17.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally))
         }
         Text(
-            "Manual SOS escalates immediately. A model-raised alert always waits for your confirmation.",
+            "Works with no internet: SOS falls back data → SMS → 112 → offline queue, " +
+                "and syncs the moment signal returns. SMS number is a placeholder until a real code is provisioned.",
             color = Muted, fontSize = 11.sp, lineHeight = 16.sp,
             modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
         )
