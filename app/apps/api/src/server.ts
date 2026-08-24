@@ -94,6 +94,36 @@ await app.register(fastifyStatic, {
 
 const ok = <T>(data: T, meta: Record<string, unknown> = {}) => ({ data, meta });
 
+// ── offline-map tile proxy ──────────────────────────────────────────────────
+// OSM tiles carry no CORS headers, so a browser cannot cache-and-reuse them
+// offline. This same-origin proxy (small zoom window, in-memory cache, polite
+// User-Agent, attribution required in every client) makes Trip Guardian's
+// pre-downloaded maps actually usable. © OpenStreetMap contributors.
+const tileCache = new Map<string, Buffer>();
+app.get("/tiles/:z/:x/:file", async (req, reply) => {
+  const p = z.object({
+    z: z.coerce.number().int().min(11).max(15),
+    x: z.coerce.number().int().min(0),
+    file: z.string().regex(/^\d+\.png$/),
+  }).parse(req.params);
+  const y = Number(p.file.replace(".png", ""));
+  const key = `${p.z}/${p.x}/${y}`;
+
+  let buf = tileCache.get(key);
+  if (!buf) {
+    const res = await fetch(`https://tile.openstreetmap.org/${key}.png`, {
+      headers: { "user-agent": "RoadAssistDemo/0.1 (student project; trip-guardian prefetch)" },
+    });
+    if (!res.ok) {
+      return reply.code(502).send({ error: { code: "tile_unavailable", title: "Map tile could not be fetched", retryable: true } });
+    }
+    buf = Buffer.from(await res.arrayBuffer());
+    if (tileCache.size > 600) tileCache.clear();   // tiny corridor cache, never grows unbounded
+    tileCache.set(key, buf);
+  }
+  return reply.header("cache-control", "public, max-age=86400").type("image/png").send(buf);
+});
+
 // ══ health ═════════════════════════════════════════════════════════════════
 app.get("/health", async () => {
   const t0 = Date.now();

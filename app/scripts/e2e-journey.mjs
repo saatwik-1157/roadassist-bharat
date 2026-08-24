@@ -334,6 +334,19 @@ const cross = await call("POST", "/v1/raksha/detections", {
 ok("a second device reusing the same op ids is not censored (per-device idempotency)",
    cross.meta?.applied === 3, `applied=${cross.meta?.applied} duplicates=${cross.meta?.duplicates}`);
 
+// ── 15. Trip Guardian — pre-trip prediction & offline-map manifest ─────────
+console.log("\n15. Trip Guardian (predict before signal dies)");
+const anonTrip = await call("GET", "/v1/trip/prepare");
+ok("trip preparation requires sign-in", anonTrip.status === 401, `got ${anonTrip.status}`);
+const trip = await call("GET", "/v1/trip/prepare", { token });
+ok("route prepared: per-segment dead-zone risk from platform telemetry",
+   (trip.data?.segments?.length ?? 0) >= 1 &&
+   trip.data.segments.every((s) => ["LOW", "MEDIUM", "HIGH", "UNKNOWN"].includes(s.coverageRisk)),
+   trip.data?.segments?.map((s) => s.coverageRisk).join(","));
+ok("offline-map tile manifest present (weather may be null offline)",
+   Array.isArray(trip.data?.tiles) && trip.data.tiles.length > 0 && "weather" in (trip.data ?? {}),
+   `${trip.data?.tiles?.length} tiles · weather=${trip.data?.weather ? trip.data.weather.risk : "null"}`);
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);
