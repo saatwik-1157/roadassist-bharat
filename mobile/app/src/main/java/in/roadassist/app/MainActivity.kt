@@ -567,20 +567,23 @@ private fun BookScreen(
     var offers by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var bookingId by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf(false) }
+    var reloadKey by remember { mutableIntStateOf(0) }
 
-    // one-shot load of service types
-    remember {
-        scope.launch {
-            try {
-                val arr = Api.get("/v1/service-types").getJSONArray("data")
-                services = (0 until arr.length()).map {
-                    val s = arr.getJSONObject(it)
-                    s.getString("code") to s.getString("name")
-                }
-                service = services.firstOrNull()
-            } catch (e: Exception) { onToast(e.message ?: "Failed to load services") }
+    // Load service types. The API returns {code,label}; retryable on failure.
+    LaunchedEffect(reloadKey) {
+        loadError = false
+        try {
+            val arr = Api.get("/v1/service-types").getJSONArray("data")
+            services = (0 until arr.length()).map {
+                val s = arr.getJSONObject(it)
+                s.getString("code") to s.getString("label")
+            }
+            service = services.firstOrNull()
+        } catch (e: Exception) {
+            loadError = true
+            onToast(e.message ?: "Failed to load services")
         }
-        true
     }
 
     ScreenColumn {
@@ -590,10 +593,19 @@ private fun BookScreen(
 
         Box {
             OutlinedButton(
-                onClick = { svcOpen = true },
+                onClick = { if (loadError) reloadKey++ else if (services.isNotEmpty()) svcOpen = true },
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-            ) { Text("Service: ${service?.second ?: "loading…"}", color = Cream, fontSize = 13.sp) }
+            ) {
+                Text(
+                    "Service: " + when {
+                        service != null -> service!!.second
+                        loadError -> "couldn't load — tap to retry"
+                        else -> "loading…"
+                    },
+                    color = if (loadError) Alarm else Cream, fontSize = 13.sp,
+                )
+            }
             DropdownMenu(expanded = svcOpen, onDismissRequest = { svcOpen = false }) {
                 services.forEach { s ->
                     DropdownMenuItem(text = { Text(s.second) }, onClick = { service = s; svcOpen = false })
