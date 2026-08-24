@@ -207,9 +207,49 @@ export async function diagnoseWithFallback(input: {
   }
 }
 
+// ── EMAIL ─────────────────────────────────────────────────────────────────
+export interface EmailProvider {
+  readonly name: string;
+  send(to: string, subject: string, body: string, opts?: { html?: string }): Promise<{ id: string; delivered: boolean }>;
+}
+
+/** Logs instead of sending — the default, and what the email path is tested against. */
+const consoleEmail: EmailProvider = {
+  name: "console",
+  async send(to, subject, body) {
+    console.log(`[email:console] → ${to}\n  subject: ${subject}\n  ${body.replace(/\n/g, "\n  ")}`);
+    return { id: `dev-${Date.now()}`, delivered: true };
+  },
+};
+
+/**
+ * Generic transactional-email API adapter (SendGrid / Mailgun / Resend all
+ * accept a JSON POST with a Bearer key). EMAIL_BASE_URL is the vendor endpoint;
+ * the {from,to,subject,text,html} shape is what those APIs converge on.
+ */
+const httpEmail: EmailProvider = {
+  name: env.email.provider,
+  async send(to, subject, body, opts) {
+    if (!env.email.apiKey || !env.email.baseUrl) {
+      throw new Error('Email provider "http" needs EMAIL_API_KEY and EMAIL_BASE_URL');
+    }
+    const res = await fetch(env.email.baseUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${env.email.apiKey}` },
+      body: JSON.stringify({ from: env.email.from, to, subject, text: body, html: opts?.html }),
+    });
+    if (!res.ok) throw new Error(`Email send failed: ${res.status} ${await res.text()}`);
+    const json = (await res.json().catch(() => ({}))) as { id?: string };
+    return { id: json.id ?? "unknown", delivered: true };
+  },
+};
+
+export const email: EmailProvider = env.email.provider === "console" ? consoleEmail : httpEmail;
+
 export const providerSummary = () => ({
   sms: sms.name,
   maps: maps.name,
   ai: env.ai.provider,
   payments: env.payments.provider,
+  email: email.name,
 });
