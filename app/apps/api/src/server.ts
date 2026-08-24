@@ -124,6 +124,34 @@ app.get("/tiles/:z/:x/:file", async (req, reply) => {
   return reply.header("cache-control", "public, max-age=86400").type("image/png").send(buf);
 });
 
+// ── clean basemap proxy (CARTO Voyager) — whole-country to street, an
+//    Apple-Maps-like look; same same-origin/cache/attribution rules. ─────────
+// © OpenStreetMap contributors © CARTO.
+const baseCache = new Map<string, Buffer>();
+app.get("/basemap/:z/:x/:file", async (req, reply) => {
+  const p = z.object({
+    z: z.coerce.number().int().min(3).max(18),
+    x: z.coerce.number().int().min(0),
+    file: z.string().regex(/^\d+\.png$/),
+  }).parse(req.params);
+  const y = Number(p.file.replace(".png", ""));
+  const key = `${p.z}/${p.x}/${y}`;
+
+  let buf = baseCache.get(key);
+  if (!buf) {
+    const res = await fetch(`https://basemaps.cartocdn.com/rastertiles/voyager/${key}.png`, {
+      headers: { "user-agent": "RoadAssistDemo/0.1 (student project; map basemap)" },
+    });
+    if (!res.ok) {
+      return reply.code(502).send({ error: { code: "tile_unavailable", title: "Map tile could not be fetched", retryable: true } });
+    }
+    buf = Buffer.from(await res.arrayBuffer());
+    if (baseCache.size > 2000) baseCache.clear();
+    baseCache.set(key, buf);
+  }
+  return reply.header("cache-control", "public, max-age=604800").type("image/png").send(buf);
+});
+
 // ══ health ═════════════════════════════════════════════════════════════════
 app.get("/health", async () => {
   const t0 = Date.now();
@@ -950,7 +978,7 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
   const q = z.object({
     lat: z.coerce.number().min(-90).max(90),
     lng: z.coerce.number().min(-180).max(180),
-    radiusKm: z.coerce.number().min(1).max(200).optional(),
+    radiusKm: z.coerce.number().min(1).max(3000).optional(),
   }).parse(req.query);
   const r = (q.radiusKm ?? 40) * 1000;
   const pt = raw`ST_SetSRID(ST_MakePoint(${q.lng}, ${q.lat}), 4326)`;
