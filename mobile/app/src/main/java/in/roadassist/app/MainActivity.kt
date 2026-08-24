@@ -32,7 +32,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -40,6 +44,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -79,53 +84,85 @@ class MainActivity : ComponentActivity() {
 }
 
 // ── app state machine ──────────────────────────────────────────────────────
-private sealed interface Screen {
-    data object SignIn : Screen
-    data object Home : Screen
-    data object Book : Screen
-    data class Track(val bookingId: String) : Screen
-}
+/** Bottom-nav destinations — the persistent, app-like shell every effective
+ *  mobile app uses instead of full-screen page replacement. */
+private data class Tab(val label: String, val glyph: String)
+private val TABS = listOf(
+    Tab("Home", "⌂"),     // house
+    Tab("Assist", "⚑"),   // flag
+    Tab("Track", "◉"),    // fisheye/pin
+    Tab("More", "☰"),     // menu
+)
 
 @Composable
 fun RoadAssistApp() {
-    var screen by remember { mutableStateOf<Screen>(Screen.SignIn) }
+    var signedIn by remember { mutableStateOf(false) }
+    var tab by remember { mutableIntStateOf(0) }
     var toast by remember { mutableStateOf<String?>(null) }
     var vehicleId by remember { mutableStateOf<String?>(null) }
     var vehicleLabel by remember { mutableStateOf<String?>(null) }
+    var bookingId by remember { mutableStateOf<String?>(null) }
     var msisdn by remember { mutableStateOf("+919876543210") }
 
     Box(Modifier.fillMaxSize().background(Bg)) {
-        when (val s = screen) {
-            Screen.SignIn -> SignInScreen(
+        if (!signedIn) {
+            SignInScreen(
                 msisdn = msisdn, onMsisdn = { msisdn = it },
                 onToast = { toast = it },
-                onSignedIn = { vid, vlabel ->
-                    vehicleId = vid; vehicleLabel = vlabel; screen = Screen.Home
+                onSignedIn = { vid, vlabel -> vehicleId = vid; vehicleLabel = vlabel; signedIn = true; tab = 0 },
+            )
+        } else {
+            Scaffold(
+                containerColor = Bg,
+                bottomBar = {
+                    NavigationBar(containerColor = Panel, tonalElevation = 0.dp) {
+                        TABS.forEachIndexed { i, t ->
+                            NavigationBarItem(
+                                selected = tab == i,
+                                onClick = { tab = i },
+                                icon = { Text(t.glyph, fontSize = 20.sp) },
+                                label = { Text(t.label, fontSize = 10.sp, letterSpacing = 1.sp) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = Gold, selectedTextColor = Gold,
+                                    indicatorColor = Color(0x22E3B96A),
+                                    unselectedIconColor = Muted, unselectedTextColor = Muted,
+                                ),
+                            )
+                        }
+                    }
                 },
-            )
-            Screen.Home -> HomeScreen(
-                msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel,
-                onVehicle = { id, label -> vehicleId = id; vehicleLabel = label },
-                onBook = { screen = Screen.Book },
-                onToast = { toast = it },
-                onSignOut = { Api.token = null; screen = Screen.SignIn },
-            )
-            Screen.Book -> BookScreen(
-                vehicleId = vehicleId,
-                onToast = { toast = it },
-                onTracked = { id -> screen = Screen.Track(id) },
-                onBack = { screen = Screen.Home },
-            )
-            is Screen.Track -> TrackScreen(
-                bookingId = s.bookingId,
-                onToast = { toast = it },
-                onBack = { screen = Screen.Home },
-            )
+            ) { pad ->
+                Box(Modifier.padding(pad)) {
+                    when (tab) {
+                        0 -> HomeScreen(
+                            msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel,
+                            onVehicle = { id, label -> vehicleId = id; vehicleLabel = label },
+                            onBook = { tab = 1 },
+                            onToast = { toast = it },
+                        )
+                        1 -> BookScreen(
+                            vehicleId = vehicleId,
+                            onToast = { toast = it },
+                            onTracked = { id -> bookingId = id; tab = 2 },
+                            onNeedVehicle = { tab = 0 },
+                        )
+                        2 -> {
+                            val id = bookingId
+                            if (id == null) EmptyTrack(onBook = { tab = 1 })
+                            else TrackScreen(bookingId = id, onToast = { toast = it })
+                        }
+                        else -> MoreScreen(
+                            msisdn = msisdn,
+                            onSignOut = { Api.token = null; signedIn = false; bookingId = null },
+                        )
+                    }
+                }
+            }
         }
 
         toast?.let { msg ->
             Card(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(18.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp, start = 18.dp, end = 18.dp),
                 shape = RoundedCornerShape(999.dp),
                 colors = CardDefaults.cardColors(containerColor = Gold),
             ) {
@@ -137,12 +174,56 @@ fun RoadAssistApp() {
         }
     }
 
-    // toasts fade themselves out
     val scope = rememberCoroutineScope()
     if (toast != null) {
-        remember(toast) {
-            scope.launch { kotlinx.coroutines.delay(3200); toast = null }
+        remember(toast) { scope.launch { kotlinx.coroutines.delay(3200); toast = null } }
+    }
+}
+
+@Composable
+private fun EmptyTrack(onBook: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(22.dp),
+        verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("◉", fontSize = 48.sp, color = Muted)
+        Text("No active rescue", color = Cream, fontSize = 18.sp, modifier = Modifier.padding(top = 12.dp))
+        Text("Book assistance and track it live here.", color = Muted, fontSize = 13.sp,
+            modifier = Modifier.padding(top = 4.dp))
+        OutlinedButton(onClick = onBook, shape = RoundedCornerShape(999.dp),
+            modifier = Modifier.padding(top = 18.dp)) { Text("Request assistance", color = Gold) }
+    }
+}
+
+@Composable
+private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
+    ScreenColumn {
+        Spacer(Modifier.height(16.dp))
+        Heading("Account &", "more.")
+        Sub("$msisdn · signed in")
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        ) {
+            Column(Modifier.padding(17.dp)) {
+                Text("Trip Guardian", color = Cream, fontSize = 17.sp)
+                Text("Prepare a route before you lose signal — weather, dead-zone risk and offline maps. Live in the web app; coming to mobile.",
+                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
+            }
         }
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        ) {
+            Column(Modifier.padding(17.dp)) {
+                Text("About", color = Cream, fontSize = 17.sp)
+                Text("RoadAssist Bharat — one platform, every vehicle, every road. Student prototype; no real emergency dispatch is connected.",
+                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+        LineButton("Sign out") { onSignOut() }
     }
 }
 
@@ -274,7 +355,7 @@ private fun SignInScreen(
 private fun HomeScreen(
     msisdn: String, vehicleId: String?, vehicleLabel: String?,
     onVehicle: (String, String) -> Unit,
-    onBook: () -> Unit, onToast: (String) -> Unit, onSignOut: () -> Unit,
+    onBook: () -> Unit, onToast: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var reg by remember { mutableStateOf("") }
@@ -400,7 +481,7 @@ private fun HomeScreen(
             }
         }
 
-        LineButton("Sign out") { onSignOut() }
+        Spacer(Modifier.height(8.dp))
         if (busy) Loading()
     }
 }
@@ -411,7 +492,7 @@ private fun BookScreen(
     vehicleId: String?,
     onToast: (String) -> Unit,
     onTracked: (String) -> Unit,
-    onBack: () -> Unit,
+    onNeedVehicle: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var services by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
@@ -520,7 +601,8 @@ private fun BookScreen(
             }
         }
 
-        LineButton("Back") { onBack() }
+        if (vehicleId == null) LineButton("Add a vehicle first") { onNeedVehicle() }
+        Spacer(Modifier.height(8.dp))
         if (busy) Loading()
     }
 }
@@ -542,7 +624,7 @@ private val CommandLabels = mapOf(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TrackScreen(bookingId: String, onToast: (String) -> Unit, onBack: () -> Unit) {
+private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf("…") }
     var commands by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -612,7 +694,7 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit, onBack: ()
             }
         }
 
-        LineButton("Back to home") { onBack() }
+        Spacer(Modifier.height(8.dp))
         if (busy) Loading()
     }
 }
