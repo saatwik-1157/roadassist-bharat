@@ -26,6 +26,8 @@ object Api {
     suspend fun post(path: String, body: JSONObject? = null): JSONObject =
         request("POST", path, body ?: JSONObject())
 
+    suspend fun delete(path: String): JSONObject = request("DELETE", path, null)
+
     private suspend fun request(method: String, path: String, body: JSONObject?): JSONObject =
         withContext(Dispatchers.IO) {
             val conn = URL(base.trimEnd('/') + path).openConnection() as HttpURLConnection
