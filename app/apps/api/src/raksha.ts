@@ -438,6 +438,75 @@ export async function rakshaRoutes(app: FastifyInstance) {
     });
   });
 
+  // ── citizen-reported hazard (crowdsourced) ────────────────────────────────
+  // Any signed-in user can flag a road hazard they hit. It enters the SAME
+  // pipeline as an edge-device sighting — snapped to the nearest monitored
+  // segment, shown on the live map, queued for authority verification — but is
+  // attributed to a singleton "Citizen Reports" device and tagged
+  // source:"citizen" so it is never mistaken for autonomous hardware. Unlike a
+  // device sighting it never auto-raises an incident (ADR-0005): a citizen
+  // report is advisory until a human authority confirms it.
+  app.post("/v1/raksha/report", { preHandler: authenticate }, async (req, reply) => {
+    const body = z.object({
+      type: z.enum(["pothole", "road_damage", "obstruction"]),
+      severity: z.number().int().min(1).max(5),
+      note: z.string().max(280).optional(),
+      ...latLng,
+    }).parse(req.body);
+
+    const userId = req.user!.sub;
+
+    // The one device all crowdsourced reports are attributed to — created lazily
+    // on the first report. Its credential is never used to authenticate (reports
+    // ride the citizen's own JWT); it exists only to satisfy the detection FK.
+    const CITIZEN_HW = "CITIZEN-CROWDSOURCE";
+    let [device] = await db.select({ id: S.edgeDevices.id })
+      .from(S.edgeDevices)
+      .where(and(eq(S.edgeDevices.hardwareRef, CITIZEN_HW), isNull(S.edgeDevices.deletedAt)))
+      .limit(1);
+    if (!device) {
+      [device] = await db.insert(S.edgeDevices).values({
+        name: "Citizen Reports (crowdsourced)", hardwareRef: CITIZEN_HW,
+        credentialHash: sha256(randomBytes(32).toString("hex")),
+        status: "ACTIVE", registeredBy: userId, simulated: true,
+      }).returning({ id: S.edgeDevices.id });
+    }
+    const deviceId = device.id;
+    const opId = "cit-" + randomBytes(12).toString("hex");
+
+    const detectionId = await db.transaction(async (tx) => {
+      const [ins] = await tx.insert(S.rakshaDetections).values({
+        deviceId, opId, detectionType: body.type,
+        confidence: 1, severity: body.severity,
+        capturedAt: new Date(), ranOffline: false,
+        modelVersion: "citizen-report", usedFallback: false,
+        notes: body.note,
+        raw: { source: "citizen", reportedBy: userId },
+      }).returning({ id: S.rakshaDetections.id });
+      const id = ins.id;
+      await tx.execute(raw`
+        UPDATE raksha_detections
+           SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
+         WHERE id = ${id}`);
+      await tx.execute(raw`
+        UPDATE raksha_detections rd
+           SET segment_id = seg.id
+          FROM (SELECT id FROM road_segments
+                 WHERE deleted_at IS NULL
+                   AND ST_DWithin(path::geography,
+                                  ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)::geography, 250)
+                 ORDER BY path <-> ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
+                 LIMIT 1) seg
+         WHERE rd.id = ${id}`);
+      return id;
+    });
+
+    return reply.code(201).send(ok(
+      { id: detectionId, status: "DETECTED", type: body.type, severity: body.severity },
+      { source: "citizen", note: "Queued for authority verification; now visible on the live map." },
+    ));
+  });
+
   // ── reads for the dashboard ───────────────────────────────────────────────
   app.get("/v1/raksha/detections", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req) => {
     const q = z.object({
