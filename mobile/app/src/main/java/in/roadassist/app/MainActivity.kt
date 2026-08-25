@@ -188,6 +188,12 @@ fun RoadAssistApp() {
                     tab = 1   // jump to the booking flow with this mechanic in focus
                 }
             }
+            // Pause the retained map WebView (its JS timers, polling and drawing)
+            // whenever it isn't the visible tab, then resume on return — keeps the
+            // instant tab switch without burning cycles in the background.
+            LaunchedEffect(tab) {
+                if (tab == 2) mapWebView.onResume() else mapWebView.onPause()
+            }
             Scaffold(
                 containerColor = Bg,
                 topBar = {

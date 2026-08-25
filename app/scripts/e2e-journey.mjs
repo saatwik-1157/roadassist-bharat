@@ -445,6 +445,31 @@ ok("an authority can fetch the photo for triage", authorityPhoto.status === 200,
 const anonPhoto = await fetch(photoUrl);
 ok("the photo endpoint refuses anonymous access", anonPhoto.status === 401, `got ${anonPhoto.status}`);
 
+// rejecting a report reclaims its photo from disk (image_ref cleared)
+const rejectPhoto = await call("POST", `/v1/raksha/detections/${photoReport.data.id}/verify`, {
+  token: adminToken, body: { action: "reject" },
+});
+ok("authority can reject a photo report", rejectPhoto.data?.status === "REJECTED");
+const reclaimed = await fetch(photoUrl, { headers: { authorization: `Bearer ${token}` } });
+ok("a rejected report's photo is reclaimed (now 404)", reclaimed.status === 404, `got ${reclaimed.status}`);
+
+// per-user report rate limit — one account cannot flood the queue
+console.log("\n18. Report rate limiting");
+const floodMsisdn = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+const fReq = await call("POST", "/v1/auth/otp/request", { body: { msisdn: floodMsisdn } });
+const fVer = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: floodMsisdn, code: fReq.meta.devOtp } });
+const floodToken = fVer.data.accessToken;
+let got429 = false, made = 0;
+for (let i = 0; i < 25; i++) {
+  const r = await call("POST", "/v1/raksha/report", {
+    token: floodToken, body: { type: "pothole", severity: 1, lat: 28.45, lng: 77.05 },
+  });
+  if (r.status === 429) { got429 = true; break; }
+  if (r.status === 201) made++;
+}
+ok("a single account is rate-limited after a burst of reports", got429 && made <= 20,
+   `accepted ${made} then 429`);
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

@@ -48,9 +48,26 @@ node scripts/raksha-simulator.mjs       # offline patrol → sync → replay (id
 # dashboard: http://localhost:4000/raksha.html  ·  citizen app: /app.html
 ```
 
+**Citizen input + live map** — the network also takes crowdsourced input and
+renders live geospatial state:
+
+| Endpoint | Who | What |
+|---|---|---|
+| `POST /v1/raksha/report` | any signed-in citizen | flag a hazard (type, severity, GPS, note, optional photo). Rate-limited per user; enters the same pipeline as a device sighting, tagged `source:"citizen"`, never auto-raising an incident (ADR-0005). |
+| `GET /v1/me/reports` | reporter | own reports + live verification status |
+| `GET /v1/raksha/detections/:id/photo` | reporter **or** authority | the report photo (stored on disk per ADR-0006, only a ref in the DB) |
+| `GET /v1/raksha/detections?source=citizen` | authority | triage the crowdsourced queue |
+| `GET /v1/map/live?lat&lng&radiusKm` | any signed-in user | nearby mechanics, responders and detections for the map |
+| `GET /tiles/...` · `/basemap/...` | — | cached OSM / CARTO-Voyager tile proxies (whole-India basemap) |
+
+The map (`/map.html`, embedded in the Android app) bundles Leaflet +
+markercluster locally (`app/apps/web/vendor/`) rather than a CDN — no
+third-party dependency at runtime.
+
 **Measured, not asserted:** nearest-mechanic dispatch at 19.8 ms · emergency
-escalation at ~30 ms · 84 end-to-end assertions covering illegal transitions,
-idempotent replay, refresh-token theft detection and cross-tenant isolation.
+escalation at ~30 ms · 111 end-to-end assertions covering illegal transitions,
+idempotent replay, refresh-token theft detection, cross-tenant isolation, and
+the full citizen-report loop (submit → photo → authority verify → status).
 
 ---
 
