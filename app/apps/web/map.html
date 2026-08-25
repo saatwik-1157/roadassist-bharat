@@ -49,6 +49,7 @@
   <div><span class="dot" style="background:#e3b96a"></span>Verified mechanic</div>
   <div><span class="dot" style="background:#4aa3ff"></span>Responder unit</div>
   <div><span class="dot" style="background:#ff9f43"></span>Road detection</div>
+  <div><span class="dot" style="background:#ff9f43;border:2px solid #fff"></span>Citizen report</div>
 </div>
 <div class="locate" id="locate" onclick="__locate()" title="Locate me">◎</div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -197,8 +198,17 @@
       d.detections.forEach(function (x) {
         if (x.lat == null) return;
         var c = SEV[x.severity] || "#ff9f43";
-        L.circleMarker([x.lat, x.lng], { renderer: canvas, radius: 6, color: c, fillColor: c, fillOpacity: 0.8, weight: 1 })
-          .bindPopup("<b>" + esc(x.detection_type) + "</b> · severity " + esc(x.severity) + "<br>" + esc(x.status))
+        // Citizen-reported hazards get a white ring so they read differently
+        // from autonomous edge-device sightings.
+        var cit = x.source === "citizen";
+        var src = cit ? "<span style='color:#e3b96a'>◉ Citizen report</span>"
+                      : "<span style='color:#8f948f'>Edge device</span>";
+        L.circleMarker([x.lat, x.lng], {
+          renderer: canvas, radius: cit ? 7 : 6,
+          color: cit ? "#ffffff" : c, fillColor: c, fillOpacity: 0.85, weight: cit ? 2.5 : 1,
+        })
+          .bindPopup("<b>" + esc(x.detection_type) + "</b> · severity " + esc(x.severity) +
+            "<br>" + esc(x.status) + "<br>" + src)
           .addTo(layer);
       });
       document.getElementById("badge").innerHTML =

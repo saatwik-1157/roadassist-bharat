@@ -427,9 +427,9 @@ private fun ReportHazardDialog(onClose: () -> Unit, onToast: (String) -> Unit, o
 }
 
 private val STATUS_COLOR = { s: String -> when (s) {
-    "PAID", "COMPLETED" -> Color(0xFF3DDC97)
-    "CANCELLED", "NO_SUPPLY" -> Muted
-    "ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS" -> Gold
+    "PAID", "COMPLETED", "VERIFIED", "REPAIRED" -> Color(0xFF3DDC97)
+    "CANCELLED", "NO_SUPPLY", "REJECTED", "CLOSED" -> Muted
+    "ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS", "DETECTED", "REPAIR_SCHEDULED" -> Gold
     else -> Color(0xFFE3C451)
 } }
 
@@ -496,6 +496,13 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
     var summary by remember { mutableStateOf(TripGuardian.cachedSummary(ctx)) }
     var mosaic by remember { mutableStateOf(TripGuardian.mosaic(ctx)?.asImageBitmap()) }
     var contacts by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var reports by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        try {
+            val arr = Api.get("/v1/me/reports").getJSONArray("data")
+            reports = (0 until arr.length()).map { arr.getJSONObject(it) }
+        } catch (_: Exception) {}
+    }
     var cName by remember { mutableStateOf("") }
     var cPhone by remember { mutableStateOf("+91") }
     var cBusy by remember { mutableStateOf(false) }
@@ -574,6 +581,39 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                 ) { Text(if (summary == null) "Prepare my route" else "Refresh route",
                     fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, fontSize = 12.sp) }
                 if (busy) Loading()
+            }
+        }
+
+        // Your hazard reports and where each one is in the review pipeline.
+        if (reports.isNotEmpty()) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Panel),
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+            ) {
+                Column(Modifier.padding(17.dp)) {
+                    Text("Your hazard reports", color = Cream, fontSize = 17.sp)
+                    Text("Track each report as an authority reviews it.",
+                        color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                    reports.forEach { r ->
+                        val st = r.optString("status")
+                        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    r.optString("detection_type").replace("_", " ")
+                                        .replaceFirstChar { it.uppercase() } + " · severity ${r.optInt("severity")}",
+                                    color = Cream, fontSize = 14.sp,
+                                )
+                                r.optString("notes").takeIf { it.isNotBlank() && it != "null" }?.let {
+                                    Text(it, color = Muted, fontSize = 11.5.sp, lineHeight = 15.sp,
+                                        modifier = Modifier.padding(top = 2.dp))
+                                }
+                            }
+                            Text(st, color = STATUS_COLOR(st), fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                        }
+                    }
+                }
             }
         }
 
