@@ -363,6 +363,64 @@ const badEmail = await call("POST", "/v1/notify/email", {
 });
 ok("invalid recipient rejected", badEmail.status === 400, `got ${badEmail.status}`);
 
+// ── 17. Citizen hazard reports (crowdsourced RAKSHA input) ─────────────────
+console.log("\n17. Citizen hazard reports");
+const reportNote = `e2e citizen note ${tag}`;
+const anonReport = await call("POST", "/v1/raksha/report", {
+  body: { type: "pothole", severity: 4, lat: 28.44, lng: 77.05 },
+});
+ok("anonymous hazard report is refused", anonReport.status === 401, `got ${anonReport.status}`);
+
+const badReport = await call("POST", "/v1/raksha/report", {
+  token, body: { type: "meteor_strike", severity: 4, lat: 28.44, lng: 77.05 },
+});
+ok("an invalid hazard type is rejected", badReport.status === 400, `got ${badReport.status}`);
+
+const report = await call("POST", "/v1/raksha/report", {
+  token, body: { type: "pothole", severity: 4, lat: 28.44, lng: 77.05, note: reportNote },
+});
+ok("citizen submits a hazard report", report.status === 201 && report.data?.status === "DETECTED",
+   `status=${report.data?.status}`);
+ok("report is tagged source=citizen, not a device", report.meta?.source === "citizen");
+const reportId = report.data.id;
+
+const myReports = await call("GET", "/v1/me/reports", { token });
+const mineReport = (myReports.data ?? []).find((r) => r.id === reportId);
+ok("the report shows in the reporter's own list with its note and location",
+   Boolean(mineReport) && mineReport.notes === reportNote && mineReport.status === "DETECTED" &&
+   mineReport.lat != null);
+
+const otherReports = await call("GET", "/v1/me/reports", { token: otherToken });
+ok("another user cannot see this user's reports (scoped to caller)",
+   !(otherReports.data ?? []).some((r) => r.id === reportId));
+
+const liveMap = await call("GET", "/v1/map/live?lat=28.44&lng=77.05&radiusKm=10", { token });
+ok("the report appears on the live map carrying source=citizen",
+   (liveMap.data?.detections ?? []).some((d) => d.source === "citizen"));
+
+const citizenQueue = await call("GET", "/v1/raksha/detections?source=citizen", { token: adminToken });
+ok("authority can filter to citizen reports only", citizenQueue.status === 200 &&
+   (citizenQueue.data ?? []).every((d) => d.source === "citizen"), `count=${citizenQueue.meta?.count}`);
+ok("the submitted report is in the authority's citizen queue",
+   (citizenQueue.data ?? []).some((d) => d.id === reportId));
+
+const citizenReportVerify = await call("POST", `/v1/raksha/detections/${reportId}/verify`, {
+  token, body: { action: "verify" },
+});
+ok("a citizen cannot verify their own report", citizenReportVerify.status === 403,
+   `got ${citizenReportVerify.status}`);
+
+const verifyReport = await call("POST", `/v1/raksha/detections/${reportId}/verify`, {
+  token: adminToken, body: { action: "verify" },   // no reviewer note supplied
+});
+ok("authority verifies the citizen report", verifyReport.data?.status === "VERIFIED");
+
+const afterVerify = await call("GET", "/v1/me/reports", { token });
+const verifiedMine = (afterVerify.data ?? []).find((r) => r.id === reportId);
+ok("the reporter sees it VERIFIED with the original note preserved (not clobbered)",
+   verifiedMine?.status === "VERIFIED" && verifiedMine?.notes === reportNote,
+   `status=${verifiedMine?.status} note="${verifiedMine?.notes}"`);
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);
