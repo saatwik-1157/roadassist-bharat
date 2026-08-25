@@ -1001,6 +1001,7 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
 
   const detections = await db.execute<Record<string, unknown>>(raw`
     SELECT detection_type, severity, status,
+           COALESCE(raw->>'source', 'device') AS source,
            ST_Y(location) AS lat, ST_X(location) AS lng
       FROM raksha_detections
      WHERE deleted_at IS NULL AND location IS NOT NULL

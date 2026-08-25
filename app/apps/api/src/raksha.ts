@@ -507,6 +507,23 @@ export async function rakshaRoutes(app: FastifyInstance) {
     ));
   });
 
+  // ── a citizen's own reports + their verification status ───────────────────
+  // Closes the loop: the reporter can watch each hazard move DETECTED → VERIFIED
+  // (or REJECTED) as an authority reviews it. Scoped strictly to the caller.
+  app.get("/v1/me/reports", { preHandler: authenticate }, async (req) => {
+    const userId = req.user!.sub;
+    const rows = await db.execute<Record<string, unknown>>(raw`
+      SELECT id, detection_type, severity, status, created_at,
+             ST_Y(location) AS lat, ST_X(location) AS lng, notes
+        FROM raksha_detections
+       WHERE deleted_at IS NULL
+         AND raw->>'source' = 'citizen'
+         AND raw->>'reportedBy' = ${userId}
+       ORDER BY created_at DESC
+       LIMIT 50`);
+    return ok(rows, { count: rows.length });
+  });
+
   // ── reads for the dashboard ───────────────────────────────────────────────
   app.get("/v1/raksha/detections", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req) => {
     const q = z.object({
