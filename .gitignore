@@ -11,6 +11,10 @@ dist/
 # simulator local state (contains a device credential)
 app/scripts/.raksha-sim-state.json
 
+# citizen hazard-report photos (local disk store; never object storage in dev)
+uploads/
+app/apps/api/uploads/
+
 # editor noise
 .vscode/
 .idea/

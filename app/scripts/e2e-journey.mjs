@@ -421,6 +421,30 @@ ok("the reporter sees it VERIFIED with the original note preserved (not clobbere
    verifiedMine?.status === "VERIFIED" && verifiedMine?.notes === reportNote,
    `status=${verifiedMine?.status} note="${verifiedMine?.notes}"`);
 
+// photo attachment (stored on disk, never in the DB — ADR-0006)
+const PNG_1x1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const photoReport = await call("POST", "/v1/raksha/report", {
+  token, body: { type: "road_damage", severity: 2, lat: 28.45, lng: 77.06, photoBase64: PNG_1x1, photoMime: "image/png" },
+});
+ok("a report with a photo is accepted and flagged hasPhoto",
+   photoReport.status === 201 && photoReport.data?.hasPhoto === true);
+const badMime = await call("POST", "/v1/raksha/report", {
+  token, body: { type: "pothole", severity: 2, lat: 28.45, lng: 77.06, photoBase64: PNG_1x1, photoMime: "image/gif" },
+});
+ok("an unsupported photo type is rejected", badMime.status === 400, `got ${badMime.status}`);
+
+const photoUrl = `${BASE}/v1/raksha/detections/${photoReport.data.id}/photo`;
+const ownerPhoto = await fetch(photoUrl, { headers: { authorization: `Bearer ${token}` } });
+ok("the reporter can fetch their own photo back",
+   ownerPhoto.status === 200 && (ownerPhoto.headers.get("content-type") ?? "").startsWith("image/"),
+   `${ownerPhoto.status} ${ownerPhoto.headers.get("content-type")}`);
+const strangerPhoto = await fetch(photoUrl, { headers: { authorization: `Bearer ${otherToken}` } });
+ok("another citizen cannot fetch someone else's photo", strangerPhoto.status === 403, `got ${strangerPhoto.status}`);
+const authorityPhoto = await fetch(photoUrl, { headers: { authorization: `Bearer ${adminToken}` } });
+ok("an authority can fetch the photo for triage", authorityPhoto.status === 200, `got ${authorityPhoto.status}`);
+const anonPhoto = await fetch(photoUrl);
+ok("the photo endpoint refuses anonymous access", anonPhoto.status === 401, `got ${anonPhoto.status}`);
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);
