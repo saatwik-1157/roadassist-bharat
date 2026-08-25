@@ -96,6 +96,11 @@ export const env = {
   uploadDir: process.env.UPLOAD_DIR ?? resolve(process.cwd(), "uploads"),
   /** Max decoded photo size accepted by the report endpoint (bytes). */
   uploadMaxBytes: Number(process.env.UPLOAD_MAX_BYTES ?? 4_000_000),
+
+  /** Per-user ceiling on crowdsourced hazard reports, so one account cannot
+   *  flood the RAKSHA queue / map (the edge-device path has its own backstops). */
+  reportMaxPerWindow: Number(process.env.REPORT_MAX_PER_WINDOW ?? 20),
+  reportWindowMinutes: Number(process.env.REPORT_WINDOW_MINUTES ?? 60),
 } as const;
 
 export const isProd = env.nodeEnv === "production";

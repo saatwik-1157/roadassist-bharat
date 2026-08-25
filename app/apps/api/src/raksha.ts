@@ -12,7 +12,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { and, eq, isNull, sql as raw } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 import { env } from "./env.js";
@@ -473,6 +473,21 @@ export async function rakshaRoutes(app: FastifyInstance) {
 
     const userId = req.user!.sub;
 
+    // Per-user rate limit: one account cannot flood the queue/map with reports.
+    const [{ n: recent }] = await db.execute<{ n: number }>(raw`
+      SELECT count(*)::int AS n FROM raksha_detections
+       WHERE deleted_at IS NULL AND raw->>'reportedBy' = ${userId}
+         AND created_at > now() - make_interval(mins => ${env.reportWindowMinutes})`);
+    if (recent >= env.reportMaxPerWindow) {
+      return reply.code(429).send({
+        error: {
+          code: "report_rate_limited",
+          title: `You've reported ${env.reportMaxPerWindow} hazards recently — please wait a little before sending more.`,
+          retryable: true,
+        },
+      });
+    }
+
     // Validate the photo up front so a bad attachment never creates a detection.
     let photoBuf: Buffer | null = null;
     if (body.photoBase64) {
@@ -683,7 +698,8 @@ export async function rakshaRoutes(app: FastifyInstance) {
       notes: z.string().max(500).optional(),
     }).parse(req.body);
 
-    const [current] = await db.select({ status: S.rakshaDetections.status }).from(S.rakshaDetections)
+    const [current] = await db.select({ status: S.rakshaDetections.status, imageRef: S.rakshaDetections.imageRef })
+      .from(S.rakshaDetections)
       .where(and(eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt))).limit(1);
     if (!current) {
       return reply.code(404).send({ error: { code: "not_found", title: "Detection not found", retryable: false } });
@@ -696,6 +712,9 @@ export async function rakshaRoutes(app: FastifyInstance) {
       // Only overwrite notes when the reviewer supplies their own — otherwise a
       // citizen's original report note (shown back to them) is preserved.
       ...(notes !== undefined ? { notes } : {}),
+      // A rejected report is spam/noise — drop its photo reference now (the file
+      // is reclaimed just below) so disk isn't held by discarded submissions.
+      ...(action === "reject" && current.imageRef ? { imageRef: null } : {}),
     }).where(and(
       eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt),
       eq(S.rakshaDetections.status, "DETECTED"),
@@ -704,6 +723,10 @@ export async function rakshaRoutes(app: FastifyInstance) {
       return reply.code(409).send({
         error: { code: "already_reviewed", title: `This detection is already ${current.status} and cannot be re-judged`, retryable: false },
       });
+    }
+    // Reclaim the rejected report's photo file from disk (best-effort).
+    if (action === "reject" && current.imageRef) {
+      try { const p = join(env.uploadDir, current.imageRef); if (existsSync(p)) unlinkSync(p); } catch { /* already gone */ }
     }
     return ok(rows[0]);
   });
