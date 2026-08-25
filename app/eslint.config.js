@@ -3,7 +3,9 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default [
-  { ignores: ["**/node_modules/**", "**/dist/**", "**/drizzle/**", "**/*.d.ts"] },
+  // vendor/ holds third-party libraries (Leaflet, markercluster) served as-is —
+  // never our code to lint.
+  { ignores: ["**/node_modules/**", "**/dist/**", "**/drizzle/**", "**/*.d.ts", "**/vendor/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
