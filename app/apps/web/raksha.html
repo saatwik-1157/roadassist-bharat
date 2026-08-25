@@ -221,6 +221,11 @@
           <option value="road_damage">Road damage</option>
           <option value="obstruction">Obstruction</option>
         </select>
+        <select id="f-source" aria-label="Filter source">
+          <option value="">All sources</option>
+          <option value="citizen">Citizen reports</option>
+          <option value="device">Edge devices</option>
+        </select>
       </div>
       <div id="detections" style="margin-top:8px"></div>
     </section>
@@ -391,14 +396,17 @@
   async function loadDetections() {
     var st = document.getElementById("f-status").value;
     var ty = document.getElementById("f-type").value;
+    var sr = document.getElementById("f-source").value;
     var qs = [];
     if (st) qs.push("status=" + st);
     if (ty) qs.push("type=" + ty);
+    if (sr) qs.push("source=" + sr);
     var data = await getData("/v1/raksha/detections?limit=100" + (qs.length ? "&" + qs.join("&") : ""), CACHE.det);
     // offline: the cache may hold a different filter's result — filter locally
     if (offline) {
       data = data.filter(function (d) {
-        return (!st || d.status === st) && (!ty || d.detection_type === ty);
+        return (!st || d.status === st) && (!ty || d.detection_type === ty) &&
+               (!sr || (d.source || "device") === sr);
       });
     }
     var r = { data: data };
@@ -432,7 +440,8 @@
           "<br>Confidence: " + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
           (d.used_fallback ? " (fallback)" : "") +
           "<br>Status: " + esc(d.status) +
-          "<br>Device: " + esc(d.device_name) + (d.simulated ? " <b>[SIMULATED]</b>" : "") +
+          "<br>Source: " + (d.source === "citizen" ? "<b>Citizen report</b>" : "Edge device — " + esc(d.device_name) + (d.simulated ? " [SIMULATED]" : "")) +
+          (d.notes ? "<br>Note: " + esc(d.notes) : "") +
           (d.segment_code ? "<br>Segment: " + esc(d.segment_code) : "") +
           "<br>Captured: " + new Date(d.captured_at).toLocaleString() +
           (d.ran_offline ? " · offline" : "")
@@ -441,13 +450,16 @@
 
       var el = document.createElement("div");
       el.className = "det" + (isFresh ? " flash" : "");
+      var isCitizen = d.source === "citizen";
       el.innerHTML =
         '<div class="row1"><span class="tag" style="background:' + SEVHEX[d.severity] + '">' +
         esc(d.detection_type).replace("_", " ") + " · s" + esc(d.severity) + "</span>" +
+        (isCitizen ? '<span class="tag" style="background:#e3b96a;color:#0a0805">CITIZEN</span>' : "") +
         '<span class="st">' + esc(d.status) + "</span></div>" +
         '<div class="meta">' + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
-        " · " + esc(d.segment_code || "off-segment") + " · " + esc(d.device_name) +
-        (d.simulated ? " [SIMULATED]" : "") + "<br>" +
+        " · " + esc(d.segment_code || "off-segment") + " · " +
+        (isCitizen ? "crowdsourced" : esc(d.device_name) + (d.simulated ? " [SIMULATED]" : "")) +
+        (isCitizen && d.notes ? '<br>"' + esc(d.notes) + '"' : "") + "<br>" +
         new Date(d.captured_at).toLocaleString() + (d.ran_offline ? " · captured offline" : "") + "</div>";
       if (d.status === "DETECTED") {
         var acts = document.createElement("div");
@@ -618,6 +630,7 @@
   };
   document.getElementById("f-status").onchange = loadDetections;
   document.getElementById("f-type").onchange = loadDetections;
+  document.getElementById("f-source").onchange = loadDetections;
 
   document.getElementById("dl-geojson").onclick = function () {
     download("raksha-snapshot-" + Date.now() + ".geojson", snapshotGeoJSON(), "application/geo+json");

@@ -529,6 +529,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
     const q = z.object({
       status: z.enum(["DETECTED", "VERIFIED", "REJECTED", "REPAIR_SCHEDULED", "REPAIRED", "CLOSED"]).optional(),
       type: z.enum(["pothole", "road_damage", "obstruction"]).optional(),
+      source: z.enum(["citizen", "device"]).optional(),
       limit: z.coerce.number().min(1).max(200).optional(),
     }).parse(req.query);
 
@@ -536,6 +537,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
       SELECT rd.id, rd.op_id, rd.detection_type, rd.confidence, rd.severity, rd.status,
              rd.captured_at, rd.created_at, rd.ran_offline, rd.model_version, rd.used_fallback,
              rd.image_ref, rd.notes,
+             COALESCE(rd.raw->>'source', 'device') AS source,
              ST_Y(rd.location) AS lat, ST_X(rd.location) AS lng,
              ed.name AS device_name, ed.simulated,
              rs.code AS segment_code, rs.name AS segment_name
@@ -545,6 +547,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
        WHERE rd.deleted_at IS NULL
          AND (${q.status ?? null}::raksha_detection_status IS NULL OR rd.status = ${q.status ?? null})
          AND (${q.type ?? null}::raksha_detection_type IS NULL OR rd.detection_type = ${q.type ?? null})
+         AND (${q.source ?? null}::text IS NULL OR COALESCE(rd.raw->>'source', 'device') = ${q.source ?? null})
        ORDER BY rd.created_at DESC
        LIMIT ${q.limit ?? 50}`);
     return ok(rows, { count: rows.length });
@@ -626,7 +629,10 @@ export async function rakshaRoutes(app: FastifyInstance) {
     // and prior verification evidence is never silently overwritten.
     const rows = await db.update(S.rakshaDetections).set({
       status: action === "verify" ? "VERIFIED" : "REJECTED",
-      verifiedBy: req.user!.sub, verifiedAt: new Date(), notes, updatedAt: new Date(),
+      verifiedBy: req.user!.sub, verifiedAt: new Date(), updatedAt: new Date(),
+      // Only overwrite notes when the reviewer supplies their own — otherwise a
+      // citizen's original report note (shown back to them) is preserved.
+      ...(notes !== undefined ? { notes } : {}),
     }).where(and(
       eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt),
       eq(S.rakshaDetections.status, "DETECTED"),
