@@ -71,7 +71,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -151,6 +153,21 @@ fun RoadAssistApp() {
     var online by remember { mutableStateOf(true) }
     LaunchedEffect(signedIn) {
         while (signedIn) { online = Emergency.hasData(ctx); kotlinx.coroutines.delay(4000) }
+    }
+
+    // Photo picker for hazard reports is hoisted here (not inside the dialog) so
+    // it survives the external picker activity round-trip and the dialog stays put.
+    val photoScope = rememberCoroutineScope()
+    var reportPhotoB64 by remember { mutableStateOf<String?>(null) }
+    var reportPhotoThumb by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    val reportPhotoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent(),
+    ) { uri ->
+        if (uri != null) photoScope.launch {
+            val r = withContext(Dispatchers.IO) { processReportImage(ctx, uri) }
+            if (r != null) { reportPhotoB64 = r.first; reportPhotoThumb = r.second }
+            else toast = "Couldn't read that image"
+        }
     }
 
     Box(Modifier.fillMaxSize().background(Bg)) {
@@ -266,7 +283,11 @@ fun RoadAssistApp() {
 
                     if (showReport) {
                         ReportHazardDialog(
-                            onClose = { showReport = false },
+                            photoB64 = reportPhotoB64,
+                            photoThumb = reportPhotoThumb,
+                            onPickPhoto = { reportPhotoPicker.launch("image/*") },
+                            onClearPhoto = { reportPhotoB64 = null; reportPhotoThumb = null },
+                            onClose = { showReport = false; reportPhotoB64 = null; reportPhotoThumb = null },
                             onToast = { toast = it },
                             onReported = {
                                 // Force the retained map to redraw with the new report.
@@ -344,11 +365,39 @@ private fun buildMapWebView(
     }
 }
 
+/** Downscale a picked image to a sane size and JPEG-encode it as base64 —
+ *  keeps the upload small and strips the original's metadata. Runs off the main
+ *  thread. Returns (base64, preview bitmap) or null if it couldn't be read. */
+private fun processReportImage(ctx: android.content.Context, uri: android.net.Uri): Pair<String, android.graphics.Bitmap>? {
+    return try {
+        val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        var bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val max = 1280
+        if (bmp.width > max || bmp.height > max) {
+            val scale = max.toFloat() / maxOf(bmp.width, bmp.height)
+            bmp = android.graphics.Bitmap.createScaledBitmap(
+                bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true)
+        }
+        val out = java.io.ByteArrayOutputStream()
+        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
+        android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP) to bmp
+    } catch (_: Exception) { null }
+}
+
 /** Citizen road-hazard report — feeds the RAKSHA detection pipeline (source:
  *  citizen), appears on the live map and in the authority queue. Location is the
- *  device's last known fix, attached automatically. */
+ *  device's last known fix; an optional photo (picked at app scope) is
+ *  downscaled on-device. */
 @Composable
-private fun ReportHazardDialog(onClose: () -> Unit, onToast: (String) -> Unit, onReported: () -> Unit) {
+private fun ReportHazardDialog(
+    photoB64: String?,
+    photoThumb: android.graphics.Bitmap?,
+    onPickPhoto: () -> Unit,
+    onClearPhoto: () -> Unit,
+    onClose: () -> Unit,
+    onToast: (String) -> Unit,
+    onReported: () -> Unit,
+) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val perms = rememberLauncherForActivityResult(
@@ -365,6 +414,9 @@ private fun ReportHazardDialog(onClose: () -> Unit, onToast: (String) -> Unit, o
 
     AlertDialog(
         onDismissRequest = { if (!busy) onClose() },
+        // Don't dismiss on an outside touch — launching the photo picker would
+        // otherwise close the dialog and drop the in-progress report.
+        properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
         containerColor = Panel,
         title = { Text("Report a road hazard", color = Cream, fontSize = 18.sp) },
         text = {
@@ -395,6 +447,27 @@ private fun ReportHazardDialog(onClose: () -> Unit, onToast: (String) -> Unit, o
                     }
                 }
                 Field(note, { note = it }, "Note (optional)")
+
+                // Optional photo — downscaled on-device before upload.
+                Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val thumb = photoThumb
+                    if (thumb != null) {
+                        Image(
+                            bitmap = thumb.asImageBitmap(), contentDescription = "Attached photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("Remove", color = Alarm, fontSize = 12.sp,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                                .clickable { onClearPhoto() }.padding(6.dp))
+                    } else {
+                        OutlinedButton(
+                            onClick = onPickPhoto,
+                            shape = RoundedCornerShape(999.dp),
+                        ) { Text("📷  Attach photo", color = Gold, fontSize = 12.sp) }
+                    }
+                }
             }
         },
         confirmButton = {
@@ -409,7 +482,8 @@ private fun ReportHazardDialog(onClose: () -> Unit, onToast: (String) -> Unit, o
                             Api.post("/v1/raksha/report", JSONObject()
                                 .put("type", type).put("severity", severity)
                                 .put("lat", lat).put("lng", lng)
-                                .apply { if (note.isNotBlank()) put("note", note.trim()) })
+                                .apply { if (note.isNotBlank()) put("note", note.trim()) }
+                                .apply { photoB64?.let { put("photoBase64", it); put("photoMime", "image/jpeg") } })
                             onToast(if (loc != null) "Hazard reported at your location — thank you"
                                     else "Hazard reported (approximate location)")
                             onReported(); onClose()
@@ -606,6 +680,10 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                                 )
                                 r.optString("notes").takeIf { it.isNotBlank() && it != "null" }?.let {
                                     Text(it, color = Muted, fontSize = 11.5.sp, lineHeight = 15.sp,
+                                        modifier = Modifier.padding(top = 2.dp))
+                                }
+                                if (r.optBoolean("has_photo")) {
+                                    Text("📷 Photo attached", color = Gold, fontSize = 11.sp,
                                         modifier = Modifier.padding(top = 2.dp))
                                 }
                             }

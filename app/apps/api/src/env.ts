@@ -86,6 +86,16 @@ export const env = {
   },
 
   exposeDevOtp: bool(process.env.EXPOSE_DEV_OTP, true),
+
+  /**
+   * Local disk store for hazard-report photos. Honours ADR-0006: raw frames
+   * never enter the database — only a reference (the file key) is stored. In a
+   * real deployment UPLOAD_DIR would be a mounted volume or swapped for object
+   * storage; here it is a plain directory so the platform runs with no cloud.
+   */
+  uploadDir: process.env.UPLOAD_DIR ?? resolve(process.cwd(), "uploads"),
+  /** Max decoded photo size accepted by the report endpoint (bytes). */
+  uploadMaxBytes: Number(process.env.UPLOAD_MAX_BYTES ?? 4_000_000),
 } as const;
 
 export const isProd = env.nodeEnv === "production";

@@ -12,6 +12,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { and, eq, isNull, sql as raw } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
 import { env } from "./env.js";
 import { db } from "./db.js";
@@ -24,6 +26,18 @@ const latLng = {
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
 };
+
+// Hazard-report photos live on disk (ADR-0006: never in the DB). The detection
+// row keeps only the key, e.g. "hazards/<id>.jpg".
+const PHOTO_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+function savePhoto(detectionId: string, buf: Buffer, mime: string): string {
+  const ext = PHOTO_EXT[mime] ?? "bin";
+  const dir = join(env.uploadDir, "hazards");
+  mkdirSync(dir, { recursive: true });
+  const key = `hazards/${detectionId}.${ext}`;
+  writeFileSync(join(env.uploadDir, key), buf);
+  return key;
+}
 
 /** Severity → penalty weights for the Road Health Score. Rule-based v1 —
  *  configurable engineering weights, NOT an official safety standard. */
@@ -451,10 +465,25 @@ export async function rakshaRoutes(app: FastifyInstance) {
       type: z.enum(["pothole", "road_damage", "obstruction"]),
       severity: z.number().int().min(1).max(5),
       note: z.string().max(280).optional(),
+      // Optional photo: base64 payload (no data: prefix) + its mime type.
+      photoBase64: z.string().min(1).max(9_000_000).optional(),
+      photoMime: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
       ...latLng,
     }).parse(req.body);
 
     const userId = req.user!.sub;
+
+    // Validate the photo up front so a bad attachment never creates a detection.
+    let photoBuf: Buffer | null = null;
+    if (body.photoBase64) {
+      if (!body.photoMime) {
+        return reply.code(400).send({ error: { code: "photo_mime_required", title: "A photo needs its image type", retryable: false } });
+      }
+      photoBuf = Buffer.from(body.photoBase64, "base64");
+      if (photoBuf.length === 0 || photoBuf.length > env.uploadMaxBytes) {
+        return reply.code(400).send({ error: { code: "photo_too_large", title: `Photo must be 1 byte–${Math.round(env.uploadMaxBytes / 1e6)}MB`, retryable: false } });
+      }
+    }
 
     // The one device all crowdsourced reports are attributed to — created lazily
     // on the first report. Its credential is never used to authenticate (reports
@@ -501,10 +530,43 @@ export async function rakshaRoutes(app: FastifyInstance) {
       return id;
     });
 
+    // Persist the photo to disk (never the DB) and record only its key.
+    let imageRef: string | null = null;
+    if (photoBuf && body.photoMime) {
+      imageRef = savePhoto(detectionId, photoBuf, body.photoMime);
+      await db.update(S.rakshaDetections).set({ imageRef, updatedAt: new Date() })
+        .where(eq(S.rakshaDetections.id, detectionId));
+    }
+
     return reply.code(201).send(ok(
-      { id: detectionId, status: "DETECTED", type: body.type, severity: body.severity },
+      { id: detectionId, status: "DETECTED", type: body.type, severity: body.severity, hasPhoto: Boolean(imageRef) },
       { source: "citizen", note: "Queued for authority verification; now visible on the live map." },
     ));
+  });
+
+  // ── serve a hazard-report photo (owner or authority only) ─────────────────
+  app.get("/v1/raksha/detections/:id/photo", { preHandler: authenticate }, async (req, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const [d] = await db.select({ raw: S.rakshaDetections.raw, ref: S.rakshaDetections.imageRef })
+      .from(S.rakshaDetections)
+      .where(and(eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt))).limit(1);
+    if (!d || !d.ref) {
+      return reply.code(404).send({ error: { code: "no_photo", title: "No photo for this report", retryable: false } });
+    }
+    // Only the reporter or an authority may view it.
+    const rawObj = (d.raw ?? {}) as Record<string, unknown>;
+    const isOwner = rawObj.reportedBy === req.user!.sub;
+    const isAuthority = (req.user!.roles ?? []).some((r) => r === "admin" || r === "gov_officer");
+    if (!isOwner && !isAuthority) {
+      return reply.code(403).send({ error: { code: "forbidden", title: "Not allowed to view this photo", retryable: false } });
+    }
+    const path = join(env.uploadDir, d.ref);
+    if (!existsSync(path)) {
+      return reply.code(404).send({ error: { code: "photo_missing", title: "Photo file is unavailable", retryable: false } });
+    }
+    const ext = d.ref.split(".").pop() ?? "";
+    const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+    return reply.header("cache-control", "private, max-age=3600").type(mime).send(readFileSync(path));
   });
 
   // ── a citizen's own reports + their verification status ───────────────────
@@ -514,7 +576,8 @@ export async function rakshaRoutes(app: FastifyInstance) {
     const userId = req.user!.sub;
     const rows = await db.execute<Record<string, unknown>>(raw`
       SELECT id, detection_type, severity, status, created_at,
-             ST_Y(location) AS lat, ST_X(location) AS lng, notes
+             ST_Y(location) AS lat, ST_X(location) AS lng, notes,
+             (image_ref IS NOT NULL) AS has_photo
         FROM raksha_detections
        WHERE deleted_at IS NULL
          AND raw->>'source' = 'citizen'

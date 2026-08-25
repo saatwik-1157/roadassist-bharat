@@ -486,6 +486,19 @@
         acts2.appendChild(cbtn);
         el.appendChild(acts2);
       }
+      // Photo thumbnail (authenticated fetch → object URL, so the token is
+      // never placed in an <img src> URL).
+      if (d.image_ref && token && !offline) {
+        var img = document.createElement("img");
+        img.className = "detimg";
+        img.alt = "hazard photo";
+        img.style.cssText = "margin-top:8px;max-width:100%;border-radius:8px;border:1px solid var(--line);cursor:pointer";
+        img.onclick = function () { window.open(img.src, "_blank"); };
+        fetch(API + "/v1/raksha/detections/" + d.id + "/photo", { headers: { authorization: "Bearer " + token } })
+          .then(function (res) { return res.ok ? res.blob() : null; })
+          .then(function (blob) { if (blob) img.src = URL.createObjectURL(blob); });
+        el.appendChild(img);
+      }
       listEl.appendChild(el);
     });
 
