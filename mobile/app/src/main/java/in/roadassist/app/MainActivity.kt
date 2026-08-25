@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -45,6 +46,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -141,6 +143,9 @@ fun RoadAssistApp() {
     var vehicleLabel by remember { mutableStateOf<String?>(null) }
     var bookingId by remember { mutableStateOf<String?>(null) }
     var msisdn by remember { mutableStateOf("+919876543210") }
+    // A mechanic tapped on the live map ("Request assistance"), handed to Book.
+    var requestedMechanic by remember { mutableStateOf<JSONObject?>(null) }
+    var showReport by remember { mutableStateOf(false) }
 
     val ctx = LocalContext.current
     var online by remember { mutableStateOf(true) }
@@ -159,7 +164,13 @@ fun RoadAssistApp() {
             // Build the map WebView once and keep it alive for the whole signed-in
             // session, so switching to the Map tab is instant and never re-loads
             // Leaflet or re-flashes tiles. It self-heals its token via AndroidAuth.
-            val mapWebView = remember { buildMapWebView(ctx, Api.base) }
+            val mapWebView = remember {
+                buildMapWebView(ctx, Api.base) { id, name, lat, lng ->
+                    requestedMechanic = JSONObject()
+                        .put("id", id).put("name", name).put("lat", lat).put("lng", lng)
+                    tab = 1   // jump to the booking flow with this mechanic in focus
+                }
+            }
             Scaffold(
                 containerColor = Bg,
                 topBar = {
@@ -203,6 +214,20 @@ fun RoadAssistApp() {
                     // no WebView teardown, no Leaflet reload, no tile re-fetch.
                     Box(Modifier.fillMaxSize().then(if (tab == 2) Modifier else Modifier.alpha(0f))) {
                         AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapWebView })
+                        // Report-a-hazard FAB, only interactive on the Map tab.
+                        if (tab == 2) {
+                            Button(
+                                onClick = { showReport = true },
+                                shape = RoundedCornerShape(999.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Alarm, contentColor = Cream,
+                                ),
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 22.dp)
+                                    .height(46.dp),
+                            ) { Text("⚠  Report hazard", fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                        }
                     }
                     // Foreground screens paint opaquely over the map when active.
                     when (tab) {
@@ -211,12 +236,15 @@ fun RoadAssistApp() {
                                 msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel,
                                 onVehicle = { id, label -> vehicleId = id; vehicleLabel = label },
                                 onBook = { tab = 1 },
+                                onReport = { showReport = true },
                                 onToast = { toast = it },
                             )
                         }
                         1 -> Box(Modifier.fillMaxSize().background(Bg)) {
                             BookScreen(
                                 vehicleId = vehicleId,
+                                requested = requestedMechanic,
+                                onConsumed = { requestedMechanic = null },
                                 onToast = { toast = it },
                                 onTracked = { id -> bookingId = id; tab = 3 },
                                 onNeedVehicle = { tab = 0 },
@@ -234,6 +262,17 @@ fun RoadAssistApp() {
                                 onSignOut = { Api.clear(); signedIn = false; bookingId = null },
                             )
                         }
+                    }
+
+                    if (showReport) {
+                        ReportHazardDialog(
+                            onClose = { showReport = false },
+                            onToast = { toast = it },
+                            onReported = {
+                                // Force the retained map to redraw with the new report.
+                                mapWebView.evaluateJavascript("window.__refresh&&window.__refresh()", null)
+                            },
+                        )
                     }
                 }
             }
@@ -268,8 +307,13 @@ fun RoadAssistApp() {
  *  "session expired" — and because the instance is retained across tab switches,
  *  returning to the Map tab is instant. */
 @android.annotation.SuppressLint("SetJavaScriptEnabled", "JavascriptInterface", "AddJavascriptInterface")
-private fun buildMapWebView(context: android.content.Context, baseRaw: String): android.webkit.WebView {
+private fun buildMapWebView(
+    context: android.content.Context,
+    baseRaw: String,
+    onBookMechanic: (id: String, name: String, lat: Double, lng: Double) -> Unit,
+): android.webkit.WebView {
     val base = baseRaw.trimEnd('/')
+    val main = android.os.Handler(android.os.Looper.getMainLooper())
     return android.webkit.WebView(context).apply {
         layoutParams = android.view.ViewGroup.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
@@ -288,8 +332,98 @@ private fun buildMapWebView(context: android.content.Context, baseRaw: String): 
             @android.webkit.JavascriptInterface fun token(): String = Api.currentToken()
             @android.webkit.JavascriptInterface fun refresh(): Boolean = Api.refreshBlocking()
         }, "AndroidAuth")
+        // Bridge for "Request assistance" tapped on a mechanic's map popup. Runs
+        // on a binder thread, so hop to the main thread to touch Compose state.
+        addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun book(id: String, name: String, lat: Double, lng: Double) {
+                main.post { onBookMechanic(id, name, lat, lng) }
+            }
+        }, "AndroidNav")
         loadUrl("$base/map.html#base=$base&token=${Api.currentToken()}")
     }
+}
+
+/** Citizen road-hazard report — feeds the RAKSHA detection pipeline (source:
+ *  citizen), appears on the live map and in the authority queue. Location is the
+ *  device's last known fix, attached automatically. */
+@Composable
+private fun ReportHazardDialog(onClose: () -> Unit, onToast: (String) -> Unit, onReported: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val perms = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { /* graceful: falls back to an approximate location if denied */ }
+    LaunchedEffect(Unit) { perms.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)) }
+
+    var type by remember { mutableStateOf("pothole") }
+    var typeOpen by remember { mutableStateOf(false) }
+    var severity by remember { mutableIntStateOf(3) }
+    var note by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    val types = listOf("pothole" to "Pothole", "road_damage" to "Road damage", "obstruction" to "Obstruction")
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onClose() },
+        containerColor = Panel,
+        title = { Text("Report a road hazard", color = Cream, fontSize = 18.sp) },
+        text = {
+            Column {
+                Text("Your current location is attached so authorities can find and verify it.",
+                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
+                Box {
+                    OutlinedButton(
+                        onClick = { typeOpen = true }, shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                    ) { Text("Type: " + (types.find { it.first == type }?.second ?: type), color = Cream, fontSize = 13.sp) }
+                    DropdownMenu(expanded = typeOpen, onDismissRequest = { typeOpen = false }) {
+                        types.forEach { (code, label) ->
+                            DropdownMenuItem(text = { Text(label) }, onClick = { type = code; typeOpen = false })
+                        }
+                    }
+                }
+                Text("Severity: $severity", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp))
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    (1..5).forEach { s ->
+                        val sel = s == severity
+                        Box(
+                            Modifier.size(42.dp).clip(CircleShape)
+                                .background(if (sel) Gold else Color(0x22E3B96A))
+                                .clickable { severity = s },
+                            contentAlignment = Alignment.Center,
+                        ) { Text("$s", color = if (sel) Color(0xFF0A0805) else Cream, fontWeight = FontWeight.Bold) }
+                    }
+                }
+                Field(note, { note = it }, "Note (optional)")
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    busy = true
+                    scope.launch {
+                        val loc = Emergency.lastKnownLocation(ctx)
+                        val lat = loc?.first ?: 28.4595
+                        val lng = loc?.second ?: 77.0266
+                        try {
+                            Api.post("/v1/raksha/report", JSONObject()
+                                .put("type", type).put("severity", severity)
+                                .put("lat", lat).put("lng", lng)
+                                .apply { if (note.isNotBlank()) put("note", note.trim()) })
+                            onToast(if (loc != null) "Hazard reported at your location — thank you"
+                                    else "Hazard reported (approximate location)")
+                            onReported(); onClose()
+                        } catch (e: Exception) { onToast(e.message ?: "Failed to report") }
+                        busy = false
+                    }
+                },
+                enabled = !busy,
+                colors = ButtonDefaults.buttonColors(containerColor = Alarm, contentColor = Cream),
+                shape = RoundedCornerShape(999.dp),
+            ) { Text(if (busy) "Reporting…" else "Submit report", fontWeight = FontWeight.SemiBold) }
+        },
+        dismissButton = { TextButton(onClick = { if (!busy) onClose() }) { Text("Cancel", color = Muted) } },
+    )
 }
 
 private val STATUS_COLOR = { s: String -> when (s) {
@@ -658,7 +792,7 @@ private fun SignInScreen(
 private fun HomeScreen(
     msisdn: String, vehicleId: String?, vehicleLabel: String?,
     onVehicle: (String, String) -> Unit,
-    onBook: () -> Unit, onToast: (String) -> Unit,
+    onBook: () -> Unit, onReport: () -> Unit, onToast: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var reg by remember { mutableStateOf("") }
@@ -794,6 +928,24 @@ private fun HomeScreen(
             }
         }
 
+        // Crowdsourced road-safety: flag a hazard for the RAKSHA network.
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        ) {
+            Column(Modifier.padding(17.dp)) {
+                Text("Spot a road hazard?", color = Cream, fontSize = 17.sp)
+                Text("Report a pothole, damage or obstruction. It joins the RAKSHA map and the authority's review queue.",
+                    color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
+                OutlinedButton(
+                    onClick = onReport,
+                    shape = RoundedCornerShape(999.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
+                ) { Text("⚠  Report a road hazard", color = Alarm, fontSize = 12.sp, letterSpacing = 1.sp) }
+            }
+        }
+
         Spacer(Modifier.height(8.dp))
         if (busy) Loading()
     }
@@ -803,6 +955,8 @@ private fun HomeScreen(
 @Composable
 private fun BookScreen(
     vehicleId: String?,
+    requested: JSONObject?,
+    onConsumed: () -> Unit,
     onToast: (String) -> Unit,
     onTracked: (String) -> Unit,
     onNeedVehicle: () -> Unit,
@@ -817,6 +971,21 @@ private fun BookScreen(
     var busy by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableIntStateOf(0) }
+    // The mechanic this booking is oriented around — tapped on the map or in the
+    // nearby list. Its coordinates become the booking location so it's the
+    // top-ranked offer. Held as {id,name,lat,lng}.
+    var target by remember { mutableStateOf<JSONObject?>(null) }
+    var nearby by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+
+    // A mechanic handed over from the live map: focus it and clear the handoff.
+    LaunchedEffect(requested) {
+        requested?.let {
+            target = it
+            symptoms = ""
+            onToast("Requesting assistance near ${it.optString("name")}")
+            onConsumed()
+        }
+    }
 
     // Load service types. The API returns {code,label}; retryable on failure.
     LaunchedEffect(reloadKey) {
@@ -834,10 +1003,70 @@ private fun BookScreen(
         }
     }
 
+    // Nearest verified mechanics for the "nearby" list (real PostGIS query).
+    LaunchedEffect(Unit) {
+        try {
+            val d = Api.get("/v1/map/live?lat=28.4595&lng=77.0266&radiusKm=30").getJSONObject("data")
+            val arr = d.getJSONArray("mechanics")
+            nearby = (0 until arr.length()).map { arr.getJSONObject(it) }.take(6)
+        } catch (_: Exception) {}
+    }
+
+    val bookLat = target?.optDouble("lat", 28.4595) ?: 28.4595
+    val bookLng = target?.optDouble("lng", 77.0266) ?: 77.0266
+
+    fun bookAndDispatch() {
+        busy = true
+        scope.launch {
+            try {
+                val note = symptoms.ifBlank {
+                    target?.let { "Requested ${it.optString("name")} from the live map" } ?: "reported from the Android app"
+                }
+                val b = Api.post(
+                    "/v1/bookings",
+                    JSONObject()
+                        .put("vehicleId", vehicleId)
+                        .put("serviceTypeCode", service!!.first)
+                        .put("lat", bookLat).put("lng", bookLng)
+                        .put("symptoms", note)
+                        .put("highwayMarker", "NH-48, KM 212")
+                        .put("idempotencyKey", "and-" + System.nanoTime()),
+                ).getJSONObject("data")
+                bookingId = b.getString("id")
+                onToast("Booking ${b.getString("reference")} — dispatching…")
+                val d = Api.post("/v1/bookings/${bookingId}/dispatch",
+                    JSONObject().put("radiusKm", 30).put("limit", 5)).getJSONObject("data")
+                val arr = d.optJSONArray("offers") ?: JSONArray()
+                offers = (0 until arr.length()).map { arr.getJSONObject(it) }
+                if (offers.isEmpty()) onToast("No mechanic in range — widen the radius")
+            } catch (e: Exception) { onToast(e.message ?: "Failed") }
+            busy = false
+        }
+    }
+
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
         Heading("Request", "assistance.")
         Sub("Nearest verified mechanics, ranked by a real PostGIS query on the server.")
+
+        // Focused-mechanic banner (from the map or nearby list).
+        target?.let { t ->
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0x1FE3B96A)),
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+            ) {
+                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Requesting near", color = Muted, fontSize = 11.sp)
+                        Text(t.optString("name"), color = Gold, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Text("Clear", color = Muted, fontSize = 12.sp,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                            .clickable { target = null }.padding(6.dp))
+                }
+            }
+        }
 
         Box {
             OutlinedButton(
@@ -862,34 +1091,12 @@ private fun BookScreen(
         }
         Field(symptoms, { symptoms = it }, "What happened?")
 
-        GoldButton("Book & dispatch", enabled = !busy && vehicleId != null && service != null) {
-            busy = true
-            scope.launch {
-                try {
-                    val b = Api.post(
-                        "/v1/bookings",
-                        JSONObject()
-                            .put("vehicleId", vehicleId)
-                            .put("serviceTypeCode", service!!.first)
-                            .put("lat", 28.4595).put("lng", 77.0266)
-                            .put("symptoms", symptoms.ifBlank { "reported from the Android app" })
-                            .put("highwayMarker", "NH-48, KM 212")
-                            .put("idempotencyKey", "and-" + System.nanoTime()),
-                    ).getJSONObject("data")
-                    bookingId = b.getString("id")
-                    onToast("Booking ${b.getString("reference")} — dispatching…")
-                    val d = Api.post("/v1/bookings/${bookingId}/dispatch",
-                        JSONObject().put("radiusKm", 30).put("limit", 5)).getJSONObject("data")
-                    val arr = d.optJSONArray("offers") ?: JSONArray()
-                    offers = (0 until arr.length()).map { arr.getJSONObject(it) }
-                    if (offers.isEmpty()) onToast("No mechanic in range — widen the radius")
-                } catch (e: Exception) { onToast(e.message ?: "Failed") }
-                busy = false
-            }
-        }
+        GoldButton("Book & dispatch", enabled = !busy && vehicleId != null && service != null) { bookAndDispatch() }
 
+        // Offers from the dispatch broadcast; the focused mechanic is tagged.
         offers.forEach { o ->
             val m = o.getJSONObject("mechanic")
+            val isTarget = target?.optString("id")?.let { it == m.optString("id") } ?: false
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = Panel),
@@ -900,7 +1107,10 @@ private fun BookScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(m.getString("displayName"), color = Cream, fontSize = 15.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(m.getString("displayName"), color = Cream, fontSize = 15.sp)
+                            if (isTarget) Text("  ★ from map", color = Gold, fontSize = 10.sp)
+                        }
                         Text(
                             "★ ${m.getDouble("rating")} · ${m.getDouble("distanceKm")} km · ETA ${o.getInt("etaMinutes")} min",
                             color = Muted, fontSize = 12.sp,
@@ -922,6 +1132,36 @@ private fun BookScreen(
                         shape = RoundedCornerShape(999.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color(0xFF0A0805)),
                     ) { Text("Accept", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+
+        // Nearby verified mechanics — tap "Request" to focus one for this booking.
+        if (offers.isEmpty() && nearby.isNotEmpty()) {
+            Text("Nearby verified mechanics", color = Cream, fontSize = 15.sp,
+                modifier = Modifier.padding(top = 22.dp))
+            nearby.forEach { m ->
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Panel),
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+                ) {
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(m.optString("display_name"), color = Cream, fontSize = 14.sp)
+                            Text("★ ${m.optDouble("rating", 0.0)} · ${m.optDouble("km", 0.0)} km away",
+                                color = Muted, fontSize = 12.sp)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                target = JSONObject()
+                                    .put("id", m.optString("id")).put("name", m.optString("display_name"))
+                                    .put("lat", m.optDouble("lat")).put("lng", m.optDouble("lng"))
+                                onToast("Focused ${m.optString("display_name")}")
+                            },
+                            shape = RoundedCornerShape(999.dp),
+                        ) { Text("Request", color = Gold, fontSize = 11.sp) }
+                    }
                 }
             }
         }
