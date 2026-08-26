@@ -26,7 +26,8 @@ from pathlib import Path
 from ultralytics import YOLO
 from ultralytics.utils import LOGGER
 
-TYPES = {0: "pothole", 1: "road_damage"}
+# Class names are read from the model itself (r.names), so this one script works
+# for the 2-class MVP detector and the richer 4-class model alike.
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 
@@ -83,7 +84,7 @@ def main() -> None:
         frame = float(w * h)
         dets = []
         for b in r.boxes:
-            cls_name = TYPES.get(int(b.cls[0]))
+            cls_name = r.names.get(int(b.cls[0]))
             if cls_name is None:
                 continue
             x1, y1, x2, y2 = (float(v) for v in b.xyxy[0])

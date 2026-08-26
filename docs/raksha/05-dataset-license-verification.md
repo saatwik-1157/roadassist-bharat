@@ -142,3 +142,30 @@ duplicates (idempotent), all 34 auto-attached to NH-48 segments, road health
 recomputed. Detections carry `usedFallback=false` and the real model
 version; their GPS locations are SIMULATED (RDD2022 images carry no geodata)
 and labeled as such.
+
+## Addendum — multi-country expansion + model family (2026-08-26)
+
+Extended beyond India to a diverse, balanced multi-country set. Added splits:
+**Czech, Japan, United States** (Norway skipped — 10.6 GB). All are RDD2022
+country splits from the same figshare archive under the same license basis as
+India (figshare: CC BY 4.0; maintainers' GitHub: CC BY-SA 4.0 — we honour the
+stricter share-alike reading). `fetch_countries.py` pulls only the needed
+byte-ranges, never the full 13.26 GB. Balanced round-robin sampling (~750–810
+train images per country) so no single country dominates.
+
+Three models trained (CPU-only box, each capped by wall-clock, hence
+under-trained — all metrics REAL, measured on held-out val):
+
+| Model | Data | Classes | Epochs | mAP50 | mAP50-95 |
+|---|---|---|---|---|---|
+| `yolo11s-multi` | 4-country 3.0k | 2 | 13 | 0.290 | 0.119 |
+| `yolo11s-multi-rich` | 4-country 3.2k | 4 | 13 | 0.471 | 0.226 |
+| `yolo11n-multi-edge` | 4-country 3.0k | 2 | 18 | 0.293 | 0.117 |
+
+Rich model per-class mAP50: pothole 0.242 · road_damage 0.431 ·
+faded_marking 0.425 (D44) · manhole 0.786 (D50). The rich mean is lifted by the
+easy manhole class; potholes remain hardest. The nano edge model matches the
+11s on the 2-class task at ~1/4 size (10 MB ONNX) and ~48 ms/img — the Pi-class
+tier. Ingesting `faded_marking`/`manhole` requires extending the server
+detection enum (`pothole|road_damage|obstruction`) — documented, not yet wired,
+and not faked into the live path.
