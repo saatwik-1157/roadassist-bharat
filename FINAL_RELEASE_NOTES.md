@@ -58,6 +58,11 @@ Static gates: typecheck, lint, module boundaries, production build — all clean
 
 ## Major fixes in Phases 12–13
 
+0. **Android SOS reported a hard-coded position** (HIGH, emergency path) —
+   `lastKnownLocation()` only read a cache another app has to fill, and the
+   app never requested a fix, so `gps provider` sat at `ProviderRequest[OFF]`
+   and every SOS fell back to the demo coordinates. Now actively requests a
+   fix (GPS, then network, then the cache), bounded at 8s.
 1. **`trustProxy` hop counts refused** (HIGH, security) — fastify ≤5.12.0
    believed `X-Forwarded-For` by counting hops without checking the sender,
    defeating the per-IP OTP ceiling.
