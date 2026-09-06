@@ -35,17 +35,20 @@
 
 ## BLOCKERS
 
-**One, and it is administrative rather than technical:**
+**None.**
 
-1. **Nothing is committed and no tag exists.** 43 modified and 83 untracked
-   files sit on top of `f771df5`, which contains none of this work. A
-   `git checkout` or a clone would lose the entire release candidate. This
-   genuinely blocks *submission* and *reproducibility* — the two criteria
-   Phase 17 asks about — because what you would hand in does not exist in
-   version control.
+The one blocker this phase identified — that nothing was committed and no tag
+existed, so a `git checkout` would have lost the entire release candidate — was
+resolved on 2026-09-06:
 
-   **It is not mine to fix.** Committing is your call, we are on `main`, and I
-   have not been asked. Say the word and it takes ninety seconds.
+- Commit **`c2be42c`** on `main`: 198 files, 29,996 insertions, 1,196 deletions.
+- Annotated tag **`v1.0.0-RC1`** pointing at it.
+- Working tree clean; 333 files in the tag; `.env` confirmed absent; no live
+  keys, no private keys, no `node_modules`, no build output.
+
+Committed on `main` rather than a release branch, deliberately: this is a
+submission repository, and a tag on a side branch would leave the default
+branch — the one an examiner clones — without any of the work.
 
 ## HIGH PRIORITY
 
