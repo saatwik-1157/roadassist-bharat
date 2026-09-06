@@ -41,7 +41,10 @@ The one blocker this phase identified — that nothing was committed and no tag
 existed, so a `git checkout` would have lost the entire release candidate — was
 resolved on 2026-09-06:
 
-- Commit **`c2be42c`** on `main`: 198 files, 29,996 insertions, 1,196 deletions.
+- Release commit **`c2be42c`** on `main`: 198 files, 29,996 insertions.
+- One defect fixed after it and folded into the tag: the Android SOS sent
+  hard-coded demo coordinates because nothing ever requested a GPS fix.
+  The tag was moved to include it.
 - Annotated tag **`v1.0.0-RC1`** pointing at it.
 - Working tree clean; 333 files in the tag; `.env` confirmed absent; no live
   keys, no private keys, no `node_modules`, no build output.

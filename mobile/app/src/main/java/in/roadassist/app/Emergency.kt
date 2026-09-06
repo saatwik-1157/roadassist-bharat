@@ -14,6 +14,8 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.telephony.SmsManager
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
+import androidx.core.os.CancellationSignal
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
@@ -161,9 +163,63 @@ object Emergency {
         return outcome ?: SmsOutcome.UNCONFIRMED
     }
 
+    /**
+     * A real fix, actively requested — the one the SOS should use.
+     *
+     * [lastKnownLocation] only reads a cache that some *other* app has to have
+     * filled. Nothing in this app ever requested location updates, so on a
+     * phone where no other app has recently used GPS that cache is empty, the
+     * provider sits at `ProviderRequest[OFF]`, and every SOS quietly fell back
+     * to the demo coordinates and reported "demo location". Honest, and useless
+     * to a responder who needs to know where the person actually is.
+     *
+     * So: ask the OS for a fix and wait a bounded time for one. GPS first
+     * because it is precise and needs no network — the property the whole
+     * off-grid design rests on — then the network provider, then the cache,
+     * then null. The caller's demo fallback stays exactly where it was; this
+     * only makes it the last resort instead of the usual outcome.
+     *
+     * `LocationManagerCompat` rather than the raw API: `getCurrentLocation`
+     * arrived in API 30 and this app supports 26, and the compat version also
+     * gets the listener teardown right on every level.
+     */
+    suspend fun currentLocation(ctx: Context, timeoutMs: Long = 8_000): Pair<Double, Double>? {
+        val fine = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
+        val coarse = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION)
+        if (fine != PackageManager.PERMISSION_GRANTED && coarse != PackageManager.PERMISSION_GRANTED) return null
+
+        val lm = ctx.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+            .filter { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
+
+        // Split the budget across the providers so a dead GPS cannot eat the
+        // whole window and leave the network provider untried.
+        val per = if (providers.isEmpty()) 0L else timeoutMs / providers.size
+        for (provider in providers) {
+            val fix = withTimeoutOrNull(per) {
+                suspendCancellableCoroutine { cont ->
+                    val signal = CancellationSignal()
+                    cont.invokeOnCancellation { runCatching { signal.cancel() } }
+                    try {
+                        LocationManagerCompat.getCurrentLocation(
+                            lm, provider, signal, ContextCompat.getMainExecutor(ctx),
+                        ) { loc ->
+                            if (cont.isActive) cont.resume(loc?.let { it.latitude to it.longitude })
+                        }
+                    } catch (_: SecurityException) {
+                        if (cont.isActive) cont.resume(null)
+                    }
+                }
+            }
+            if (fix != null) return fix
+        }
+        return lastKnownLocation(ctx)
+    }
+
     /** Best-effort real location from the OS's last known fix (no Play Services
      *  dependency). Returns null if permission is absent or no fix exists;
-     *  the caller then falls back to a labeled demo location. */
+     *  the caller then falls back to a labeled demo location. Prefer
+     *  [currentLocation], which asks for a fix instead of hoping one is cached. */
     fun lastKnownLocation(ctx: Context): Pair<Double, Double>? {
         val fine = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
         val coarse = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION)

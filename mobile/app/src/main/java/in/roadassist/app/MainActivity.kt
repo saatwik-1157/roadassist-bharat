@@ -559,7 +559,7 @@ private fun ReportHazardDialog(
                 onClick = {
                     busy = true
                     scope.launch {
-                        val loc = Emergency.lastKnownLocation(ctx)
+                        val loc = Emergency.currentLocation(ctx)
                         val lat = loc?.first ?: 28.4595
                         val lng = loc?.second ?: 77.0266
                         try {
@@ -1045,7 +1045,9 @@ private fun HomeScreen(
         val fireSos: () -> Unit = {
             busy = true
             scope.launch {
-                val loc = Emergency.lastKnownLocation(ctx)
+                // Ask for a fix rather than hoping one is cached: an emergency
+                // is exactly when nothing else has recently used GPS.
+                val loc = Emergency.currentLocation(ctx)
                 val lat = loc?.first ?: DEMO_LAT
                 val lng = loc?.second ?: DEMO_LNG
                 val result = Emergency.raise(ctx, lat, lng) {
