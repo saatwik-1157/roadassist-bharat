@@ -40,3 +40,18 @@ mobile/local.properties
 mobile/*.png
 mobile/build.log
 mobile/build*.log
+
+# Generated deck artefacts. `make.py` and `make_final.py` concatenate
+# build_deck.py with the slide parts into these files and run them — they are
+# build output, not source, and committing them means two copies of the deck
+# code that will disagree.
+ppt/make_generated.py
+ppt/make_final_generated.py
+ppt/assets/_fit_*.png
+__pycache__/
+*.pyc
+
+# The pre-audit copies kept while correcting over-claims. Useful locally as a
+# diff; not something the submission needs.
+review1-ppt/*.pre-audit.pptx
+review1-ppt/*.pre-audit.pdf

@@ -4,211 +4,331 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RAKSHA — Authority Dashboard</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d8b46a'%3E%3Cg transform='rotate(-30 12 12)'%3E%3Ccircle cx='7.3' cy='3.2' r='1.45'/%3E%3Crect x='5.5' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Crect x='14.9' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Ccircle cx='16.7' cy='20.8' r='1.45'/%3E%3C/g%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Manrope:wght@300..800&display=swap">
+<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08090c" media="(prefers-color-scheme: dark)">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("ra.theme");
+      if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) { /* storage blocked — the system preference wins */ }
+  })();
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z' fill='none' stroke='%23e3b96a' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath fill='%23e3b96a' fill-rule='evenodd' d='M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z'/%3E%3Ccircle cx='16' cy='7.5' r='2' fill='%23e3b96a'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="vendor/fonts.css">
 <link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="ds.css">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0a0a0a; --panel: #111110; --panel-2: #171511;
-    --gold: #d8b46a; --cream: #f5f1e8; --muted: #8f8878;
-    --line: rgba(216,180,106,0.22);
-    /* live severity / health palette — this project's own scale */
-    --ok: #3ddc97; --warn: #ffd166; --bad: #ff9f43; --crit: #ff4d5a;
-    --ok-glow: rgba(61,220,151,0.45); --warn-glow: rgba(255,209,102,0.45);
-    --bad-glow: rgba(255,159,67,0.5); --crit-glow: rgba(255,77,90,0.55);
-  }
-  html, body { height: 100%; background: var(--bg); color: var(--cream);
-    font-family: "Manrope", system-ui, sans-serif; font-size: 14px; }
-  body { display: flex; flex-direction: column; }
-  button { font-family: inherit; cursor: pointer; }
+  body { min-height: 100dvh; display: flex; flex-direction: column; }
 
-  header { display: flex; align-items: center; gap: 12px; padding: 12px 18px;
-    border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
-  header b { font-size: 16px; letter-spacing: 0.06em; }
-  header b i { font-style: normal; color: var(--gold); }
-  .sim-banner { font-size: 11px; letter-spacing: 0.18em; color: #0a0805;
-    background: var(--gold); padding: 4px 10px; border-radius: 3px; font-weight: 700; }
+  /* ── top bar ───────────────────────────────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 20px; border-bottom: 1px solid var(--line);
+    background: var(--glass); backdrop-filter: blur(22px) saturate(1.7);
+    -webkit-backdrop-filter: blur(22px) saturate(1.7);
+    position: sticky; top: 0; z-index: 30;
+  }
+  .topbar .wordmark { font-size: 19px; letter-spacing: 0.02em; }
+  .who { font-size: 12px; color: var(--text-3); }
+
   .live {
-    display: none; align-items: center; gap: 7px;
-    font-size: 10.5px; letter-spacing: 0.22em; font-weight: 800; color: var(--crit);
+    display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px;
+    border-radius: var(--r-full); border: 1px solid var(--line);
+    background: var(--surface); color: var(--text-3);
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
   }
-  .live.on { display: inline-flex; }
-  .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--crit); box-shadow: 0 0 10px var(--crit-glow); animation: blink 1.4s infinite; }
-  .live.offline { color: var(--bad); }
-  .live.offline::before { background: var(--bad); box-shadow: 0 0 10px var(--bad-glow); }
+  .live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
+  .live.on { color: var(--green); border-color: transparent; background: var(--green-soft); }
+  .live.on::before { background: var(--green); animation: blink 2.2s infinite; }
+  .live.offline { color: var(--red); background: var(--red-soft); }
+  .live.offline::before { background: var(--red); animation: none; }
   @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-  header .who { margin-left: auto; color: var(--muted); font-size: 12.5px; }
 
-  /* live stat chips — extruded 3D look */
-  .chips { display: none; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
-  .chips.on { display: flex; flex-wrap: wrap; }
-  .chip3d {
-    flex: 1; min-width: 110px; padding: 12px 14px 10px; border-radius: 12px;
-    background: linear-gradient(160deg, #1e1a14, #121009 65%);
-    border: 1px solid var(--line);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 8px 18px rgba(0,0,0,0.5);
-    transform: perspective(500px) rotateX(4deg);
-    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s;
+  /* ── KPI strip ─────────────────────────────────────────────────────────── */
+  .kpis {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    padding: 18px 20px 4px;
   }
-  .chip3d:hover { transform: perspective(500px) rotateX(0) translateY(-3px); }
-  .chip3d .n { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
-  .chip3d .l { font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
-  .chip3d.c-open .n { color: var(--warn); text-shadow: 0 0 18px var(--warn-glow); }
-  .chip3d.c-crit .n { color: var(--crit); text-shadow: 0 0 18px var(--crit-glow); }
-  .chip3d.c-dev .n { color: var(--ok); text-shadow: 0 0 18px var(--ok-glow); }
-  .chip3d.c-score .n { color: var(--gold); text-shadow: 0 0 18px rgba(216,180,106,0.4); }
-
-  .layout { flex: 1; display: grid; grid-template-columns: 400px 1fr; min-height: 0; }
-  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; grid-template-rows: 45vh 1fr; } }
-
-  aside { border-right: 1px solid var(--line); overflow-y: auto; background: var(--panel); }
-  #map { min-height: 300px; }
-  .leaflet-container { background: #141414; }
-  .leaflet-popup-content-wrapper { background: #171511; color: var(--cream); border: 1px solid var(--line); border-radius: 8px; }
-  .leaflet-popup-tip { background: #171511; }
-
-  section { padding: 14px 16px; border-bottom: 1px solid var(--line); }
-  h2 { font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
-
-  .login input { width: 100%; padding: 10px; background: var(--panel-2); color: var(--cream);
-    border: 1px solid var(--line); margin-bottom: 8px; font-family: inherit; }
-  .btn { width: 100%; padding: 10px; background: var(--gold); border: 0; color: #0a0805;
-    font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; font-size: 11.5px; }
-  .btn-line { background: transparent; border: 1px solid var(--line); color: var(--muted); }
-  .hint { color: var(--muted); font-size: 11.5px; margin-top: 6px; line-height: 1.5; }
-
-  /* 3D corridor health bars */
-  .bars {
-    display: flex; align-items: flex-end; gap: 18px;
-    height: 130px; padding: 8px 6px 0;
-    perspective: 600px;
+  .kpi {
+    padding: 15px 17px; border-radius: var(--r-md); background: var(--surface);
+    border: 1px solid var(--line); box-shadow: var(--shadow-1); position: relative; overflow: hidden;
+    transition: transform var(--t-3) var(--ease), box-shadow var(--t-3) var(--ease);
   }
-  .barwrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+  .kpi:hover { transform: translateY(-3px); box-shadow: var(--shadow-2); }
+  /* A hairline of the metric's own colour, so the strip reads at a glance. */
+  .kpi::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--accent, var(--brand)); }
+  .kpi .n {
+    font-family: var(--mono); font-size: clamp(24px, 2.6vw, 32px); font-weight: 700;
+    letter-spacing: -0.03em; color: var(--accent, var(--text)); line-height: 1.1;
+  }
+  .kpi .l { font-size: 11.5px; color: var(--text-3); margin-top: 3px; font-weight: 550; }
+  .c-open  { --accent: var(--blue); }
+  .c-crit  { --accent: var(--red); }
+  .c-dev   { --accent: var(--green); }
+  .c-score { --accent: var(--brand); }
+
+  /* ── layout ────────────────────────────────────────────────────────────── */
+  .layout {
+    flex: 1; display: grid; grid-template-columns: 400px 1fr; gap: 16px;
+    padding: 16px 20px 20px; min-height: 0;
+  }
+  aside { display: flex; flex-direction: column; gap: 13px; overflow-y: auto; max-height: calc(100dvh - 190px); padding-right: 3px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px; box-shadow: var(--shadow-1); }
+  .panel > h2 {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--text-3); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .panel > h2 .grow { flex: 1; }
+
+  .map-wrap { position: relative; border-radius: var(--r-md); overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow-2); min-height: 460px; }
+  #map { position: absolute; inset: 0; background: var(--surface-2); }
+  .leaflet-container { background: var(--surface-2); font-family: var(--sans); }
+  .map-dark .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.75);
+  }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: var(--surface); color: var(--text); border: 1px solid var(--line); box-shadow: var(--shadow-3);
+  }
+  .leaflet-popup-content-wrapper { border-radius: var(--r-md); }
+  .leaflet-popup-content { margin: 13px 15px; font: 12.5px/1.6 var(--sans); }
+  .leaflet-popup-close-button { color: var(--text-3) !important; }
+  .leaflet-bar a { background: var(--surface); color: var(--text-2); border-bottom-color: var(--line); }
+  .leaflet-bar a:hover { background: var(--surface-2); color: var(--text); }
+  .leaflet-control-attribution { background: var(--glass) !important; color: var(--text-3); }
+  .leaflet-control-attribution a { color: var(--text-2); }
+
+  .legend {
+    position: absolute; bottom: 16px; right: 14px; z-index: 1000;
+    background: var(--glass-strong); border: 1px solid var(--line); border-radius: var(--r-sm);
+    padding: 11px 13px; font-size: 11.5px; line-height: 1.95; color: var(--text-2);
+    backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    box-shadow: var(--shadow-2); max-width: 232px;
+  }
+  .legend .disclaimer { color: var(--text-3); line-height: 1.45; margin-top: 7px; font-size: 10.5px; }
+  .lg {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px;
+    box-shadow: inset -2px -2px 3px rgba(0,0,0,0.35), 0 0 8px currentColor;
+  }
+
+  /* ── corridor health bars ──────────────────────────────────────────────── */
+  .bars { display: flex; align-items: flex-end; gap: 14px; height: 132px; padding: 10px 4px 0; perspective: 620px; }
+  .barwrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 0; }
   .bar {
-    width: 100%; max-width: 54px; position: relative;
-    transform-style: preserve-3d; transform: rotateX(-12deg);
-    transition: height 0.9s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s;
-    border-radius: 4px 4px 0 0;
+    width: 100%; max-width: 54px; position: relative; transform-style: preserve-3d;
+    transform: rotateX(-12deg); border-radius: 5px 5px 0 0;
+    transition: height 0.9s var(--spring), transform var(--t-2) var(--ease);
   }
-  .barwrap:hover .bar { transform: rotateX(-12deg) translateY(-4px); }
-  .bar .face { position: absolute; inset: 0; border-radius: 4px 4px 0 0; }
-  .bar .top {
-    position: absolute; left: 0; right: 0; top: -7px; height: 14px;
-    border-radius: 50%; filter: brightness(1.45);
-  }
-  .bar .score {
-    position: absolute; left: 50%; top: -26px; transform: translateX(-50%);
-    font-size: 12.5px; font-weight: 800;
-  }
-  .barwrap small { font-size: 9px; letter-spacing: 0.06em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .barwrap:hover .bar { transform: rotateX(-12deg) translateY(-5px); }
+  .bar .face { position: absolute; inset: 0; border-radius: 5px 5px 0 0; }
+  .bar .top { position: absolute; left: 0; right: 0; top: -7px; height: 14px; border-radius: 50%; filter: brightness(1.4); }
+  .bar .score { position: absolute; left: 50%; top: -27px; transform: translateX(-50%); font-family: var(--mono); font-size: 13px; font-weight: 700; }
+  .barwrap small { font-size: 9.5px; letter-spacing: 0.05em; color: var(--text-3); max-width: 100%; }
 
-  .seg { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed rgba(216,180,106,0.12); }
+  .seg { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--line); }
   .seg:last-child { border-bottom: 0; }
-  .chip { min-width: 44px; text-align: center; padding: 4px 6px; border-radius: 3px; font-weight: 700; color: #0a0805; font-size: 12.5px; }
-  .seg small { color: var(--muted); display: block; font-size: 11px; }
+  .seg .score-chip {
+    min-width: 42px; text-align: center; padding: 5px 7px; border-radius: var(--r-xs);
+    font-family: var(--mono); font-weight: 700; color: #10120f; font-size: 12.5px;
+  }
+  .seg b { display: block; font-size: 13px; font-weight: 600; }
+  .seg small { color: var(--text-3); display: block; font-size: 11.5px; margin-top: 1px; }
 
-  .det { padding: 10px 0; border-bottom: 1px dashed rgba(216,180,106,0.12); border-radius: 6px; }
+  /* ── detections ────────────────────────────────────────────────────────── */
+  .toolbar { display: flex; gap: 7px; }
+  .toolbar select {
+    flex: 1; min-width: 0; padding: 8px 10px; border-radius: var(--r-xs);
+    background: var(--surface-2); color: var(--text); border: 1px solid var(--line);
+    font-size: 12px; appearance: none; cursor: pointer;
+  }
+  .toolbar select:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+
+  .det { padding: 12px 0; border-bottom: 1px solid var(--line); }
   .det:last-child { border-bottom: 0; }
-  .det.flash { animation: flash 2.4s ease-out; }
+  .det.flash { animation: flash 2.6s var(--ease); border-radius: var(--r-xs); }
   @keyframes flash {
-    0% { background: rgba(255,77,90,0.28); box-shadow: 0 0 24px var(--crit-glow); }
+    0%   { background: var(--red-soft); box-shadow: 0 0 0 6px var(--red-soft); }
     100% { background: transparent; box-shadow: none; }
   }
-  .det .row1 { display: flex; align-items: center; gap: 8px; }
-  .tag { font-size: 10.5px; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 3px; color: #0a0805; font-weight: 700; text-transform: uppercase; }
-  .det .meta { color: var(--muted); font-size: 11.5px; margin-top: 4px; line-height: 1.5; }
-  .det .acts { display: flex; gap: 6px; margin-top: 7px; }
-  .det .acts button { flex: 1; padding: 6px; font-size: 10.5px; letter-spacing: 0.1em;
-    text-transform: uppercase; background: transparent; border: 1px solid var(--line); color: var(--cream); }
-  .det .acts button:hover { border-color: var(--gold); color: var(--gold); }
-  .st { margin-left: auto; font-size: 10.5px; color: var(--muted); letter-spacing: 0.08em; }
+  .det .row1 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .tag {
+    font-size: 10px; letter-spacing: 0.07em; padding: 3px 8px; border-radius: var(--r-full);
+    color: #10120f; font-weight: 700; text-transform: uppercase;
+  }
+  .det .meta { color: var(--text-3); font-size: 11.5px; margin-top: 6px; line-height: 1.6; }
+  .det .acts { display: flex; gap: 7px; margin-top: 9px; }
+  .det .acts button { flex: 1; }
+  .st { margin-left: auto; font-size: 10px; color: var(--text-3); letter-spacing: 0.09em; font-weight: 700; text-transform: uppercase; }
+  .detimg { margin-top: 9px; width: 100%; border-radius: var(--r-sm); border: 1px solid var(--line); cursor: pointer; }
 
-  .dev { padding: 7px 0; font-size: 12.5px; border-bottom: 1px dashed rgba(216,180,106,0.12); }
-  .dev small { color: var(--muted); display: block; font-size: 11px; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  /* ── device fleet ──────────────────────────────────────────────────────── */
+  .dev { padding: 9px 0; font-size: 12.5px; border-bottom: 1px solid var(--line); }
+  .dev:last-child { border-bottom: 0; }
+  .dev small { color: var(--text-3); display: block; font-size: 11px; margin-top: 2px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; }
   .dot.on { box-shadow: 0 0 10px currentColor; animation: blink 2.2s infinite; }
 
-  /* 3D map pins — CSS spheres with severity glow, drop-in + pulse */
+  /* ── map pins — CSS spheres with severity glow, drop-in + pulse ────────── */
   .pin { position: relative; display: block; width: 100%; height: 100%; }
   .pin .ball {
     position: absolute; inset: 0; border-radius: 50%;
     box-shadow: inset -3px -4px 6px rgba(0,0,0,0.45), inset 2px 3px 5px rgba(255,255,255,0.5),
-                0 4px 12px rgba(0,0,0,0.6), 0 0 14px var(--pg, transparent);
+                0 4px 12px rgba(0,0,0,0.45), 0 0 14px var(--pg, transparent);
     background: radial-gradient(circle at 32% 28%, #ffffff 0%, var(--pc, #888) 42%, color-mix(in srgb, var(--pc, #888) 55%, #000) 100%);
   }
-  .pin.fresh .ball { animation: drop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .pin.fresh .ball { animation: drop 0.7s var(--spring); }
   @keyframes drop { 0% { transform: translateY(-26px) scale(0.4); opacity: 0; } 100% { transform: none; opacity: 1; } }
   .pin.pulse::after {
     content: ""; position: absolute; inset: -4px; border-radius: 50%;
-    border: 2px solid var(--pc, #f00);
-    animation: ring 1.8s ease-out infinite;
+    border: 2px solid var(--pc, #f00); animation: ring 1.8s var(--ease) infinite;
   }
   @keyframes ring { 0% { transform: scale(0.7); opacity: 0.9; } 100% { transform: scale(2.1); opacity: 0; } }
+  .dev-pin .ball { background: radial-gradient(circle at 32% 28%, #fff 0%, #e3b96a 45%, #7a5c22 100%); }
 
-  .dev-pin .ball { background: radial-gradient(circle at 32% 28%, #fff 0%, #d8b46a 45%, #7a5c22 100%); }
+  /* ── analytics bars ────────────────────────────────────────────────────
+     Severity is ordered magnitude, so it gets a sequential single-hue ramp
+     (light→dark on paper, dark→light on black) rather than a green-to-red
+     rainbow — a rainbow collapses under protanopia, where the green/amber
+     steps sit ~1 ΔE apart. Every bar carries its own number as text, so the
+     data never depends on colour at all. */
+  :root {
+    --sev-1: #f3e0b6; --sev-2: #e4be7c; --sev-3: #cb9c40; --sev-4: #a2761f; --sev-5: #6e4e10;
+  }
+  :root[data-theme="dark"] {
+    --sev-1: #5c4419; --sev-2: #87642a; --sev-3: #b78b3c; --sev-4: #dcb265; --sev-5: #f6dfa9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --sev-1: #5c4419; --sev-2: #87642a; --sev-3: #b78b3c; --sev-4: #dcb265; --sev-5: #f6dfa9;
+    }
+  }
+  .barrow {
+    display: grid; grid-template-columns: 74px 1fr 38px; align-items: center;
+    gap: 10px; padding: 5px 0;
+  }
+  .barrow .k { font-size: 11.5px; color: var(--text-2); }
+  .barrow .v { font-family: var(--mono); font-size: 12.5px; text-align: right; color: var(--text); }
+  .barrow .t { height: 9px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
+  .barrow .f {
+    display: block; height: 100%; border-radius: 5px; width: 0;
+    transition: width 0.9s var(--ease);
+  }
+  .barrow:hover .t { outline: 2px solid var(--line); outline-offset: 2px; }
 
-  .legend { position: absolute; bottom: 18px; right: 12px; z-index: 1000; background: rgba(10,10,10,0.9);
-    border: 1px solid var(--line); padding: 10px 12px; font-size: 11px; line-height: 1.9; border-radius: 8px; }
-  .legend .disclaimer { color: var(--muted); max-width: 200px; line-height: 1.4; margin-top: 6px; font-size: 10px; }
-  .lg { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 7px; vertical-align: -1px;
-    box-shadow: inset -2px -2px 3px rgba(0,0,0,0.4), 0 0 8px currentColor; }
-  .toolbar { display: flex; gap: 8px; }
-  .toolbar select { flex: 1; padding: 8px; background: var(--panel-2); color: var(--cream); border: 1px solid var(--line); font-family: inherit; }
-  #status { color: var(--muted); font-size: 11.5px; padding: 8px 16px; }
+  /* ── SMS / IVR console ─────────────────────────────────────────────────── */
+  .thread {
+    max-height: 230px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+    padding: 10px; border-radius: var(--r-sm); background: var(--surface-2);
+    border: 1px solid var(--line);
+  }
+  .bub {
+    max-width: 84%; padding: 8px 12px; border-radius: 14px; font-size: 12.5px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .bub.out { align-self: flex-end; background: var(--ink); color: var(--ink-on); border-bottom-right-radius: 4px; }
+  .bub.in  { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .bub.err { align-self: flex-start; background: var(--red-soft); color: var(--red); }
 
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation: none !important; transition: none !important; }
+  .secret {
+    font-family: var(--mono); font-size: 11.5px; word-break: break-all; user-select: all;
+    white-space: pre-wrap;
+    background: var(--surface-2); border: 1px dashed var(--line-brand);
+    border-radius: var(--r-xs); padding: 10px; margin-top: 9px; color: var(--text);
+  }
+
+  /* ── status bar ────────────────────────────────────────────────────────── */
+  .statusbar {
+    padding: 10px 20px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--text-3);
+    background: var(--glass); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  }
+
+  @media (max-width: 1080px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { max-height: none; }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .map-wrap { min-height: 420px; }
   }
 </style>
 </head>
 <body>
-<header>
-  <b>RAKSHA <i>· Authority Dashboard</i></b>
-  <span class="sim-banner">SIMULATED DATA</span>
-  <span class="live" id="live">LIVE · 10s</span>
+<div class="aurora"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <linearGradient id="raGold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f7e4bb"/><stop offset=".5" stop-color="#e3b96a"/><stop offset="1" stop-color="#a87a22"/>
+  </linearGradient>
+  <symbol id="raMark" viewBox="0 0 32 32">
+    <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z" fill="url(#raGold)" opacity=".16"/>
+    <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z" fill="none" stroke="url(#raGold)" stroke-width="1.7" stroke-linejoin="round"/>
+    <path fill="url(#raGold)" fill-rule="evenodd" d="M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z"/>
+    <circle cx="16" cy="7.5" r="1.9" fill="url(#raGold)"/>
+  </symbol>
+</defs></svg>
+
+<header class="topbar">
+  <span class="brand">
+    <svg class="mark" style="width:28px;height:28px"><use href="#raMark"/></svg>
+    <span class="wordmark">RAK<i>SHA</i></span>
+  </span>
+  <span class="pill warn">Simulated data</span>
+  <span class="grow"></span>
   <span class="who" id="who">not signed in</span>
+  <button class="btn ghost auto sm" id="signout-btn" hidden>Sign out</button>
+  <span class="live" id="live">Idle</span>
+  <button class="theme-btn" id="theme" title="Switch theme" aria-label="Switch colour theme">
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+  </button>
 </header>
 
-<div class="chips" id="chips">
-  <div class="chip3d c-open"><div class="n" id="n-open">–</div><div class="l">Open detections</div></div>
-  <div class="chip3d c-crit"><div class="n" id="n-crit">–</div><div class="l">Severity 4–5</div></div>
-  <div class="chip3d c-dev"><div class="n" id="n-dev">–</div><div class="l">Devices online</div></div>
-  <div class="chip3d c-score"><div class="n" id="n-score">–</div><div class="l">Corridor avg</div></div>
+<div class="kpis" id="chips">
+  <div class="kpi c-open"><div class="n" id="n-open">–</div><div class="l">Open detections</div></div>
+  <div class="kpi c-crit"><div class="n" id="n-crit">–</div><div class="l">Severity 4–5</div></div>
+  <div class="kpi c-dev"><div class="n" id="n-dev">–</div><div class="l">Devices online</div></div>
+  <div class="kpi c-score"><div class="n" id="n-score">–</div><div class="l">Corridor average</div></div>
 </div>
 
 <div class="layout">
   <aside>
-    <section class="login" id="login-panel">
-      <h2>Sign in (authority)</h2>
-      <input id="msisdn" value="+919999900001" aria-label="Mobile number">
-      <button class="btn" id="login-btn">Send OTP &amp; sign in</button>
-      <button class="btn btn-line" id="cached-btn" style="margin-top:8px" hidden>View cached snapshot (offline)</button>
-      <p class="hint">Development build: the OTP is auto-filled from the API response (dev OTP). The demo admin
-        +919999900001 is created by <code>npm run db:seed:raksha</code>.</p>
+    <section class="panel" id="login-panel">
+      <h2>Sign in · authority</h2>
+      <label class="field" style="margin-top:0"><span>Mobile number</span>
+        <input id="msisdn" value="+919999900001"></label>
+      <button class="btn" id="login-btn" style="margin-top:14px">Send OTP &amp; sign in</button>
+      <button class="btn ghost" id="cached-btn" style="margin-top:9px" hidden>View cached snapshot (offline)</button>
+      <p class="hint" style="margin-top:11px">Development build: the OTP is auto-filled from the API response.
+        The demo admin <span class="num">+919999900001</span> is created by <code>npm run db:seed:raksha</code>.</p>
     </section>
 
-    <section hidden id="export-panel">
+    <section class="panel" hidden id="export-panel">
       <h2>Offline snapshot</h2>
-      <button class="btn btn-line" id="dl-geojson">Download GeoJSON (map data)</button>
-      <button class="btn btn-line" id="dl-csv" style="margin-top:8px">Download CSV (detections)</button>
-      <p class="hint" id="cache-note">Every successful refresh is cached on this device, so the corridor keeps
-        showing — and stays downloadable — even with zero connectivity.</p>
+      <button class="btn ghost" id="dl-geojson">Download GeoJSON (map data)</button>
+      <button class="btn ghost" id="dl-csv" style="margin-top:9px">Download CSV (detections)</button>
+      <p class="hint" id="cache-note" style="margin-top:11px">Every successful refresh is cached on this device,
+        so the corridor keeps showing — and stays downloadable — even with zero connectivity.</p>
     </section>
 
-    <section hidden id="health-panel">
-      <h2>Road health — NH-48 corridor</h2>
+    <section class="panel" hidden id="health-panel">
+      <h2><span class="grow">Road health · NH-48 corridor</span></h2>
       <div class="bars" id="bars"></div>
-      <div id="segments" style="margin-top:10px"></div>
-      <button class="btn btn-line" id="recompute" style="margin-top:10px">Recompute scores</button>
-      <p class="hint">Rule-based score v1 with a visible factor breakdown. Not an official safety standard.</p>
+      <div id="segments" style="margin-top:12px"></div>
+      <button class="btn ghost" id="recompute" style="margin-top:13px">Recompute scores</button>
+      <p class="hint" style="margin-top:10px">Rule-based score v1 with a visible factor breakdown.
+        Not an official safety standard.</p>
     </section>
 
-    <section hidden id="det-panel">
-      <h2>Detections <span id="new-note" style="color:var(--crit)"></span></h2>
+    <section class="panel" hidden id="chart-panel">
+      <h2><span class="grow">Detection analytics</span><span class="pill bare" id="chart-n">—</span></h2>
+      <p class="eyebrow" style="margin-bottom:8px">By severity</p>
+      <div id="chart-sev"></div>
+      <p class="eyebrow" style="margin:16px 0 8px">By status</p>
+      <div id="chart-status"></div>
+      <p class="hint" style="margin-top:12px">Computed from the detections currently loaded
+        (the filtered set, capped at 100) — not a whole-corridor aggregate.</p>
+    </section>
+
+    <section class="panel" hidden id="det-panel">
+      <h2><span class="grow">Detections</span><span id="new-note" style="color:var(--red)"></span></h2>
       <div class="toolbar">
         <select id="f-status" aria-label="Filter status">
           <option value="">All statuses</option>
@@ -226,27 +346,65 @@
           <option value="device">Edge devices</option>
         </select>
       </div>
-      <div id="detections" style="margin-top:8px"></div>
+      <div id="detections" style="margin-top:6px"></div>
     </section>
 
-    <section hidden id="dev-panel">
+    <section class="panel" hidden id="dev-panel">
       <h2>Device fleet</h2>
       <div id="devices"></div>
+
+      <h2 style="margin-top:18px">Register an edge device</h2>
+      <label class="field" style="margin-top:0"><span>Name</span>
+        <input id="nd-name" placeholder="NH48 KM-214 gantry"></label>
+      <div class="field-row">
+        <label class="field"><span>Latitude</span><input id="nd-lat" value="28.4100"></label>
+        <label class="field"><span>Longitude</span><input id="nd-lng" value="76.9700"></label>
+      </div>
+      <label class="field"><span>Hardware ref</span>
+        <input id="nd-hw" placeholder="RPI4-0007"></label>
+      <button class="btn soft" id="nd-add" style="margin-top:13px">Register device</button>
+      <div id="nd-out"></div>
+      <p class="hint" style="margin-top:10px">The credential is generated server-side, shown once,
+        and only its hash is stored (ADR-0008). Copy it before you navigate away.</p>
+    </section>
+
+    <section class="panel" hidden id="sms-panel">
+      <h2><span class="grow">Feature-phone console</span><span class="pill bare">SMS / IVR</span></h2>
+      <p class="hint" style="margin:-4px 0 11px">Drives the real inbound-SMS webhook, so you can
+        watch the no-app, no-data journey answer. The SIM is the identity — a number that has never
+        been seen is registered on first contact.</p>
+      <label class="field" style="margin-top:0"><span>From (MSISDN)</span>
+        <input id="sms-from" value="+919812300777"></label>
+      <div class="thread" id="sms-thread">
+        <div class="bub in">Send a command to begin. Try HELP CAR.</div>
+      </div>
+      <div class="chips" style="margin-top:10px" id="sms-quick">
+        <button class="chip" data-sms="HELP CAR">HELP CAR</button>
+        <button class="chip" data-sms="STATUS">STATUS</button>
+        <button class="chip" data-sms="CANCEL">CANCEL</button>
+        <button class="chip" data-sms="SOS">SOS</button>
+        <button class="chip" data-sms="STOP">STOP</button>
+      </div>
+      <div class="field-row" style="align-items:flex-end">
+        <label class="field"><span>Message</span><input id="sms-text" placeholder="HELP CAR"></label>
+      </div>
+      <button class="btn soft" id="sms-send" style="margin-top:11px">Send</button>
     </section>
   </aside>
 
-  <div style="position:relative">
+  <div class="map-wrap">
     <div id="map"></div>
     <div class="legend">
-      <div><span class="lg" style="color:var(--ok);background:var(--ok)"></span>Low severity / good</div>
-      <div><span class="lg" style="color:var(--warn);background:var(--warn)"></span>Medium / fair</div>
-      <div><span class="lg" style="color:var(--bad);background:var(--bad)"></span>High / poor</div>
-      <div><span class="lg" style="color:var(--crit);background:var(--crit)"></span>Critical (pulsing = needs review)</div>
-      <div class="disclaimer">Colors are this project's own scale — not an official government classification.</div>
+      <div><span class="lg" style="color:#3ddc97;background:#3ddc97"></span>Low severity / good</div>
+      <div><span class="lg" style="color:#ffd166;background:#ffd166"></span>Medium / fair</div>
+      <div><span class="lg" style="color:#ff9f43;background:#ff9f43"></span>High / poor</div>
+      <div><span class="lg" style="color:#ff4d5a;background:#ff4d5a"></span>Critical (pulsing = needs review)</div>
+      <div class="disclaimer">Colours are this project's own scale — not an official government classification.</div>
     </div>
   </div>
 </div>
-<div id="status">Loading…</div>
+
+<div class="statusbar" id="status">Loading…</div>
 
 <script src="vendor/leaflet.js"></script>
 <script>
@@ -260,13 +418,78 @@
   var esc = function (v) {
     return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; });
   };
+  var $ = function (id) { return document.getElementById(id); };
 
-  var token = null;
-  var map, detLayer, segLayer, devLayer;
+  var token = null, refreshToken = null, sessionMsisdn = null;
+  var map, detLayer, segLayer, devLayer, tiles;
   var seenIds = null;          // detection ids already shown (null = first load)
   var liveTimer = null;
   var REFRESH_MS = 10000;
   var offline = false;         // true when the last fetch fell back to cache
+
+  // ── session ──────────────────────────────────────────────────────────────
+  /**
+   * An officer watches this dashboard for a shift, not for ten minutes.
+   *
+   * The console used to keep only the access token — `v.data.refreshToken` was
+   * returned by the server and dropped on the floor — and had no 401 handling
+   * anywhere. Since the live view polls every 10 seconds, the moment the token
+   * aged out (ACCESS_TTL_SECONDS, 10 minutes) every poll began failing and the
+   * dashboard just printed the error over and over. Reloading the page meant
+   * signing in again.
+   */
+  var SESSION_KEY = "ra.raksha.session";
+  function saveSession() {
+    try {
+      localStorage.setItem(SESSION_KEY,
+        JSON.stringify({ token: token, refresh: refreshToken, msisdn: sessionMsisdn }));
+    } catch (e) { /* storage blocked — the session lasts for this page only */ }
+  }
+  function clearSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* nothing to clear */ }
+  }
+
+  var refreshing = null;
+  /**
+   * Concurrent 401s share one in-flight refresh. The live view fires three
+   * requests per tick, so without this an expiry would rotate the refresh token
+   * three times — and the server treats reuse of a rotated token as theft and
+   * revokes the whole family, turning a routine expiry into a forced sign-out.
+   */
+  function refreshSession() {
+    if (refreshing) return refreshing;
+    if (!refreshToken) return Promise.resolve(false);
+    refreshing = fetch(API + "/v1/auth/refresh", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refreshToken: refreshToken }),
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.data) return false;
+        token = j.data.accessToken;
+        refreshToken = j.data.refreshToken;
+        saveSession();
+        return true;
+      }).catch(function () { return false; })
+      .finally(function () { refreshing = null; });
+    return refreshing;
+  }
+
+  // ── theme ────────────────────────────────────────────────────────────────
+  function isDark() {
+    var explicit = document.documentElement.getAttribute("data-theme");
+    if (explicit) return explicit === "dark";
+    return matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  $("theme").onclick = function () {
+    var next = isDark() ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("ra.theme", next); } catch (e) { /* per-page only */ }
+    paintBasemap();
+  };
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+    if (!document.documentElement.getAttribute("data-theme")) paintBasemap();
+  });
 
   // ── offline cache: every good response is stored, so the corridor keeps
   //    showing (and stays downloadable) when connectivity disappears ──────
@@ -305,26 +528,51 @@
   var SEVHEX = { 1: "#3ddc97", 2: "#3ddc97", 3: "#ffd166", 4: "#ff9f43", 5: "#ff4d5a" };
   var LEVEL = { good: "#3ddc97", fair: "#ffd166", poor: "#ff9f43", critical: "#ff4d5a" };
 
-  var status = function (m) { document.getElementById("status").textContent = m; };
+  var status = function (m) { $("status").textContent = m; };
 
-  async function call(method, path, body) {
-    var res = await fetch(API + path, {
-      method: method,
-      headers: Object.assign({ "content-type": "application/json" },
-        token ? { authorization: "Bearer " + token } : {}),
-      body: body ? JSON.stringify(body) : undefined,
-    });
+  async function call(method, path, body, opts) {
+    opts = opts || {};
+    function send() {
+      return fetch(API + path, {
+        method: method,
+        headers: Object.assign({ "content-type": "application/json" },
+          token ? { authorization: "Bearer " + token } : {}),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    }
+    var res = await send();
+    // An expired access token is a routine event on a console that stays open,
+    // not a sign-out. Refresh once and replay before surfacing anything.
+    if (res.status === 401 && refreshToken && !opts.noRetry) {
+      if (await refreshSession()) res = await send();
+      else { signOut(true); throw new Error("Your session has ended. Sign in again."); }
+    }
     var json = await res.json().catch(function () { return {}; });
     if (!res.ok) throw new Error((json.error && json.error.title) || res.status);
     return json;
   }
 
+  /**
+   * One keyless tile source serves both themes; dark is a CSS filter over the
+   * tile pane. A dark tile provider would need an API key, and the keyless ones
+   * stamp a watermark across every tile.
+   */
+  function paintBasemap() {
+    if (!map) return;
+    if (!tiles) {
+      tiles = L.tileLayer(API + "/basemap/{z}/{x}/{y}.png", {
+        minZoom: 4, maxZoom: 17, attribution: "© OpenStreetMap contributors",
+        updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 4,
+      });
+      tiles.addTo(map);
+      tiles.bringToBack();
+    }
+    document.documentElement.classList.toggle("map-dark", isDark());
+  }
+
   function initMap() {
-    map = L.map("map").setView([28.41, 76.97], 12);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(map);
+    map = L.map("map", { zoomSnap: 0.25, wheelPxPerZoomLevel: 90 }).setView([28.41, 76.97], 12);
+    paintBasemap();
     segLayer = L.layerGroup().addTo(map);
     detLayer = L.layerGroup().addTo(map);
     devLayer = L.layerGroup().addTo(map);
@@ -344,28 +592,27 @@
   async function loadSegments() {
     var r = { data: await getData("/v1/raksha/segments", CACHE.seg) };
     segLayer.clearLayers();
-    var listEl = document.getElementById("segments");
-    var barsEl = document.getElementById("bars");
+    var listEl = $("segments");
+    var barsEl = $("bars");
     listEl.innerHTML = ""; barsEl.innerHTML = "";
     var scores = [];
 
     r.data.forEach(function (s) {
-      var color = s.level ? LEVEL[s.level] : "#666";
+      var color = s.level ? LEVEL[s.level] : "#8a8d96";
       if (s.geometry && s.geometry.coordinates) {
         var latlngs = s.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
         // glow underlay + crisp line + slow marching dashes = alive corridor
         L.polyline(latlngs, { color: color, weight: 14, opacity: 0.18 }).addTo(segLayer);
         L.polyline(latlngs, { color: color, weight: 5, opacity: 0.95 })
           .bindPopup("<b>" + esc(s.name) + "</b><br>" + esc(s.code) +
-            (s.score != null ? "<br>Health: <b>" + s.score + "/100</b> (" + esc(s.level) + ")" : "<br>No score yet") +
-            "<br>Open detections: " + s.open_detections)
+            (s.score != null ? "<br>Health: <b>" + esc(s.score) + "/100</b> (" + esc(s.level) + ")" : "<br>No score yet") +
+            "<br>Open detections: " + esc(s.open_detections))
           .addTo(segLayer);
         L.polyline(latlngs, { color: "#ffffff", weight: 1.5, opacity: 0.5, dashArray: "2 12", className: "march" }).addTo(segLayer);
       }
 
       if (s.score != null) scores.push(s.score);
 
-      // 3D bar
       var wrap = document.createElement("div");
       wrap.className = "barwrap";
       var h = s.score != null ? Math.max(8, s.score) : 8;
@@ -373,28 +620,29 @@
         '<div class="bar" style="height:' + h + 'px">' +
           '<span class="face" style="background:linear-gradient(180deg,' + color + ',color-mix(in srgb,' + color + ' 45%, #000));box-shadow:0 0 18px ' + color + '55"></span>' +
           '<span class="top" style="background:' + color + '"></span>' +
-          '<span class="score" style="color:' + color + '">' + (s.score != null ? s.score : "—") + "</span>" +
+          '<span class="score" style="color:' + color + '">' + (s.score != null ? esc(s.score) : "—") + "</span>" +
         "</div>" +
-        "<small>" + esc(s.code.replace("NH48-", "")) + "</small>";
+        "<small class='truncate'>" + esc(String(s.code).replace("NH48-", "")) + "</small>";
       barsEl.appendChild(wrap);
 
       var row = document.createElement("div");
       row.className = "seg";
       row.innerHTML =
-        '<span class="chip" style="background:' + color + '">' + (s.score != null ? s.score : "—") + "</span>" +
-        "<span>" + esc(s.code) + "<small>" + esc(s.name) + " · " + s.open_detections + " open</small></span>";
+        '<span class="score-chip" style="background:' + color + '">' + (s.score != null ? esc(s.score) : "—") + "</span>" +
+        "<span class='grow'><b>" + esc(s.code) + "</b><small>" + esc(s.name) + " · " +
+        esc(s.open_detections) + " open</small></span>";
       listEl.appendChild(row);
     });
 
     var avg = scores.length ? Math.round(scores.reduce(function (a, b) { return a + b; }, 0) / scores.length) : null;
-    document.getElementById("n-score").textContent = avg != null ? avg : "–";
+    $("n-score").textContent = avg != null ? avg : "–";
     return r.data;
   }
 
   async function loadDetections() {
-    var st = document.getElementById("f-status").value;
-    var ty = document.getElementById("f-type").value;
-    var sr = document.getElementById("f-source").value;
+    var st = $("f-status").value;
+    var ty = $("f-type").value;
+    var sr = $("f-source").value;
     var qs = [];
     if (st) qs.push("status=" + st);
     if (ty) qs.push("type=" + ty);
@@ -409,8 +657,9 @@
     }
     var r = { data: data };
     detLayer.clearLayers();
-    var listEl = document.getElementById("detections");
-    listEl.innerHTML = r.data.length ? "" : '<p class="hint">No detections match the filter.</p>';
+    var listEl = $("detections");
+    listEl.innerHTML = r.data.length ? ""
+      : "<div class='empty' style='padding:26px 10px'><b>Nothing matches</b>Loosen a filter to see more.</div>";
 
     var firstLoad = seenIds === null;
     if (firstLoad) seenIds = {};
@@ -434,7 +683,7 @@
             size: d.severity >= 4 ? [22, 22] : [16, 16],
           }),
         }).bindPopup(
-          "<b>" + esc(d.detection_type) + "</b> · severity " + esc(d.severity) +
+          "<b>" + esc(String(d.detection_type).replace(/_/g, " ")) + "</b> · severity " + esc(d.severity) +
           "<br>Confidence: " + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
           (d.used_fallback ? " (fallback)" : "") +
           "<br>Status: " + esc(d.status) +
@@ -451,19 +700,21 @@
       var isCitizen = d.source === "citizen";
       el.innerHTML =
         '<div class="row1"><span class="tag" style="background:' + SEVHEX[d.severity] + '">' +
-        esc(d.detection_type).replace("_", " ") + " · s" + esc(d.severity) + "</span>" +
-        (isCitizen ? '<span class="tag" style="background:#e3b96a;color:#0a0805">CITIZEN</span>' : "") +
+        esc(String(d.detection_type).replace(/_/g, " ")) + " · s" + esc(d.severity) + "</span>" +
+        (isCitizen ? '<span class="tag" style="background:#e3b96a">Citizen</span>' : "") +
         '<span class="st">' + esc(d.status) + "</span></div>" +
         '<div class="meta">' + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
         " · " + esc(d.segment_code || "off-segment") + " · " +
         (isCitizen ? "crowdsourced" : esc(d.device_name) + (d.simulated ? " [SIMULATED]" : "")) +
-        (isCitizen && d.notes ? '<br>"' + esc(d.notes) + '"' : "") + "<br>" +
+        (isCitizen && d.notes ? "<br>“" + esc(d.notes) + "”" : "") + "<br>" +
         new Date(d.captured_at).toLocaleString() + (d.ran_offline ? " · captured offline" : "") + "</div>";
+
       if (d.status === "DETECTED") {
         var acts = document.createElement("div");
         acts.className = "acts";
         [["Verify", "verify"], ["Reject", "reject"]].forEach(function (a) {
           var b = document.createElement("button");
+          b.className = "chip" + (a[1] === "reject" ? " warn" : "");
           b.textContent = a[0];
           b.onclick = function () {
             call("POST", "/v1/raksha/detections/" + d.id + "/verify", { action: a[1] })
@@ -476,6 +727,7 @@
         var acts2 = document.createElement("div");
         acts2.className = "acts";
         var cbtn = document.createElement("button");
+        cbtn.className = "chip";
         cbtn.textContent = "Close (repaired & confirmed)";
         cbtn.onclick = function () {
           call("POST", "/v1/raksha/detections/" + d.id + "/close")
@@ -484,13 +736,13 @@
         acts2.appendChild(cbtn);
         el.appendChild(acts2);
       }
+
       // Photo thumbnail (authenticated fetch → object URL, so the token is
       // never placed in an <img src> URL).
       if (d.image_ref && token && !offline) {
         var img = document.createElement("img");
         img.className = "detimg";
         img.alt = "hazard photo";
-        img.style.cssText = "margin-top:8px;max-width:100%;border-radius:8px;border:1px solid var(--line);cursor:pointer";
         img.onclick = function () { window.open(img.src, "_blank"); };
         fetch(API + "/v1/raksha/detections/" + d.id + "/photo", { headers: { authorization: "Bearer " + token } })
           .then(function (res) { return res.ok ? res.blob() : null; })
@@ -500,48 +752,95 @@
       listEl.appendChild(el);
     });
 
-    document.getElementById("n-open").textContent = open;
-    document.getElementById("n-crit").textContent = crit;
-    document.getElementById("new-note").textContent = freshCount ? "· +" + freshCount + " new" : "";
+    $("n-open").textContent = open;
+    $("n-crit").textContent = crit;
+    $("new-note").textContent = freshCount ? "+" + freshCount + " new" : "";
+    drawCharts(r.data);
     return freshCount;
+  }
+
+  /**
+   * Two count-by-category bars. Both are a single series, so neither needs a
+   * legend — severity gets the sequential ramp (its categories are ordered),
+   * status gets one flat hue (its categories are not). Every row prints its own
+   * count as text, so nothing here is encoded by colour alone.
+   */
+  function bars(rows, colourFor) {
+    var max = rows.reduce(function (m, r) { return Math.max(m, r.n); }, 0) || 1;
+    return rows.map(function (r) {
+      var pct = Math.round((r.n / max) * 100);
+      return "<div class='barrow' title='" + esc(r.k) + ": " + esc(r.n) + "'>" +
+        "<span class='k truncate'>" + esc(r.k) + "</span>" +
+        "<span class='t'><span class='f' style='width:" + pct + "%;background:" + colourFor(r) + "'></span></span>" +
+        "<span class='v'>" + esc(r.n) + "</span></div>";
+    }).join("");
+  }
+
+  function drawCharts(rows) {
+    $("chart-panel").hidden = false;
+    $("chart-n").textContent = rows.length + " loaded";
+
+    var sev = [1, 2, 3, 4, 5].map(function (n) {
+      return { k: "Severity " + n, n: rows.filter(function (d) { return d.severity === n; }).length, s: n };
+    });
+    $("chart-sev").innerHTML = bars(sev, function (r) { return "var(--sev-" + r.s + ")"; });
+
+    var byStatus = {};
+    rows.forEach(function (d) { byStatus[d.status] = (byStatus[d.status] || 0) + 1; });
+    var st = Object.keys(byStatus).sort(function (a, b) { return byStatus[b] - byStatus[a]; })
+      .map(function (k) { return { k: k, n: byStatus[k] }; });
+    $("chart-status").innerHTML = st.length
+      ? bars(st, function () { return "var(--brand)"; })
+      : "<p class='hint'>Nothing loaded.</p>";
   }
 
   async function loadDevices() {
     var r = { data: await getData("/v1/raksha/devices", CACHE.dev) };
     devLayer.clearLayers();
-    var el = document.getElementById("devices");
-    el.innerHTML = r.data.length ? "" : '<p class="hint">No devices registered.</p>';
+    var el = $("devices");
+    el.innerHTML = r.data.length ? "" : "<p class='hint'>No devices registered.</p>";
     var online = 0;
     r.data.forEach(function (d) {
       var active = d.status === "ACTIVE" || d.status === "DEGRADED";
       if (active) online++;
       if (d.lat != null) {
-        L.marker([d.lat, d.lng], { icon: pinIcon("#d8b46a", "rgba(216,180,106,0.5)", { dev: true, size: [20, 20] }) })
+        L.marker([d.lat, d.lng], { icon: pinIcon("#e3b96a", "rgba(227,185,106,0.5)", { dev: true, size: [20, 20] }) })
           .bindPopup(
             "<b>" + esc(d.name) + "</b><br>" + esc(d.status) + (d.simulated ? " · SIMULATED" : "") +
-            (d.battery_percent != null ? "<br>Battery " + d.battery_percent + "%" : "")
+            (d.battery_percent != null ? "<br>Battery " + esc(d.battery_percent) + "%" : "")
           ).addTo(devLayer);
       }
       var row = document.createElement("div");
       row.className = "dev";
-      var col = d.status === "ACTIVE" ? "#3ddc97" : d.status === "DEGRADED" ? "#ff9f43" : "#8f8878";
-      row.innerHTML = '<span class="dot' + (active ? " on" : "") + '" style="background:' + col + ';color:' + col + '"></span>' + esc(d.name) +
+      var col = d.status === "ACTIVE" ? "#3ddc97" : d.status === "DEGRADED" ? "#ff9f43" : "#8a8d96";
+      row.innerHTML = '<span class="dot' + (active ? " on" : "") + '" style="background:' + col + ';color:' + col + '"></span>' +
+        "<b style='font-weight:600'>" + esc(d.name) + "</b>" +
         "<small>" + esc(d.status) + (d.simulated ? " · SIMULATED" : "") +
-        (d.battery_percent != null ? " · 🔋" + d.battery_percent + "%" : "") +
+        (d.battery_percent != null ? " · " + esc(d.battery_percent) + "% battery" : "") +
         (d.last_seen_at ? " · seen " + new Date(d.last_seen_at).toLocaleTimeString() : " · never seen") + "</small>";
       el.appendChild(row);
     });
-    document.getElementById("n-dev").textContent = online;
+    $("n-dev").textContent = online;
   }
 
+  /**
+   * One refresh at a time.
+   *
+   * Each tick fans out to three endpoints, and on a slow connection the next
+   * 10-second tick could fire before the last had returned — stacking requests
+   * until the console was doing nothing but retrying itself.
+   */
+  var refreshInFlight = false;
   function refresh() {
+    if (refreshInFlight) return Promise.resolve();
+    refreshInFlight = true;
     return Promise.all([loadSegments(), loadDetections(), loadDevices()])
       .then(function (results) {
         var fresh = results[1];
-        var liveEl = document.getElementById("live");
+        var liveEl = $("live");
         liveEl.classList.toggle("offline", offline);
-        liveEl.textContent = offline ? "OFFLINE · CACHED" : "LIVE · 10s";
-        document.getElementById("export-panel").hidden = false;
+        liveEl.textContent = offline ? "Offline · cached" : "Live · 10s";
+        $("export-panel").hidden = false;
         if (offline) {
           status("⚠ OFFLINE — showing the cached snapshot from " + (cacheTime() || "earlier") +
             ". Downloads still work. Reconnects automatically. · SIMULATED data");
@@ -551,7 +850,8 @@
             " · all device data on this build is SIMULATED");
         }
       })
-      .catch(function (e) { status("✗ " + e.message); });
+      .catch(function (e) { status("✗ " + e.message); })
+      .finally(function () { refreshInFlight = false; });
   }
 
   // ── snapshot export: built entirely from local data, so it works offline ──
@@ -603,77 +903,190 @@
   }
 
   function startLive() {
-    document.getElementById("live").classList.add("on");
-    document.getElementById("chips").classList.add("on");
+    $("live").classList.add("on");
     if (liveTimer) clearInterval(liveTimer);
     liveTimer = setInterval(function () {
       if (!document.hidden) refresh();   // don't poll a hidden tab
     }, REFRESH_MS);
   }
 
-  document.getElementById("login-btn").onclick = async function () {
+  $("login-btn").onclick = async function () {
+    var btn = this;
+    if (btn.classList.contains("is-busy")) return;
+    btn.classList.add("is-busy");
     try {
       status("Requesting OTP…");
-      var msisdn = document.getElementById("msisdn").value.trim();
+      // Ten digits, with or without +91, spaces or a leading zero — the API
+      // requires strict E.164 and an officer should not have to know that.
+      var raw = $("msisdn").value.replace(/[\s\-().]/g, "");
+      var msisdn = /^[6-9]\d{9}$/.test(raw) ? "+91" + raw
+        : /^0[6-9]\d{9}$/.test(raw) ? "+91" + raw.slice(1)
+        : /^91[6-9]\d{9}$/.test(raw) ? "+" + raw
+        : raw;
+      if (!/^\+91[6-9]\d{9}$/.test(msisdn)) {
+        status("✗ Enter a 10-digit Indian mobile number, starting 6, 7, 8 or 9.");
+        return;
+      }
+      $("msisdn").value = msisdn;
       var otp = await call("POST", "/v1/auth/otp/request", { msisdn: msisdn });
       var code = otp.meta && otp.meta.devOtp;
       if (!code) { status("✗ dev OTP not exposed — enter the code manually via the demo client"); return; }
       var v = await call("POST", "/v1/auth/otp/verify", { msisdn: msisdn, code: code });
       token = v.data.accessToken;
-      var roles = v.data.roles.join(", ") || "citizen";
-      document.getElementById("who").textContent = msisdn + " · " + roles;
-      document.getElementById("login-panel").hidden = true;
-      ["health-panel", "det-panel", "dev-panel"].forEach(function (id) {
-        document.getElementById(id).hidden = false;
-      });
-      if (!v.data.roles.includes("admin") && !v.data.roles.includes("gov_officer")) {
-        status("This account has no authority role — RAKSHA data is admin/gov-officer only.");
-        return;
-      }
-      await refresh();
-      startLive();
+      // The refresh token is what keeps an officer signed in for a shift. It
+      // used to be discarded here, which is why the console died after ten
+      // minutes and after every reload.
+      refreshToken = v.data.refreshToken;
+      sessionMsisdn = msisdn;
+      saveSession();
+      await enterConsole(v.data.roles, msisdn);
     } catch (e) { status("✗ " + e.message); }
+    finally { btn.classList.remove("is-busy"); }
   };
 
-  document.getElementById("recompute").onclick = function () {
+  /** Everything that happens once a session exists, fresh or restored. */
+  async function enterConsole(roles, who) {
+    var rolesText = (roles || []).join(", ") || "citizen";
+    $("who").textContent = who + " · " + rolesText;
+    $("login-panel").hidden = true;
+    $("signout-btn").hidden = false;
+    ["health-panel", "det-panel", "dev-panel", "sms-panel"].forEach(function (id) { $(id).hidden = false; });
+    if (!(roles || []).includes("admin") && !(roles || []).includes("gov_officer")) {
+      status("This account has no authority role — RAKSHA data is admin/gov-officer only.");
+      return;
+    }
+    await refresh();
+    startLive();
+  }
+
+  function signOut(silent) {
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    token = null; refreshToken = null;
+    clearSession();
+    $("live").classList.remove("on");
+    $("who").textContent = "not signed in";
+    $("login-panel").hidden = false;
+    $("signout-btn").hidden = true;
+    ["health-panel", "det-panel", "dev-panel", "sms-panel", "export-panel"]
+      .forEach(function (id) { $(id).hidden = true; });
+    if (!silent) status("Signed out.");
+  }
+  $("signout-btn").onclick = function () { signOut(); };
+
+  // ── restore a stored session before showing the login panel ──────────────
+  // The stored access token is almost always stale — the page may have been
+  // closed for hours — so the ordinary refresh path inside call() handles it.
+  (async function boot() {
+    var saved;
+    try { saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (e) { saved = null; }
+    if (!saved || !saved.refresh) return;
+    token = saved.token;
+    refreshToken = saved.refresh;
+    status("Restoring your session…");
+    try {
+      var me = await call("GET", "/v1/me");
+      await enterConsole(me.data.roles, saved.msisdn || me.data.user.msisdn);
+    } catch (e) {
+      signOut(true);
+      if (saved.msisdn) $("msisdn").value = saved.msisdn;
+      status("Session expired — sign in again.");
+    }
+  })();
+
+  $("recompute").onclick = function () {
     call("POST", "/v1/raksha/road-health/recompute")
       .then(refresh).catch(function (e) { status("✗ " + e.message); });
   };
-  document.getElementById("f-status").onchange = loadDetections;
-  document.getElementById("f-type").onchange = loadDetections;
-  document.getElementById("f-source").onchange = loadDetections;
+  $("f-status").onchange = loadDetections;
+  $("f-type").onchange = loadDetections;
+  $("f-source").onchange = loadDetections;
 
-  document.getElementById("dl-geojson").onclick = function () {
+  $("dl-geojson").onclick = function () {
     download("raksha-snapshot-" + Date.now() + ".geojson", snapshotGeoJSON(), "application/geo+json");
     status("GeoJSON snapshot downloaded — built from the on-device cache, works with zero connectivity.");
   };
-  document.getElementById("dl-csv").onclick = function () {
+  $("dl-csv").onclick = function () {
     download("raksha-detections-" + Date.now() + ".csv", snapshotCSV(), "text/csv");
     status("Detection CSV downloaded — built from the on-device cache, works with zero connectivity.");
   };
 
   // Net down before sign-in? The last authorized session's cache still shows
   // the corridor and still exports. (Cache lives only on this device.)
-  document.getElementById("cached-btn").onclick = function () {
+  $("cached-btn").onclick = function () {
     offline = true;
-    document.getElementById("login-panel").hidden = true;
-    ["health-panel", "det-panel", "dev-panel", "export-panel"].forEach(function (id) {
-      document.getElementById(id).hidden = false;
-    });
-    document.getElementById("who").textContent = "offline · cached snapshot";
-    var liveEl = document.getElementById("live");
+    $("login-panel").hidden = true;
+    ["health-panel", "det-panel", "dev-panel", "export-panel"].forEach(function (id) { $(id).hidden = false; });
+    $("who").textContent = "offline · cached snapshot";
+    var liveEl = $("live");
     liveEl.classList.add("on", "offline");
-    liveEl.textContent = "OFFLINE · CACHED";
-    document.getElementById("chips").classList.add("on");
+    liveEl.textContent = "Offline · cached";
     refresh();
   };
+  // ── register an edge device (ADR-0008: secret shown once, hash stored) ───
+  $("nd-add").onclick = async function () {
+    var btn = this;
+    if (btn.classList.contains("is-busy")) return;
+    btn.classList.add("is-busy");
+    try {
+      var r = await call("POST", "/v1/raksha/devices", {
+        name: $("nd-name").value.trim(),
+        lat: Number($("nd-lat").value),
+        lng: Number($("nd-lng").value),
+        hardwareRef: $("nd-hw").value.trim() || undefined,
+        simulated: true,
+      });
+      $("nd-out").innerHTML =
+        "<p class='meta' style='margin-top:11px'><b>" + esc(r.data.name) +
+        "</b> registered · <span class='pill warn'>" + esc(r.data.status) + "</span></p>" +
+        "<div class='secret'>deviceId: " + esc(r.data.id) +
+          "\ndeviceSecret: " + esc(r.data.deviceSecret) + "</div>" +
+        "<p class='hint' style='margin-top:7px'>" + esc(r.meta.note) + "</p>";
+      $("nd-name").value = ""; $("nd-hw").value = "";
+      refresh();
+    } catch (e) {
+      $("nd-out").innerHTML = "<p class='meta' style='margin-top:11px;color:var(--red)'>✗ " + esc(e.message) + "</p>";
+    } finally { btn.classList.remove("is-busy"); }
+  };
+
+  // ── feature-phone console: drives the real inbound-SMS webhook ───────────
+  function bubble(cls, text) {
+    var t = $("sms-thread");
+    var el = document.createElement("div");
+    el.className = "bub " + cls;
+    el.textContent = text;
+    t.appendChild(el);
+    t.scrollTop = t.scrollHeight;
+  }
+  async function sendSms(text) {
+    if (!text) return;
+    var from = $("sms-from").value.trim();
+    bubble("out", text);
+    $("sms-text").value = "";
+    try {
+      // Unsigned on purpose: with no TELECOM_WEBHOOK_SECRET set the endpoint is
+      // open and says so. Against a signed deployment this console gets a 401,
+      // which is the correct answer.
+      var r = await call("POST", "/v1/telecom/sms", { from: from, text: text });
+      bubble("in", r.data.reply);
+    } catch (e) {
+      bubble("err", "✗ " + e.message);
+    }
+  }
+  $("sms-send").onclick = function () { sendSms($("sms-text").value.trim()); };
+  $("sms-text").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); sendSms($("sms-text").value.trim()); }
+  });
+  document.querySelectorAll("#sms-quick button").forEach(function (b) {
+    b.onclick = function () { sendSms(b.getAttribute("data-sms")); };
+  });
+
   window.addEventListener("online", function () { if (token) refresh(); });
 
   initMap();
   if (cacheGet(CACHE.det) || cacheGet(CACHE.seg)) {
-    document.getElementById("cached-btn").hidden = false;
+    $("cached-btn").hidden = false;
     var when = cacheTime();
-    if (when) document.getElementById("cache-note").textContent =
+    if (when) $("cache-note").textContent =
       "Cached snapshot from " + when + " is available on this device — it shows and downloads even offline.";
   }
   status("Sign in to load the corridor. Data on this build is SIMULATED.");

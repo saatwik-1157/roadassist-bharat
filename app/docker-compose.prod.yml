@@ -1,0 +1,139 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# RoadAssist — production-shaped stack.
+#
+# Deliberately NOT the same file as docker-compose.yml. That one publishes
+# Postgres on a host port so a developer can point a client at it; doing the
+# same in production puts the database on the internet. Two files, two
+# intentions, no flag to get wrong at 2am.
+#
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# Every secret comes from the environment. Nothing here has a default that
+# would work — if a variable is missing the API refuses to boot and says which
+# one (see validateEnv / assertProductionSafe in apps/api/src/env.ts).
+# ══════════════════════════════════════════════════════════════════════════════
+name: roadassist-prod
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      # scram-sha-256 for anything that is not a unix socket. The image defaults
+      # to trust for local connections, which is fine inside the container and
+      # would not be if the port were published — which it is not, below.
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    # NO `ports:` — the database is reachable only on the private compose
+    # network, by name, from the api service. This is the single most valuable
+    # line in the file.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Point-in-time recovery needs the WAL somewhere durable; see DEPLOYMENT.md.
+      - pgbackup:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    # A database that gets OOM-killed mid-transaction is worse than one that
+    # refuses a connection, so it gets the headroom and the api does not.
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  # Migrations run as their own unit, once, before the API starts. Baking them
+  # into the API's startup would mean every replica racing to migrate the same
+  # database on every deploy.
+  migrate:
+    build:
+      context: ..
+      dockerfile: app/Dockerfile
+    image: roadassist:${IMAGE_TAG:-latest}
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    command: ["node", "packages/db/dist/src/migrate.js"]
+
+  api:
+    build:
+      context: ..
+      dockerfile: app/Dockerfile
+    image: roadassist:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Required. The API will not start without these — see .env.example.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET to 32+ random bytes}
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS to your https front-end origins}
+      EXPOSE_DEV_OTP: "false"
+      # Behind a reverse proxy this must name the proxy, never `true`: trusting
+      # every hop lets any caller forge X-Forwarded-For and walk through the
+      # per-IP OTP ceiling.
+      TRUST_PROXY: ${TRUST_PROXY:-127.0.0.1,::1}
+      # External services. Each falls back to a local implementation when unset,
+      # and assertProductionSafe refuses to start production on those fallbacks.
+      SMS_PROVIDER: ${SMS_PROVIDER:?set SMS_PROVIDER (twilio | msg91)}
+      SMS_API_KEY: ${SMS_API_KEY:-}
+      SMS_SENDER_ID: ${SMS_SENDER_ID:-RDASST}
+      SMS_DLT_TEMPLATE_ID: ${SMS_DLT_TEMPLATE_ID:-}
+      TELECOM_WEBHOOK_SECRET: ${TELECOM_WEBHOOK_SECRET:?set TELECOM_WEBHOOK_SECRET}
+      PAYMENTS_PROVIDER: ${PAYMENTS_PROVIDER:?set PAYMENTS_PROVIDER (razorpay)}
+      PAYMENTS_KEY_ID: ${PAYMENTS_KEY_ID:-}
+      PAYMENTS_KEY_SECRET: ${PAYMENTS_KEY_SECRET:-}
+      PAYMENTS_WEBHOOK_SECRET: ${PAYMENTS_WEBHOOK_SECRET:-}
+      MAPS_PROVIDER: ${MAPS_PROVIDER:-local}
+      MAPS_API_KEY: ${MAPS_API_KEY:-}
+      AI_PROVIDER: ${AI_PROVIDER:-rules}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
+      EMAIL_API_KEY: ${EMAIL_API_KEY:-}
+      EMAIL_BASE_URL: ${EMAIL_BASE_URL:-}
+      # Matches the mounted volume below. Object storage would replace this.
+      UPLOAD_DIR: /repo/app/var/uploads
+    # Published on loopback only. TLS termination and the public port belong to
+    # the reverse proxy in front of this — see DEPLOYMENT.md §HTTPS.
+    ports:
+      - "127.0.0.1:${API_PORT:-4000}:4000"
+    volumes:
+      - uploads:/repo/app/var
+    # Reaps zombies and forwards SIGTERM even if the entrypoint changes.
+    init: true
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:4000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+volumes:
+  pgdata:
+  pgbackup:
+  uploads:

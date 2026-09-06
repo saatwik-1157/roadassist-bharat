@@ -1,0 +1,110 @@
+{
+  "name": "RoadAssist Bharat",
+  "short_name": "RoadAssist",
+  "description": "Offline-first roadside assistance and road-safety reporting for India.",
+  "start_url": "/app.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#08090c",
+  "theme_color": "#08090c",
+  "categories": [
+    "travel",
+    "utilities",
+    "navigation"
+  ],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Request assistance",
+      "short_name": "Assist",
+      "description": "Diagnose a fault and dispatch the nearest mechanic",
+      "url": "/app.html#assist",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Track booking",
+      "short_name": "Track",
+      "description": "Follow your mechanic on the way to you",
+      "url": "/app.html#track",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Report a hazard",
+      "short_name": "Report",
+      "description": "Flag a pothole or blockage for the authority",
+      "url": "/app.html#report",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Off-grid mode",
+      "short_name": "Off-grid",
+      "description": "Your stored incident, local diagnosis and cached maps",
+      "url": "/app.html#offgrid",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Live map",
+      "short_name": "Map",
+      "description": "Mechanics, responders and hazards near you",
+      "url": "/app.html#map",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

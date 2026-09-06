@@ -8,6 +8,17 @@ export default [
   { ignores: ["**/node_modules/**", "**/dist/**", "**/drizzle/**", "**/*.d.ts", "**/vendor/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  // Browser-side scripts served to the client (the service worker) run in a
+  // worker global, not Node's — lint them against the right environment rather
+  // than exempting them.
+  {
+    files: ["apps/web/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: "script",
+      globals: { ...globals.browser, ...globals.serviceworker },
+    },
+  },
   {
     languageOptions: {
       ecmaVersion: 2023,

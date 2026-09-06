@@ -47,9 +47,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -60,17 +61,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,35 +84,71 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 // ── brand ──────────────────────────────────────────────────────────────────
-val Gold = Color(0xFFE3B96A)
-val Bg = Color(0xFF050505)
-val Panel = Color(0xFF12100C)
-val Cream = Color(0xFFF4F2EC)
-val Muted = Color(0xFF9A9184)
-val Alarm = Color(0xFFE4574A)
-
-private val Scheme = darkColorScheme(
-    primary = Gold, onPrimary = Color(0xFF0A0805),
-    background = Bg, onBackground = Cream,
-    surface = Panel, onSurface = Cream,
-    secondary = Muted, error = Alarm,
-)
+// These read the active palette (see Theme.kt) rather than naming a fixed
+// colour, so every existing call site below gets both themes for free.
+val Gold: Color     @Composable get() = LocalRa.current.gold
+val GoldFill: Color @Composable get() = LocalRa.current.goldFill
+val GoldInk: Color  @Composable get() = LocalRa.current.goldInk
+val Bg: Color       @Composable get() = LocalRa.current.bg
+val Panel: Color    @Composable get() = LocalRa.current.panel
+val Cream: Color    @Composable get() = LocalRa.current.text
+val Muted: Color    @Composable get() = LocalRa.current.textDim
+val Alarm: Color    @Composable get() = LocalRa.current.alarm
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme(colorScheme = Scheme) { RoadAssistApp() } }
+        setContent {
+            val ctx = LocalContext.current
+            val prefs = remember { ctx.getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE) }
+            // "system" | "light" | "dark" — the choice survives a restart.
+            var mode by remember { mutableStateOf(prefs.getString("theme", "system") ?: "system") }
+            val dark = when (mode) {
+                "dark" -> true
+                "light" -> false
+                else -> isSystemInDarkTheme()
+            }
+            val palette = if (dark) RaDark else RaLight
+
+            // Paint the system bars to match, and flip the icon polarity with
+            // them, so the app never sits under a mismatched status bar.
+            val view = LocalView.current
+            @Suppress("DEPRECATION")
+            SideEffect {
+                val window = (view.context as android.app.Activity).window
+                // No-ops from API 35 (the app draws behind the bars there, and the
+                // top bar already pads for the status-bar inset) — but still the
+                // only way to colour the bars on API 26–34.
+                window.statusBarColor = palette.panel.toArgb()
+                window.navigationBarColor = palette.panel.toArgb()
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = !dark
+                    isAppearanceLightNavigationBars = !dark
+                }
+            }
+
+            RoadAssistTheme(dark) {
+                RoadAssistApp(
+                    isDark = dark,
+                    onToggleTheme = {
+                        mode = if (dark) "light" else "dark"
+                        prefs.edit().putString("theme", mode).apply()
+                    },
+                )
+            }
+        }
     }
 }
 
 // ── app state machine ──────────────────────────────────────────────────────
-/** The RoadAssist mark (gold, from res/drawable/ic_mark.xml). */
+/** The RoadAssist mark (res/drawable/ic_mark.xml), tinted to the active gold. */
 @Composable
 private fun BrandMark(size: Int = 24) {
     Image(
         painter = painterResource(R.drawable.ic_mark),
         contentDescription = "RoadAssist",
         modifier = Modifier.size(size.dp),
+        colorFilter = ColorFilter.tint(Gold),
     )
 }
 
@@ -137,7 +179,7 @@ private val TABS = listOf(
 )
 
 @Composable
-fun RoadAssistApp() {
+fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
     var signedIn by remember { mutableStateOf(false) }
     var tab by remember { mutableIntStateOf(0) }
     var toast by remember { mutableStateOf<String?>(null) }
@@ -182,7 +224,7 @@ fun RoadAssistApp() {
             // session, so switching to the Map tab is instant and never re-loads
             // Leaflet or re-flashes tiles. It self-heals its token via AndroidAuth.
             val mapWebView = remember {
-                buildMapWebView(ctx, Api.base) { id, name, lat, lng ->
+                buildMapWebView(ctx, Api.base, isDark) { id, name, lat, lng ->
                     requestedMechanic = JSONObject()
                         .put("id", id).put("name", name).put("lat", lat).put("lng", lng)
                     tab = 1   // jump to the booking flow with this mechanic in focus
@@ -193,6 +235,14 @@ fun RoadAssistApp() {
             // instant tab switch without burning cycles in the background.
             LaunchedEffect(tab) {
                 if (tab == 2) mapWebView.onResume() else mapWebView.onPause()
+            }
+            // The map is retained across tab switches, so a theme flip has to be
+            // pushed into it rather than waiting for a reload.
+            LaunchedEffect(isDark) {
+                mapWebView.evaluateJavascript(
+                    "window.__setTheme && window.__setTheme('" + (if (isDark) "dark" else "light") + "')",
+                    null,
+                )
             }
             Scaffold(
                 containerColor = Bg,
@@ -208,8 +258,17 @@ fun RoadAssistApp() {
                         Spacer(Modifier.weight(1f))
                         Text(
                             if (online) "● online" else "● offline",
-                            color = if (online) Color(0xFF3DDC97) else Color(0xFFFF9F43),
+                            color = if (online) LocalRa.current.ok else LocalRa.current.warn,
                             fontSize = 10.sp, letterSpacing = 1.sp,
+                        )
+                        Text(
+                            if (isDark) "☀" else "☾",
+                            color = Muted, fontSize = 17.sp,
+                            modifier = Modifier
+                                .padding(start = 14.dp)
+                                .clip(CircleShape)
+                                .clickable { onToggleTheme() }
+                                .padding(horizontal = 7.dp, vertical = 3.dp),
                         )
                     }
                 },
@@ -235,7 +294,17 @@ fun RoadAssistApp() {
                     // The map stays mounted underneath; it's only visible on the Map
                     // tab. Keeping it in the tree is what makes tab switches buttery —
                     // no WebView teardown, no Leaflet reload, no tile re-fetch.
-                    Box(Modifier.fillMaxSize().then(if (tab == 2) Modifier else Modifier.alpha(0f))) {
+                    //
+                    // It is skipped at *draw* time rather than hidden with alpha(0f).
+                    // A zero-alpha modifier still promotes the subtree to its own
+                    // layer and still composites it, so a full-screen WebView texture
+                    // was being blended into every frame of all five tabs — paid for
+                    // on the four where the map is not even visible. Skipping
+                    // drawContent leaves the WebView attached and its JS state alive
+                    // (that is what makes the switch instant) while costing nothing
+                    // to draw.
+                    val mapVisible = tab == 2
+                    Box(Modifier.fillMaxSize().drawWithContent { if (mapVisible) drawContent() }) {
                         AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapWebView })
                         // Report-a-hazard FAB, only interactive on the Map tab.
                         if (tab == 2) {
@@ -309,19 +378,26 @@ fun RoadAssistApp() {
             Card(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp, start = 18.dp, end = 18.dp),
                 shape = RoundedCornerShape(999.dp),
-                colors = CardDefaults.cardColors(containerColor = Gold),
+                colors = CardDefaults.cardColors(containerColor = GoldFill),
             ) {
                 Text(
-                    msg, color = Color(0xFF0A0805), fontSize = 13.sp,
+                    msg, color = GoldInk, fontSize = 13.sp,
                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
                 )
             }
         }
     }
 
-    val scope = rememberCoroutineScope()
-    if (toast != null) {
-        remember(toast) { scope.launch { kotlinx.coroutines.delay(3200); toast = null } }
+    // Auto-dismiss. This must be a LaunchedEffect, not `remember { scope.launch }`:
+    // remember runs its side effect *during* composition and never cancels it, so
+    // a burst of toasts leaves a pile of live timers, each racing to null a toast
+    // it no longer owns. LaunchedEffect is keyed on the message and cancels the
+    // previous timer, so the visible toast always gets its full 3.2 s.
+    LaunchedEffect(toast) {
+        if (toast != null) {
+            kotlinx.coroutines.delay(3200)
+            toast = null
+        }
     }
 }
 
@@ -337,6 +413,7 @@ fun RoadAssistApp() {
 private fun buildMapWebView(
     context: android.content.Context,
     baseRaw: String,
+    isDark: Boolean,
     onBookMechanic: (id: String, name: String, lat: Double, lng: Double) -> Unit,
 ): android.webkit.WebView {
     val base = baseRaw.trimEnd('/')
@@ -367,7 +444,8 @@ private fun buildMapWebView(
                 main.post { onBookMechanic(id, name, lat, lng) }
             }
         }, "AndroidNav")
-        loadUrl("$base/map.html#base=$base&token=${Api.currentToken()}")
+        val theme = if (isDark) "dark" else "light"
+        loadUrl("$base/map.html#base=$base&token=${Api.currentToken()}&theme=$theme")
     }
 }
 
@@ -446,10 +524,10 @@ private fun ReportHazardDialog(
                         val sel = s == severity
                         Box(
                             Modifier.size(42.dp).clip(CircleShape)
-                                .background(if (sel) Gold else Color(0x22E3B96A))
+                                .background(if (sel) GoldFill else Color(0x22E3B96A))
                                 .clickable { severity = s },
                             contentAlignment = Alignment.Center,
-                        ) { Text("$s", color = if (sel) Color(0xFF0A0805) else Cream, fontWeight = FontWeight.Bold) }
+                        ) { Text("$s", color = if (sel) GoldInk else Cream, fontWeight = FontWeight.Bold) }
                     }
                 }
                 Field(note, { note = it }, "Note (optional)")
@@ -506,12 +584,17 @@ private fun ReportHazardDialog(
     )
 }
 
-private val STATUS_COLOR = { s: String -> when (s) {
-    "PAID", "COMPLETED", "VERIFIED", "REPAIRED" -> Color(0xFF3DDC97)
-    "CANCELLED", "NO_SUPPLY", "REJECTED", "CLOSED" -> Muted
-    "ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS", "DETECTED", "REPAIR_SCHEDULED" -> Gold
-    else -> Color(0xFFE3C451)
-} }
+/** Status → colour. A composable so it reads whichever palette is active. */
+@Composable
+private fun STATUS_COLOR(s: String): Color {
+    val ra = LocalRa.current
+    return when (s) {
+        "PAID", "COMPLETED", "VERIFIED", "REPAIRED" -> ra.ok
+        "CANCELLED", "NO_SUPPLY", "REJECTED", "CLOSED" -> ra.textDim
+        "ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS", "DETECTED", "REPAIR_SCHEDULED" -> ra.gold
+        else -> ra.warn
+    }
+}
 
 @Composable
 private fun EmptyTrack(onBook: () -> Unit) {
@@ -594,9 +677,10 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
     }
     LaunchedEffect(Unit) { loadContacts() }
 
+    val ra = LocalRa.current
     val riskColor = { r: String -> when (r) {
-        "LOW", "GOOD" -> Color(0xFF3DDC97); "MEDIUM", "FAIR" -> Color(0xFFE3C451)
-        "HIGH", "POOR" -> Color(0xFFFF9F43); "CRITICAL" -> Alarm; else -> Muted
+        "LOW", "GOOD" -> ra.ok; "MEDIUM", "FAIR" -> ra.warn
+        "HIGH", "POOR" -> ra.warn; "CRITICAL" -> ra.alarm; else -> ra.textDim
     } }
 
     ScreenColumn {
@@ -656,7 +740,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                     },
                     enabled = !busy,
                     shape = RoundedCornerShape(999.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color(0xFF0A0805)),
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
                     modifier = Modifier.fillMaxWidth().padding(top = 14.dp).height(48.dp),
                 ) { Text(if (summary == null) "Prepare my route" else "Refresh route",
                     fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, fontSize = 12.sp) }
@@ -749,7 +833,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                     },
                     enabled = !cBusy && cName.length >= 2 && cPhone.length >= 13,
                     shape = RoundedCornerShape(999.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color(0xFF0A0805)),
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
                 ) { Text("Add contact", fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, fontSize = 12.sp) }
             }
@@ -816,7 +900,7 @@ private fun GoldButton(text: String, enabled: Boolean = true, onClick: () -> Uni
     Button(
         onClick = onClick, enabled = enabled,
         shape = RoundedCornerShape(999.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color(0xFF0A0805)),
+        colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
         modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(52.dp),
     ) { Text(text, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp, fontSize = 12.sp) }
 }
@@ -912,6 +996,8 @@ private fun SignInScreen(
 }
 
 // ── home: SOS + vehicle ────────────────────────────────────────────────────
+/** Seconds between arming SOS and the fallback ladder actually running. */
+private const val SOS_GRACE_S = 5
 @Composable
 private fun HomeScreen(
     msisdn: String, vehicleId: String?, vehicleLabel: String?,
@@ -939,60 +1025,125 @@ private fun HomeScreen(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { /* granted or not, the ladder degrades gracefully per rung */ }
 
+        var sosArmed by remember { mutableStateOf(false) }
+        var sosLeft by remember { mutableIntStateOf(SOS_GRACE_S) }
+
         // Any queued SOS flushes automatically when data returns.
         LaunchedEffect(Unit) {
             val flushed = Emergency.flush(ctx)
             if (flushed > 0) onToast("$flushed queued SOS synced now that you're online")
         }
 
+        // ── SOS grace window ────────────────────────────────────────────────
+        // A pocket press costs a responder a real journey, so the button arms a
+        // short countdown instead of escalating on contact. The fallback ladder
+        // in Emergency.kt is deliberately NOT restructured — it is the most
+        // safety-critical code in the app, and this wraps it rather than
+        // rewriting it. (The web app raises first and cancels server-side; here
+        // the window sits before the ladder, because the SMS and dialer rungs
+        // have no server incident to cancel.)
+        val fireSos: () -> Unit = {
+            busy = true
+            scope.launch {
+                val loc = Emergency.lastKnownLocation(ctx)
+                val lat = loc?.first ?: DEMO_LAT
+                val lng = loc?.second ?: DEMO_LNG
+                val result = Emergency.raise(ctx, lat, lng) {
+                    val raised = Api.post(
+                        "/v1/sos",
+                        JSONObject().put("lat", lat).put("lng", lng).put("source", "manual"),
+                    ).getJSONObject("data")
+                    val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
+                    val responder = c.optJSONObject("nearestResponder")?.optString("name") ?: "—"
+                    val where = if (loc != null) "real GPS" else "demo location"
+                    "Escalated ($where) · contacts ${c.optInt("contactsAlerted")} · $responder · ${c.optInt("elapsedMs")} ms"
+                }
+                sosResult = when (result.rung) {
+                    Emergency.Rung.DATA -> "✓ ONLINE — ${result.detail}"
+                    Emergency.Rung.SMS -> "✓ NO DATA → SMS — ${result.detail}"
+                    Emergency.Rung.DIALER -> "→ ${result.detail}"
+                    Emergency.Rung.QUEUED -> "◷ ${result.detail}"
+                }
+                onToast("SOS via ${result.rung}")
+                busy = false
+            }
+        }
+
+        LaunchedEffect(sosArmed) {
+            if (!sosArmed) return@LaunchedEffect
+            while (sosLeft > 0 && sosArmed) {
+                kotlinx.coroutines.delay(1000)
+                sosLeft -= 1
+            }
+            if (sosArmed) { sosArmed = false; fireSos() }
+        }
+
+        if (sosArmed) {
+            AlertDialog(
+                // Modal on purpose: an emergency is dismissed by an explicit
+                // choice, never by a stray tap outside the dialog.
+                onDismissRequest = { },
+                containerColor = Panel,
+                title = { Text("Alerting in $sosLeft…", color = Alarm, fontSize = 19.sp) },
+                text = {
+                    Text(
+                        "Your emergency contacts and the nearest responder will be alerted with " +
+                            "your location. Cancel now if this was a mistake — a false alarm costs " +
+                            "a responder a real journey.",
+                        color = Muted, fontSize = 13.sp, lineHeight = 18.sp,
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { sosArmed = false; fireSos() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Alarm, contentColor = Color.White),
+                    ) { Text("Alert now", fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        sosArmed = false
+                        onToast("SOS cancelled — nothing was sent")
+                    }) { Text("Cancel", color = Muted, fontSize = 13.sp) }
+                },
+            )
+        }
+
         Box(Modifier.fillMaxWidth().padding(vertical = 26.dp), contentAlignment = Alignment.Center) {
             // Soft red glow behind the SOS ring — draws the eye to the one
-            // control that matters most in an emergency.
-            Box(
-                Modifier.size(230.dp).background(
-                    Brush.radialGradient(
-                        listOf(Alarm.copy(alpha = 0.28f), Alarm.copy(alpha = 0.06f), Color.Transparent),
-                    ),
-                    CircleShape,
-                ),
-            )
+            // control that matters most in an emergency. Remembered because the
+            // gradient is constant: rebuilding the Brush (and its colour list) on
+            // every recomposition allocates on the countdown's per-second tick.
+            // Alarm is a @Composable theme accessor, so it is read here and used
+            // as the key — the brush is rebuilt only when the light/dark toggle
+            // actually changes the colour, not on every recomposition.
+            val alarm = Alarm
+            val glow = remember(alarm) {
+                Brush.radialGradient(
+                    listOf(alarm.copy(alpha = 0.28f), alarm.copy(alpha = 0.06f), Color.Transparent),
+                )
+            }
+            Box(Modifier.size(230.dp).background(glow, CircleShape))
             Button(
                 onClick = {
-                    // Arm the no-data + real-location rungs up front.
+                    // Arm the no-data + real-location rungs up front, so the
+                    // permission dialogs are out of the way before the window ends.
                     perms.launch(arrayOf(
                         android.Manifest.permission.SEND_SMS,
                         android.Manifest.permission.ACCESS_FINE_LOCATION,
                     ))
-                    busy = true
-                    scope.launch {
-                        val loc = Emergency.lastKnownLocation(ctx)
-                        val lat = loc?.first ?: DEMO_LAT
-                        val lng = loc?.second ?: DEMO_LNG
-                        val result = Emergency.raise(ctx, lat, lng) {
-                            val raised = Api.post(
-                                "/v1/sos",
-                                JSONObject().put("lat", lat).put("lng", lng).put("source", "manual"),
-                            ).getJSONObject("data")
-                            val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
-                            val responder = c.optJSONObject("nearestResponder")?.optString("name") ?: "—"
-                            val where = if (loc != null) "real GPS" else "demo location"
-                            "Escalated ($where) · contacts ${c.optInt("contactsAlerted")} · $responder · ${c.optInt("elapsedMs")} ms"
-                        }
-                        sosResult = when (result.rung) {
-                            Emergency.Rung.DATA -> "✓ ONLINE — ${result.detail}"
-                            Emergency.Rung.SMS -> "✓ NO DATA → SMS — ${result.detail}"
-                            Emergency.Rung.DIALER -> "→ ${result.detail}"
-                            Emergency.Rung.QUEUED -> "◷ ${result.detail}"
-                        }
-                        onToast("SOS via ${result.rung}")
-                        busy = false
-                    }
+                    sosLeft = SOS_GRACE_S
+                    sosArmed = true
                 },
-                enabled = !busy,
+                enabled = !busy && !sosArmed,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A0B08), contentColor = Cream),
                 modifier = Modifier.size(150.dp).border(1.dp, Alarm.copy(alpha = 0.7f), CircleShape),
-            ) { Text("SOS", fontSize = 20.sp, letterSpacing = 6.sp, fontWeight = FontWeight.SemiBold) }
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("SOS", fontSize = 20.sp, letterSpacing = 6.sp, fontWeight = FontWeight.SemiBold)
+                    Text("5s to cancel", fontSize = 9.sp, letterSpacing = 1.sp, color = Muted)
+                }
+            }
         }
         sosResult?.let {
             Text(it, color = Alarm, fontSize = 12.sp, lineHeight = 17.sp,
@@ -1254,7 +1405,7 @@ private fun BookScreen(
                         },
                         enabled = !busy,
                         shape = RoundedCornerShape(999.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Color(0xFF0A0805)),
+                        colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
                     ) { Text("Accept", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                 }
             }
@@ -1358,10 +1509,20 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
                                 busy = true
                                 scope.launch {
                                     try {
-                                        val r = Api.post(
-                                            "/v1/bookings/$bookingId/transition",
-                                            JSONObject().put("command", cmd),
-                                        )
+                                        // PAID is settled through the payments
+                                        // endpoint, never asserted as a bare
+                                        // transition; the envelope is identical.
+                                        val r = if (cmd == "payment.settled") {
+                                            Api.post(
+                                                "/v1/bookings/$bookingId/pay",
+                                                JSONObject().put("method", "upi"),
+                                            )
+                                        } else {
+                                            Api.post(
+                                                "/v1/bookings/$bookingId/transition",
+                                                JSONObject().put("command", cmd),
+                                            )
+                                        }
                                         val d = r.getJSONObject("data")
                                         status = d.getString("status")
                                         val next = r.optJSONObject("meta")?.optJSONArray("nextCommands") ?: JSONArray()

@@ -52,6 +52,32 @@ async function main() {
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS mechanics_alive_avail_idx
       ON mechanics (is_available) WHERE deleted_at IS NULL AND verified = true`);
+  // ── indexes added from measured plans, not from habit ────────────────────
+  // Both of these were confirmed Seq Scans (EXPLAIN, against the seeded
+  // database) on queries that run on a hot path. Nothing is indexed here
+  // because a column "looks like a key".
+  //
+  //   invoices(booking_id)    every payment begins by finding the invoice for a
+  //                           booking, and it was a full scan of the table.
+  //   payments(provider_ref)  the Razorpay webhook's ONLY lookup. Razorpay
+  //                           retries until it gets a 2xx, so a slow webhook is
+  //                           a self-amplifying load.
+  //
+  // Three other candidates were measured and deliberately NOT added:
+  // dispatch_offers already has (mechanic_id, status), which is the selective
+  // part of the inbox query; booking_events already has (booking_id,
+  // created_at); and off-grid lookups by client reference are served by the
+  // unique index from migration 0004. Adding a near-duplicate to each would
+  // have cost write throughput on three hot tables and bought nothing.
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS invoices_booking_alive_idx
+      ON invoices (booking_id) WHERE deleted_at IS NULL`);
+  await db.execute(sql`
+    CREATE INDEX IF NOT EXISTS payments_provider_ref_idx
+      ON payments (provider_ref)`);
+  // Retired: offers_inbox_idx duplicated offers_mechanic_idx's prefix.
+  await db.execute(sql`DROP INDEX IF EXISTS offers_inbox_idx`);
+
   // Geospatial: GiST is what makes "nearest mechanic" fast.
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS mechanics_location_gix

@@ -1,0 +1,66 @@
+{
+  "capturedAt": "2026-09-06T13:16:17.464Z",
+  "base": "http://localhost:4000",
+  "shots": [
+    {
+      "name": "01-login",
+      "caption": "OTP sign-in — real API, dev OTP returned in the response"
+    },
+    {
+      "name": "02-home",
+      "caption": "Home — SOS, emergency readiness, quick actions"
+    },
+    {
+      "name": "03-vehicle",
+      "caption": "Vehicle added — dispatch is against a specific vehicle"
+    },
+    {
+      "name": "04-ai-diagnosis",
+      "caption": "Diagnosis — cause, confidence, severity, safety action, engine version"
+    },
+    {
+      "name": "05-dispatch",
+      "caption": "Dispatch — ranked offers with distance, ETA and score"
+    },
+    {
+      "name": "06-tracking",
+      "caption": "Tracking — live status, provider, ETA, last updated"
+    },
+    {
+      "name": "07-offline-banner",
+      "caption": "OFF-GRID — the indicator and banner say what still works"
+    },
+    {
+      "name": "08-offline-diagnosis",
+      "caption": "LOCAL OFFLINE DIAGNOSIS — on-device rules engine, labelled"
+    },
+    {
+      "name": "09-offgrid-sos",
+      "caption": "OFF-GRID SOS CREATED — 'Nothing has been transmitted'"
+    },
+    {
+      "name": "10-offgrid-screen",
+      "caption": "Off-grid incident — reference, GPS, available vs unavailable"
+    },
+    {
+      "name": "11-sync-complete",
+      "caption": "SOS SYNCHRONIZED — journal empty, platform reference returned"
+    },
+    {
+      "name": "12-activity",
+      "caption": "Activity — bookings and hazard reports"
+    },
+    {
+      "name": "13-mechanic-login",
+      "caption": "Mechanic console sign-in"
+    },
+    {
+      "name": "14-authority",
+      "caption": "RAKSHA authority dashboard — live map, road health, detections"
+    },
+    {
+      "name": "15-landing",
+      "caption": "Product landing page"
+    }
+  ]
+}

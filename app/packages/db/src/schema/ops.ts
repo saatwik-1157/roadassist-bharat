@@ -29,9 +29,33 @@ export const incidents = pgTable("incidents", {
   cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
   handedOffTo112At: timestamp("handed_off_to_112_at", { withTimezone: true }),
   degradedPath: boolean("degraded_path").notNull().default(false),
+
+  // ── Off-Grid Mode (ADR-0009) ────────────────────────────────────────────
+  /**
+   * The reference the DEVICE minted while it had no network — "RA-K7P2QX".
+   *
+   * Unique, and that uniqueness is the entire duplicate-prevention story: a
+   * device that retries a sync it already completed (because the response was
+   * lost on the way back, which is the normal way retries duplicate things)
+   * collides here and the second insert is a no-op instead of a second
+   * ambulance. It is also what the user can read aloud over a borrowed phone
+   * before the incident has any server id at all.
+   */
+  clientIncidentId: varchar("client_incident_id", { length: 64 }),
+  /**
+   * When it actually happened, as distinct from created_at, which is when it
+   * reached us. On an off-grid incident those can be hours apart, and dispatch
+   * needs the first one.
+   */
+  occurredAt: timestamp("occurred_at", { withTimezone: true }),
+  /** What the person said was wrong: breakdown | accident | medical | unsafe | other. */
+  emergencyType: varchar("emergency_type", { length: 24 }),
+  /** When the device's stored copy reached the platform. Null for online incidents. */
+  syncedAt: timestamp("synced_at", { withTimezone: true }),
 }, (t) => ({
   statusIdx: index("incidents_status_idx").on(t.status),
   userIdx: index("incidents_user_idx").on(t.userId),
+  clientIdUq: uniqueIndex("incidents_client_id_uq").on(t.clientIncidentId),
 }));
 
 export const incidentSignals = pgTable("incident_signals", {

@@ -186,33 +186,50 @@ Thank you, Jignesh. Modules four and five — the fundamental cloud architecture
 
 ### Slide 14 — Fundamental Cloud Architectures Applied · 40 sec
 
-Module four lists eight fundamental architectures. All eight are in our design, and I will not read all eight — I will give you three that we can actually demonstrate.
+Module four lists eight fundamental architectures. All eight are in our **target** architecture, and I want to be exact about which are built and which are designed.
 
-**Dynamic scalability** — pods are added when the request queue grows. **Cloud bursting** — monsoon and festival surges burst into additional on-demand capacity and then release it. And **redundant storage** — primary and secondary storage replicated across zones with automatic failover.
+**Built and demonstrable today:** workload distribution and resource pooling, in the form of the dispatch engine — a PostGIS nearest-neighbour search over a pool of providers, with the busy ones excluded. I can run that live.
 
-The other five — workload distribution, resource pooling, elastic resource capacity, service load balancing and elastic disk provisioning — are on the slide with where each one sits in our system.
+**Designed, not deployed:** dynamic scalability, cloud bursting, elastic resource capacity, service load balancing, elastic disk provisioning and redundant storage. The design is on the slide with where each one sits. The cluster is not provisioned, so I will not show you an autoscaler and call it ours.
 
 *[Advance.]*
 
-### Slide 15 — LIVE: Dynamic Scalability · 45 sec
+### Slide 15 — Dynamic Scalability: the design · 45 sec
 
 *[Say nothing for the first four seconds. Let the animation run one full cycle.]*
 
-That is our autoscaler, running.
+That animation is our **scaling design**. I want to be clear before I explain it:
+this is not a running cluster. It is the architecture we would deploy, and I will
+tell you exactly what we have instead.
 
-Notice the trigger. We scale on **queue depth per pod**, not CPU. Our workload is input-output bound — it waits on the database and on external APIs — so CPU would tell us almost nothing.
+Notice the trigger we chose. We would scale on **queue depth per pod**, not CPU.
+Our workload is input-output bound — it waits on the database and on external
+APIs — so CPU would tell us almost nothing. That reasoning comes from our own
+measurements: our heaviest endpoint, dispatch, spends its time in PostGIS, not
+in the Node process.
 
-When the threshold is crossed, the Horizontal Pod Autoscaler adds pods in about thirty seconds, and a new pod joins the load balancer **only after it passes a health check**. If the existing nodes cannot host those pods, the cluster autoscaler adds nodes — that is elastic resource capacity in the Module four sense.
+The design is a Horizontal Pod Autoscaler on queue depth, a readiness gate so a
+new pod joins the load balancer only after it passes a health check, and a
+cluster autoscaler underneath for elastic resource capacity.
+
+**What is actually built:** the readiness gate. Our `/health` endpoint returns
+503 when the database is unreachable, so any orchestrator or load balancer takes
+the instance out of rotation. That is one real piece of this architecture, it is
+tested, and I can show you the 503.
 
 *[Point at the last card.]*
 
-And this is the part people forget. When demand falls, the pods are removed and the nodes are returned. **Releasing capacity is what makes the cost proportional.** Scaling up is easy. Scaling down is the discipline.
+And this is the part people forget in the design. When demand falls, the pods
+are removed and the nodes returned. **Releasing capacity is what makes the cost
+proportional.** Scaling up is easy. Scaling down is the discipline.
 
 *[Advance.]*
 
-### Slide 16 — LIVE: Load Balancing and Redundant Storage · 40 sec
+### Slide 16 — Load Balancing and Redundant Storage: the design · 40 sec
 
-Two more architectures, both running.
+Two more architectures. Both are designed; neither is deployed. What backs them
+today is a single container with a documented backup procedure — I will say what
+that means at the end.
 
 On the left, workload distribution and service load balancing. One inbound stream is spread across six healthy replicas. The balancer health-checks each replica continuously and removes any that fails, so a sick pod never receives traffic.
 
@@ -254,7 +271,7 @@ On scheduling, we do both kinds. **Static** — nightly model training and analy
 
 *[Point at the timeline.]*
 
-Here is cloud bursting on a real evening. Five p.m., six pods, baseline. Rain begins, queue depth rises. Six twenty-five, we autoscale to twenty-two. Six forty, we burst onto additional on-demand nodes. And at nine p.m. we release everything back to six.
+Here is cloud bursting as a **modelled** evening — a worked scenario, not telemetry from a running system. Five p.m., six pods, baseline. Rain begins, queue depth rises. Six twenty-five, the autoscaler would reach twenty-two. Six forty, we burst onto additional on-demand nodes. And at nine p.m. everything is released back to six. The shape of the curve is the point; the numbers are a projection, and I will not present them as measurements.
 
 *[Advance.]*
 
@@ -348,9 +365,28 @@ To be clear about the relationship: the cloud does all the heavy work — traini
 
 *[Let the animation run. Do not talk over the first loop.]*
 
-This is the emergency path running.
+This is the emergency path, and most of it is genuinely running — I will mark
+the one part that is not.
 
-Detection happens on the handset, so it does not need a network. A thirty-second cancel window opens — full-screen, audible, with haptic feedback — because the model raises a **signal**, and a human confirms an incident. Emergency contacts are alerted with a live location link through the isolated emergency service. The nearest responder is found by a geospatial query that runs even if the main platform is down. And at nine seconds, the handoff to ERSS 112 over mutual TLS with a signed payload.
+Detection happens on the handset, so it does not need a network — **built**, and
+I can demonstrate it with the network off. A thirty-second cancel window opens,
+because the model raises a **signal** and a human confirms an incident — **built,
+and enforced in code**: there is no transition from a model-detected signal to a
+dispatched responder that does not pass through a human confirmation. Emergency
+contacts are alerted with a live location link — **built**; the response tells
+you how many were *actually* reached, not how many we hoped to. The nearest
+responder is found by a PostGIS geospatial query — **built**, and I can run it.
+
+The handoff to ERSS 112 is **not built**. It is designed as mutual TLS with a
+signed payload, and in this build it is a stub — our own API says so in the
+response: *"ERSS 112 handoff is stubbed in development — no real emergency
+service is contacted."* Connecting it needs a government integration we do not
+have, and we would rather say that than let you believe an ambulance was called.
+
+The same honesty applies to isolation: ADR-0005 designs the emergency service as
+a separate deployable with its own quota. Today it is a module in the same
+process. The rule it exists to protect — that a model can never dispatch — is
+enforced regardless, in the state machine.
 
 *[Point at the red banner. Slow down.]*
 
@@ -370,7 +406,11 @@ And this is the sentence we want to leave you with from this section. **The AI c
 
 These are three screens from the working prototype — requesting help, the AI diagnosis with a confidence level and a clear "do not drive" verdict, and live tracking.
 
-For Review 1, five things are complete. Cloud infrastructure provisioned — virtual network, subnets, security groups and the Kubernetes cluster. The database deployed and seeded — sixty tables, multi-zone, a hundred thousand rows of test data. Authentication working end to end, with OTP login, token rotation and role-based access. The CI/CD pipeline live, so every commit is built, tested and security-scanned automatically. And the clickable prototype, in Hindi, running on a low-end phone.
+Let me be precise about what is complete, because the difference matters.
+
+**Running, and I can demonstrate every one of these:** the database — 57 tables on PostgreSQL with PostGIS, migrated from empty and seeded, on Docker. Authentication end to end, with OTP login, refresh-token rotation and reuse detection, and role-based access. The full customer and mechanic journey, from breakdown to payment to review. Off-Grid Mode — SOS with no network, stored on the device, synchronised on reconnect with no duplicate. Real-time status over server-sent events. A CI pipeline that builds, typechecks, lints and runs every test suite on each commit. And a production Docker image, which we have built and run, with the whole test suite passing against it.
+
+**Not provisioned, and I will not claim it:** the cloud infrastructure. There is no virtual network, no Kubernetes cluster and no multi-zone deployment. The architecture for all of it is designed and documented; none of it is deployed. What we have is a container that runs anywhere Docker runs, and an honest list of what we would need to take it further.
 
 *[Advance.]*
 
@@ -392,7 +432,7 @@ Review one is complete at twenty-five percent. Review two takes us to seventy �
 
 To close.
 
-We had a problem with unpredictable, national-scale demand — answered by dynamic scalability and cloud bursting. A service that must never fail — answered by multi-zone replication and redundant storage. Sensitive personal and medical data — answered by encryption, PKI, IAM and default-deny security groups. And four students with no hardware budget — answered by consuming IaaS and PaaS on a pay-as-you-go basis.
+We had a problem with unpredictable, national-scale demand — the architectural answer is dynamic scalability and cloud bursting, designed and not yet deployed. A service that must never fail — and here the answer we actually built is not in the cloud at all: it is on the device. Off-Grid Mode means an SOS survives the failure that really happens on a highway, which is the user's own connection. Sensitive personal and medical data — answered by encryption at rest, role-based access, break-glass with a tamper-evident audit chain, and a security suite of 72 attacks that all fail. And four students with no hardware budget — answered by a design that consumes IaaS and PaaS pay-as-you-go, and by building the whole platform so it runs with zero third-party accounts until we choose otherwise.
 
 **A cloud problem, solved with cloud architecture.**
 

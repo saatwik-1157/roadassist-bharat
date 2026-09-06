@@ -130,16 +130,28 @@ declare module "fastify" {
 
 export async function authenticate(req: FastifyRequest, reply: FastifyReply) {
   const header = req.headers.authorization;
+  // `requestId` is on every other error envelope and was missing here, which
+  // made the two most common failures in the system — no token and an expired
+  // one — the only two a user could not quote a reference for when reporting a
+  // problem. It is the same id the structured logs are keyed on.
   if (!header?.startsWith("Bearer ")) {
     return reply.code(401).send({
-      error: { code: "unauthenticated", title: "Sign in to continue", retryable: false },
+      error: {
+        code: "AUTH_REQUIRED", title: "Sign in to continue",
+        retryable: false, requestId: req.id,
+      },
     });
   }
   try {
     req.user = await verifyAccessToken(header.slice(7));
   } catch {
     return reply.code(401).send({
-      error: { code: "token_invalid", title: "Your session has expired. Sign in again.", retryable: false },
+      error: {
+        // Retryable: the client's refresh path can very likely fix this without
+        // the user doing anything, and it does.
+        code: "AUTH_EXPIRED", title: "Your session has expired. Sign in again.",
+        retryable: true, requestId: req.id,
+      },
     });
   }
 }

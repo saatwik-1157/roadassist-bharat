@@ -12,3 +12,6 @@ coverage/
 .tsbuildinfo
 *.tsbuildinfo
 .drizzle-tmp/
+
+# Written by `npm run share` — the ephemeral public tunnel URL.
+.share-url

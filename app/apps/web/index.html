@@ -4,14 +4,53 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RoadAssist — demo client</title>
+<meta name="theme-color" content="#e6e4df" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0c10" media="(prefers-color-scheme: dark)">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("ra.theme");
+      if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) { /* storage blocked — the system preference wins */ }
+  })();
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z' fill='none' stroke='%23e3b96a' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath fill='%23e3b96a' fill-rule='evenodd' d='M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z'/%3E%3Ccircle cx='16' cy='7.5' r='2' fill='%23e3b96a'/%3E%3C/svg%3E">
 <style>
+  /* This surface keeps its highway-signage character — hard edges, mono labels,
+     heavy display face — but now ships both palettes.
+
+     `--ink` used to mean two different things at once: the text colour AND the
+     dark slab behind the phone chrome and the log. Those have to diverge in
+     dark mode, so the slab is now its own token (`--slab`), as are the borders
+     (`--edge`) and filled surfaces (`--card-bg`, `--field-bg`). */
   :root{
     --ground:#E6E4DF; --paper:#F7F6F3; --ink:#16181C; --ink-2:#4A4E56; --ink-3:#6A6F78;
     --hazard:#FFB61E; --hazard-t:#8A5B00; --nh:#0F7A4A; --nh-t:#0B5C38; --red:#D6382F; --red-t:#A82A22;
     --soft:rgba(22,24,28,.14);
+    --slab:#16181C; --slab-t:#F2F1ED; --slab-t2:#CBD5E0;
+    --edge:#16181C; --card-bg:#FFFFFF; --field-bg:#FFFFFF; --bezel:#000000;
+    --gold:#A87A22;
     --display:"Arial Black","Helvetica Neue",system-ui,sans-serif;
     --body:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
     --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  }
+  :root[data-theme="dark"]{
+    --ground:#0B0C10; --paper:#14161B; --ink:#F2F1ED; --ink-2:#B4B8C2; --ink-3:#868B96;
+    --hazard:#FFB61E; --hazard-t:#FFC94F; --nh:#3FD07E; --nh-t:#4FE08E; --red:#FF5A50; --red-t:#FF7A72;
+    --soft:rgba(242,241,237,.16);
+    --slab:#05060A; --slab-t:#F2F1ED; --slab-t2:#CBD5E0;
+    --edge:rgba(242,241,237,.30); --card-bg:#191C22; --field-bg:#11131A; --bezel:#000000;
+    --gold:#E3B96A;
+  }
+  @media(prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0B0C10; --paper:#14161B; --ink:#F2F1ED; --ink-2:#B4B8C2; --ink-3:#868B96;
+      --hazard:#FFB61E; --hazard-t:#FFC94F; --nh:#3FD07E; --nh-t:#4FE08E; --red:#FF5A50; --red-t:#FF7A72;
+      --soft:rgba(242,241,237,.16);
+      --slab:#05060A; --slab-t:#F2F1ED; --slab-t2:#CBD5E0;
+      --edge:rgba(242,241,237,.30); --card-bg:#191C22; --field-bg:#11131A; --bezel:#000000;
+      --gold:#E3B96A;
+    }
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
@@ -22,9 +61,9 @@
   @media(min-width:1000px){.shell{grid-template-columns:400px 1fr}}
 
   /* ── phone ─────────────────────────────────────────────── */
-  .phone-col{background:var(--ink);padding:22px;display:flex;flex-direction:column;align-items:center;gap:14px}
-  .phone{width:344px;max-width:100%;background:var(--paper);border:10px solid #000;height:660px;display:flex;flex-direction:column;overflow:hidden}
-  .bar{background:var(--ink);color:#F2F1ED;padding:9px 13px;display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:11px}
+  .phone-col{background:var(--slab);padding:22px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .phone{width:344px;max-width:100%;background:var(--paper);border:10px solid var(--bezel);height:660px;display:flex;flex-direction:column;overflow:hidden}
+  .bar{background:var(--slab);color:var(--slab-t);padding:9px 13px;display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:11px}
   .bar .net{display:flex;align-items:center;gap:6px}
   .dot{width:8px;height:8px;background:var(--red)}
   .online .dot{background:#3FD07E}
@@ -33,13 +72,13 @@
   .sub{color:var(--ink-2);font-size:13px;margin:0 0 14px}
 
   label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);margin:12px 0 5px}
-  input,select,textarea{width:100%;padding:10px;border:1px solid var(--ink);background:#fff;font:inherit;font-size:14px}
-  .btn{width:100%;padding:12px;background:var(--hazard);border:1px solid var(--hazard);font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-top:14px}
-  .btn.ghost{background:transparent;border-color:var(--ink)}
+  input,select,textarea{width:100%;padding:10px;border:1px solid var(--edge);background:var(--field-bg);font:inherit;font-size:14px}
+  .btn{width:100%;padding:12px;background:var(--hazard);color:#16181C;border:1px solid var(--hazard);font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-top:14px}
+  .btn.ghost{background:transparent;border-color:var(--edge);color:var(--ink)}
   .btn.danger{background:var(--red);border-color:var(--red);color:#fff}
   .btn:disabled{opacity:.4;cursor:not-allowed}
 
-  .card{border:1px solid var(--soft);background:#fff;padding:12px;margin-top:10px}
+  .card{border:1px solid var(--soft);background:var(--card-bg);padding:12px;margin-top:10px}
   .row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0}
   .row span:first-child{color:var(--ink-2)}
   .k{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
@@ -55,24 +94,34 @@
   .log-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px}
   .log-head h1{font-family:var(--display);font-size:19px;margin:0;letter-spacing:-.02em}
   .log-head p{margin:0;color:var(--ink-2);font-size:13px}
-  .log{flex:1;background:var(--ink);color:#CBD5E0;font-family:var(--mono);font-size:11.5px;line-height:1.65;padding:13px;overflow:auto;min-height:340px}
+  .log{flex:1;background:var(--slab);color:var(--slab-t2);font-family:var(--mono);font-size:11.5px;line-height:1.65;padding:13px;overflow:auto;min-height:340px}
   .log div{white-space:pre-wrap;word-break:break-word;border-bottom:1px solid rgba(255,255,255,.06);padding:4px 0}
   .log .m{color:var(--hazard)} .log .u{color:#6FD3FF} .log .g{color:#5BE49B} .log .r{color:#FF8A80} .log .d{color:#7C818A}
   .hint{font-size:12px;color:var(--ink-3)}
 
+  /* ── surface switcher ──────────────────────────────────── */
+  .surfaces{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 12px;
+    border:1px solid var(--soft);background:var(--card-bg)}
+  .surfaces .brand{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);
+    font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;margin-right:2px}
+  .surfaces .brand svg{width:19px;height:19px}
+  .surfaces a{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink-2);
+    text-decoration:none;padding:4px 8px;border:1px solid transparent}
+  .surfaces a:hover{color:var(--ink);border-color:var(--soft)}
+
   /* ── feature phone ─────────────────────────────────────── */
-  .feature-phone{border:1px solid var(--ink);background:#fff}
+  .feature-phone{border:1px solid var(--edge);background:var(--card-bg)}
   .fp-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--soft);background:var(--paper)}
   .fp-head b{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
   .fp-thread{max-height:190px;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:7px;font-family:var(--mono);font-size:11.5px}
   .fp-thread p{margin:0;padding:6px 9px;max-width:82%;white-space:pre-wrap}
-  .fp-thread .out{align-self:flex-end;background:var(--ink);color:#F2F1ED}
+  .fp-thread .out{align-self:flex-end;background:var(--slab);color:var(--slab-t)}
   .fp-thread .in{align-self:flex-start;background:var(--paper);border:1px solid var(--soft)}
   .fp-input{display:flex;gap:7px;padding:10px 12px;border-top:1px solid var(--soft)}
   .fp-input input{font-family:var(--mono);font-size:12px}
   .fp-quick{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 11px}
-  .fp-quick button{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:5px 8px;border:1px solid var(--soft);background:#fff}
-  .fp-quick button:hover{border-color:var(--ink)}
+  .fp-quick button{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:5px 8px;border:1px solid var(--soft);background:var(--card-bg)}
+  .fp-quick button:hover{border-color:var(--edge)}
 </style>
 </head>
 <body>
@@ -85,8 +134,8 @@
       </div>
       <div class="screen" id="screen"></div>
     </div>
-    <button class="btn ghost" id="toggle-net" style="width:344px;max-width:100%;background:#fff">Go online</button>
-    <p class="hint" style="color:#8FA5B8;text-align:center;max-width:344px">
+    <button class="btn ghost" id="toggle-net" style="width:344px;max-width:100%">Go online</button>
+    <p class="hint" style="color:var(--slab-t2);text-align:center;max-width:344px">
       Everything the phone does runs against the live API. Offline actions queue on
       the device and replay when you come back online.
     </p>
@@ -101,8 +150,27 @@
       <div>
         <span class="pill" id="api-state">checking API…</span>
         <button class="btn ghost" id="clear" style="width:auto;margin:0;padding:6px 12px">Clear</button>
+        <button class="btn ghost" id="theme" style="width:auto;margin:0;padding:6px 12px"
+                title="Switch theme" aria-label="Switch colour theme">Theme</button>
       </div>
     </div>
+
+    <nav class="surfaces" aria-label="Other surfaces">
+      <span class="brand">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z"
+                fill="none" stroke="var(--gold)" stroke-width="2" stroke-linejoin="round"/>
+          <path fill="var(--gold)" fill-rule="evenodd"
+                d="M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z"/>
+          <circle cx="16" cy="7.5" r="1.9" fill="var(--gold)"/>
+        </svg>
+        RoadAssist
+      </span>
+      <a href="/app.html">Citizen app</a>
+      <a href="/mechanic.html">Mechanic</a>
+      <a href="/raksha.html">Authority</a>
+      <a href="/showcase.html">Showcase</a>
+    </nav>
     <div class="log" id="log"></div>
 
     <div class="feature-phone">
@@ -155,11 +223,28 @@ async function api(method, path, body, opts = {}) {
     return { queued: true, opId: op.opId };
   }
   write("u", `→ ${method} ${path}${body ? "  " + JSON.stringify(body) : ""}`);
-  const res = await fetch(API + path, {
+  const send = () => fetch(API + path, {
     method,
     headers: { "content-type": "application/json", ...(state.token ? { authorization: "Bearer " + state.token } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
+  let res = await send();
+  // The access token lives ten minutes; a walkthrough can easily run longer.
+  // `state.refresh` was captured at sign-in and then never used, so every call
+  // past the expiry failed with "sign in again" mid-demonstration.
+  if (res.status === 401 && state.refresh && !opts.noRetry) {
+    write("m", "⟳ access token expired — rotating refresh token");
+    const rot = await fetch(API + "/v1/auth/refresh", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refreshToken: state.refresh }),
+    }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    if (rot?.data) {
+      state.token = rot.data.accessToken;
+      state.refresh = rot.data.refreshToken;
+      res = await send();
+    }
+  }
   const json = await res.json().catch(() => ({}));
   write(res.ok ? "g" : "r", `← ${res.status}  ${JSON.stringify(json).slice(0, 420)}`);
   if (!res.ok) throw Object.assign(new Error(json?.error?.title || "Request failed"), { payload: json });
@@ -364,7 +449,9 @@ const acts = {
     render("tracking");
   },
   async pay() {
-    const r = await api("POST", `/v1/bookings/${state.booking.id}/transition`, { command: "payment.settled" });
+    // PAID is not a transition a client may assert: the invoice is settled
+    // through the payments endpoint, which is what then advances the booking.
+    const r = await api("POST", `/v1/bookings/${state.booking.id}/pay`, { method: "upi" });
     if (r.queued) return;
     state.booking.status = r.data.status; render("tracking");
   },

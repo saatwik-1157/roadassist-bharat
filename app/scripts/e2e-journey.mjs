@@ -142,11 +142,47 @@ ok("full event history recorded", (detail.data?.events?.length ?? 0) >= 6,
    `${detail.data?.events?.length} events`);
 
 // ── 9. invoice + payment ───────────────────────────────────────────────────
-console.log("\n9. Invoice");
+console.log("\n9. Invoice and payment");
 const completed = detail.data;
 ok("booking is COMPLETED", completed.status === "COMPLETED");
-const paid = await call("POST", `/v1/bookings/${bookingId}/transition`, { token, body: { command: "payment.settled" } });
-ok("payment settles the booking", paid.data?.status === "PAID");
+
+// PAID is a fact about money, not a state the client may simply assert. The
+// command is still how the transition is recorded — it just no longer creates
+// the settlement it records.
+const freeRide = await call("POST", `/v1/bookings/${bookingId}/transition`, { token, body: { command: "payment.settled" } });
+ok("a booking cannot be marked PAID without a payment",
+   freeRide.status === 409 && freeRide.error?.code === "payment_required",
+   `got ${freeRide.status} ${freeRide.error?.code ?? ""}`);
+
+const cashGrab = await call("POST", `/v1/bookings/${bookingId}/pay`, { token, body: { method: "cash" } });
+ok("the customer cannot declare their own cash payment", cashGrab.status === 403,
+   `got ${cashGrab.status}`);
+
+const badMethod = await call("POST", `/v1/bookings/${bookingId}/pay`, { token, body: { method: "barter" } });
+ok("an unknown payment method is rejected", badMethod.status === 400, `got ${badMethod.status}`);
+
+const paid = await call("POST", `/v1/bookings/${bookingId}/pay`, { token, body: { method: "upi" } });
+ok("paying the invoice settles the booking", paid.status === 200 && paid.data?.status === "PAID",
+   `got ${paid.status} ${paid.data?.status ?? ""}`);
+ok("the payment is recorded for exactly the invoiced amount, never the client's figure",
+   paid.data?.payment?.amountPaise === paid.data?.invoice?.totalPaise && paid.data?.payment?.status === "SETTLED",
+   `₹${((paid.data?.payment?.amountPaise ?? 0) / 100).toFixed(2)}`);
+
+const doublePay = await call("POST", `/v1/bookings/${bookingId}/pay`, { token });
+ok("paying an already-paid booking does not charge again",
+   doublePay.status === 200 && doublePay.data?.alreadySettled === true);
+
+const settledEvent = await call("GET", `/v1/bookings/${bookingId}`, { token });
+ok("the settlement is in the audit trail like every other transition",
+   settledEvent.data?.events?.some((e) => e.command === "payment.settled" && e.toStatus === "PAID"));
+
+const unpayable = await call("POST", "/v1/bookings", {
+  token, body: { vehicleId, serviceTypeCode: "flat_tyre", lat: 28.4595, lng: 77.0266 },
+});
+const early = await call("POST", `/v1/bookings/${unpayable.data.id}/pay`, { token });
+ok("a job that has not been done yet cannot be paid for",
+   early.status === 409 && early.error?.code === "not_payable",
+   `got ${early.status} ${early.error?.code ?? ""}`);
 
 // ── 10. offline sync ───────────────────────────────────────────────────────
 console.log("\n10. Offline replay");
@@ -156,6 +192,55 @@ const batch = { operations: [{ opId, entity: "booking", operation: "create",
 const s1 = await call("POST", "/v1/sync/operations", { token, body: batch });
 ok("queued operation applied on reconnect", s1.data?.results?.[0]?.status === "applied");
 const s2 = await call("POST", "/v1/sync/operations", { token, body: batch });
+
+// ── 11b. offline conflict resolution (ADR-0004 §8) ─────────────────────────
+// A device that lost the network at one status and reconnects after the
+// mechanic moved the job on must NOT be able to drag the booking backwards.
+console.log("\n11b. Offline conflict resolution");
+const staleOp = {
+  operations: [{
+    opId: "conflict-" + Math.random().toString(36).slice(2, 12),
+    entity: "booking", entityId: bookingId, operation: "update",
+    // The booking is PAID by this point in the journey; the device thinks it
+    // is still EN_ROUTE because that is where it was when the signal died.
+    payload: { status: "EN_ROUTE" },
+    clientUpdatedAt: new Date().toISOString(),
+  }],
+};
+const conflicted = await call("POST", "/v1/sync/operations", { token, body: staleOp });
+const conflictResult = conflicted.data?.results?.[0];
+ok("a stale client status is not applied", conflictResult?.status === "conflict",
+   conflictResult?.status);
+ok("the rule that fired is named", conflictResult?.rule === "server_wins", conflictResult?.rule);
+ok("the server's value is returned as authoritative",
+   conflictResult?.authoritative?.status === "PAID" && conflictResult?.serverValue === "PAID",
+   `server=${conflictResult?.serverValue} client=${conflictResult?.clientValue}`);
+ok("the batch reports the conflict count", conflicted.meta?.conflicts === 1,
+   JSON.stringify(conflicted.meta));
+
+// A separate account, signed in here rather than reusing the one created later
+// in this file — an ownership check must not depend on statement order.
+const bystanderMsisdn = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+const bystanderOtp = await call("POST", "/v1/auth/otp/request", { body: { msisdn: bystanderMsisdn } });
+const bystander = await call("POST", "/v1/auth/otp/verify", {
+  body: { msisdn: bystanderMsisdn, code: bystanderOtp.meta.devOtp },
+});
+const foreignOp = await call("POST", "/v1/sync/operations", {
+  token: bystander.data.accessToken,
+  body: { operations: [{ ...staleOp.operations[0], opId: "x-" + Math.random().toString(36).slice(2, 12) }] },
+});
+ok("a device cannot sync an operation about someone else's booking",
+   foreignOp.data?.results?.[0]?.status === "rejected",
+   foreignOp.data?.results?.[0]?.reason);
+
+const agreeing = await call("POST", "/v1/sync/operations", {
+  token,
+  body: { operations: [{ ...staleOp.operations[0], opId: "agree-" + Math.random().toString(36).slice(2, 12),
+    payload: { status: "PAID" } }] },
+});
+ok("a client that already agrees with the server applies cleanly",
+   agreeing.data?.results?.[0]?.status === "applied",
+   agreeing.data?.results?.[0]?.status);
 ok("replaying the same operation is a safe no-op", s2.data?.results?.[0]?.status === "duplicate");
 
 // ── 11. ownership isolation ────────────────────────────────────────────────
@@ -204,6 +289,107 @@ ok("escalation measured under 10s", confirmed.data?.elapsedMs < 10000,
 
 const manual = await call("POST", "/v1/sos", { token, body: { lat: 28.46, lng: 77.03, source: "manual" } });
 ok("a manual SOS needs no confirmation", manual.data?.status === "CONFIRMED");
+
+// ── 12b. off-grid SOS: store on the device, forward on reconnect (ADR-0009) ─
+console.log("\n12b. Off-grid SOS synchronisation");
+
+const ping = await call("GET", "/v1/ping");
+ok("the connectivity probe answers without touching the database",
+   ping.status === 200 && typeof ping.data?.t === "number");
+
+/** The device mints these; the shape is pinned so a colliding key cannot get in. */
+const ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
+const clientId = () => "RA-" + Array.from({ length: 6 },
+  () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join("");
+const digest64 = () => Array.from({ length: 64 },
+  () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
+
+const offGridId = clientId();
+const offGridOp = "ogs-" + Math.random().toString(36).slice(2, 14);
+const offGridBody = {
+  incidents: [{
+    clientIncidentId: offGridId,
+    opId: offGridOp,
+    // Raised twenty minutes ago, while the phone had no signal.
+    occurredAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
+    emergencyType: "breakdown",
+    lat: 28.4601, lng: 77.0301, accuracyM: 14,
+    vehicleId,
+    diagnosis: { cause: "Battery discharged or terminals loose", confidence: 0.8, severity: 3, engine: "local-rules-1.0.0" },
+    integrity: digest64(),
+  }],
+};
+
+const anonSync = await call("POST", "/v1/sos/offline-sync", { body: offGridBody });
+ok("off-grid sync has no anonymous intake path", anonSync.status === 401, `got ${anonSync.status}`);
+
+const synced = await call("POST", "/v1/sos/offline-sync", { token, body: offGridBody });
+ok("a stored off-grid incident is accepted on reconnect", synced.status === 200, `got ${synced.status}`);
+const created = synced.data?.results?.[0];
+ok("it lands as a real incident with a server id", Boolean(created?.id), created?.status);
+ok("it arrives CONFIRMED — it was a human act when it happened",
+   created?.incidentStatus === "CONFIRMED", created?.incidentStatus);
+ok("the server reports how long it sat on the device",
+   created?.storedOfflineForMs > 60_000, `${Math.round((created?.storedOfflineForMs ?? 0) / 1000)}s`);
+ok("syncing does NOT alert anybody — escalation stays an explicit step",
+   created?.escalationRequired === true && /Nothing has been alerted/i.test(synced.meta?.note ?? ""),
+   synced.meta?.note);
+
+// The whole point of the idempotency key: a retry after a lost response.
+const replay = await call("POST", "/v1/sos/offline-sync", { token, body: offGridBody });
+ok("replaying the same incident creates no duplicate",
+   replay.data?.results?.[0]?.status === "duplicate", replay.data?.results?.[0]?.status);
+ok("the replay converges on the same incident id",
+   replay.data?.results?.[0]?.id === created?.id);
+ok("the meta counts the replay as a duplicate, not a creation",
+   replay.meta?.created === 0 && replay.meta?.duplicates === 1,
+   JSON.stringify(replay.meta));
+
+const otherReplay = await call("POST", "/v1/sos/offline-sync", { token: otherToken, body: offGridBody });
+ok("another account cannot claim someone else's device reference",
+   otherReplay.data?.results?.[0]?.status === "rejected",
+   otherReplay.data?.results?.[0]?.reason);
+
+// Offline payloads are re-validated as hostile input, because that is what they are.
+const badShape = await call("POST", "/v1/sos/offline-sync", {
+  token, body: { incidents: [{ ...offGridBody.incidents[0], clientIncidentId: "not-a-reference" }] },
+});
+ok("a malformed device reference is rejected outright", badShape.status === 400, `got ${badShape.status}`);
+
+const future = await call("POST", "/v1/sos/offline-sync", {
+  token, body: { incidents: [{ ...offGridBody.incidents[0], clientIncidentId: clientId(),
+    opId: "ogs-" + Math.random().toString(36).slice(2, 14),
+    occurredAt: new Date(Date.now() + 60 * 60 * 1000).toISOString() }] },
+});
+ok("an incident from the future is refused, not silently accepted",
+   future.data?.results?.[0]?.status === "rejected", future.data?.results?.[0]?.reason);
+
+const stale = await call("POST", "/v1/sos/offline-sync", {
+  token, body: { incidents: [{ ...offGridBody.incidents[0], clientIncidentId: clientId(),
+    opId: "ogs-" + Math.random().toString(36).slice(2, 14),
+    occurredAt: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString() }] },
+});
+ok("an incident older than the retention window is refused",
+   stale.data?.results?.[0]?.status === "rejected", stale.data?.results?.[0]?.reason);
+
+const foreignVehicle = await call("POST", "/v1/sos/offline-sync", {
+  token, body: { incidents: [{ ...offGridBody.incidents[0], clientIncidentId: clientId(),
+    opId: "ogs-" + Math.random().toString(36).slice(2, 14),
+    vehicleId: "00000000-0000-4000-8000-000000000000" }] },
+});
+ok("an unverifiable vehicle link is dropped rather than failing the emergency",
+   foreignVehicle.data?.results?.[0]?.status === "created",
+   foreignVehicle.data?.results?.[0]?.status);
+
+// And the escalation ladder is the same one an online SOS runs.
+const offGridEscalated = await call("POST", `/v1/sos/${created.id}/confirm`, { token });
+ok("a synchronised off-grid incident escalates through the normal ladder",
+   offGridEscalated.data?.status === "RESPONDING", offGridEscalated.data?.status);
+ok("its emergency contacts are alerted like any other incident",
+   offGridEscalated.data?.contactsAlerted >= 1, `${offGridEscalated.data?.contactsAlerted}`);
+
+const offGridDetail = await call("GET", `/v1/bookings`, { token });   // keeps the session warm
+ok("the session survives the off-grid round trip", offGridDetail.status === 200);
 
 // ── 13. feature phone over SMS ─────────────────────────────────────────────
 console.log("\n13. Feature phone (SMS only, no app)");
@@ -469,6 +655,282 @@ for (let i = 0; i < 25; i++) {
 }
 ok("a single account is rate-limited after a burst of reports", got429 && made <= 20,
    `accepted ${made} then 429`);
+
+// ── 19. keyless basemap proxy ──────────────────────────────────────────────
+// The proxy used to fetch CARTO raster basemaps, which now require an API key
+// and stamp "API KEY REQUIRED" across every unauthenticated tile. It serves
+// keyless OpenStreetMap tiles instead, so the map carries no watermark and the
+// platform still needs zero third-party accounts.
+console.log("\n19. Keyless basemap proxy");
+const tile = (path) => fetch(`${BASE}/basemap/${path}`);
+const [tOk, tLowZ, tHighZ, tBadFile] = await Promise.all([
+  tile("5/22/13.png"), tile("2/1/1.png"), tile("19/1/1.png"), tile("5/22/notatile.png"),
+]);
+ok("a basemap tile is served as PNG", tOk.status === 200 &&
+   tOk.headers.get("content-type")?.includes("image/png"), `got ${tOk.status}`);
+const tileBytes = Buffer.from(await tOk.arrayBuffer());
+ok("the tile is a real PNG, not an error page",
+   tileBytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
+   `${tileBytes.length} bytes`);
+ok("tiles are cached hard by the client", (tOk.headers.get("cache-control") ?? "").includes("max-age"),
+   tOk.headers.get("cache-control") ?? "none");
+ok("a zoom below the allowed window is rejected", tLowZ.status === 400, `got ${tLowZ.status}`);
+ok("a zoom above the allowed window is rejected", tHighZ.status === 400, `got ${tHighZ.status}`);
+ok("a non-numeric tile filename is rejected", tBadFile.status === 400, `got ${tBadFile.status}`);
+
+// These four sections continue the booking from §9. They run here rather than
+// beside it because they need the admin and second-citizen sessions, and every
+// extra OTP counts against the per-IP ceiling this suite must not trip.
+// ── 20. reviews ────────────────────────────────────────────────────────────
+// The dispatch ranker weights `rating` at 34% of a mechanic's score but nothing
+// used to write that column. These assertions pin the loop shut.
+console.log("\n20. Reviews");
+const unreviewable = await call("POST", `/v1/bookings/${unpayable.data.id}/review`, {
+  token, body: { rating: 5 },
+});
+ok("an unfinished job cannot be reviewed",
+   unreviewable.status === 409 && unreviewable.error?.code === "not_reviewable",
+   `got ${unreviewable.status} ${unreviewable.error?.code ?? ""}`);
+
+const outOfRange = await call("POST", `/v1/bookings/${bookingId}/review`, { token, body: { rating: 9 } });
+ok("a rating outside 1–5 is rejected", outOfRange.status === 400, `got ${outOfRange.status}`);
+
+const mechanicBefore = (await call("GET", `/v1/bookings/${bookingId}`, { token })).data?.mechanicId;
+const review = await call("POST", `/v1/bookings/${bookingId}/review`, {
+  token, body: { rating: 2, comment: "Took a while, but sorted it." },
+});
+ok("the customer can review a paid job", review.status === 201 && review.data?.rating === 2,
+   `got ${review.status}`);
+// Bounds rather than an exact figure: this suite shares a database, so the
+// mechanic dispatch picks may already carry reviews from earlier runs. Both
+// bounds hold for any history — shrinkage toward the 4.2 prior keeps the score
+// strictly above the 2★ just given, and the 2★ still costs them something.
+// The exact formula is pinned in apps/api/test/rating.test.ts.
+ok("one harsh review dents the mechanic's rating without destroying it",
+   review.data?.mechanicRating > 2 && review.data?.mechanicRating < 4.2,
+   `rating=${review.data?.mechanicRating} across ${review.data?.mechanicReviewCount} review(s)`);
+
+const reviewTwice = await call("POST", `/v1/bookings/${bookingId}/review`, { token, body: { rating: 5 } });
+ok("the same job cannot be reviewed twice",
+   reviewTwice.status === 409 && reviewTwice.error?.code === "already_reviewed",
+   `got ${reviewTwice.status} ${reviewTwice.error?.code ?? ""}`);
+
+const strangerReview = await call("POST", `/v1/bookings/${bookingId}/review`, {
+  token: otherToken, body: { rating: 1 },
+});
+ok("somebody else cannot review a job they were not on", strangerReview.status === 403,
+   `got ${strangerReview.status}`);
+
+const publicReviews = await call("GET", `/v1/mechanics/${mechanicBefore}/reviews`, { token });
+ok("a mechanic's reviews are readable with their distribution",
+   publicReviews.status === 200 && publicReviews.data?.reviews?.length >= 1 &&
+   Array.isArray(publicReviews.data?.distribution),
+   `${publicReviews.data?.reviews?.length} review(s)`);
+ok("a review is published without identifying who wrote it",
+   publicReviews.data?.reviews?.every((r) => !("userId" in r)));
+
+// ── 21. medical profile and break-glass ────────────────────────────────────
+console.log("\n21. Medical profile · break-glass");
+const noProfile = await call("GET", "/v1/me/medical", { token });
+ok("a profile starts unset rather than missing", noProfile.status === 200,
+   `configured=${noProfile.meta?.configured}`);
+
+const badBlood = await call("PUT", "/v1/me/medical", { token, body: { bloodGroup: "Z+" } });
+ok("an impossible blood group is rejected", badBlood.status === 400, `got ${badBlood.status}`);
+
+const savedMedical = await call("PUT", "/v1/me/medical", {
+  token, body: { bloodGroup: "O+", allergies: "penicillin", conditions: "asthma" },
+});
+ok("the medical profile saves", savedMedical.status === 200 && savedMedical.data?.bloodGroup === "O+");
+
+const emergency = await call("POST", "/v1/sos", { token, body: { lat: 28.4595, lng: 77.0266 } });
+const incidentId = emergency.data?.incidentId ?? emergency.data?.id;
+ok("an incident exists to break glass on", Boolean(incidentId));
+
+const selfServe = await call("GET", `/v1/incidents/${incidentId}/medical?reason=curious+about+this+record`, { token });
+ok("a citizen cannot break glass on anyone, including themselves", selfServe.status === 403,
+   `got ${selfServe.status}`);
+
+const noReason = await call("GET", `/v1/incidents/${incidentId}/medical`, { token: adminToken });
+ok("an authority must give a reason", noReason.status === 400, `got ${noReason.status}`);
+
+const thinReason = await call("GET", `/v1/incidents/${incidentId}/medical?reason=x`, { token: adminToken });
+ok("the reason has to actually say something", thinReason.status === 400, `got ${thinReason.status}`);
+
+const REASON = "unconscious at scene, need blood group before transfusion";
+const glass = await call("GET", `/v1/incidents/${incidentId}/medical?reason=${encodeURIComponent(REASON)}`,
+                         { token: adminToken });
+ok("an authority on a live incident gets the record",
+   glass.status === 200 && glass.data?.bloodGroup === "O+", `got ${glass.status}`);
+ok("the read is handed back with its break-glass reference", Boolean(glass.meta?.breakGlassId));
+
+const accessLog = await call("GET", "/v1/me/medical/access-log", { token });
+ok("the subject can see who opened their record, and why",
+   accessLog.data?.[0]?.reason === REASON, accessLog.data?.[0]?.reason);
+ok("the subject was notified it happened", Boolean(accessLog.data?.[0]?.notifiedAt));
+
+await call("POST", `/v1/sos/${incidentId}/cancel`, { token });
+const afterIncidentClosed = await call("GET", `/v1/incidents/${incidentId}/medical?reason=${encodeURIComponent(REASON)}`,
+                               { token: adminToken });
+ok("break glass closes once the emergency is over",
+   afterIncidentClosed.status === 403 && afterIncidentClosed.error?.code === "incident_not_live",
+   `got ${afterIncidentClosed.status} ${afterIncidentClosed.error?.code ?? ""}`);
+
+// ── 22. vehicle documents ──────────────────────────────────────────────────
+console.log("\n22. Vehicle documents");
+const day = 86_400_000;
+const iso = (offset) => new Date(Date.now() + offset).toISOString();
+ok("an insurance expiry is recorded",
+   (await call("POST", `/v1/vehicles/${vehicleId}/documents`,
+      { token, body: { docType: "insurance", expiresOn: iso(12 * day) } })).status === 201);
+ok("a lapsed PUC is recorded",
+   (await call("POST", `/v1/vehicles/${vehicleId}/documents`,
+      { token, body: { docType: "puc", expiresOn: iso(-5 * day) } })).status === 201);
+
+const madeUpDoc = await call("POST", `/v1/vehicles/${vehicleId}/documents`,
+  { token, body: { docType: "hogwarts_permit", expiresOn: iso(day) } });
+ok("an unknown document type is rejected", madeUpDoc.status === 400, `got ${madeUpDoc.status}`);
+
+const notMyVehicle = await call("POST", `/v1/vehicles/${vehicleId}/documents`,
+  { token: otherToken, body: { docType: "rc", expiresOn: iso(day) } });
+ok("documents cannot be filed against someone else's vehicle", notMyVehicle.status === 403,
+   `got ${notMyVehicle.status}`);
+
+const documents = await call("GET", "/v1/me/documents", { token });
+ok("the countdown is computed server-side, soonest first",
+   documents.data?.[0]?.docType === "puc" && documents.data[0].daysToExpiry < 0 &&
+   documents.data[0].state === "expired",
+   `${documents.data?.[0]?.docType} ${documents.data?.[0]?.daysToExpiry}d`);
+ok("expiring-soon is counted separately from expired",
+   documents.meta?.expired === 1 && documents.meta?.expiringWithin30Days === 1,
+   `expired=${documents.meta?.expired} expiring=${documents.meta?.expiringWithin30Days}`);
+
+await call("POST", `/v1/vehicles/${vehicleId}/documents`,
+  { token, body: { docType: "puc", expiresOn: iso(300 * day) } });
+const renewed = await call("GET", "/v1/me/documents", { token });
+ok("renewing supersedes the old document rather than duplicating it",
+   renewed.data?.length === documents.data?.length && renewed.meta?.expired === 0,
+   `${renewed.data?.length} docs, ${renewed.meta?.expired} expired`);
+
+// ── 23. tamper-evident audit log ───────────────────────────────────────────
+console.log("\n23. Audit chain");
+const auditRead = await call("GET", "/v1/admin/audit?limit=20", { token: adminToken });
+ok("the audit trail is admin-only",
+   (await call("GET", "/v1/admin/audit", { token })).status === 403);
+ok("the trail recorded the break-glass read",
+   auditRead.data?.some((r) => r.action === "medical.break_glass_read"));
+ok("the chain verifies on read", auditRead.meta?.integrity?.ok === true,
+   `checked ${auditRead.meta?.integrity?.checked} entries`);
+
+// ── 24. booking read/write audience parity ─────────────────────────────────
+// POST /bookings/:id/transition has always allowed the assigned mechanic. The
+// GET did not, so the write path was strictly more permissive than the read
+// path — a mechanic could drive a job they were forbidden to look at. These
+// assertions pin both halves: the mechanic can now read, and nobody else can.
+console.log("\n24. Booking read/write audience parity");
+{
+  const { default: postgres } = await import("postgres");
+  const DB_URL = process.env.DATABASE_URL ??
+    "postgres://roadassist:devpassword@localhost:5434/roadassist";
+  let sql;
+  try {
+    sql = postgres(DB_URL, { max: 1, onnotice: () => {} });
+    const parityVeh = await call("POST", "/v1/vehicles", {
+      token,
+      body: { registrationNo: "PR" + Math.floor(Math.random() * 8999 + 1000) + "XY", vehicleClass: "car" },
+    });
+    const parityBooking = await call("POST", "/v1/bookings", {
+      token,
+      body: {
+        vehicleId: parityVeh.data.id, serviceTypeCode: "battery_jumpstart",
+        lat: 28.4595, lng: 77.0266, idempotencyKey: "parity-" + Date.now(),
+      },
+    });
+    const parityDispatch = await call("POST", `/v1/bookings/${parityBooking.data.id}/dispatch`, {
+      token, body: { radiusKm: 40, limit: 5 },
+    });
+    const offer = parityDispatch.data?.offers?.[0];
+    ok("dispatch produced an offer to test against", Boolean(offer),
+       `${parityDispatch.data?.offers?.length ?? 0} offers`);
+
+    if (offer) {
+      // The offer only carries the mechanic's public identity, so the harness
+      // resolves the owning account directly — the same join dispatch used.
+      const [row] = await sql`
+        SELECT u.msisdn FROM dispatch_offers o
+          JOIN mechanics m ON m.id = o.mechanic_id
+          JOIN users u ON u.id = m.user_id
+         WHERE o.id = ${offer.id}`;
+      ok("the offer resolves to a signed-in-able mechanic account", Boolean(row?.msisdn));
+
+      const mReq = await call("POST", "/v1/auth/otp/request", { body: { msisdn: row.msisdn } });
+      const mVer = await call("POST", "/v1/auth/otp/verify", {
+        body: { msisdn: row.msisdn, code: mReq.meta.devOtp },
+      });
+      const mToken = mVer.data.accessToken;
+      ok("the mechanic account carries the mechanic role", mVer.data.roles.includes("mechanic"),
+         JSON.stringify(mVer.data.roles));
+
+      const inbox = await call("GET", "/v1/mechanic/offers", { token: mToken });
+      ok("the mechanic sees this offer in their own inbox",
+         inbox.status === 200 && inbox.data.some((o) => o.id === offer.id),
+         `${inbox.data?.length ?? 0} offer(s)`);
+
+      const accepted = await call("POST", `/v1/offers/${offer.id}/accept`, { token: mToken });
+      ok("the mechanic can accept their own offer", accepted.status === 200,
+         `status=${accepted.data?.status}`);
+
+      const mRead = await call("GET", `/v1/bookings/${parityBooking.data.id}`, { token: mToken });
+      ok("the ASSIGNED MECHANIC can now read the booking they drive",
+         mRead.status === 200, `got ${mRead.status}`);
+
+      const mDrive = await call("POST", `/v1/bookings/${parityBooking.data.id}/transition`, {
+        token: mToken, body: { command: "mechanic.start_travel" },
+      });
+      // The write path always allowed this; asserting it alongside the read is
+      // what pins the two to the same audience.
+      ok("the mechanic can still drive the job it can now read",
+         mDrive.status === 200 && mDrive.data.status === "EN_ROUTE", `got ${mDrive.status}`);
+
+      // …and the widening stops exactly there. Reuses the unrelated citizen the
+      // suite already signed in: every extra account costs an OTP against the
+      // per-IP ceiling, which the suite itself would otherwise trip on a rerun.
+      const sRead = await call("GET", `/v1/bookings/${parityBooking.data.id}`, {
+        token: otherToken,
+      });
+      ok("an unrelated citizen still cannot read that booking", sRead.status === 403,
+         `got ${sRead.status}`);
+
+      const dupe = await call("POST", `/v1/offers/${offer.id}/accept`, { token: mToken });
+      ok("re-accepting a closed offer is refused", dupe.status === 409,
+         `code=${dupe.error?.code}`);
+
+      // Cash is the common case on an Indian roadside, and it is the one method
+      // the platform records rather than charges — so the person holding the
+      // money is the only one who may declare it.
+      for (const command of ["arrive", "work.start", "work.complete"]) {
+        await call("POST", `/v1/bookings/${parityBooking.data.id}/transition`, {
+          token: mToken, body: { command },
+        });
+      }
+      const cash = await call("POST", `/v1/bookings/${parityBooking.data.id}/pay`, {
+        token: mToken, body: { method: "cash" },
+      });
+      ok("the assigned mechanic can record a cash payment",
+         cash.status === 200 && cash.data?.status === "PAID" && cash.data?.payment?.method === "cash",
+         `got ${cash.status} ${cash.data?.status ?? ""}`);
+      ok("a cash settlement never touches the payment gateway",
+         String(cash.data?.payment?.providerRef ?? "").startsWith("cash_"),
+         cash.data?.payment?.providerRef);
+    }
+  } catch (e) {
+    // A harness problem is a failed assertion, not a crashed run — the other
+    // 100+ results still need to be reported.
+    ok("booking-audience checks could reach the database", false, e.message);
+  } finally {
+    if (sql) await sql.end({ timeout: 5 });
+  }
+}
 
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);

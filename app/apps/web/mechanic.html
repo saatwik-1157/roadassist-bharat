@@ -1,0 +1,1086 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RoadAssist — Mechanic</title>
+<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08090c" media="(prefers-color-scheme: dark)">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("ra.theme");
+      if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) { /* storage blocked — the system preference wins */ }
+  })();
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z' fill='none' stroke='%23e3b96a' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath fill='%23e3b96a' fill-rule='evenodd' d='M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z'/%3E%3Ccircle cx='16' cy='7.5' r='2' fill='%23e3b96a'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="vendor/fonts.css">
+<link rel="stylesheet" href="ds.css">
+<style>
+  body { min-height: 100dvh; display: flex; justify-content: center; }
+  .shell {
+    width: 100%; max-width: 520px; min-height: 100dvh;
+    display: flex; flex-direction: column;
+    background: color-mix(in srgb, var(--bg) 82%, var(--surface));
+  }
+  @media (min-width: 900px) {
+    body { align-items: center; padding: 26px 0; }
+    .shell {
+      min-height: min(880px, calc(100dvh - 52px)); height: min(880px, calc(100dvh - 52px));
+      border-radius: 34px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow-3);
+    }
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 10px; flex: none;
+    padding: calc(13px + env(safe-area-inset-top)) 18px 13px;
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20;
+    background: var(--glass); backdrop-filter: blur(22px) saturate(1.7);
+    -webkit-backdrop-filter: blur(22px) saturate(1.7);
+  }
+  main { flex: 1; overflow-y: auto; padding: 20px 18px 30px; }
+
+  /* Tabs mirror the customer app's shape so the two feel like one product. */
+  .tabs {
+    display: grid; grid-template-columns: repeat(4, 1fr); flex: none;
+    border-top: 1px solid var(--line); z-index: 20;
+    background: var(--glass); backdrop-filter: blur(22px) saturate(1.7);
+    -webkit-backdrop-filter: blur(22px) saturate(1.7);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tab {
+    display: grid; place-items: center; gap: 4px; padding: 10px 2px 9px;
+    color: var(--text-3); font-size: 9.5px; font-weight: 650; letter-spacing: 0.07em;
+    transition: color var(--t-2) var(--ease); -webkit-tap-highlight-color: transparent;
+    position: relative; min-height: 46px;
+  }
+  .tab svg { width: 21px; height: 21px; transition: transform var(--t-3) var(--spring); }
+  .tab.active { color: var(--brand); }
+  .tab.active svg { transform: translateY(-1px) scale(1.1); }
+  .tab .dot {
+    position: absolute; top: 6px; right: calc(50% - 20px);
+    min-width: 15px; height: 15px; padding: 0 4px; border-radius: 99px;
+    background: var(--red); color: #fff; font-family: var(--mono); font-size: 9px;
+    font-weight: 700; display: grid; place-items: center;
+  }
+  .pane { display: none; }
+  .pane.active { display: block; }
+
+  /* ── duty switch ────────────────────────────────────────────────────────
+     A mechanic's availability gates the dispatch query, so this is the most
+     consequential control on the screen. It reads as a physical switch and
+     always states its position in words. */
+  .duty {
+    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+    border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface);
+    box-shadow: var(--shadow-1);
+  }
+  .duty.on { border-color: var(--green-soft); background: var(--green-soft); }
+  .duty-switch {
+    width: 52px; height: 30px; border-radius: 999px; flex: none; position: relative;
+    background: var(--surface-3); border: 1px solid var(--line-2);
+    transition: background var(--t-2) var(--ease), border-color var(--t-2) var(--ease);
+  }
+  .duty.on .duty-switch { background: var(--green); border-color: transparent; }
+  .duty-switch::after {
+    content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+    border-radius: 50%; background: #fff; box-shadow: var(--shadow-1);
+    transition: transform var(--t-3) var(--spring);
+  }
+  .duty.on .duty-switch::after { transform: translateX(22px); }
+  .duty-switch:disabled { opacity: 0.55; }
+
+  /* An offer is a countdown, not a list item — it expires. */
+  .offer { border-left: 3px solid var(--brand); }
+  .offer .ttl { font-family: var(--mono); font-size: 12px; color: var(--text-3); }
+  .offer .ttl.urgent { color: var(--red); font-weight: 700; }
+
+  .job-status {
+    display: flex; align-items: flex-start; gap: 10px; padding: 14px 16px;
+    border-radius: var(--r-md); background: var(--brand-soft); border: 1px solid var(--line-brand);
+  }
+  .jobgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 12px; }
+  .jobgrid > div { background: var(--surface-2); border-radius: var(--r-sm); padding: 9px 11px; }
+  .jobgrid .k {
+    display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-3);
+  }
+  .jobgrid .v { display: block; margin-top: 2px; font-size: 13.5px; font-weight: 650; overflow-wrap: anywhere; }
+
+  .spinner {
+    width: 15px; height: 15px; flex: none; border-radius: 50%;
+    border: 2px solid var(--line-2); border-top-color: var(--brand);
+    animation: spin 700ms linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+
+  .field-err { color: var(--red); font-size: 12px; font-weight: 600; margin-top: 6px; }
+
+  .net {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 9px;
+    border-radius: var(--r-full); border: 1px solid var(--line);
+    background: var(--surface); color: var(--text-2);
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+  }
+  .net::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 0 3px var(--green-soft);
+  }
+  .net.is-offline { color: var(--red); border-color: var(--red-soft); }
+  .net.is-offline::before { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+</style>
+</head>
+<body>
+<div class="aurora"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <linearGradient id="raGold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f7e4bb"/><stop offset=".5" stop-color="#e3b96a"/><stop offset="1" stop-color="#a87a22"/>
+  </linearGradient>
+  <symbol id="raMark" viewBox="0 0 32 32">
+    <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z" fill="url(#raGold)" opacity=".16"/>
+    <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z" fill="none" stroke="url(#raGold)" stroke-width="1.7" stroke-linejoin="round"/>
+    <path fill="url(#raGold)" fill-rule="evenodd" d="M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z"/>
+    <circle cx="16" cy="7.5" r="1.9" fill="url(#raGold)"/>
+  </symbol>
+</defs></svg>
+
+<div class="shell">
+  <header class="topbar">
+    <span class="brand grow">
+      <svg class="mark"><use href="#raMark"/></svg>
+      <span class="wordmark">Road<i>Assist</i></span>
+    </span>
+    <span class="net" id="net" role="status">Online</span>
+    <span class="pill gold bare">Mechanic</span>
+    <button class="theme-btn" id="theme" title="Switch theme" aria-label="Switch colour theme">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <!-- ══ SIGN IN ═══════════════════════════════════════════════════════ -->
+    <section id="scr-auth" class="stagger">
+      <h1 class="display">The other <em>side.</em></h1>
+      <p class="sub" style="margin-top:8px">Sign in as a mechanic to see live dispatch offers and drive a
+        job through to payment. Seeded mechanic accounts run from
+        <span class="num">+919600000000</span> upward.</p>
+      <p class="hint" id="m-restoring" style="margin-top:12px" hidden>Restoring your session…</p>
+      <label class="field"><span>Mobile number</span>
+        <input id="m-msisdn" value="+919600000000" inputmode="tel" autocomplete="tel"></label>
+      <button class="btn" id="m-signin" style="margin-top:18px">Send code &amp; sign in</button>
+      <p class="hint" style="margin-top:11px">Development build: the OTP comes back in the response, so
+        this is one tap.</p>
+    </section>
+
+    <!-- ══ CONSOLE ═══════════════════════════════════════════════════════ -->
+    <section id="scr-work" hidden>
+
+      <!-- ── DASHBOARD ── -->
+      <div class="pane active" id="pane-dash">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div class="grow">
+            <h1 class="display" id="m-greet">Good evening.</h1>
+            <p class="sub" id="m-name" style="margin-top:5px">—</p>
+          </div>
+          <span class="pill bare" id="m-live" title="Waiting for the live dispatch stream">Polling</span>
+          <button class="btn ghost auto sm" id="m-refresh" aria-label="Refresh dispatch inbox">Refresh</button>
+        </div>
+
+        <!-- Availability: the switch that decides whether dispatch can reach you -->
+        <div class="duty" id="duty" style="margin-top:16px">
+          <button class="duty-switch" id="duty-switch" role="switch" aria-checked="false"
+                  aria-label="Availability for dispatch"></button>
+          <span class="grow">
+            <b id="duty-state" style="display:block;font-size:14px;font-weight:650">Off duty</b>
+            <small id="duty-note" style="color:var(--text-3);font-size:12px">No new offers will be sent.</small>
+          </span>
+        </div>
+
+        <div class="jobgrid" id="m-stats"></div>
+
+        <!-- current job -->
+        <div id="job-box" hidden style="margin-top:20px">
+          <p class="eyebrow" style="margin-bottom:9px">Active job</p>
+          <div id="job"></div>
+        </div>
+
+        <!-- inbox -->
+        <p class="eyebrow" style="margin:22px 0 9px">
+          New requests <span id="off-n" class="pill bare" style="margin-left:6px">—</span>
+        </p>
+        <div id="offers"></div>
+
+        <p class="hint" style="margin-top:18px">Offers are polled every 8 seconds and expire after 90.
+          An offer disappears when another mechanic takes it — the accept is guarded server-side, so a
+          race returns <span class="num">409 offer_closed</span> rather than double-assigning a job.</p>
+      </div>
+
+      <!-- ── JOBS (active, full detail) ── -->
+      <div class="pane" id="pane-job">
+        <h1 class="display">Your <em>job.</em></h1>
+        <div id="job-full" style="margin-top:16px"></div>
+      </div>
+
+      <!-- ── HISTORY ── -->
+      <div class="pane" id="pane-history">
+        <h1 class="display">Your <em>record.</em></h1>
+        <p class="sub" style="margin-top:6px">Every job you have been dispatched to, most recent first.</p>
+        <div id="history" style="margin-top:16px"></div>
+      </div>
+
+      <!-- ── PROFILE ── -->
+      <div class="pane" id="pane-profile">
+        <h1 class="display">Your <em>profile.</em></h1>
+        <div class="card" style="margin-top:16px">
+          <h3 class="title">Account</h3>
+          <p class="meta" id="m-meta" style="margin-top:4px">—</p>
+        </div>
+        <div class="card">
+          <h3 class="title">Appearance</h3>
+          <p class="meta" style="margin-top:4px">Follows your system by default.</p>
+          <div class="seg" style="margin-top:12px" id="theme-seg" role="tablist">
+            <button role="tab" data-theme-set="light">Light</button>
+            <button role="tab" data-theme-set="system">System</button>
+            <button role="tab" data-theme-set="dark">Dark</button>
+          </div>
+        </div>
+        <button class="btn ghost" id="m-out" style="margin-top:8px">Sign out</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabs" id="tabs" hidden>
+    <button class="tab active" data-pane="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.4 12 4l9 7.4"/><path d="M5.6 9.6V20h12.8V9.6"/></svg>Dashboard</button>
+    <button class="tab" data-pane="job"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>Job</button>
+    <button class="tab" data-pane="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="8.5"/></svg>History</button>
+    <button class="tab" data-pane="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Profile</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  "use strict";
+  var API = location.origin;
+  var $ = function (id) { return document.getElementById(id); };
+  var ESC_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; }); };
+
+  var state = {
+    token: null, refresh: null, msisdn: null,
+    bookingId: null, mechanic: null, online: navigator.onLine,
+  };
+  var poll = null, ttlTimer = null, pollInFlight = false, offers = [];
+
+  var toastTimer;
+  function toast(m, kind) {
+    var el = $("toast");
+    el.textContent = m;
+    el.className = "toast show" + (kind ? " " + kind : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 3200);
+  }
+  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* unsupported */ } }
+  function busy(btn, fn) {
+    return async function () {
+      if (btn.classList.contains("is-busy")) return;
+      btn.classList.add("is-busy");
+      try { await fn(); } finally { btn.classList.remove("is-busy"); }
+    };
+  }
+  function fieldError(inputId, message) {
+    var input = $(inputId), id = inputId + "-err", err = $(id);
+    if (!message) {
+      input.removeAttribute("aria-invalid"); input.removeAttribute("aria-describedby");
+      if (err) err.remove();
+      return;
+    }
+    if (!err) {
+      err = document.createElement("p");
+      err.id = id; err.className = "field-err"; err.setAttribute("role", "alert");
+      (input.parentNode || input).appendChild(err);
+    }
+    err.textContent = message;
+    input.setAttribute("aria-invalid", "true");
+    input.setAttribute("aria-describedby", id);
+    input.focus();
+  }
+
+  // ── connection ────────────────────────────────────────────────────────────
+  function setOnline(on) {
+    state.online = on;
+    $("net").textContent = on ? "Online" : "Offline";
+    $("net").className = "net" + (on ? "" : " is-offline");
+    if (on && state.token) refresh();
+  }
+  window.addEventListener("online", function () { setOnline(true); });
+  window.addEventListener("offline", function () { setOnline(false); });
+
+  // ── theme ────────────────────────────────────────────────────────────────
+  function applyTheme(mode) {
+    var root = document.documentElement;
+    if (mode === "system") root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", mode);
+    try { mode === "system" ? localStorage.removeItem("ra.theme") : localStorage.setItem("ra.theme", mode); }
+    catch (e) { /* per-page only */ }
+    document.querySelectorAll("#theme-seg button").forEach(function (b) {
+      b.setAttribute("aria-selected", String(b.getAttribute("data-theme-set") === mode));
+    });
+  }
+  $("theme").onclick = function () {
+    var explicit = document.documentElement.getAttribute("data-theme");
+    var dark = explicit ? explicit === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    buzz(8);
+    applyTheme(dark ? "light" : "dark");
+  };
+  document.querySelectorAll("#theme-seg button").forEach(function (b) {
+    b.onclick = function () { buzz(8); applyTheme(b.getAttribute("data-theme-set")); };
+  });
+  try { applyTheme(localStorage.getItem("ra.theme") || "system"); } catch (e) { applyTheme("system"); }
+
+  // ── session ──────────────────────────────────────────────────────────────
+  /**
+   * A mechanic works a shift, not a ten-minute session.
+   *
+   * The console previously held its token in a closure and its active job in a
+   * variable, so closing the tab between two jobs — or simply letting the
+   * access token expire mid-repair — meant signing in again and losing track of
+   * the job in progress. Both now survive, and an expired access token is
+   * refreshed rather than surfaced.
+   */
+  var KEY = "ra.mechanic.session";
+  function saveSession() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({
+        token: state.token, refresh: state.refresh, msisdn: state.msisdn,
+      }));
+    } catch (e) { /* storage blocked */ }
+  }
+  function clearSession() { try { localStorage.removeItem(KEY); } catch (e) { /* nothing */ } }
+
+  var refreshing = null;
+  function refreshSession() {
+    if (refreshing) return refreshing;
+    if (!state.refresh) return Promise.resolve(false);
+    refreshing = fetch(API + "/v1/auth/refresh", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ refreshToken: state.refresh }),
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.data) return false;
+        state.token = j.data.accessToken;
+        state.refresh = j.data.refreshToken;
+        saveSession();
+        return true;
+      }).catch(function () { return false; })
+      .finally(function () { refreshing = null; });
+    return refreshing;
+  }
+
+  async function api(method, path, body, opts) {
+    opts = opts || {};
+    function send() {
+      return fetch(API + path, {
+        method: method,
+        headers: Object.assign({ "content-type": "application/json" },
+          state.token ? { authorization: "Bearer " + state.token } : {}),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    }
+    var res;
+    try { res = await send(); }
+    catch (e) { throw new Error("Network unavailable — check your connection."); }
+
+    if (res.status === 401 && state.refresh && !opts.noRetry) {
+      if (await refreshSession()) res = await send();
+      else { signOut(true); throw new Error("Your session has ended. Sign in again."); }
+    }
+    var json = await res.json().catch(function () { return {}; });
+    if (!res.ok) throw new Error((json.error && json.error.title) || ("HTTP " + res.status));
+    return json;
+  }
+
+  // ── panes ────────────────────────────────────────────────────────────────
+  function pane(name) {
+    document.querySelectorAll(".pane").forEach(function (p) { p.classList.remove("active"); });
+    $("pane-" + name).classList.add("active");
+    document.querySelectorAll(".tab").forEach(function (t) {
+      t.classList.toggle("active", t.getAttribute("data-pane") === name);
+    });
+    document.querySelector("main").scrollTop = 0;
+    if (name === "job") renderFullJob();
+    if (name === "history") renderHistory();
+  }
+  document.querySelectorAll("[data-pane]").forEach(function (t) {
+    t.onclick = function () { buzz(8); pane(t.getAttribute("data-pane")); };
+  });
+
+  // ── sign in ──────────────────────────────────────────────────────────────
+  /** +919600000432 → "+91 96000 00432", which is readable at a glance. */
+  function prettyMsisdn(v) {
+    var m = /^\+91(\d{5})(\d{5})$/.exec(String(v || ""));
+    return m ? "+91 " + m[1] + " " + m[2] : (v || "");
+  }
+
+  /** Ten digits, with or without +91, spaces or a leading zero. */
+  function normalizeMsisdn(raw) {
+    var v = String(raw || "").replace(/[\s\-().]/g, "");
+    if (/^[6-9]\d{9}$/.test(v)) return "+91" + v;
+    if (/^0[6-9]\d{9}$/.test(v)) return "+91" + v.slice(1);
+    if (/^91[6-9]\d{9}$/.test(v)) return "+" + v;
+    if (/^\+91[6-9]\d{9}$/.test(v)) return v;
+    return null;
+  }
+
+  $("m-signin").onclick = busy($("m-signin"), async function () {
+    var msisdn = normalizeMsisdn($("m-msisdn").value);
+    if (!msisdn) {
+      fieldError("m-msisdn", "Enter a 10-digit Indian mobile number, starting 6, 7, 8 or 9.");
+      return;
+    }
+    fieldError("m-msisdn", null);
+    try {
+      var o = await api("POST", "/v1/auth/otp/request", { msisdn: msisdn });
+      var code = o.meta && o.meta.devOtp;
+      if (!code) { toast("Dev OTP not exposed — this console needs a development build", "bad"); return; }
+      var v = await api("POST", "/v1/auth/otp/verify", { msisdn: msisdn, code: code });
+      if (!v.data.roles.includes("mechanic") && !v.data.roles.includes("admin")) {
+        toast("That account has no mechanic role", "bad");
+        return;
+      }
+      state.token = v.data.accessToken;
+      state.refresh = v.data.refreshToken;
+      state.msisdn = msisdn;
+      saveSession();
+      await enterConsole(v.data.roles);
+      toast("Signed in", "ok");
+    } catch (e) { toast(e.message, "bad"); }
+  });
+
+  async function enterConsole(roles) {
+    $("scr-auth").hidden = true;
+    $("scr-work").hidden = false;
+    $("tabs").hidden = false;
+    $("m-meta").textContent = state.msisdn + " · " + ((roles || ["mechanic"]).join(", "));
+    var h = new Date().getHours();
+    $("m-greet").textContent = h < 5 ? "Still up." : h < 12 ? "Good morning."
+      : h < 17 ? "Good afternoon." : "Good evening.";
+    // Shape the dashboard before the data arrives, so a slow connection shows a
+    // console that is loading rather than one that looks empty.
+    skeletonStats();
+    $("m-name").textContent = "Loading your record…";
+    await refresh();
+    // Open the live dispatch stream before the poll, so `startPolling` already
+    // knows which cadence to pick.
+    streamOpen();
+    startPolling();
+  }
+
+  function signOut(silent) {
+    stopPolling();
+    streamStop();
+    state.token = null; state.refresh = null; state.bookingId = null; state.mechanic = null;
+    clearSession();
+    $("scr-work").hidden = true;
+    $("tabs").hidden = true;
+    $("scr-auth").hidden = false;
+    if (!silent) toast("Signed out", "ok");
+  }
+  $("m-out").onclick = function () { buzz(10); signOut(); };
+  $("m-refresh").onclick = busy($("m-refresh"), async function () { await refresh(); });
+
+  // ── polling ──────────────────────────────────────────────────────────────
+  /**
+   * One poll at a time, none while hidden, and a hard stop on sign-out.
+   *
+   * The overlap guard matters more here than in the customer app: a mechanic on
+   * a slow roadside connection can easily have a request still in flight when
+   * the next tick fires, and without the flag those stack until the console is
+   * doing nothing but retrying itself.
+   */
+  function startPolling() {
+    stopPolling();
+    // With the live stream up the poll is a safety net, not the mechanism.
+    // A dispatch offer lives 90 seconds by default, so even the slow cadence
+    // cannot let one arrive unseen.
+    poll = setInterval(function () { if (!document.hidden) refresh(); },
+      stream.alive ? 45000 : 8000);
+    // The countdown ticks every second on the client; the poll is what
+    // reconciles it with the server, not what animates it.
+    ttlTimer = setInterval(tickCountdowns, 1000);
+  }
+  function stopPolling() {
+    if (poll) { clearInterval(poll); poll = null; }
+    if (ttlTimer) { clearInterval(ttlTimer); ttlTimer = null; }
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && poll) refresh();
+  });
+  window.addEventListener("pagehide", function () { stopPolling(); streamStop(); });
+
+  /* ══ live event stream ═════════════════════════════════════════════════════
+     A dispatch offer expires in 90 seconds. Waiting up to 8 of those for the
+     next poll spent a tenth of the window on nothing, and on a bad connection
+     a good deal more. The offer now lands on this console the moment the
+     server writes it.
+
+     Same design as the citizen app: `fetch` with a stream reader rather than
+     EventSource, so the access token stays in a header instead of the URL. */
+  var stream = { ctrl: null, alive: false, attempts: 0, timer: null, events: 0 };
+
+  function streamStop() {
+    clearTimeout(stream.timer);
+    stream.timer = null;
+    if (stream.ctrl) { try { stream.ctrl.abort(); } catch (e) { /* already gone */ } }
+    stream.ctrl = null;
+    stream.alive = false;
+  }
+
+  function streamReconnectLater() {
+    if (stream.timer || !state.token) return;
+    var exp = Math.min(30000, 1000 * Math.pow(2, Math.min(stream.attempts, 5)));
+    stream.timer = setTimeout(function () { stream.timer = null; streamOpen(); },
+      Math.round(exp * (0.5 + Math.random() * 0.5)));
+  }
+
+  async function streamOpen() {
+    if (stream.ctrl || !state.token) return;
+    if (!window.AbortController || !window.ReadableStream) return;
+    var ctrl = new AbortController();
+    stream.ctrl = ctrl;
+    try {
+      var res = await fetch(API + "/v1/events", {
+        headers: { authorization: "Bearer " + state.token, accept: "text/event-stream" },
+        signal: ctrl.signal, cache: "no-store",
+      });
+      if (res.status === 401) throw new Error("stream unauthorised");
+      if (!res.ok || !res.body) throw new Error("stream refused: " + res.status);
+
+      stream.alive = true;
+      stream.attempts = 0;
+      setLive(true);
+      startPolling();
+
+      var reader = res.body.getReader(), decoder = new TextDecoder(), buffer = "";
+      for (;;) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        var frames = buffer.split("\n\n");
+        buffer = frames.pop();
+        for (var i = 0; i < frames.length; i++) {
+          var lines = frames[i].split("\n"), data = "";
+          for (var j = 0; j < lines.length; j++) {
+            if (lines[j].indexOf(":") === 0) continue;
+            if (lines[j].indexOf("data:") === 0) data += lines[j].slice(5).trim();
+          }
+          if (!data) continue;
+          try { onRealtime(JSON.parse(data)); } catch (e) { /* malformed frame */ }
+        }
+      }
+    } catch (e) {
+      if (!ctrl.signal.aborted) stream.attempts++;
+    } finally {
+      stream.alive = false;
+      stream.ctrl = null;
+      setLive(false);
+      startPolling();
+      streamReconnectLater();
+    }
+  }
+
+  function setLive(on) {
+    var el = document.getElementById("m-live");
+    if (!el) return;
+    el.textContent = on ? "Live" : "Polling";
+    el.className = "pill " + (on ? "ok" : "bare");
+    el.title = on
+      ? "Connected to the live dispatch stream — offers arrive instantly."
+      : "No live stream; the console is refreshing on a timer instead.";
+  }
+
+  /** An event is a nudge to refetch, never the state itself. */
+  function onRealtime(ev) {
+    stream.events++;
+    if (ev.type === "dispatch.offered") {
+      refresh();
+      if (typeof buzz === "function") buzz([30, 60, 30]);
+      toast("New job offer — " + (ev.distanceKm != null ? ev.distanceKm + " km away" : "nearby"), "ok");
+      return;
+    }
+    if (ev.type === "booking.status") refresh();
+  }
+
+  async function refresh() {
+    if (pollInFlight || !state.token) return;
+    pollInFlight = true;
+    try {
+      var jobs = await api("GET", "/v1/mechanic/jobs");
+      state.mechanic = jobs.data.mechanic;
+      renderDuty();
+      renderStats(jobs.data);
+      state.history = jobs.data.history || [];
+
+      var previous = state.bookingId;
+      state.bookingId = jobs.data.activeBookingId;
+      if (state.bookingId) await loadJob();
+      else { $("job-box").hidden = true; state.job = null; }
+      if (previous && !state.bookingId) toast("Job closed", "ok");
+
+      await loadOffers();
+      if (document.querySelector("#pane-history.active")) renderHistory();
+      if (document.querySelector("#pane-job.active")) renderFullJob();
+    } catch (e) {
+      console.warn("refresh:", e.message);
+    } finally {
+      pollInFlight = false;
+    }
+  }
+
+  // ── duty switch ──────────────────────────────────────────────────────────
+  function renderDuty() {
+    var m = state.mechanic;
+    var on = Boolean(m && m.isAvailable);
+    $("duty").className = "duty" + (on ? " on" : "");
+    $("duty-switch").setAttribute("aria-checked", String(on));
+    $("duty-state").textContent = on ? "Available" : "Off duty";
+    $("duty-note").textContent = on
+      ? "Dispatch can reach you. New offers appear below."
+      : "No new offers will be sent to you.";
+    $("m-name").textContent = m
+      ? m.displayName + " · ★ " + m.rating.toFixed(1) + " · " + m.jobsCompleted + " jobs"
+      : "Not registered as a mechanic";
+  }
+
+  $("duty-switch").onclick = async function () {
+    if (!state.mechanic) { toast("This account is not registered as a mechanic", "bad"); return; }
+    var next = !state.mechanic.isAvailable;
+    var sw = $("duty-switch");
+    sw.disabled = true;
+    // Optimistic, but reconciled: the switch flips at once because a mechanic
+    // tapping it is standing in the rain, and is corrected from the server's
+    // answer if the call fails.
+    state.mechanic.isAvailable = next;
+    renderDuty();
+    buzz(10);
+    try {
+      var pos = await new Promise(function (res) {
+        if (!navigator.geolocation || !next) return res(null);
+        navigator.geolocation.getCurrentPosition(
+          function (p) { res({ lat: p.coords.latitude, lng: p.coords.longitude }); },
+          function () { res(null); }, { timeout: 5000 });
+      });
+      var body = { isAvailable: next };
+      if (pos) { body.lat = pos.lat; body.lng = pos.lng; }
+      var r = await api("POST", "/v1/mechanic/availability", body);
+      toast(r.meta.message, next ? "ok" : "warn");
+      if (next && !pos) toast("On duty — location not shared, so dispatch uses your last known position", "warn");
+      await refresh();
+    } catch (e) {
+      state.mechanic.isAvailable = !next;
+      renderDuty();
+      toast("Could not change duty status: " + e.message, "bad");
+    } finally {
+      sw.disabled = false;
+    }
+  };
+
+  /**
+   * Placeholder tiles for the moment before the first fetch returns.
+   *
+   * On a fast local connection the dashboard filled instantly and this was
+   * invisible. Over a real mobile connection the console appeared with an empty
+   * space where the record belongs, which reads as broken rather than loading.
+   */
+  function skeletonStats() {
+    $("m-stats").innerHTML = ["Rating", "Jobs completed", "Recent settled", "Recent earnings"]
+      .map(function (label) {
+        return "<div><span class='k'>" + label + "</span>" +
+          "<span class='v' style='color:var(--text-3)'>&mdash;</span></div>";
+      }).join("");
+  }
+
+  function renderStats(d) {
+    var m = d.mechanic;
+    // Keep the placeholders rather than blanking the row: an account with no
+    // mechanic profile still gets a shaped dashboard, and the name line below
+    // is what actually explains the situation.
+    if (!m) { skeletonStats(); return; }
+    var done = (d.history || []).filter(function (h) { return h.status === "PAID"; }).length;
+    var earned = (d.history || []).reduce(function (sum, h) {
+      return sum + (h.status === "PAID" && h.totalPaise ? h.totalPaise : 0);
+    }, 0);
+    $("m-stats").innerHTML =
+      "<div><span class='k'>Rating</span><span class='v'>★ " + m.rating.toFixed(1) + "</span></div>" +
+      "<div><span class='k'>Jobs completed</span><span class='v'>" + m.jobsCompleted + "</span></div>" +
+      "<div><span class='k'>Recent settled</span><span class='v'>" + done + "</span></div>" +
+      "<div><span class='k'>Recent earnings</span><span class='v'>₹" +
+        (earned / 100).toFixed(0) + "</span></div>";
+  }
+
+  // ── dispatch inbox ───────────────────────────────────────────────────────
+  function secsLeft(o) {
+    return Math.max(0, Math.round((new Date(o.expiresAt) - Date.now()) / 1000));
+  }
+  /** The countdown is real time, not poll time — it used to jump in 8s steps. */
+  function tickCountdowns() {
+    document.querySelectorAll("[data-ttl]").forEach(function (el) {
+      var o = offers.find(function (x) { return x.id === el.getAttribute("data-ttl"); });
+      if (!o) return;
+      var s = secsLeft(o);
+      el.textContent = s ? s + "s left" : "expired";
+      el.className = "ttl" + (s && s <= 20 ? " urgent" : "");
+      if (!s) {
+        var card = el.closest(".offer");
+        var btn = card && card.querySelector("button");
+        // An expired offer's button is removed rather than left to fail.
+        if (btn) { btn.disabled = true; btn.textContent = "Expired"; }
+      }
+    });
+  }
+
+  async function loadOffers() {
+    try {
+      var r = await api("GET", "/v1/mechanic/offers");
+      offers = r.data || [];
+      var box = $("offers");
+      $("off-n").textContent = offers.length;
+
+      if (r.meta && r.meta.note) {
+        box.innerHTML = "<div class='empty'><b>Not a mechanic account</b>" + esc(r.meta.note) + "</div>";
+        return;
+      }
+      if (!offers.length) {
+        var offDuty = state.mechanic && !state.mechanic.isAvailable;
+        box.innerHTML = "<div class='empty'>" +
+          "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'>" +
+          "<path d='M4 6h16M4 12h16M4 18h10'/></svg>" +
+          "<b>" + (offDuty ? "You are off duty" : "No requests right now") + "</b>" +
+          (offDuty
+            ? "Turn on availability above and dispatch will start sending you jobs."
+            : "When dispatch reaches you, the job appears here.") + "</div>";
+        return;
+      }
+
+      box.innerHTML = "";
+      offers.forEach(function (o) {
+        var b = o.booking || {};
+        var c = document.createElement("div");
+        c.className = "card offer lift rise";
+        c.innerHTML =
+          "<div style='display:flex;align-items:flex-start;gap:10px'>" +
+            "<span class='grow'>" +
+              "<b style='display:block;font-size:15px;font-weight:650'>" +
+                esc(b.serviceLabel || "Roadside assistance") + "</b>" +
+              "<small style='color:var(--text-3);font-size:12px'>" +
+                esc([b.registrationNo, b.vehicleClass && String(b.vehicleClass).replace(/_/g, " ")]
+                  .filter(Boolean).join(" · ")) + "</small></span>" +
+            "<span class='ttl' data-ttl='" + esc(o.id) + "'>" + secsLeft(o) + "s left</span>" +
+          "</div>" +
+          (b.symptoms
+            ? "<p class='meta' style='margin-top:9px'>" + esc(b.symptoms) + "</p>" : "") +
+          "<div class='jobgrid'>" +
+            "<div><span class='k'>Distance</span><span class='v'>" +
+              (o.distanceKm != null ? esc(o.distanceKm) + " km" : "—") + "</span></div>" +
+            "<div><span class='k'>ETA</span><span class='v'>" +
+              (o.etaMinutes != null ? esc(o.etaMinutes) + " min" : "—") + "</span></div>" +
+          "</div>" +
+          (b.addressText || b.highwayMarker
+            ? "<p class='hint' style='margin-top:9px'>" +
+              esc(b.highwayMarker || b.addressText) + "</p>" : "");
+
+        var accept = document.createElement("button");
+        accept.className = "btn";
+        accept.style.marginTop = "13px";
+        accept.textContent = "Accept";
+        accept.onclick = busy(accept, async function () {
+          try {
+            var a = await api("POST", "/v1/offers/" + o.id + "/accept", {});
+            state.bookingId = a.data.bookingId;
+            buzz([10, 40, 10]);
+            toast("Job accepted — customer notified", "ok");
+            await refresh();
+            pane("job");
+          } catch (e) {
+            // 409 offer_closed is the expected answer when another mechanic won.
+            toast(e.message, "bad");
+            await refresh();
+          }
+        });
+        c.appendChild(accept);
+        box.appendChild(c);
+      });
+
+      // The tab badge is how a mechanic notices a job while on another screen.
+      var tab = document.querySelector('.tab[data-pane="dash"]');
+      var dot = tab.querySelector(".dot");
+      if (offers.length) {
+        if (!dot) { dot = document.createElement("span"); dot.className = "dot"; tab.appendChild(dot); }
+        dot.textContent = offers.length;
+      } else if (dot) { dot.remove(); }
+    } catch (e) {
+      $("offers").innerHTML =
+        "<div class='card'><h3 class='title'>Could not load requests</h3>" +
+        "<p class='meta' style='margin-top:6px'>" + esc(e.message) + "</p>" +
+        "<button class='btn ghost' id='off-retry' style='margin-top:12px'>Try again</button></div>";
+      var rb = $("off-retry");
+      if (rb) rb.onclick = function () { loadOffers(); };
+    }
+  }
+
+  // ── the accepted job ─────────────────────────────────────────────────────
+  var CMD_LABEL = {
+    // System-issued commands appear in the history too, so they need names
+    // rather than raw identifiers.
+    "submit": "Request sent", "dispatch.start": "Dispatch searching",
+    "mechanic.accept": "Job accepted", "offers.exhausted": "No mechanic available",
+    "mechanic.start_travel": "I'm on my way", "arrive": "I've arrived",
+    "work.start": "Start work", "work.complete": "Work complete",
+    "parts.required": "Parts needed", "parts.received": "Parts received",
+    "tow.required": "Needs a tow", "payment.settled": "Record cash payment",
+    "cancel": "Cancel job", "tow.assigned": "Tow assigned", "retry.widen": "Widen search",
+  };
+  /** Commands the customer owns. A mechanic cannot cancel or pay for them. */
+  var CUSTOMER_ONLY = { "cancel": true, "retry.widen": true, "dispatch.start": true, "submit": true };
+
+  var JOB_STEPS = [
+    { status: "ASSIGNED",    label: "Accepted" },
+    { status: "EN_ROUTE",    label: "Travelling" },
+    { status: "ON_SITE",     label: "Arrived" },
+    { status: "IN_PROGRESS", label: "Service" },
+    { status: "COMPLETED",   label: "Completed" },
+    { status: "PAID",        label: "Paid" },
+  ];
+  function pillFor(s) {
+    if (s === "PAID" || s === "COMPLETED") return "ok";
+    if (s === "CANCELLED" || s === "NO_SUPPLY" || s === "ESCALATED") return "bad";
+    if (s === "AWAITING_PARTS") return "warn";
+    return "info";
+  }
+  function stepsHtml(status) {
+    var at = JOB_STEPS.findIndex(function (s) { return s.status === status; });
+    return "<ul style='list-style:none;margin-top:12px' aria-label='Job progress'>" +
+      JOB_STEPS.map(function (s, i) {
+        var done = at >= 0 && i < at, now = i === at;
+        return "<li style='display:flex;align-items:center;gap:9px;padding:4px 0'>" +
+          "<span aria-hidden='true' style='width:14px;flex:none;text-align:center;color:" +
+            (done ? "var(--green)" : now ? "var(--brand)" : "var(--text-3)") + "'>" +
+            (done ? "&#10003;" : now ? "&#9679;" : "&#9675;") + "</span>" +
+          "<span style='font-size:13px;font-weight:" + (now ? "650" : "500") + ";color:" +
+            (done || now ? "var(--text)" : "var(--text-3)") + "'>" + esc(s.label) + "</span>" +
+          (now ? "<span class='pill info' style='margin-left:auto'>Now</span>" : "") +
+          "</li>";
+      }).join("") + "</ul>";
+  }
+
+  async function loadJob() {
+    if (!state.bookingId) return;
+    $("job-box").hidden = false;
+    try {
+      // Readable by the assigned mechanic — the read path matches the write path.
+      var r = await api("GET", "/v1/bookings/" + state.bookingId);
+      r.data._next = r.meta.nextCommands;
+      state.job = r.data;
+      renderJobCard();
+      if (document.querySelector("#pane-job.active")) renderFullJob();
+    } catch (e) {
+      $("job").innerHTML = "<div class='card'><p class='meta'>" + esc(e.message) + "</p></div>";
+    }
+  }
+
+  /** The compact card on the dashboard: what it is, and the one next action. */
+  function renderJobCard() {
+    var b = state.job;
+    if (!b) { $("job-box").hidden = true; return; }
+    $("job").innerHTML =
+      "<div class='job-status'>" +
+        "<span class='grow'><b style='display:block;font-size:15px;font-weight:650'>" +
+          esc(b.reference) + "</b>" +
+        "<small style='color:var(--text-2);font-size:12px'>" +
+          esc([b.vehicle && b.vehicle.registrationNo, b.serviceType && b.serviceType.label]
+            .filter(Boolean).join(" · ")) + "</small></span>" +
+        "<span class='pill " + pillFor(b.status) + "'>" +
+          esc(String(b.status).replace(/_/g, " ")) + "</span>" +
+      "</div>" +
+      "<button class='btn' id='job-open' style='margin-top:12px'>Open job</button>";
+    $("job-open").onclick = function () { buzz(8); pane("job"); };
+  }
+
+  /**
+   * The full job screen: everything the mechanic needs at the roadside.
+   *
+   * Customer name and number appear because the server released them to the
+   * *assigned* mechanic only — a mechanic who has not taken this job gets 403
+   * from the same endpoint, so this screen cannot leak anything the API would
+   * not already hand over.
+   */
+  function renderFullJob() {
+    var box = $("job-full");
+    if (!state.bookingId || !state.job) {
+      box.innerHTML = "<div class='empty'>" +
+        "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'>" +
+        "<path d='M4 6h16M4 12h16M4 18h10'/></svg>" +
+        "<b>No active job</b>Accept a request on the dashboard and it appears here.</div>";
+      return;
+    }
+    var b = state.job;
+    var cust = b.customer || {};
+
+    box.innerHTML =
+      "<div class='card'>" +
+        "<div style='display:flex;align-items:flex-start;gap:10px'>" +
+          "<span class='grow'><h3 class='title'>" +
+            esc((b.serviceType && b.serviceType.label) || "Roadside assistance") + "</h3>" +
+          "<small style='display:block;color:var(--text-3);font-size:12px;margin-top:3px'>" +
+            esc(b.reference) + "</small></span>" +
+          "<span class='pill " + pillFor(b.status) + "'>" +
+            esc(String(b.status).replace(/_/g, " ")) + "</span></div>" +
+
+        (b.symptoms
+          ? "<p class='meta' style='margin-top:11px'>&ldquo;" + esc(b.symptoms) + "&rdquo;</p>" : "") +
+
+        "<div class='jobgrid'>" +
+          // A customer who has not set a name falls back to their number rather
+          // than the word "Customer", which named nobody. The mechanic already
+          // holds this number — it is on the Call button below.
+          "<div><span class='k'>Customer</span><span class='v'>" +
+            esc(cust.fullName || prettyMsisdn(cust.msisdn) || "Not given") + "</span></div>" +
+          "<div><span class='k'>Vehicle</span><span class='v'>" +
+            esc((b.vehicle && b.vehicle.registrationNo) || "—") + "</span></div>" +
+          "<div><span class='k'>Distance</span><span class='v'>" +
+            (b.mechanic && b.mechanic.distanceKm != null ? esc(b.mechanic.distanceKm) + " km" : "—") +
+            "</span></div>" +
+          "<div><span class='k'>ETA</span><span class='v'>" +
+            (b.etaMinutes ? esc(b.etaMinutes) + " min" : "—") + "</span></div>" +
+        "</div>" +
+
+        (b.highwayMarker || b.addressText
+          ? "<p class='hint' style='margin-top:10px'>&#128205; " +
+            esc(b.highwayMarker || b.addressText) + "</p>" : "") +
+
+        stepsHtml(b.status) +
+
+        "<div class='btn-row' style='margin-top:14px' id='job-contact'></div>" +
+        "<div class='chips' style='margin-top:12px' id='job-cmds'></div>" +
+        (b.invoice
+          ? "<div class='card' style='margin-top:13px;background:var(--surface-2);box-shadow:none'>" +
+              "<p class='eyebrow'>Invoice</p>" +
+              "<p class='num' style='font-size:22px;margin-top:4px'>₹" +
+                (b.invoice.totalPaise / 100).toFixed(2) + "</p>" +
+              "<p class='hint' style='margin-top:2px'>" + esc(b.invoice.number) + "</p></div>"
+          : "") +
+      "</div>" +
+      (b.events && b.events.length
+        ? "<p class='eyebrow' style='margin:20px 0 10px'>History</p><div class='card flush'>" +
+          b.events.map(function (e) {
+            return "<div class='row'><span class='grow'><b>" +
+              esc(CMD_LABEL[e.command] || e.command) + "</b>" +
+              "<small>" + esc(e.fromStatus || "start") + " → " + esc(e.toStatus) + " · " +
+              new Date(e.createdAt).toLocaleTimeString() + "</small></span></div>";
+          }).join("") + "</div>"
+        : "");
+
+    // Navigate to the customer, and call them. Both point at real data or
+    // are omitted — never rendered dead.
+    var contact = $("job-contact");
+    if (b.lat != null && b.lng != null) {
+      var navBtn = document.createElement("a");
+      navBtn.className = "btn ghost sm";
+      navBtn.setAttribute("role", "button");
+      navBtn.href = "geo:" + b.lat + "," + b.lng + "?q=" + b.lat + "," + b.lng +
+        "(" + encodeURIComponent(b.reference) + ")";
+      navBtn.textContent = "Navigate";
+      contact.appendChild(navBtn);
+    }
+    if (cust.msisdn) {
+      var call = document.createElement("a");
+      call.className = "btn sm";
+      call.setAttribute("role", "button");
+      call.href = "tel:" + cust.msisdn;
+      call.textContent = "Call customer";
+      contact.appendChild(call);
+    }
+    contact.hidden = contact.children.length === 0;
+
+    var wrap = $("job-cmds");
+    (b._next || []).forEach(function (cmd) {
+      if (CUSTOMER_ONLY[cmd]) return;
+      var btn = document.createElement("button");
+      btn.className = "chip";
+      btn.textContent = CMD_LABEL[cmd] || cmd;
+      btn.onclick = busy(btn, async function () {
+        try {
+          buzz(8);
+          // The mechanic is the one holding the money, so their "payment
+          // settled" is a cash record — the one method the platform books
+          // rather than charges, and the only one they are allowed to declare.
+          var r = cmd === "payment.settled"
+            ? await api("POST", "/v1/bookings/" + state.bookingId + "/pay", { method: "cash" })
+            : await api("POST", "/v1/bookings/" + state.bookingId + "/transition", { command: cmd });
+          toast("Updated — " + String(r.data.status).replace(/_/g, " ").toLowerCase(), "ok");
+          if (r.data.invoice) {
+            toast("Invoice " + r.data.invoice.number + " · ₹" +
+              (r.data.invoice.totalPaise / 100).toFixed(2), "ok");
+          }
+          await refresh();
+          renderFullJob();
+        } catch (e) { toast(e.message, "bad"); }
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  // ── history ──────────────────────────────────────────────────────────────
+  function renderHistory() {
+    var box = $("history");
+    var rows = state.history || [];
+    if (!rows.length) {
+      box.innerHTML = "<div class='empty'>" +
+        "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'>" +
+        "<path d='M12 7v5l3 2'/><circle cx='12' cy='12' r='8.5'/></svg>" +
+        "<b>No jobs yet</b>Completed jobs collect here with what they earned.</div>";
+      return;
+    }
+    box.innerHTML = "<div class='card flush'>" + rows.map(function (h) {
+      return "<div class='row'><span class='grow'><b>" +
+        esc((h.serviceLabel || "Job") + " · " + h.registrationNo) + "</b>" +
+        "<small>" + esc(h.reference) + " · " +
+        new Date(h.createdAt.replace(" ", "T")).toLocaleDateString() +
+        (h.totalPaise ? " · ₹" + (h.totalPaise / 100).toFixed(0) : "") +
+        (h.rating ? " · ★" + h.rating : "") + "</small></span>" +
+        "<span class='pill " + pillFor(h.status) + "'>" +
+          esc(String(h.status).replace(/_/g, " ")) + "</span></div>";
+    }).join("") + "</div>";
+  }
+
+  // ── boot ─────────────────────────────────────────────────────────────────
+  setOnline(navigator.onLine);
+
+  (async function boot() {
+    var saved;
+    try { saved = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { saved = null; }
+    if (!saved || !saved.refresh) return;
+    state.token = saved.token;
+    state.refresh = saved.refresh;
+    state.msisdn = saved.msisdn;
+    $("m-restoring").hidden = false;
+    try {
+      // A stored access token is almost always stale; prove the session is
+      // alive before showing a console built on it.
+      var me = await api("GET", "/v1/me", null);
+      await enterConsole(me.data.roles);
+    } catch (e) {
+      signOut(true);
+      if (state.msisdn) $("m-msisdn").value = state.msisdn;
+    } finally {
+      $("m-restoring").hidden = true;
+    }
+  })();
+})();
+</script>
+</body>
+</html>

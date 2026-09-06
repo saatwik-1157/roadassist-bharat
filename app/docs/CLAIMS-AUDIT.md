@@ -1,0 +1,101 @@
+# Claims audit
+
+Every material claim the project makes, checked against the code that is
+supposed to back it. Verified by running the thing, not by reading it.
+
+**Three statuses only.** `IMPLEMENTED` means the code exists, the database
+persists it, the frontend consumes it, and a test exercises it. `PARTIAL` means
+some of that is true. `DESIGN` means it is architecture and nothing more.
+
+---
+
+## 1. Corrections made to the presentation script
+
+The Review-1 speaker script described the **target** cloud architecture in the
+present tense. These were corrected in `review1-ppt/presentation-script.md`.
+
+| # | Original claim | Reality | Corrected to |
+|---|---|---|---|
+| 1 | *"That is our autoscaler, **running**."* (Slide 15, titled **LIVE**) | No Kubernetes, no HPA, no cluster. The slide is an animation. | "That animation is our scaling **design**… this is not a running cluster." Slide retitled *Dynamic Scalability: the design*. Now points at the one real piece — the `/health` readiness gate returning 503. |
+| 2 | *"Two more architectures, **both running**."* (Slide 16, **LIVE**) | Neither load balancing nor redundant storage is deployed. | "Both are designed; neither is deployed." |
+| 3 | *"cloud bursting on a **real evening**… we autoscale to twenty-two"* | A worked scenario, not telemetry. | "a **modelled** evening — a worked scenario, not telemetry from a running system… I will not present them as measurements." |
+| 4 | *"Cloud infrastructure provisioned — virtual network, subnets, security groups and the Kubernetes cluster"* listed under **"five things are complete"** | None of it exists. | Split into "Running, and I can demonstrate every one of these" and "Not provisioned, and I will not claim it". |
+| 5 | *"The database deployed and seeded — **sixty tables, multi-zone**, a hundred thousand rows"* | 57 tables, single node, ~13.7k rows at the seed volume used. | "57 tables on PostgreSQL with PostGIS, migrated from empty and seeded, on Docker." |
+| 6 | *"the handoff to ERSS 112 over mutual TLS with a signed payload"* (Slide 26, **LIVE**) | Stubbed. The API's own response says so. | "The handoff to ERSS 112 is **not built**… our own API says so in the response." |
+| 7 | *"through the **isolated** emergency service… runs even if the main platform is down"* | ADR-0005 designs isolation; today it is a module in the same process. | "Today it is a module in the same process. The rule it exists to protect — that a model can never dispatch — is enforced regardless." |
+| 8 | *"A service that must never fail — answered by multi-zone replication and redundant storage"* | Neither exists. | Re-pointed at what *is* built: "the answer we actually built is not in the cloud at all: it is on the device." |
+
+**Why this mattered.** A professor who asks "show me the autoscaler" would have
+found nothing. The corrected script is stronger, not weaker: it trades six
+claims that cannot be demonstrated for a list that can be, live, in five minutes.
+
+---
+
+## 2. Product claims, checked
+
+| Claim | Backed by | Test | Status |
+|---|---|---|---|
+| "Offline-first" — the app works with no network | `offline-store.js`, `sw.js`, `connectivity.js` | `ui-journey.mjs` §7b drives the whole scenario | **IMPLEMENTED** |
+| SOS works with no internet | `raiseOffGridSos()` → IndexedDB → `/v1/sos/offline-sync` | `ui-journey.mjs` §7b, `e2e-journey.mjs` §12b | **IMPLEMENTED** |
+| "No duplicate incident" on reconnect | `incidents.client_incident_id` UNIQUE + `onConflictDoNothing` | `concurrency-test.mjs` §4, §5 | **IMPLEMENTED** |
+| AI diagnosis works offline | `offline-engine.js`, mirrors the server rule table | `offline-engine.test.ts` divergence guard | **IMPLEMENTED** |
+| "AI-powered" | Deterministic rules engine (ADR-0006) + a trained YOLO11n for road damage in `ai/` | 61 unit tests | **PARTIAL** — the diagnosis "AI" is a rules engine, labelled as such in the UI. A remote model is an env change away and none is configured. |
+| Two mechanics can't take one job | `SELECT … FOR UPDATE` on the booking row | `concurrency-test.mjs` §1, §2 | **IMPLEMENTED** |
+| Real-time status without refresh | SSE `/v1/events` | `concurrency-test.mjs` §8, `ui-journey.mjs` §7c — measured 65 ms | **IMPLEMENTED** |
+| Payments are gateway-verified | HMAC signature check, webhook, amount match | `razorpay-test.mjs` (22) | **IMPLEMENTED** against a local stub of Razorpay's API. Never run against a real account. |
+| Tamper-evident audit log | Hash chain, append-only Postgres rules | `gateway-security-test.mjs`, `/v1/ops/overview` verifies it live | **IMPLEMENTED** |
+| Break-glass medical access | Role gate + live-incident gate + mandatory reason + audit row | `security-audit.mjs` §2 | **IMPLEMENTED** |
+| "Emergency services contacted" | **Never claimed anywhere.** The string does not exist in the codebase. | `grep` | **CORRECTLY ABSENT** |
+| 112 handoff | Stub. The response says so. | — | **DESIGN** |
+| Feature-phone SMS journey | `POST /v1/telecom/sms` | `e2e-journey.mjs` §13 | **IMPLEMENTED** (inbound); outbound needs a vendor account |
+| Emergency service is an isolated deployable (ADR-0005) | Same process today | — | **DESIGN** |
+| RAKSHA edge detection | Labelled `SIMULATED` in the API response and the device row | `raksha-simulator.mjs` | **PARTIAL, and labelled** |
+| Cloud deployment | Nothing is deployed | — | **DESIGN** |
+
+---
+
+## 3. Things that could have been over-claimed and were not
+
+Recorded because an audit that only lists faults is not an audit.
+
+- The mock payment provider logs `SIMULATED, no money moved` and
+  `assertProductionSafe()` refuses to boot production on it.
+- RAKSHA's stats endpoint returns `note: "aggregate counts only — demo build,
+  device data SIMULATED"`.
+- The off-grid SOS sheet says *"Nothing has been transmitted"* explicitly.
+- Offline diagnosis is labelled `LOCAL OFFLINE DIAGNOSIS` with its engine
+  version, and never as "AI vehicle diagnosis".
+- Offline maps carry `OFFLINE MAP — LAST UPDATED <timestamp>` and no ETA.
+- A GPS failure shows `Unknown — denied`, never a fallback coordinate.
+- The escalation response reports how many contacts were *actually* alerted.
+- Dead-zone risk is labelled "heuristic v1 from this platform's own devices —
+  NOT carrier coverage data".
+
+---
+
+## 4. Remaining wording risk
+
+**Resolved in Phase 9.** The two decks were examined separately:
+
+- **`ppt/RoadAssist-Bharat-SWE4004.pptx`** (30 slides, generated by
+  `ppt/make.py`) was **already honest**. Its own speaker notes say *"Which of
+  these eight do you implement? — None as running infrastructure, and I say so
+  plainly"* and *"Have you implemented autoscaling? — No. Claiming it would be
+  false and easily checked."* No change was needed. My Phase 8 report was wrong
+  to lump it in, and that is corrected here.
+
+- **`review1-ppt/RoadAssist-Review1-SWE4004.pptx`** (31 slides, no generator)
+  carried the over-claims on the slides themselves, not only in the script.
+  **29 shapes were corrected in place** with `python-pptx`, preserving each
+  run's formatting. `LIVE` badges on the autoscaling and load-balancing slides
+  became `DESIGN`; *"deployed on managed Kubernetes"*, *"Cloud infrastructure
+  provisioned"* and *"replicated across 3 availability zones"* became `TARGET`
+  statements; and *"WebSocket for live tracking"* was corrected to
+  server-sent events, which is what the platform actually uses.
+
+  A re-scan finds **0 remaining over-claims**. The original is preserved as
+  `RoadAssist-Review1-SWE4004.pre-audit.pptx`.
+
+**Still open:** `review1-ppt/RoadAssist-Presentation-Script.pdf` is a stale
+render of the corrected `presentation-script.md`. Re-export it, or present from
+the Markdown — the Markdown is the corrected source of truth.

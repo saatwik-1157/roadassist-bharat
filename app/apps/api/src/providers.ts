@@ -6,6 +6,7 @@
  * vendor is an environment change, never a code change — which is also what
  * keeps us portable (ADR-0001's vendor-lock-in answer).
  */
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { env } from "./env.js";
 import { diagnose, type Diagnosis } from "./domain/ai-rules.js";
 
@@ -246,10 +247,121 @@ const httpEmail: EmailProvider = {
 
 export const email: EmailProvider = env.email.provider === "console" ? consoleEmail : httpEmail;
 
+// ── PAYMENTS ──────────────────────────────────────────────────────────────
+/**
+ * Cash is settled by the platform, never by a gateway — the money changes hands
+ * at the roadside and only the record of it reaches us. Every other method goes
+ * through the configured provider.
+ */
+export const PAYMENT_METHODS = ["upi", "card", "wallet", "cash"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export interface PaymentOrder {
+  /** The gateway's identifier for this attempt; stored as payments.provider_ref. */
+  providerRef: string;
+  /**
+   * True when nothing further is owed from the client — the local provider, or
+   * a gateway that captured synchronously. False means a checkout step follows
+   * and the invoice stays unpaid until `verify` accepts the result.
+   */
+  settled: boolean;
+  /** Everything the client needs to open the gateway's checkout, when there is one. */
+  checkout?: { keyId: string; orderId: string; amountPaise: number; currency: "INR" };
+}
+
+export interface PaymentsProvider {
+  readonly name: string;
+  createOrder(input: { amountPaise: number; receipt: string; method: PaymentMethod }): Promise<PaymentOrder>;
+  /**
+   * Did this completion payload really come from the gateway? A false here has
+   * to leave the invoice unpaid: it is the only thing between a crafted request
+   * and a free service call.
+   */
+  verify(input: { providerRef: string; paymentRef?: string; signature?: string }): Promise<boolean>;
+}
+
+/**
+ * Local provider — no gateway, no account, no money. It is what the offline
+ * demo and the test suite settle against, and `assertProductionSafe` refuses to
+ * boot a production server that is still using it.
+ */
+const mockPayments: PaymentsProvider = {
+  name: "mock",
+  async createOrder({ amountPaise, receipt, method }) {
+    const providerRef = `mock_${method}_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    console.log(`[payments:mock] ${providerRef} · ₹${(amountPaise / 100).toFixed(2)} · ${receipt} — SIMULATED, no money moved`);
+    return { providerRef, settled: true };
+  },
+  async verify() { return true; },
+};
+
+/**
+ * Razorpay Orders + Checkout (shape per docs: POST /v1/orders with HTTP Basic
+ * key_id:key_secret and a JSON {amount, currency, receipt}; the client then
+ * completes checkout and hands back razorpay_order_id, razorpay_payment_id and
+ * razorpay_signature, where the signature is
+ * HMAC-SHA256(order_id + "|" + payment_id) keyed with the secret).
+ *
+ * `amount` is already in paise, which is Razorpay's unit for INR — the invoice
+ * total goes across unconverted, so there is no rounding step to get wrong.
+ * PAYMENTS_BASE_URL overrides the host for stub testing only.
+ */
+const razorpayPayments: PaymentsProvider = {
+  name: "razorpay",
+  async createOrder({ amountPaise, receipt }) {
+    const { keyId, keySecret } = env.payments;
+    if (!keyId || !keySecret) throw new Error("Razorpay needs PAYMENTS_KEY_ID and PAYMENTS_KEY_SECRET");
+    const base = env.payments.baseUrl || "https://api.razorpay.com";
+    const res = await fetch(`${base}/v1/orders`, {
+      method: "POST",
+      headers: {
+        authorization: "Basic " + Buffer.from(`${keyId}:${keySecret}`).toString("base64"),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ amount: amountPaise, currency: "INR", receipt, payment_capture: 1 }),
+    });
+    if (!res.ok) throw new Error(`Razorpay order failed: ${res.status} ${await res.text()}`);
+    const json = (await res.json().catch(() => ({}))) as { id?: string };
+    if (!json.id) throw new Error("Razorpay returned no order id");
+    return {
+      providerRef: json.id,
+      settled: false,
+      checkout: { keyId, orderId: json.id, amountPaise, currency: "INR" },
+    };
+  },
+  async verify({ providerRef, paymentRef, signature }) {
+    if (!paymentRef || !signature) return false;
+    const expected = createHmac("sha256", env.payments.keySecret)
+      .update(`${providerRef}|${paymentRef}`).digest("hex");
+    const a = Buffer.from(expected, "utf8");
+    const b = Buffer.from(signature, "utf8");
+    // timingSafeEqual throws on a length mismatch, so the length is checked first
+    // — that leaks only the length, which the algorithm already fixes.
+    return a.length === b.length && timingSafeEqual(a, b);
+  },
+};
+
+/** Never guess a gateway's wire format: unverified providers refuse loudly. */
+const unsupportedPayments = (name: string): PaymentsProvider => ({
+  name,
+  async createOrder() {
+    throw new Error(
+      `Payments provider "${name}" has no verified adapter yet — use razorpay, or mock for ` +
+      `local development, or add an adapter after checking the vendor's current API documentation`,
+    );
+  },
+  async verify() { return false; },
+});
+
+export const payments: PaymentsProvider =
+  env.payments.provider === "mock" ? mockPayments :
+  env.payments.provider === "razorpay" ? razorpayPayments :
+  unsupportedPayments(env.payments.provider);
+
 export const providerSummary = () => ({
   sms: sms.name,
   maps: maps.name,
   ai: env.ai.provider,
-  payments: env.payments.provider,
+  payments: payments.name,
   email: email.name,
 });

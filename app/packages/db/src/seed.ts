@@ -5,6 +5,7 @@
  *   npm run db:seed              -> default volume
  *   SEED_USERS=20000 npm run db:seed
  */
+import { randomUUID } from "node:crypto";
 import { faker } from "@faker-js/faker";
 import { sql } from "drizzle-orm";
 import { createClient } from "./client.js";
@@ -16,6 +17,25 @@ import * as O from "./schema/ops.js";
 const USERS = Number(process.env.SEED_USERS ?? 4000);
 const MECHANICS = Number(process.env.SEED_MECHANICS ?? 600);
 const BOOKINGS = Number(process.env.SEED_BOOKINGS ?? 6000);
+
+/**
+ * Reference data only — no demo population.
+ *
+ *   npm run db:seed -- --reference-only
+ *
+ * A production database needs the rows the application cannot work without:
+ * roles and permissions, consent purposes, the service catalogue, and the OBD-II
+ * code dictionary. It must NEVER receive the rest of this file — four thousand
+ * invented users with Indian phone numbers, six hundred fictional mechanics and
+ * six thousand fabricated bookings, all of which would be indistinguishable from
+ * real records the moment the platform went live.
+ *
+ * Until this flag existed, `DEPLOYMENT.md` had to tell an operator to insert the
+ * catalogue by hand. That is exactly the kind of undocumented manual step that
+ * turns into a production incident.
+ */
+const REFERENCE_ONLY =
+  process.argv.includes("--reference-only") || process.env.SEED_REFERENCE_ONLY === "true";
 
 faker.seed(20260804);
 const { sql: raw, db } = createClient();
@@ -96,12 +116,16 @@ const ref = () => faker.string.alphanumeric({ length: 8, casing: "upper" });
 
 async function main() {
   const t0 = Date.now();
-  console.log(`→ seeding ${USERS} users, ${MECHANICS} mechanics, ${BOOKINGS} bookings`);
+  console.log(REFERENCE_ONLY
+    ? "→ seeding REFERENCE DATA ONLY (roles, consent purposes, service catalogue, DTC codes) — no demo population"
+    : `→ seeding ${USERS} users, ${MECHANICS} mechanics, ${BOOKINGS} bookings`);
 
   // ---- RBAC ---------------------------------------------------------------
   const roleRows = await db.insert(I.roles).values(
     (Object.keys(ROLE_PERMS) as Array<keyof typeof ROLE_PERMS>).map((name) => ({
-      name: name as any, description: `${name} role`,
+      // The keys of ROLE_PERMS are the enum's own members; the cast tells the
+      // compiler what the object literal already guarantees.
+      name: name as (typeof I.roleEnum.enumValues)[number], description: `${name} role`,
     })),
   ).returning();
   const permRows = await db.insert(I.permissions).values(
@@ -146,10 +170,28 @@ async function main() {
 
   const modelRows = await db.insert(F.vehicleModels).values(
     MODELS.map(([make, model, cls, fuel, hasObd]) => ({
-      make, model, vehicleClass: cls as any, fuel: fuel as any, hasObd,
+      make, model,
+      vehicleClass: cls as (typeof F.vehicleClassEnum.enumValues)[number],
+      fuel: fuel as (typeof F.fuelEnum.enumValues)[number], hasObd,
       yearFrom: 2014, yearTo: 2026,
     })),
   ).returning();
+
+  // Everything above is reference data the application cannot run without.
+  // Everything below is an invented population, and a production database must
+  // never receive it — a fabricated user with a real-looking Indian phone number
+  // is indistinguishable from a real one the day after go-live.
+  if (REFERENCE_ONLY) {
+    const [{ count: tables }] = await db.execute<{ count: string }>(sql`
+      SELECT count(*)::text FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`);
+    console.log(`✓ reference data seeded in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+    console.log(`  ${roleRows.length} roles · ${svcRows.length} service types · ` +
+                `${dtcRows.length} DTC codes · ${modelRows.length} vehicle models`);
+    console.log(`  ${tables} tables in the schema, no demo users, mechanics or bookings`);
+    console.log("  Create the first operator account by signing in — the SIM is the identity.");
+    return;
+  }
 
   const zoneRows: Array<{ id: string } & (typeof ZONES)[number]> = [];
   for (const z of ZONES) {
@@ -261,6 +303,19 @@ async function main() {
   ).onConflictDoNothing();
 
   // ---- bookings -----------------------------------------------------------
+  /**
+   * Bookings that must carry financial records, collected while they are
+   * inserted.
+   *
+   * A status column is not a fact about money. The API refuses
+   * `payment.settled` unless a settled payment covers the invoice
+   * (`payment_required`, server.ts), so a seeded database that marked bookings
+   * PAID with no invoice and no payment contradicted the platform's own rule —
+   * 1,789 of them, discoverable by anyone who ran one join. Same class as the
+   * 874 impossible-state rows fixed earlier: the seeder was wrong, not the app.
+   */
+  const billable: Array<{ bookingId: string; paid: boolean; serviceTypeId: string; at: Date }> = [];
+
   const STATUSES = ["COMPLETED", "PAID", "CANCELLED", "REQUESTED", "MATCHING", "ASSIGNED", "EN_ROUTE", "IN_PROGRESS"] as const;
   const WEIGHTS = [38, 30, 10, 4, 3, 5, 5, 5];
   const pickStatus = () => {
@@ -268,6 +323,21 @@ async function main() {
     for (let i = 0; i < STATUSES.length; i++) { r -= WEIGHTS[i]; if (r <= 0) return STATUSES[i]; }
     return "COMPLETED" as const;
   };
+
+  /**
+   * Statuses that can only exist because a mechanic accepted the job.
+   *
+   * The seeder used to pick one of these and leave `mechanic_id` null, which is
+   * a state the application itself cannot produce: the only route into ASSIGNED
+   * is `mechanic.accept`, and that always writes the id. A database audit found
+   * 874 such rows — every one of them seeded, none application-created.
+   *
+   * It is not cosmetic. Those rows are counted as active work by the operations
+   * view, and any join through `mechanic_id` silently drops them, so the demo
+   * data disagreed with the demo.
+   */
+  const NEEDS_MECHANIC: ReadonlySet<string> =
+    new Set(["ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS", "AWAITING_PARTS", "ESCALATED", "COMPLETED", "PAID"]);
 
   let created = 0;
   for (let batch = 0; batch < BOOKINGS; batch += 500) {
@@ -282,7 +352,12 @@ async function main() {
         userId: userRows[idx].id,
         vehicleId: vehRows[idx].id,
         serviceTypeId: faker.helpers.arrayElement(svcRows).id,
-        status: status as any,
+        status: status as (typeof S.bookingStatusEnum.enumValues)[number],
+        // A job in an accepted state has a mechanic, always. See NEEDS_MECHANIC.
+        mechanicId: NEEDS_MECHANIC.has(status)
+          ? faker.helpers.arrayElement(mechRows).id
+          : null,
+        assignedAt: NEEDS_MECHANIC.has(status) ? requestedAt : null,
         addressText: `${faker.location.streetAddress()}, ${z.district}`,
         highwayMarker: faker.datatype.boolean(0.3)
           ? `NH-${faker.number.int({ min: 2, max: 966 })}, KM ${faker.number.int({ min: 1, max: 400 })}` : null,
@@ -303,10 +378,59 @@ async function main() {
       .returning({ id: S.bookings.id });
     for (let i = 0; i < inserted.length; i++) {
       await db.execute(sql`UPDATE bookings SET location = ${pt(rows[i]._lng, rows[i]._lat)} WHERE id = ${inserted[i].id}`);
+      const r = rows[i];
+      if (r.status === "COMPLETED" || r.status === "PAID") {
+        billable.push({
+          bookingId: inserted[i].id,
+          paid: r.status === "PAID",
+          serviceTypeId: r.serviceTypeId,
+          at: r.completedAt ?? r.requestedAt,
+        });
+      }
     }
     created += inserted.length;
     if (created % 2000 === 0) console.log(`  … ${created}/${BOOKINGS} bookings`);
   }
+
+  // ---- invoices and payments ----------------------------------------------
+  // Mirrors what the API does rather than inventing a second set of rules: an
+  // invoice is raised when a job completes (labour + 18% GST, the same figures
+  // server.ts uses), and a PAID booking additionally carries a settled payment
+  // for the full amount. Anything still COMPLETED has an invoice and no
+  // payment, which is exactly what "payment pending" means on the screen.
+  const fareOf = new Map(svcRows.map((s) => [s.id, s.baseFarePaise ?? 39900]));
+  const invNo = () => "INV" + randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
+  let invoiced = 0, settled = 0;
+  for (let i = 0; i < billable.length; i += 500) {
+    const slice = billable.slice(i, i + 500);
+    const invRows = slice.map((b) => {
+      const labour = fareOf.get(b.serviceTypeId) ?? 39900;
+      const tax = Math.round(labour * 0.18);
+      return {
+        bookingId: b.bookingId, number: invNo(),
+        labourPaise: labour, partsPaise: 0, taxPaise: tax, totalPaise: labour + tax,
+        createdAt: b.at, updatedAt: b.at,
+      };
+    });
+    const insertedInv = await db.insert(S.invoices).values(invRows)
+      .returning({ id: S.invoices.id, bookingId: S.invoices.bookingId, totalPaise: S.invoices.totalPaise });
+    invoiced += insertedInv.length;
+
+    const byBooking = new Map(insertedInv.map((r) => [r.bookingId as string, r]));
+    const payRows = slice.filter((b) => b.paid).map((b) => {
+      const inv = byBooking.get(b.bookingId)!;
+      return {
+        invoiceId: inv.id, method: "upi", amountPaise: inv.totalPaise,
+        status: "SETTLED", providerRef: "seed_" + randomUUID().slice(0, 12),
+        settledAt: b.at, createdAt: b.at, updatedAt: b.at,
+      };
+    });
+    if (payRows.length) {
+      await db.insert(S.payments).values(payRows);
+      settled += payRows.length;
+    }
+  }
+  console.log(`  ${invoiced} invoices · ${settled} settled payments`);
 
   // ---- responder units (emergency escalation targets) ---------------------
   const KINDS = ["ambulance", "police", "tow", "partner"] as const;
@@ -332,8 +456,12 @@ async function main() {
       return {
         userId: userRows[idx].id,
         vehicleId: vehRows[idx].id,
-        status: faker.helpers.arrayElement(["RESOLVED", "CANCELLED", "CONFIRMED", "RESPONDING"]) as any,
-        severity: faker.helpers.arrayElement(["MEDIUM", "HIGH", "CRITICAL"]) as any,
+        status: faker.helpers.arrayElement(
+          ["RESOLVED", "CANCELLED", "CONFIRMED", "RESPONDING"] as const,
+        ) as (typeof O.incidentStatusEnum.enumValues)[number],
+        severity: faker.helpers.arrayElement(
+          ["MEDIUM", "HIGH", "CRITICAL"] as const,
+        ) as (typeof O.incidentSeverityEnum.enumValues)[number],
         detectedByModel: detected,
         modelConfidence: detected ? Number(faker.number.float({ min: 0.72, max: 0.99, fractionDigits: 2 })) : null,
         confirmedBy: faker.helpers.arrayElement(["user", "callback", "second_signal"]),

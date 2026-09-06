@@ -44,10 +44,20 @@ handoff is signed and the PSP never returns card data to us.
 
 ```mermaid
 graph TB
+    subgraph DEVICE[On the device — Off-Grid Mode, ADR-0009]
+        CM[Connectivity manager<br/>ONLINE · LIMITED · OFFLINE]
+        LE[Local emergency engine<br/>rules diagnosis · GPS · cached maps]
+        SJ[(Encrypted sync journal<br/>IndexedDB)]
+        CM -->|OFFLINE| LE --> SJ
+    end
+
     subgraph EDGE[Edge]
         GW[API Gateway<br/>WAF · TLS · rate limit · L7 balance]
         TG[Telecom Gateway<br/>SMS · IVR · USSD]
     end
+
+    CM -->|ONLINE / LIMITED| GW
+    SJ -->|connection returns| GW
 
     subgraph CORE[Core deployable — modular monolith]
         M1[identity<br/>auth · RBAC · consent]
@@ -145,6 +155,87 @@ Every container has a written answer to "what still works if this is down".
 | **Core deployable** | Main app unavailable | **SOS via SMS → Emergency (degraded path)** |
 | Telecom gateway | App users unaffected; feature phones cannot reach us | App and web journeys |
 | Primary database | Read-only mode, writes rejected with retry guidance | Tracking from replicas |
+| **The user's own network** | **Off-Grid Mode** — see §5b | **SOS (stored locally), diagnosis, GPS, cached maps** |
+
+---
+
+## 5b. Off-Grid Mode — RoadAssist Rescue Link (ADR-0009)
+
+> *"RoadAssist doesn't stop when the network stops."*
+
+Every row above answers "what if *our* component is down". This one answers the
+failure that actually happens on an Indian highway: **the user's connection is
+down, and ours is fine.** From the phone's point of view the two are
+indistinguishable, so the client — not the server — has to hold the answer.
+
+### Connectivity manager
+
+```mermaid
+flowchart TD
+    U[Users] --> C[RoadAssist client<br/>PWA · Android · feature phone]
+    C --> CM{{Connectivity manager<br/>navigator.onLine · Network Information ·<br/>GET /v1/ping RTT · transport-failure tally}}
+
+    CM -->|ONLINE| CLOUD[Cloud services<br/>dispatch · payments · live map]
+    CM -->|LIMITED| FB[Retry with backoff<br/>anything that fails is stored, not lost]
+    CM -->|OFFLINE| LEM[Local emergency engine]
+
+    LEM --> GPS[GPS fix<br/>satellite receiver, no internet needed]
+    LEM --> AI[On-device rules engine<br/>LOCAL OFFLINE DIAGNOSIS]
+    LEM --> CACHE[Cached map tiles<br/>+ last-known service snapshot]
+
+    GPS --> J[(Encrypted sync journal<br/>IndexedDB · AES-GCM-256)]
+    AI --> J
+    CACHE -.reads.- J
+
+    J -->|connection returns| SYNC[POST /v1/sos/offline-sync<br/>authenticated · re-validated · idempotent]
+    FB --> SYNC
+    SYNC --> DB[(incidents<br/>client_incident_id UNIQUE)]
+    DB --> ESC[POST /v1/sos/:id/confirm<br/>explicit escalation]
+    ESC --> DISPATCH[Mechanic · towing · medical ·<br/>authority services]
+```
+
+### The tiers
+
+| Tier | Decided by | The app's behaviour |
+|---|---|---|
+| `ONLINE` | Probe succeeded, fast, radio up | Everything |
+| `LIMITED` | Probe slow, probe failing, 2g/save-data, or recent transport failures | Requests still attempted; failures stored |
+| `OFFLINE` | `navigator.onLine === false`, simulated, or repeated failures with no probe | Local emergency mode |
+
+`navigator.onLine` can only make the verdict worse, never better — a phone camped
+on a cell with no backhaul reports `true`. The decision function is pure and
+unit-tested (`apps/api/test/offline-engine.test.ts`).
+
+### Store-and-forward
+
+```
+OFFLINE JOURNAL → AUTHENTICATE → SEND OPERATIONS → SERVER VALIDATION →
+IDEMPOTENCY CHECK → DATABASE UPDATE → MARK SYNCHRONIZED
+```
+
+Each entry carries `opId` (the idempotency key), `incidentId`, type, timestamp,
+payload, sync status, retry count and a SHA-256 integrity digest.
+`incidents.client_incident_id` is UNIQUE, so a retry after a lost response
+converges on the same incident rather than raising a second one. Retries use
+exponential backoff with full jitter, so a convoy leaving a tunnel does not
+stampede us.
+
+Synchronising **records** an incident; it does not alert anyone. Escalation stays
+in `POST /v1/sos/:id/confirm`, called as an explicit step — an incident that may
+be hours old must not silently SMS a family at 3am on reconnect (ADR-0005).
+
+### Connectivity hierarchy — what is real
+
+| Tier | Path | Status |
+|---|---|---|
+| 1 | Internet → cloud | **Implemented** |
+| 2 | Cellular / SMS | **Implemented on the paths that can reach it** — inbound SMS journey (`POST /v1/telecom/sms`, feature phones with no app) and the Android client's real SMS→112→queue ladder. A *browser* cannot originate SMS, so the web app tells the user to call 112 rather than claiming it sent one. |
+| 3 | Device off-grid mode | **Implemented** |
+| 4 | Satellite emergency comms | **Future. Not implemented, not claimed.** |
+
+Also **future, and labelled as such everywhere**: mesh networking between nearby
+devices, government emergency-network integration, multi-network intelligent
+routing, on-device ML beyond the deterministic rules engine.
 
 ---
 
