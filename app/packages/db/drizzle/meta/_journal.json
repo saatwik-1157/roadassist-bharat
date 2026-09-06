@@ -29,6 +29,13 @@
       "when": 1787505856209,
       "tag": "0003_otp_ip_column",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788033600000,
+      "tag": "0004_offgrid_incident",
+      "breakpoints": true
     }
   ]
 }

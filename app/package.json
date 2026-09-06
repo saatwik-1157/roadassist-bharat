@@ -1,9 +1,9 @@
 {
   "name": "roadassist",
-  "version": "0.1.0",
+  "version": "1.0.0-rc.1",
   "private": true,
   "type": "module",
-  "description": "RoadAssist — cloud-native, offline-first roadside assistance platform for India",
+  "description": "RoadAssist \u2014 cloud-native, offline-first roadside assistance platform for India",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -13,7 +13,7 @@
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",
     "boundaries": "node scripts/check-boundaries.mjs",
-    "test": "node --import tsx --test packages/db/test/*.test.ts",
+    "test": "node --import tsx --test packages/db/test/*.test.ts apps/api/test/*.test.ts",
     "build": "npm run build -w @roadassist/db && npm run build -w @roadassist/api",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",
@@ -23,10 +23,18 @@
     "db:seed": "npm run seed -w @roadassist/db",
     "db:seed:raksha": "npm run seed:raksha -w @roadassist/db",
     "db:reset": "npm run reset -w @roadassist/db",
+    "demo:reset": "npm run db:reset && npm run db:migrate && npm run db:seed && npm run db:seed:raksha",
     "dev": "npm run dev -w @roadassist/api",
     "start": "npm run start -w @roadassist/api",
+    "share": "node scripts/share.mjs",
     "test:e2e": "node scripts/e2e-journey.mjs",
-    "test:gateway": "node scripts/gateway-security-test.mjs"
+    "test:ui": "node scripts/ui-journey.mjs",
+    "test:demo": "node scripts/demo-rehearsal.mjs",
+    "test:gateway": "node scripts/gateway-security-test.mjs",
+    "test:concurrency": "node scripts/concurrency-test.mjs",
+    "test:security": "node scripts/security-audit.mjs",
+    "perf": "node scripts/perf-audit.mjs",
+    "test:razorpay": "node scripts/razorpay-test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

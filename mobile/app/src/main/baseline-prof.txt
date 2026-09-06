@@ -1,0 +1,12 @@
+# Baseline profile — ART compiles these ahead of time on first launch instead of
+# interpreting them until the JIT warms up. That removes the cold-start stutter
+# and the first-scroll jank on every screen.
+#
+# Hand-authored rather than generated: this app is one Compose activity, so the
+# whole package is hot and a wildcard is both accurate and stable. The AndroidX
+# and Compose runtime profiles ship inside those artifacts and are merged in
+# automatically, so they are deliberately not repeated here.
+#
+# H = hot, S = startup, P = post-startup.
+HSPLin/roadassist/app/**->**(**)**
+Lin/roadassist/app/**

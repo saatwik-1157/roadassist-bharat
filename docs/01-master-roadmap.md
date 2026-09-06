@@ -1,5 +1,10 @@
 # RoadAssist Bharat — Master Roadmap (Phases 0–17)
 
+> **These are planning targets written before implementation, not
+> measurements.** No availability figure in this document has been
+> observed. For what was actually measured, see
+> [`PERFORMANCE_FINAL_REPORT.md`](../PERFORMANCE_FINAL_REPORT.md).
+
 Cross-team view. Each person's day-by-day work lives in their own roadmap file:
 [D1 Backend](02-backend-lead-roadmap.md) · [D2 Frontend](03-frontend-lead-roadmap.md) · [D3 AI](04-ai-lead-roadmap.md) · [D4 DevOps/QA](05-devops-qa-lead-roadmap.md)
 

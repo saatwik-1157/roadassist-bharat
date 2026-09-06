@@ -5,3 +5,4 @@ export * from "./schema/service.js";
 export * from "./schema/ops.js";
 export * from "./schema/raksha.js";
 export * from "./client.js";
+export * from "./dotenv.js";

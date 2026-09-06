@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The launcher plate stays dark in both themes: an adaptive icon has one
+         background, and the gold mark reads best on it. -->
     <color name="launcher_bg">#0B0A08</color>
 </resources>

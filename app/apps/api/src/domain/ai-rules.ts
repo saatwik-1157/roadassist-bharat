@@ -141,6 +141,33 @@ export function diagnose(input: { symptoms?: string; dtcCodes?: string[]; vehicl
  * bonus for newer mechanics keeps the marketplace from concentrating on a few
  * names (the fairness constraint from the AI roadmap).
  */
+/**
+ * A mechanic's displayed rating, shrunk toward the platform mean.
+ *
+ * A raw average is unusable at low volume: the first customer to leave 2 stars
+ * would move a mechanic from 4.6 to 2.0 and effectively remove them from
+ * dispatch, and one friendly 5 would do the reverse. Both are noise being read
+ * as signal.
+ *
+ * So each mechanic starts with `PRIOR_WEIGHT` imaginary reviews at the platform
+ * mean, and real reviews dilute that prior as they arrive:
+ *
+ *     (PRIOR_WEIGHT × PRIOR_MEAN + Σ ratings) / (PRIOR_WEIGHT + n)
+ *
+ * One 2★ then lands at 3.8 rather than 2.0, while a mechanic with fifty reviews
+ * is governed almost entirely by their own record. This is the standard
+ * Bayesian-average treatment for sparse ratings, and it is deterministic and
+ * reproducible from the review rows — same contract as everything else here.
+ */
+export const PRIOR_MEAN = 4.2;
+export const PRIOR_WEIGHT = 5;
+
+export function shrunkRating(sum: number, count: number): number {
+  if (count <= 0) return PRIOR_MEAN;
+  const value = (PRIOR_WEIGHT * PRIOR_MEAN + sum) / (PRIOR_WEIGHT + count);
+  return Number(value.toFixed(2));
+}
+
 export function rankMechanics<T extends { distanceKm: number; rating: number; jobsCompleted: number }>(
   candidates: T[],
 ): Array<T & { score: number; etaMinutes: number }> {

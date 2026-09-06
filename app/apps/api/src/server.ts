@@ -1,31 +1,72 @@
 import { dirname, resolve } from "node:path";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import { z } from "zod";
-import { and, desc, eq, isNull, sql as raw } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql as raw } from "drizzle-orm";
 import { createHmac, randomUUID } from "node:crypto";
 
-import { env, assertProductionSafe } from "./env.js";
+import { env, assertProductionSafe, validateEnv } from "./env.js";
 import { db, sql } from "./db.js";
 import * as S from "@roadassist/db";
 import {
   authenticate, constantTimeEquals, otpAttemptsInWindow, otpRequestsFromIp,
-  requireRole, rotateSession, sha256, startSession,
+  requireRole, rotateSession, sha256, startSession, verifyAccessToken,
 } from "./auth.js";
 import { apply, allowedFrom, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
-import { rankMechanics } from "./domain/ai-rules.js";
-import { diagnoseWithFallback, email, maps, providerSummary, sms } from "./providers.js";
+import { shrunkRating } from "./domain/ai-rules.js";
+import {
+  diagnoseWithFallback, email, maps, payments, PAYMENT_METHODS, providerSummary, sms,
+} from "./providers.js";
 import { rakshaRoutes } from "./raksha.js";
+import { audit, verifyAuditChain } from "./audit.js";
+import { limit } from "./ratelimit.js";
+import { ApiError, fail } from "./errors.js";
+import { logOp } from "./observability.js";
+import {
+  escalate, providerRoster, providerStateFor, sendWave, startOfferSweeper, stopOfferSweeper,
+} from "./dispatch.js";
+import {
+  applyIncident, IllegalIncidentTransition, PUBLIC_STAGE, allowedIncidentCommands,
+  type IncidentStatus,
+} from "./domain/incident-machine.js";
+import { describeProviderState } from "./domain/provider-state.js";
+import {
+  closeAllStreams, MAX_STREAMS_PER_USER, openStream, publish, publishMany,
+  realtimeStats, subscribe, type RealtimeEvent,
+} from "./realtime.js";
 
+// Configuration is checked before anything else runs, in every environment.
+// A NaN TTL or a malformed DATABASE_URL should stop the process here with a
+// message naming the variable — not surface hours later as "auth is broken".
+validateEnv();
 assertProductionSafe();
 
 const app = Fastify({
   logger: { level: env.nodeEnv === "test" ? "silent" : "info" },
   genReqId: () => randomUUID(),
+  // Off unless TRUST_PROXY says otherwise — see env.ts. Without it every
+  // request behind a tunnel or load balancer reports the proxy's address, and
+  // the per-IP OTP ceiling becomes a single bucket shared by all users.
+  trustProxy: env.trustProxy,
 });
-await app.register(cors, { origin: true });
+/**
+ * CORS.
+ *
+ * Development reflects the caller's origin, which is what makes a demo work
+ * from localhost, a LAN address and a Cloudflare tunnel in the same afternoon.
+ * Production must send an explicit allowlist — reflecting the Origin header is
+ * functionally "any website may call this API with the user's credentials" —
+ * and `assertProductionSafe` refuses to boot without one.
+ */
+await app.register(cors, {
+  origin: env.cors.mode === "list" ? env.cors.origins : true,
+  credentials: true,
+  // The client reads these to show the user when to retry.
+  exposedHeaders: ["x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset", "retry-after"],
+});
 
 /**
  * Treat an empty JSON body as `{}`.
@@ -50,6 +91,19 @@ app.addContentTypeParser("application/json", { parseAs: "string" }, (req, body, 
 
 /** Uniform error envelope (API style guide §6). */
 app.setErrorHandler((err, req, reply) => {
+  // Codes from the shared vocabulary (errors.ts) carry their own status and
+  // retryability, so a client can branch on them instead of guessing.
+  if (err instanceof ApiError) {
+    return reply.code(err.statusCode).send(err.envelope(String(req.id)));
+  }
+  if (err instanceof IllegalIncidentTransition) {
+    return reply.code(409).send({
+      error: {
+        code: err.code, title: err.message, retryable: false, requestId: req.id,
+        allowed: allowedIncidentCommands(err.from),
+      },
+    });
+  }
   if (err instanceof IllegalTransition) {
     return reply.code(409).send({
       error: { code: err.code, title: err.message, retryable: false, requestId: req.id },
@@ -64,6 +118,36 @@ app.setErrorHandler((err, req, reply) => {
       },
     });
   }
+  /**
+   * Anything that already knows its own status code.
+   *
+   * Fastify's own errors carry `statusCode` — a malformed JSON body, a payload
+   * over the limit, an unsupported media type. They were all falling through to
+   * the 500 branch below, so a client that sent bad JSON was told the server had
+   * broken, and a monitoring dashboard counted it as an outage. The body is
+   * still ours, and the vendor's message is only surfaced for 4xx (which
+   * describes the caller's request) and never for 5xx (which could describe our
+   * internals).
+   */
+  const declared = (err as { statusCode?: number }).statusCode;
+  if (typeof declared === "number" && declared >= 400 && declared < 500) {
+    // `err` has been narrowed past every handled case above and is `unknown`
+    // here, so the message is read defensively — the same treatment the 500
+    // branch below already gives it.
+    req.log.info({
+      err: err instanceof Error ? err.message : String(err),
+      statusCode: declared,
+    }, "client error");
+    return reply.code(declared).send({
+      error: {
+        code: (err as { code?: string }).code ?? "invalid_request",
+        title: err instanceof Error ? err.message : "That request could not be processed",
+        retryable: false,
+        requestId: req.id,
+      },
+    });
+  }
+
   req.log.error({ err }, "unhandled");
   console.error("[error]", req.method, req.url, "\n", err);
   return reply.code(500).send({
@@ -80,19 +164,46 @@ app.setErrorHandler((err, req, reply) => {
 
 // The demo client is served from the API so the whole slice is one command.
 await app.register(fastifyStatic, {
-  root: resolve(dirname(fileURLToPath(import.meta.url)), "../../web"),
+  root: findUp("apps/web"),
   prefix: "/",
   index: ["index.html"],
 });
 // Demo media (videos, photos) live in the repo's site/ folder — served here so
 // the showcase page can embed them without duplicating megabytes into app/.
 await app.register(fastifyStatic, {
-  root: resolve(dirname(fileURLToPath(import.meta.url)), "../../../../site"),
+  root: findUp("../site"),
   prefix: "/media/",
   decorateReply: false,
 });
 
 const ok = <T>(data: T, meta: Record<string, unknown> = {}) => ({ data, meta });
+
+/**
+ * Find a sibling directory by walking up from this module.
+ *
+ * The static roots below used to be plain `../../web` and `../../../../site`
+ * relative to `src/`. That works under `tsx`, which is how the app is run — and
+ * silently breaks the compiled output, where the same module sits at
+ * `dist/src/` and those paths resolve to directories that do not exist. `npm
+ * run build` therefore succeeded while producing a server that served nothing,
+ * which is the worst shape a build failure can take.
+ *
+ * Walking up for a known directory is correct from either location, and from a
+ * third if the layout moves again.
+ */
+function findUp(relative: string): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 8; i++) {
+    const candidate = resolve(dir, relative);
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // Fall back to the source-tree path so the failure is a clear 404 from a
+  // named directory rather than a confusing one from an empty string.
+  return resolve(dirname(fileURLToPath(import.meta.url)), "../../web");
+}
 
 // ── offline-map tile proxy ──────────────────────────────────────────────────
 // OSM tiles carry no CORS headers, so a browser cannot cache-and-reuse them
@@ -124,10 +235,26 @@ app.get("/tiles/:z/:x/:file", async (req, reply) => {
   return reply.header("cache-control", "public, max-age=86400").type("image/png").send(buf);
 });
 
-// ── clean basemap proxy (CARTO Voyager) — whole-country to street, an
-//    Apple-Maps-like look; same same-origin/cache/attribution rules. ─────────
-// © OpenStreetMap contributors © CARTO.
+// ── clean basemap proxy — whole-country to street, same same-origin/cache/
+//    attribution rules as the Trip Guardian tile proxy above. ───────────────
+// © OpenStreetMap contributors.
 const baseCache = new Map<string, Buffer>();
+/**
+ * Keyless basemap tiles.
+ *
+ * This used to proxy CARTO's raster basemaps. CARTO now requires an API key for
+ * them and stamps "API KEY REQUIRED" across every unauthenticated tile — which
+ * had been happening silently on every map in the project. OpenStreetMap's
+ * standard tiles need no key, so the whole platform still runs with zero
+ * third-party accounts (a stated goal in env.ts).
+ *
+ * There is deliberately no `style` parameter: one keyless source serves both
+ * themes and the dark treatment is a CSS filter on the client. A server-side
+ * style would double the cache for identical bytes.
+ *
+ * OSM's tile policy asks for a real User-Agent and sane caching; both are here,
+ * and every response is cached so a pan does not re-fetch.
+ */
 app.get("/basemap/:z/:x/:file", async (req, reply) => {
   const p = z.object({
     z: z.coerce.number().int().min(3).max(18),
@@ -139,7 +266,7 @@ app.get("/basemap/:z/:x/:file", async (req, reply) => {
 
   let buf = baseCache.get(key);
   if (!buf) {
-    const res = await fetch(`https://basemaps.cartocdn.com/rastertiles/voyager/${key}.png`, {
+    const res = await fetch(`https://tile.openstreetmap.org/${key}.png`, {
       headers: { "user-agent": "RoadAssistDemo/0.1 (student project; map basemap)" },
     });
     if (!res.ok) {
@@ -152,15 +279,193 @@ app.get("/basemap/:z/:x/:file", async (req, reply) => {
   return reply.header("cache-control", "public, max-age=604800").type("image/png").send(buf);
 });
 
+// ══ connectivity probe (ADR-0009) ══════════════════════════════════════════
+/**
+ * The cheapest possible "are you there?".
+ *
+ * The client's connectivity manager calls this on a timer to decide between
+ * ONLINE, LIMITED and OFFLINE, so it must touch nothing — no database, no
+ * provider, no auth. `/health` deliberately DOES hit the database, and that is
+ * the point of having both: a fast ping with a failing health check is a live
+ * network to a sick platform (LIMITED), while a failing ping is no network at
+ * all (OFFLINE). Collapsing them into one endpoint would make those two
+ * indistinguishable to a phone at the roadside.
+ *
+ * `t` lets the client measure clock skew without a second round trip.
+ */
+app.get("/v1/ping", async (_req, reply) =>
+  reply.header("cache-control", "no-store").send(ok({ t: Date.now() })));
+
+// ══ live event stream (SSE) ════════════════════════════════════════════════
+/**
+ * One long-lived GET per client, carrying every change that concerns them.
+ *
+ * **Authenticated by the Authorization header, deliberately.** The obvious
+ * implementation uses `EventSource`, which cannot set headers and so forces the
+ * access token into the query string — where it lands in every access log,
+ * proxy log and `Referer`. The client uses `fetch()` with a streaming body
+ * reader instead, which costs a few lines there and keeps the token out of the
+ * URL entirely. The same reasoning already governs how map.html receives its
+ * token (in the fragment, never the path).
+ *
+ * The stream is an ACCELERATOR, not the source of truth. Booking state is
+ * server-authoritative (ADR-0004); a client that misses an event because it was
+ * in a tunnel refetches on reconnect and is correct again. Nothing here is the
+ * only path to any state.
+ */
+app.get("/v1/events", { preHandler: [authenticate, limit("stream")] }, async (req, reply) => {
+  const userId = req.user!.sub;
+  openStream(reply);
+  const sub = subscribe(userId, reply, String(req.id));
+
+  if (!sub) {
+    // Refusing loudly beats silently accepting a stream we will not feed.
+    reply.raw.write(`event: error\ndata: ${JSON.stringify({
+      code: "too_many_streams",
+      title: `This account already has ${MAX_STREAMS_PER_USER} open streams. Close one and reconnect.`,
+    })}\n\n`);
+    reply.raw.end();
+    return reply.hijack();
+  }
+
+  // A first frame the client can act on: it proves the stream is live rather
+  // than merely connected, and carries the server clock for skew correction.
+  reply.raw.write(`event: stream.open\ndata: ${JSON.stringify({
+    type: "stream.open", requestId: req.id, serverTime: new Date().toISOString(),
+  })}\n\n`);
+
+  return reply.hijack();
+});
+
 // ══ health ═════════════════════════════════════════════════════════════════
-app.get("/health", async () => {
+/**
+ * Liveness and readiness, told apart.
+ *
+ * The old handler let a database failure throw, which surfaced as a 500 with a
+ * generic envelope — indistinguishable from any other bug, and useless to a
+ * load balancer that has to decide whether to keep sending traffic here.
+ *
+ * Now the database check is caught and reported. The rule the brief asks for is
+ * explicit: **an instance whose database is unreachable is NOT healthy**, so it
+ * answers 503 and an orchestrator takes it out of rotation. `/v1/ping` stays
+ * separate and touches nothing, so "the network is dead" and "the platform is
+ * sick" remain distinguishable from a phone at the roadside.
+ */
+app.get("/health", async (req, reply) => {
   const t0 = Date.now();
-  const [{ n }] = await db.execute<{ n: number }>(raw`SELECT 1::int AS n`);
+  let database: { status: "ok" | "down"; latencyMs: number; error?: string };
+  try {
+    const [{ n }] = await db.execute<{ n: number }>(raw`SELECT 1::int AS n`);
+    database = { status: n === 1 ? "ok" : "down", latencyMs: Date.now() - t0 };
+  } catch (err) {
+    database = {
+      status: "down", latencyMs: Date.now() - t0,
+      // The class of failure, never the connection string.
+      error: err instanceof Error ? err.name : "unknown",
+    };
+  }
+
+  const healthy = database.status === "ok";
+
+  /**
+   * Two audiences, two answers.
+   *
+   * A load balancer, an orchestrator and a Docker HEALTHCHECK need one thing:
+   * the status code. They must never be made to authenticate, so the public
+   * body stays minimal — enough to diagnose from a terminal, and nothing that
+   * helps somebody map the deployment.
+   *
+   * The detail — which SMS and payment vendors are wired up, which environment
+   * this is, how long it has been up, how many live streams are open — is
+   * reconnaissance. It is genuinely useful to an operator and genuinely useful
+   * to an attacker, so it needs a role. Passing `?detail=1` with an operator
+   * token returns it; without one the parameter is ignored rather than refused,
+   * because a health endpoint that can fail authentication is a health endpoint
+   * that can report a false outage.
+   */
+  let operator = false;
+  if ((req.query as { detail?: string })?.detail) {
+    const header = req.headers.authorization;
+    if (header?.startsWith("Bearer ")) {
+      try {
+        const claims = await verifyAccessToken(header.slice(7));
+        operator = claims.roles.some((r) => r === "admin" || r === "gov_officer");
+      } catch { /* an unreadable token simply gets the public view */ }
+    }
+  }
+
+  const body = ok({
+    status: healthy ? "ok" : "degraded",
+    application: "ok",              // this process is answering, by definition
+    database: database.status,
+    dbLatencyMs: database.latencyMs,
+    ...(database.error ? { databaseError: database.error } : {}),
+    ...(operator ? {
+      providers: providerSummary(),
+      realtime: realtimeStats(),
+      uptimeSeconds: Math.round(process.uptime()),
+      environment: env.nodeEnv,
+      version: "0.1.0",
+    } : {}),
+  }, operator ? {} : { note: "Add ?detail=1 with an operator token for provider, runtime and stream detail." });
+
+  // 503 rather than 200-with-a-flag: a load balancer reads the status code.
+  return healthy ? body : reply.code(503).send(body);
+});
+
+/**
+ * The operations view. Real numbers, read live, or nothing.
+ *
+ * Every figure here is a count from the database at the moment of the request.
+ * There is no sampling, no cache and no synthetic metric — if a number cannot
+ * be computed it is absent rather than estimated, because a dashboard that
+ * invents a plausible value is worse than one that admits it does not know.
+ */
+app.get("/v1/ops/overview", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req) => {
+  const t0 = Date.now();
+  const [incidents] = await db.execute<{
+    active: number; critical: number; awaiting: number; offgrid_today: number;
+  }>(raw`
+    SELECT count(*) FILTER (WHERE status IN ('DETECTED','AWAITING_CONFIRMATION','CONFIRMED','RESPONDING'))::int AS active,
+           count(*) FILTER (WHERE severity = 'CRITICAL'
+                              AND status IN ('CONFIRMED','RESPONDING'))::int AS critical,
+           count(*) FILTER (WHERE status = 'AWAITING_CONFIRMATION')::int AS awaiting,
+           count(*) FILTER (WHERE degraded_path AND created_at > now() - interval '24 hours')::int AS offgrid_today
+      FROM incidents WHERE deleted_at IS NULL`);
+
+  const [bookings] = await db.execute<{ matching: number; active: number; no_supply: number }>(raw`
+    SELECT count(*) FILTER (WHERE status = 'MATCHING')::int AS matching,
+           count(*) FILTER (WHERE status IN ('ASSIGNED','EN_ROUTE','ON_SITE','IN_PROGRESS','AWAITING_PARTS'))::int AS active,
+           count(*) FILTER (WHERE status = 'NO_SUPPLY' AND updated_at > now() - interval '24 hours')::int AS no_supply
+      FROM bookings WHERE deleted_at IS NULL`);
+
+  const [sync] = await db.execute<{ rejected: number; conflicts: number }>(raw`
+    SELECT count(*) FILTER (WHERE rejected_reason IS NOT NULL
+                              AND created_at > now() - interval '24 hours')::int AS rejected,
+           (SELECT count(*)::int FROM conflict_log
+             WHERE created_at > now() - interval '24 hours') AS conflicts
+      FROM sync_operations`);
+
+  const [payments] = await db.execute<{ pending: number; failed: number }>(raw`
+    SELECT count(*) FILTER (WHERE status = 'PENDING'
+                              AND created_at < now() - interval '30 minutes')::int AS pending,
+           count(*) FILTER (WHERE status = 'FAILED'
+                              AND created_at > now() - interval '24 hours')::int AS failed
+      FROM payments WHERE deleted_at IS NULL`);
+
+  const providers = await providerRoster();
+  const chain = await verifyAuditChain(2000);
+
+  logOp(req, { op: "ops.overview", result: "ok", durationMs: Date.now() - t0 });
+
   return ok({
-    status: n === 1 ? "ok" : "degraded",
-    dbLatencyMs: Date.now() - t0,
-    providers: providerSummary(),
-    version: "0.1.0",
+    incidents, bookings, sync, payments, providers,
+    auditChain: { intact: chain.ok, entriesChecked: chain.checked,
+                  ...(chain.ok ? {} : { brokenAt: chain.brokenAt, reason: chain.reason }) },
+    realtime: realtimeStats(),
+  }, {
+    generatedAt: new Date().toISOString(),
+    note: "Every figure is a live count. Nothing here is sampled, cached or estimated.",
   });
 });
 
@@ -253,6 +558,19 @@ app.post("/v1/auth/otp/verify", async (req, reply) => {
   }
 
   const session = await startSession(db, user.id, { ip: req.ip, ua: req.headers["user-agent"] });
+
+  // Sign-in is an auditable event, and it is one of the few whose ABSENCE is
+  // also evidence — a session that exists with no login behind it means a token
+  // was minted some other way. The MSISDN is deliberately not written here: the
+  // subject id already identifies the account, and repeating the phone number
+  // in an append-only table only widens what a leak of that table exposes.
+  await audit({
+    actorId: user.id, actorRole: "citizen", action: "auth.login",
+    entity: "user", entityId: user.id,
+    after: { newAccount: created, sessionCreated: true },
+    ip: req.ip,
+  });
+
   return ok({ ...session, user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName } }, { newAccount: created });
 });
 
@@ -285,6 +603,35 @@ app.get("/v1/me", { preHandler: authenticate }, async (req) => {
   return ok({ user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName }, roles: req.user!.roles, vehicles });
 });
 
+/**
+ * Set your own name.
+ *
+ * `full_name` was readable everywhere and writable nowhere: the seed invented
+ * names for its fake users, while every account created by actually signing in
+ * had none — so a real customer reached the mechanic's screen as the literal
+ * word "Customer". A mechanic pulling onto a hard shoulder is looking for a
+ * person, and this is the only place that person can say who they are.
+ */
+app.patch("/v1/me", { preHandler: authenticate }, async (req, reply) => {
+  const body = z.object({
+    // Trimmed, and empty means "clear it" rather than storing a blank string.
+    fullName: z.string().max(120).transform((s) => s.trim()).optional(),
+  }).parse(req.body ?? {});
+
+  if (body.fullName === undefined) {
+    return reply.code(400).send({
+      error: { code: "nothing_to_update", title: "Send a name to change", retryable: false },
+    });
+  }
+
+  const [updated] = await db.update(S.users)
+    .set({ fullName: body.fullName || null, updatedAt: new Date() })
+    .where(eq(S.users.id, req.user!.sub))
+    .returning({ id: S.users.id, msisdn: S.users.msisdn, fullName: S.users.fullName });
+
+  return ok(updated);
+});
+
 // ══ vehicles ═══════════════════════════════════════════════════════════════
 app.post("/v1/vehicles", { preHandler: authenticate }, async (req, reply) => {
   const body = z.object({
@@ -309,6 +656,59 @@ app.post("/v1/vehicles", { preHandler: authenticate }, async (req, reply) => {
   await db.insert(S.userVehicles).values({ userId: req.user!.sub, vehicleId: vehicle.id, isPrimary: true });
 
   return reply.code(201).send(ok(vehicle));
+});
+
+/**
+ * Correct a vehicle's details.
+ *
+ * A registration typed at the roadside with one hand is often wrong, and until
+ * now the only remedy was adding a second vehicle and living with the first —
+ * the unique index then made the *correct* plate unaddable. Ownership is
+ * checked through user_vehicles, so a vehicle id alone is not authority.
+ */
+app.patch("/v1/vehicles/:id", { preHandler: authenticate }, async (req, reply) => {
+  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+  const body = z.object({
+    registrationNo: z.string().min(4).max(16)
+      .transform((s) => s.toUpperCase().replace(/\s+/g, "")).optional(),
+    vehicleClass: z.enum(["car", "motorcycle", "scooter", "auto_rickshaw", "truck", "bus", "tractor", "ev"]).optional(),
+    fuel: z.enum(["petrol", "diesel", "cng", "lpg", "electric", "hybrid"]).optional(),
+    nickname: z.string().max(60).optional(),
+    odometerKm: z.number().int().min(0).max(2_000_000).optional(),
+  }).parse(req.body ?? {});
+
+  const [owned] = await db.select().from(S.userVehicles)
+    .where(and(eq(S.userVehicles.userId, req.user!.sub), eq(S.userVehicles.vehicleId, id),
+               isNull(S.userVehicles.deletedAt))).limit(1);
+  if (!owned) {
+    return reply.code(403).send({
+      error: { code: "not_your_vehicle", title: "That vehicle is not on your account", retryable: false },
+    });
+  }
+
+  // Renaming onto a plate somebody else already registered is the same clash
+  // POST reports, and deserves the same answer rather than a 500 from the index.
+  if (body.registrationNo) {
+    const [clash] = await db.select({ id: S.vehicles.id }).from(S.vehicles)
+      .where(eq(S.vehicles.registrationNo, body.registrationNo)).limit(1);
+    if (clash && clash.id !== id) {
+      return reply.code(409).send({
+        error: { code: "vehicle_exists", title: "That registration number is already on the platform", retryable: false },
+      });
+    }
+  }
+
+  const patch = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined));
+  if (!Object.keys(patch).length) {
+    return reply.code(400).send({
+      error: { code: "nothing_to_update", title: "Send at least one field to change", retryable: false },
+    });
+  }
+
+  const [updated] = await db.update(S.vehicles)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(S.vehicles.id, id)).returning();
+  return ok(updated);
 });
 
 // ══ diagnosis ══════════════════════════════════════════════════════════════
@@ -349,7 +749,7 @@ app.post("/v1/diagnose", { preHandler: authenticate }, async (req) => {
 // ══ bookings ═══════════════════════════════════════════════════════════════
 const reference = () => "RA" + randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
 
-app.post("/v1/bookings", { preHandler: authenticate }, async (req, reply) => {
+app.post("/v1/bookings", { preHandler: [authenticate, limit("booking")] }, async (req, reply) => {
   const body = z.object({
     vehicleId: z.string().uuid(),
     serviceTypeCode: z.string().min(2),
@@ -422,8 +822,57 @@ app.post("/v1/bookings", { preHandler: authenticate }, async (req, reply) => {
   return reply.code(201).send(payload);
 });
 
+/**
+ * Who may see and drive a booking: its customer, the mechanic currently
+ * assigned to it, or an admin. Checked at the resource rather than the route
+ * (threat #5), and in one place so the read, write and payment paths cannot
+ * drift apart — they have before, and the write path ended up strictly more
+ * permissive than the read path.
+ */
+async function bookingAudience(
+  booking: { userId: string; mechanicId: string | null },
+  caller: { sub: string; roles: string[] },
+): Promise<{ allowed: boolean; isAssignedMechanic: boolean }> {
+  let isAssignedMechanic = false;
+  if (booking.mechanicId) {
+    const [mech] = await db.select({ userId: S.mechanics.userId }).from(S.mechanics)
+      .where(eq(S.mechanics.id, booking.mechanicId)).limit(1);
+    isAssignedMechanic = mech?.userId === caller.sub;
+  }
+  return {
+    allowed: booking.userId === caller.sub || isAssignedMechanic || caller.roles.includes("admin"),
+    isAssignedMechanic,
+  };
+}
+
+const notYours = { code: "forbidden", title: "That booking is not yours", retryable: false } as const;
+
+/**
+ * Push a booking change to everybody it concerns — the customer and, once one
+ * is assigned, the mechanic driving to them.
+ *
+ * Both sides need it. Before this, the customer polled every six seconds and
+ * the mechanic's console only redrew when they touched it, so "the customer
+ * cancelled while I was driving" reached the mechanic whenever they next
+ * happened to look.
+ *
+ * Called AFTER the write commits, never before (see realtime.ts).
+ */
+async function notifyBooking(
+  booking: { id: string; userId: string | null; mechanicId: string | null },
+  event: RealtimeEvent,
+): Promise<number> {
+  const audience: Array<string | null> = [booking.userId];
+  if (booking.mechanicId) {
+    const [mech] = await db.select({ userId: S.mechanics.userId }).from(S.mechanics)
+      .where(eq(S.mechanics.id, booking.mechanicId)).limit(1);
+    if (mech?.userId) audience.push(mech.userId);
+  }
+  return publishMany(audience, { ...event, bookingId: booking.id });
+}
+
 /** Dispatch: PostGIS nearest-neighbour, then the deterministic ranker. */
-app.post("/v1/bookings/:id/dispatch", { preHandler: authenticate }, async (req, reply) => {
+app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("booking")] }, async (req, reply) => {
   const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
   const { radiusKm = 25, limit = 5 } = z.object({
     radiusKm: z.number().min(1).max(100).optional(), limit: z.number().min(1).max(20).optional(),
@@ -435,33 +884,39 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: authenticate }, async (req, 
     return reply.code(403).send({ error: { code: "forbidden", title: "That booking is not yours", retryable: false } });
   }
 
+  const t0 = Date.now();
   const { to } = apply(booking.status as Status, "dispatch.start");
 
-  const candidates = await db.execute<{
-    id: string; display_name: string; rating: number; jobs_completed: number; distance_km: number;
-  }>(raw`
-    SELECT m.id, m.display_name, m.rating, m.jobs_completed,
-           ST_Distance(m.last_location::geography, b.location::geography) / 1000 AS distance_km
-      FROM mechanics m, bookings b
-     WHERE b.id = ${id}
-       AND m.deleted_at IS NULL AND m.verified AND m.is_available
-       AND ST_DWithin(m.last_location::geography, b.location::geography, ${radiusKm * 1000})
-     ORDER BY m.last_location <-> b.location
-     LIMIT ${limit}`);
+  // Wave 1 of the ladder. `sendWave` excludes providers who are off duty or
+  // already committed to another customer — the old query filtered on the duty
+  // toggle alone, so a mechanic mid-job kept receiving offers.
+  const wave = await sendWave(id, {
+    radiusKm, waveSize: limit, wave: 1, actorId: req.user!.sub,
+  });
 
-  const ranked = rankMechanics(candidates.map((c) => ({
-    id: c.id, displayName: c.display_name, rating: Number(c.rating),
-    jobsCompleted: Number(c.jobs_completed), distanceKm: Number(Number(c.distance_km).toFixed(2)),
-  })));
-
-  if (ranked.length === 0) {
+  if (wave.exhausted) {
     const noSupply = apply(to, "offers.exhausted");
     await db.update(S.bookings).set({ status: noSupply.to, updatedAt: new Date() }).where(eq(S.bookings.id, id));
     await db.insert(S.bookingEvents).values({
       bookingId: id, fromStatus: to, toStatus: noSupply.to, command: "offers.exhausted", actorRole: "system",
+      meta: { radiusKm, skipped: wave.skipped.length },
     });
-    return ok({ offers: [], status: noSupply.to },
-      { message: `No available mechanic within ${radiusKm} km. Widen the radius to try again.` });
+    publish(req.user!.sub, { type: "booking.status", bookingId: id, status: noSupply.to });
+    logOp(req, {
+      op: "dispatch.start", result: "rejected", durationMs: Date.now() - t0,
+      bookingId: id, radiusKm, offers: 0, skippedProviders: wave.skipped.length,
+      errorCode: "PROVIDER_UNAVAILABLE",
+    });
+    return ok({ offers: [], status: noSupply.to }, {
+      message: wave.skipped.length
+        ? `No free mechanic within ${radiusKm} km — ${wave.skipped.length} nearby are off duty or on another job. Widen the radius to try again.`
+        : `No available mechanic within ${radiusKm} km. Widen the radius to try again.`,
+      // Named states, not a bare count: "everyone is busy" and "nobody is here"
+      // are different problems and the customer deserves to know which it is.
+      skippedByState: wave.skipped.reduce<Record<string, number>>((acc, s) => {
+        acc[s.state] = (acc[s.state] ?? 0) + 1; return acc;
+      }, {}),
+    });
   }
 
   await db.update(S.bookings).set({ status: to, updatedAt: new Date() }).where(eq(S.bookings.id, id));
@@ -469,21 +924,94 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: authenticate }, async (req, 
     bookingId: id, fromStatus: booking.status, toStatus: to, command: "dispatch.start", actorRole: "system",
   });
 
-  const offers = await db.insert(S.dispatchOffers).values(
-    ranked.map((m, i) => ({
-      bookingId: id, mechanicId: m.id, rank: i + 1, score: m.score,
-      distanceKm: m.distanceKm, etaMinutes: m.etaMinutes,
-      expiresAt: new Date(Date.now() + 90_000), usedFallback: true,
-    })),
-  ).returning();
+  await audit({
+    actorId: req.user!.sub, actorRole: "citizen", action: "dispatch.started",
+    entity: "booking", entityId: id,
+    after: { offers: wave.offers.length, radiusKm, wave: 1,
+             topMechanicId: wave.ranked[0]?.id ?? null, skipped: wave.skipped.length },
+    ip: req.ip,
+  });
+  publish(req.user!.sub, { type: "booking.status", bookingId: id, status: to, offers: wave.offers.length });
 
-  return ok({
-    status: to,
-    offers: offers.map((o, i) => ({ ...o, mechanic: ranked[i] })),
-  }, { rankedBy: "rules-1.0.0", radiusKm });
+  logOp(req, {
+    op: "dispatch.start", result: "ok", durationMs: Date.now() - t0,
+    bookingId: id, radiusKm, waveSize: limit, offers: wave.offers.length,
+    skippedProviders: wave.skipped.length,
+  });
+
+  return ok({ status: to, offers: wave.offers }, {
+    rankedBy: "rules-1.0.0", radiusKm, wave: 1, waveSize: limit,
+    skippedByState: wave.skipped.reduce<Record<string, number>>((acc, s) => {
+      acc[s.state] = (acc[s.state] ?? 0) + 1; return acc;
+    }, {}),
+    offerTtlSeconds: env.offerTtlSeconds,
+  });
 });
 
-app.post("/v1/offers/:offerId/accept", { preHandler: authenticate }, async (req, reply) => {
+/**
+ * Decline an offer.
+ *
+ * This endpoint did not exist. `DECLINED` was in the enum and nothing ever
+ * wrote it, so a mechanic's only way to refuse a job was to ignore it and burn
+ * the whole offer window — which the customer experiences as ninety seconds of
+ * nothing happening for a job that was never going to be taken.
+ *
+ * Declining closes the offer and advances the ladder immediately, so a refusal
+ * costs the customer the round trip rather than the timeout.
+ */
+app.post("/v1/offers/:offerId/decline", { preHandler: [authenticate, limit("accept")] }, async (req) => {
+  const { offerId } = z.object({ offerId: z.string().uuid() }).parse(req.params);
+  const { reason } = z.object({ reason: z.string().max(200).optional() }).parse(req.body ?? {});
+
+  const [offer] = await db.select().from(S.dispatchOffers)
+    .where(eq(S.dispatchOffers.id, offerId)).limit(1);
+  if (!offer) throw fail("NOT_FOUND", "Offer not found");
+
+  // Only the provider it was sent to may refuse it. A customer declining on a
+  // mechanic's behalf would be indistinguishable from the mechanic refusing,
+  // and the mechanic's acceptance rate is part of their record.
+  const [offerMech] = await db.select({ userId: S.mechanics.userId }).from(S.mechanics)
+    .where(eq(S.mechanics.id, offer.mechanicId)).limit(1);
+  if (offerMech?.userId !== req.user!.sub && !req.user!.roles.includes("admin")) {
+    throw fail("FORBIDDEN", "That offer was not sent to you");
+  }
+
+  // Compare-and-swap: a decline racing an accept, an expiry or a second tap
+  // must not reopen a closed offer.
+  const closed = await db.update(S.dispatchOffers)
+    .set({ status: "DECLINED", respondedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(S.dispatchOffers.id, offerId), eq(S.dispatchOffers.status, "SENT")))
+    .returning({ id: S.dispatchOffers.id });
+
+  if (!closed.length) {
+    throw fail("OFFER_CLOSED", `This offer is already ${offer.status.toLowerCase()}`);
+  }
+
+  await audit({
+    actorId: req.user!.sub, actorRole: "mechanic", action: "dispatch.provider_rejected",
+    entity: "dispatch_offer", entityId: offerId,
+    after: { bookingId: offer.bookingId, mechanicId: offer.mechanicId, reason: reason ?? null },
+    ip: req.ip,
+  });
+
+  // Persisted first; the ladder moves second.
+  const next = await escalate(offer.bookingId, "declined");
+  logOp(req, {
+    op: "dispatch.decline", result: "ok", bookingId: offer.bookingId,
+    mechanicId: offer.mechanicId, escalated: next.escalated, exhausted: next.exhausted,
+  });
+
+  return ok({ offerId, status: "DECLINED", bookingId: offer.bookingId }, {
+    escalated: next.escalated,
+    note: next.exhausted
+      ? "Declined. Every provider in range has now been asked."
+      : next.escalated
+        ? `Declined. The job was offered to ${next.offers} more provider(s).`
+        : "Declined. Other providers still hold live offers for this job.",
+  });
+});
+
+app.post("/v1/offers/:offerId/accept", { preHandler: [authenticate, limit("accept")] }, async (req, reply) => {
   const { offerId } = z.object({ offerId: z.string().uuid() }).parse(req.params);
   const [offer] = await db.select().from(S.dispatchOffers).where(eq(S.dispatchOffers.id, offerId)).limit(1);
   if (!offer) return reply.code(404).send({ error: { code: "not_found", title: "Offer not found", retryable: false } });
@@ -499,28 +1027,95 @@ app.post("/v1/offers/:offerId/accept", { preHandler: authenticate }, async (req,
     return reply.code(403).send({ error: { code: "forbidden", title: "That offer is not yours to accept", retryable: false } });
   }
 
-  if (offer.status !== "SENT") {
-    return reply.code(409).send({ error: { code: "offer_closed", title: `This offer is already ${offer.status.toLowerCase()}`, retryable: false } });
-  }
+  /**
+   * Two mechanics must never both succeed here.
+   *
+   * The status read above is a courtesy — it produces a fast, friendly 409 for
+   * the ordinary case. It cannot be the guard: two requests arriving in the same
+   * millisecond both read `SENT`, both pass, and both write `bookings.mechanic_id`
+   * — last writer wins, both mechanics are told they got the job, and one of
+   * them drives to a customer who is expecting somebody else.
+   *
+   * So the decision is made inside the transaction, behind `SELECT … FOR UPDATE`
+   * on the BOOKING row. Every accept for a booking — whichever offer it names —
+   * queues on that one row, so the second request reads the first request's
+   * committed result rather than the state it started from. Locking the booking
+   * rather than the offer is what makes that true across *different* offers for
+   * the same job, which is exactly the case that was broken.
+   *
+   * Expiry is enforced here too. The mechanic's inbox already hides expired
+   * offers, but hiding a button is not a rule: a replayed request, a stale tab
+   * or a direct API call could accept an offer whose window closed twenty
+   * minutes ago and steal a job from whoever accepted legitimately (§4).
+   */
+  type AcceptOutcome =
+    | { ok: true; to: Status }
+    | { ok: false; code: string; title: string };
 
-  const { to } = apply(booking.status as Status, "mechanic.accept");
+  const outcome = await db.transaction(async (tx): Promise<AcceptOutcome> => {
+    const [locked] = await tx.execute<{ id: string; status: string; mechanic_id: string | null }>(
+      raw`SELECT id, status, mechanic_id FROM bookings WHERE id = ${offer.bookingId} FOR UPDATE`);
+    if (!locked) return { ok: false, code: "not_found", title: "Booking not found" };
 
-  await db.transaction(async (tx) => {
+    // Re-read under the lock. This is the value the decision is made on.
+    const [fresh] = await tx.select().from(S.dispatchOffers)
+      .where(eq(S.dispatchOffers.id, offerId)).limit(1);
+
+    if (fresh.status !== "SENT") {
+      return { ok: false, code: "offer_closed", title: `This offer is already ${fresh.status.toLowerCase()}` };
+    }
+    if (fresh.expiresAt.getTime() <= Date.now()) {
+      // Record the expiry rather than just refusing, so the offer stops being
+      // offered and the dispatch ladder can move on.
+      await tx.update(S.dispatchOffers).set({ status: "EXPIRED", updatedAt: new Date() })
+        .where(and(eq(S.dispatchOffers.id, offerId), eq(S.dispatchOffers.status, "SENT")));
+      return { ok: false, code: "offer_expired", title: "This offer expired before it was accepted" };
+    }
+    if (locked.mechanic_id) {
+      return { ok: false, code: "already_assigned", title: "Another mechanic has already accepted this job" };
+    }
+
+    // The state machine gets the locked status, not the one read before the
+    // lock — a booking cancelled a moment ago must not be assignable.
+    const next = apply(locked.status as Status, "mechanic.accept");
+
     await tx.update(S.dispatchOffers).set({ status: "ACCEPTED", respondedAt: new Date(), updatedAt: new Date() })
       .where(eq(S.dispatchOffers.id, offerId));
     await tx.update(S.dispatchOffers).set({ status: "WITHDRAWN", updatedAt: new Date() })
       .where(and(eq(S.dispatchOffers.bookingId, offer.bookingId), eq(S.dispatchOffers.status, "SENT")));
     await tx.update(S.bookings)
-      .set({ status: to, mechanicId: offer.mechanicId, assignedAt: new Date(), updatedAt: new Date() })
+      .set({ status: next.to, mechanicId: offer.mechanicId, assignedAt: new Date(), updatedAt: new Date() })
       .where(eq(S.bookings.id, offer.bookingId));
     await tx.insert(S.bookingEvents).values({
-      bookingId: offer.bookingId, fromStatus: booking.status, toStatus: to,
+      bookingId: offer.bookingId, fromStatus: locked.status as Status, toStatus: next.to,
       command: "mechanic.accept", actorId: offer.mechanicId, actorRole: "mechanic",
     });
+    return { ok: true, to: next.to };
   });
 
-  return ok({ bookingId: offer.bookingId, status: to, mechanicId: offer.mechanicId, etaMinutes: offer.etaMinutes },
-             { nextCommands: allowedFrom(to) });
+  if (!outcome.ok) {
+    await audit({
+      actorId: caller.sub, actorRole: "mechanic", action: "dispatch.provider_rejected_race",
+      entity: "dispatch_offer", entityId: offerId,
+      after: { reason: outcome.code, bookingId: offer.bookingId }, ip: req.ip,
+    });
+    return reply.code(outcome.code === "not_found" ? 404 : 409)
+      .send({ error: { code: outcome.code, title: outcome.title, retryable: false, requestId: req.id } });
+  }
+
+  await audit({
+    actorId: caller.sub, actorRole: "mechanic", action: "dispatch.provider_accepted",
+    entity: "booking", entityId: offer.bookingId,
+    after: { offerId, mechanicId: offer.mechanicId, status: outcome.to, etaMinutes: offer.etaMinutes },
+    ip: req.ip,
+  });
+  publish(booking.userId!, {
+    type: "booking.status", bookingId: offer.bookingId, status: outcome.to,
+    mechanicId: offer.mechanicId, etaMinutes: offer.etaMinutes,
+  });
+
+  return ok({ bookingId: offer.bookingId, status: outcome.to, mechanicId: offer.mechanicId, etaMinutes: offer.etaMinutes },
+             { nextCommands: allowedFrom(outcome.to) });
 });
 
 /** Generic guarded transition — every other state change goes through here. */
@@ -531,17 +1126,23 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
   const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, id)).limit(1);
   if (!booking) return reply.code(404).send({ error: { code: "not_found", title: "Booking not found", retryable: false } });
 
-  // Ownership check at the resource, not just the route (threat #5): only the
-  // customer, the assigned mechanic or an admin may drive this booking.
   const caller = req.user!;
-  let isAssignedMechanic = false;
-  if (booking.mechanicId) {
-    const [mech] = await db.select({ userId: S.mechanics.userId }).from(S.mechanics)
-      .where(eq(S.mechanics.id, booking.mechanicId)).limit(1);
-    isAssignedMechanic = mech?.userId === caller.sub;
+  if (!(await bookingAudience(booking, caller)).allowed) {
+    return reply.code(403).send({ error: notYours });
   }
-  if (booking.userId !== caller.sub && !isAssignedMechanic && !caller.roles.includes("admin")) {
-    return reply.code(403).send({ error: { code: "forbidden", title: "That booking is not yours", retryable: false } });
+
+  // The state machine says PAID follows COMPLETED; it cannot say whether the
+  // money arrived. Until this check existed any client could post
+  // "payment.settled" and close its own invoice for free — the command is now
+  // only the *record* of a settlement that POST /v1/bookings/:id/pay made.
+  if (command === "payment.settled" && !(await invoiceIsSettled(id))) {
+    return reply.code(409).send({
+      error: {
+        code: "payment_required",
+        title: "This invoice has not been paid yet. Settle it via POST /v1/bookings/:id/pay.",
+        retryable: false,
+      },
+    });
   }
 
   const { to, cancellationFee } = apply(booking.status as Status, command as Command);
@@ -585,19 +1186,569 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
     });
   }
 
+  await audit({
+    actorId: caller.sub, actorRole: caller.roles[0] ?? "citizen",
+    action: "booking.status_changed", entity: "booking", entityId: id,
+    before: { status: booking.status }, after: { status: to, command },
+    ip: req.ip,
+  });
+  // Persisted first, published second — both sides of the job learn at once.
+  await notifyBooking({ id, userId: booking.userId, mechanicId: booking.mechanicId }, {
+    type: "booking.status", status: to, previous: booking.status, command,
+    invoiceTotalPaise: invoice ? (invoice as { totalPaise: number }).totalPaise : undefined,
+  });
+
   return ok({ id, status: to, cancellationFee, invoice }, { nextCommands: allowedFrom(to) });
+});
+
+// ══ payments ═══════════════════════════════════════════════════════════════
+
+/** Is every paise of this booking's invoice covered by settled payments? */
+async function invoiceIsSettled(bookingId: string): Promise<boolean> {
+  const [invoice] = await db.select({ id: S.invoices.id, total: S.invoices.totalPaise })
+    .from(S.invoices)
+    .where(and(eq(S.invoices.bookingId, bookingId), isNull(S.invoices.deletedAt)))
+    .limit(1);
+  if (!invoice) return false;
+
+  const [tally] = await db.select({ paid: raw<string>`coalesce(sum(${S.payments.amountPaise}), 0)` })
+    .from(S.payments)
+    .where(and(
+      eq(S.payments.invoiceId, invoice.id),
+      eq(S.payments.status, "SETTLED"),
+      isNull(S.payments.deletedAt),
+    ));
+  return Number(tally?.paid ?? 0) >= invoice.total;
+}
+
+/**
+ * COMPLETED → PAID, once a payment row actually covers the invoice. Guarded on
+ * the status the transition was computed from, exactly like the generic
+ * transition, so two confirmations racing cannot both win.
+ */
+async function settleBooking(
+  booking: typeof S.bookings.$inferSelect,
+  actor: { sub: string; roles: string[] },
+): Promise<boolean> {
+  const { to } = apply(booking.status as Status, "payment.settled");
+  return db.transaction(async (tx) => {
+    const updated = await tx.update(S.bookings)
+      .set({ status: to, updatedAt: new Date(), version: booking.version + 1 })
+      .where(and(eq(S.bookings.id, booking.id), eq(S.bookings.status, booking.status)))
+      .returning({ id: S.bookings.id });
+    if (!updated.length) return false;
+
+    await tx.insert(S.bookingEvents).values({
+      bookingId: booking.id, fromStatus: booking.status, toStatus: to,
+      command: "payment.settled", actorId: actor.sub, actorRole: actor.roles[0] ?? "citizen",
+    });
+    return true;
+  });
+}
+
+/**
+ * Settle a completed booking's invoice.
+ *
+ * The amount is never read from the request — it is the invoice total, so a
+ * client cannot choose what it owes. Cash is recorded rather than charged, and
+ * only by whoever is actually holding the money (the assigned mechanic, or an
+ * admin): "the customer paid cash" is not the customer's claim to make.
+ *
+ * A provider that settles synchronously (the local mock, and cash) advances the
+ * booking to PAID in the same call, so a client needs nothing further. A real
+ * gateway returns a checkout handle instead and the booking stays COMPLETED
+ * until POST /v1/payments/:id/confirm verifies what the gateway hands back.
+ */
+app.post("/v1/bookings/:id/pay", { preHandler: [authenticate, limit("payment")] }, async (req, reply) => {
+  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+  const { method = "upi" } = z.object({
+    method: z.enum(PAYMENT_METHODS).optional(),
+  }).parse(req.body ?? {});
+
+  const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, id)).limit(1);
+  if (!booking) return reply.code(404).send({ error: { code: "not_found", title: "Booking not found", retryable: false } });
+
+  const caller = req.user!;
+  const audience = await bookingAudience(booking, caller);
+  if (!audience.allowed) return reply.code(403).send({ error: notYours });
+
+  if (method === "cash" && !audience.isAssignedMechanic && !caller.roles.includes("admin")) {
+    return reply.code(403).send({
+      error: {
+        code: "forbidden",
+        title: "Only the assigned mechanic can record a cash payment",
+        retryable: false,
+      },
+    });
+  }
+
+  // Already settled: say so rather than charging a second time.
+  if (booking.status === "PAID") {
+    return ok({ id, status: "PAID", alreadySettled: true }, { nextCommands: allowedFrom("PAID") });
+  }
+  if (booking.status !== "COMPLETED") {
+    return reply.code(409).send({
+      error: {
+        code: "not_payable",
+        title: `A booking in ${booking.status} has nothing to pay yet — a job is invoiced when it completes.`,
+        retryable: false,
+      },
+    });
+  }
+
+  const [invoice] = await db.select().from(S.invoices)
+    .where(and(eq(S.invoices.bookingId, id), isNull(S.invoices.deletedAt))).limit(1);
+  if (!invoice) {
+    return reply.code(409).send({
+      error: { code: "no_invoice", title: "This booking has no invoice to settle", retryable: false },
+    });
+  }
+
+  // Cash never reaches a gateway — the money changed hands at the roadside and
+  // only the record of it reaches us.
+  const order = method === "cash"
+    ? { providerRef: `cash_${invoice.number}`, settled: true, checkout: undefined }
+    : await payments.createOrder({ amountPaise: invoice.totalPaise, receipt: invoice.number, method });
+
+  const [payment] = await db.insert(S.payments).values({
+    invoiceId: invoice.id,
+    method,
+    amountPaise: invoice.totalPaise,
+    status: order.settled ? "SETTLED" : "PENDING",
+    providerRef: order.providerRef,
+    settledAt: order.settled ? new Date() : null,
+  }).returning();
+
+  if (!order.settled) {
+    return reply.code(202).send(ok(
+      { id, status: booking.status, payment, checkout: order.checkout },
+      { nextCommands: [], confirmWith: `POST /v1/payments/${payment.id}/confirm` },
+    ));
+  }
+
+  if (!(await settleBooking(booking, caller))) {
+    return reply.code(409).send({
+      error: {
+        code: "conflict",
+        title: "The booking changed while this request was in flight. Reload and retry.",
+        retryable: true,
+      },
+    });
+  }
+  return ok({ id, status: "PAID", payment, invoice }, { nextCommands: allowedFrom("PAID") });
+});
+
+/**
+ * Verify a gateway's completion payload, then settle.
+ *
+ * The signature is what proves the *gateway* said the money arrived. Without
+ * it a client could confirm its own payment, which is the same hole the raw
+ * "payment.settled" command used to leave open.
+ */
+app.post("/v1/payments/:id/confirm", { preHandler: [authenticate, limit("payment")] }, async (req, reply) => {
+  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+  const body = z.object({
+    paymentRef: z.string().min(1).max(80).optional(),
+    signature: z.string().min(1).max(256).optional(),
+  }).parse(req.body ?? {});
+
+  const [payment] = await db.select().from(S.payments).where(eq(S.payments.id, id)).limit(1);
+  if (!payment) return reply.code(404).send({ error: { code: "not_found", title: "Payment not found", retryable: false } });
+
+  const [invoice] = await db.select().from(S.invoices).where(eq(S.invoices.id, payment.invoiceId)).limit(1);
+  const [booking] = invoice
+    ? await db.select().from(S.bookings).where(eq(S.bookings.id, invoice.bookingId)).limit(1)
+    : [];
+  if (!invoice || !booking) {
+    return reply.code(409).send({
+      error: { code: "orphaned_payment", title: "This payment has no booking", retryable: false },
+    });
+  }
+
+  const caller = req.user!;
+  if (!(await bookingAudience(booking, caller)).allowed) return reply.code(403).send({ error: notYours });
+
+  if (payment.status === "SETTLED") {
+    return ok({ id, bookingId: booking.id, status: booking.status, alreadySettled: true },
+              { nextCommands: allowedFrom(booking.status as Status) });
+  }
+
+  const genuine = await payments.verify({
+    providerRef: payment.providerRef ?? "",
+    paymentRef: body.paymentRef,
+    signature: body.signature,
+  });
+  if (!genuine) {
+    // The row stays PENDING on purpose: an unverified attempt is not a failed
+    // payment, and the customer may still finish checkout.
+    return reply.code(402).send({
+      error: {
+        code: "payment_unverified",
+        title: "That confirmation could not be verified against the gateway, so nothing was settled.",
+        retryable: false,
+      },
+    });
+  }
+
+  // provider_ref keeps the *order* reference: it is what the signature is
+  // computed over, so overwriting it with the payment reference would make the
+  // settlement impossible to re-verify during reconciliation.
+  await db.update(S.payments)
+    .set({ status: "SETTLED", settledAt: new Date(), updatedAt: new Date(), version: payment.version + 1 })
+    .where(and(eq(S.payments.id, id), eq(S.payments.status, "PENDING")));
+
+  if (booking.status === "COMPLETED" && !(await settleBooking(booking, caller))) {
+    return reply.code(409).send({
+      error: {
+        code: "conflict",
+        title: "The booking changed while this request was in flight. Reload and retry.",
+        retryable: true,
+      },
+    });
+  }
+  const status = booking.status === "COMPLETED" ? "PAID" : booking.status;
+  return ok({ id, bookingId: booking.id, status, invoice }, { nextCommands: allowedFrom(status as Status) });
+});
+
+/**
+ * Razorpay webhook — the settlement path that does not depend on the payer.
+ *
+ * `POST /v1/payments/:id/confirm` is driven by the browser after checkout, and
+ * a browser is not a reliable narrator: the customer can pay and immediately
+ * close the tab, drop off the network, or have the page killed. The money has
+ * still moved. Razorpay retries this webhook until it gets a 2xx, so this is
+ * what actually guarantees the invoice closes.
+ *
+ * The signature IS the authentication — there is no bearer token, because
+ * Razorpay has none to send. It is HMAC-SHA256 of the *raw* body keyed with the
+ * webhook secret (a different secret from the API key), which is why the JSON
+ * parser keeps rawBody around. Without a configured secret the endpoint refuses
+ * outright rather than accepting unsigned settlements: an open money endpoint is
+ * worse than no endpoint.
+ *
+ * Delivery is at-least-once, so every path here is idempotent.
+ */
+app.post("/v1/webhooks/razorpay", async (req, reply) => {
+  if (!env.payments.webhookSecret) {
+    return reply.code(503).send({
+      error: {
+        code: "webhook_not_configured",
+        title: "PAYMENTS_WEBHOOK_SECRET is not set, so webhook settlements are refused.",
+        retryable: false,
+      },
+    });
+  }
+
+  const presented = String(req.headers["x-razorpay-signature"] ?? "");
+  const expected = createHmac("sha256", env.payments.webhookSecret)
+    .update((req as { rawBody?: string }).rawBody ?? "")
+    .digest("hex");
+  if (!presented || !constantTimeEquals(presented, expected)) {
+    return reply.code(401).send({
+      error: { code: "webhook_unsigned", title: "Missing or invalid webhook signature", retryable: false },
+    });
+  }
+
+  const body = z.object({
+    event: z.string().max(60),
+    payload: z.object({
+      payment: z.object({
+        entity: z.object({
+          id: z.string().max(80),
+          order_id: z.string().max(80).nullish(),
+          amount: z.number().int().nonnegative().optional(),
+        }).passthrough(),
+      }).optional(),
+    }).passthrough(),
+  }).parse(req.body);
+
+  // Only a captured payment settles anything. Authorized-but-uncaptured money
+  // is not ours yet, and failures must never close an invoice.
+  if (body.event !== "payment.captured") {
+    return ok({ ignored: true, event: body.event },
+      { note: "Only payment.captured settles an invoice." });
+  }
+
+  const entity = body.payload.payment?.entity;
+  const orderId = entity?.order_id ?? "";
+  if (!entity || !orderId) {
+    return ok({ ignored: true }, { note: "No order id on the payment entity." });
+  }
+
+  // provider_ref holds the *order* id — the same value createOrder stored.
+  const [payment] = await db.select().from(S.payments)
+    .where(eq(S.payments.providerRef, orderId)).limit(1);
+  if (!payment) {
+    // A 200 stops Razorpay retrying forever for an order this system never made.
+    return ok({ ignored: true, orderId }, { note: "No local payment for that order." });
+  }
+
+  // The gateway's amount must match what we invoiced. A mismatch means the
+  // order was tampered with or is not ours, and it must not settle.
+  if (entity.amount != null && entity.amount !== payment.amountPaise) {
+    req.log.error({ orderId, expected: payment.amountPaise, got: entity.amount },
+      "razorpay webhook amount mismatch");
+    return reply.code(409).send({
+      error: { code: "amount_mismatch", title: "Captured amount does not match the invoice", retryable: false },
+    });
+  }
+
+  if (payment.status !== "SETTLED") {
+    await db.update(S.payments)
+      .set({ status: "SETTLED", settledAt: new Date(), updatedAt: new Date(),
+             version: payment.version + 1 })
+      .where(and(eq(S.payments.id, payment.id), eq(S.payments.status, "PENDING")));
+  }
+
+  const [invoice] = await db.select().from(S.invoices)
+    .where(eq(S.invoices.id, payment.invoiceId)).limit(1);
+  const [booking] = invoice
+    ? await db.select().from(S.bookings).where(eq(S.bookings.id, invoice.bookingId)).limit(1)
+    : [];
+
+  let settled = false;
+  if (booking && booking.status === "COMPLETED") {
+    // The webhook has no signed-in user, so the actor is the system.
+    settled = await settleBooking(booking, { sub: booking.userId, roles: ["system"] });
+  }
+
+  await audit({
+    actorId: null, actorRole: "system", action: "payment.webhook.captured",
+    entity: "payment", entityId: payment.id,
+    after: { orderId, paymentRef: entity.id, bookingSettled: settled },
+    ip: req.ip,
+  });
+
+  return ok({ orderId, paymentId: payment.id, bookingSettled: settled },
+    { note: settled ? "Booking moved to PAID." : "Payment recorded; booking was not awaiting payment." });
+});
+
+// ══ reviews ════════════════════════════════════════════════════════════════
+/**
+ * Rate a finished job.
+ *
+ * This closes a loop that was open: the dispatch ranker weights a mechanic's
+ * `rating` at 34% of their score (`rankMechanics`), but nothing in the platform
+ * ever wrote that column — every mechanic carried whatever the seed invented.
+ * A review now recomputes it from real ratings, so ranking is answerable to the
+ * customers who were actually served.
+ *
+ * Only the customer, only on a booking they paid for, and only once — the
+ * unique index on booking_id is what makes "once" true even under a double tap.
+ */
+app.post("/v1/bookings/:id/review", { preHandler: authenticate }, async (req, reply) => {
+  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+  const body = z.object({
+    rating: z.number().int().min(1).max(5),
+    comment: z.string().max(500).optional(),
+  }).parse(req.body);
+
+  const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, id)).limit(1);
+  if (!booking) return reply.code(404).send({ error: { code: "not_found", title: "Booking not found", retryable: false } });
+
+  // Deliberately narrower than bookingAudience: a mechanic reviewing the job
+  // they were paid for would be rating themselves.
+  if (booking.userId !== req.user!.sub) {
+    return reply.code(403).send({
+      error: { code: "forbidden", title: "Only the customer on a booking can review it", retryable: false },
+    });
+  }
+  if (booking.status !== "PAID") {
+    return reply.code(409).send({
+      error: {
+        code: "not_reviewable",
+        title: `A booking in ${booking.status} cannot be reviewed yet — rate the job once it is done and paid.`,
+        retryable: false,
+      },
+    });
+  }
+  if (!booking.mechanicId) {
+    return reply.code(409).send({
+      error: { code: "no_mechanic", title: "No mechanic was assigned to this booking", retryable: false },
+    });
+  }
+
+  const [review] = await db.insert(S.reviews).values({
+    bookingId: id, userId: req.user!.sub, mechanicId: booking.mechanicId,
+    rating: body.rating, comment: body.comment,
+  }).onConflictDoNothing().returning();
+
+  if (!review) {
+    return reply.code(409).send({
+      error: { code: "already_reviewed", title: "You have already rated this job", retryable: false },
+    });
+  }
+
+  // Recompute from the reviews themselves rather than nudging a running
+  // average: the stored value is then always reproducible from the source rows.
+  // Shrunk toward the platform mean so one rating cannot decide a livelihood —
+  // see shrunkRating.
+  const mechanicId = booking.mechanicId;
+  const [agg] = await db.select({
+    total: raw<string>`coalesce(sum(${S.reviews.rating}), 0)`,
+    count: raw<string>`count(*)`,
+  }).from(S.reviews).where(and(eq(S.reviews.mechanicId, mechanicId), isNull(S.reviews.deletedAt)));
+
+  const count = Number(agg?.count ?? 1);
+  const average = shrunkRating(Number(agg?.total ?? body.rating), count);
+  await db.update(S.mechanics)
+    .set({ rating: average, updatedAt: new Date() })
+    .where(eq(S.mechanics.id, mechanicId));
+
+  await audit({
+    actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
+    action: "review.created", entity: "booking", entityId: id,
+    after: { rating: body.rating, mechanicId, mechanicRatingNow: String(average) },
+    ip: req.ip,
+  });
+
+  return reply.code(201).send(ok(
+    { ...review, mechanicRating: average, mechanicReviewCount: count },
+    { message: "Thanks — this mechanic's ranking now reflects your rating." },
+  ));
+});
+
+/** A mechanic's public record: the aggregate, and the reviews behind it. */
+app.get("/v1/mechanics/:id/reviews", { preHandler: authenticate }, async (req, reply) => {
+  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+  const { limit = 20 } = z.object({ limit: z.coerce.number().min(1).max(100).optional() }).parse(req.query);
+
+  const [mechanic] = await db.select({
+    id: S.mechanics.id, displayName: S.mechanics.displayName,
+    rating: S.mechanics.rating, jobsCompleted: S.mechanics.jobsCompleted,
+  }).from(S.mechanics).where(eq(S.mechanics.id, id)).limit(1);
+  if (!mechanic) return reply.code(404).send({ error: { code: "not_found", title: "Mechanic not found", retryable: false } });
+
+  // The comment and the score are public; who wrote them is not.
+  const rows = await db.select({
+    id: S.reviews.id, rating: S.reviews.rating,
+    comment: S.reviews.comment, createdAt: S.reviews.createdAt,
+  }).from(S.reviews)
+    .where(and(eq(S.reviews.mechanicId, id), isNull(S.reviews.deletedAt)))
+    .orderBy(desc(S.reviews.createdAt)).limit(limit);
+
+  const distribution = [5, 4, 3, 2, 1].map((star) => ({
+    star, count: rows.filter((r) => r.rating === star).length,
+  }));
+  return ok({ mechanic, reviews: rows, distribution }, { count: rows.length });
 });
 
 app.get("/v1/bookings/:id", { preHandler: authenticate }, async (req, reply) => {
   const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
   const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, id)).limit(1);
   if (!booking) return reply.code(404).send({ error: { code: "not_found", title: "Booking not found", retryable: false } });
-  if (booking.userId !== req.user!.sub && !req.user!.roles.includes("admin")) {
-    return reply.code(403).send({ error: { code: "forbidden", title: "That booking is not yours", retryable: false } });
+  // Same audience as the transition endpoint: customer, assigned mechanic, or
+  // admin. Without the mechanic clause the write path was strictly more
+  // permissive than the read path — the assigned mechanic could drive a job
+  // they were not allowed to look at.
+  if (!(await bookingAudience(booking, req.user!)).allowed) {
+    return reply.code(403).send({ error: notYours });
   }
   const events = await db.select().from(S.bookingEvents)
     .where(eq(S.bookingEvents.bookingId, id)).orderBy(S.bookingEvents.createdAt);
-  return ok({ ...booking, events }, { nextCommands: allowedFrom(booking.status as Status) });
+
+  // ── everything a tracking screen needs, in the one call it already makes ──
+  // This used to return `mechanicId` and nothing else about the mechanic, so a
+  // client could name who was assigned but never show where they were, how far
+  // off, or how to reach them — it had to be invented client-side or omitted.
+  const audience = await bookingAudience(booking, req.user!);
+  const [vehicle] = await db.select({
+    registrationNo: S.vehicles.registrationNo, nickname: S.vehicles.nickname,
+    vehicleClass: S.vehicles.vehicleClass, fuel: S.vehicles.fuel,
+  }).from(S.vehicles).where(eq(S.vehicles.id, booking.vehicleId)).limit(1);
+
+  const [serviceType] = booking.serviceTypeId
+    ? await db.select({ code: S.serviceTypes.code, label: S.serviceTypes.label,
+                        etaMinutes: S.serviceTypes.etaMinutes })
+        .from(S.serviceTypes).where(eq(S.serviceTypes.id, booking.serviceTypeId)).limit(1)
+    : [];
+
+  // Distance is computed in PostGIS against the booking's own point rather than
+  // trusted from the offer row: an offer's distance is a snapshot from dispatch
+  // time, and the mechanic has been driving since.
+  const [mechanic] = booking.mechanicId
+    ? await db.execute<{
+        id: string; display_name: string; rating: number; jobs_completed: number;
+        msisdn: string | null; lat: number | null; lng: number | null; km: number | null;
+        last_location_at: string | null;
+      }>(raw`
+        SELECT m.id, m.display_name, m.rating, m.jobs_completed, u.msisdn,
+               ST_Y(m.last_location) AS lat, ST_X(m.last_location) AS lng,
+               m.last_location_at,
+               round((ST_Distance(m.last_location::geography, b.location::geography)
+                      / 1000)::numeric, 1) AS km
+          FROM mechanics m
+          JOIN users u ON u.id = m.user_id
+          JOIN bookings b ON b.id = ${id}
+         WHERE m.id = ${booking.mechanicId}`)
+    : [];
+
+  // Derived, never stored — a status column would drift from the booking state
+  // machine and the offer table, and be wrong at exactly the wrong moment.
+  const providerState = booking.mechanicId ? await providerStateFor(booking.mechanicId) : null;
+
+  // The customer's own number, for the mechanic who has to find them. Each side
+  // sees exactly one number — the other party's — and only once a mechanic is
+  // actually assigned. An admin reading the booking gets neither.
+  const [customer] = audience.isAssignedMechanic
+    ? await db.select({ msisdn: S.users.msisdn, fullName: S.users.fullName })
+        .from(S.users).where(eq(S.users.id, booking.userId)).limit(1)
+    : [];
+
+  const [invoice] = await db.select().from(S.invoices)
+    .where(and(eq(S.invoices.bookingId, id), isNull(S.invoices.deletedAt))).limit(1);
+  const [review] = await db.select({ rating: S.reviews.rating })
+    .from(S.reviews).where(eq(S.reviews.bookingId, id)).limit(1);
+
+  // A geometry column comes back as {x, y}; every client then has to remember
+  // which one is the latitude. Name them.
+  const point = booking.location as { x: number; y: number } | null;
+
+  // ETA: minutes of driving left, from live distance at a roadside-realistic
+  // 24 km/h, floored at the service type's own promise. Only meaningful while
+  // someone is actually travelling, so it is null everywhere else.
+  const travelling = booking.status === "ASSIGNED" || booking.status === "EN_ROUTE";
+  const etaMinutes = travelling && mechanic?.km != null
+    ? Math.max(2, Math.round((Number(mechanic.km) / 24) * 60))
+    : null;
+
+  return ok({
+    ...booking,
+    lat: point?.y ?? null,
+    lng: point?.x ?? null,
+    events,
+    vehicle: vehicle ?? null,
+    serviceType: serviceType ?? null,
+    invoice: invoice ?? null,
+    hasReview: Boolean(review),
+    etaMinutes,
+    // The moment the server last changed anything here. A tracking screen shows
+    // it so "nothing has happened for eleven minutes" is a visible fact rather
+    // than something the user has to infer from a screen that looks alive.
+    lastUpdatedAt: booking.updatedAt,
+    mechanic: mechanic
+      ? {
+          id: mechanic.id,
+          displayName: mechanic.display_name,
+          rating: Number(mechanic.rating),
+          jobsCompleted: Number(mechanic.jobs_completed),
+          // Real coordinates or null — never a fabricated position. `lat`/`lng`
+          // come straight from `mechanics.last_location`, which is written only
+          // when a provider's device actually reports one.
+          lat: mechanic.lat, lng: mechanic.lng,
+          locationKnown: mechanic.lat != null && mechanic.lng != null,
+          lastLocationAt: mechanic.last_location_at,
+          distanceKm: mechanic.km == null ? null : Number(mechanic.km),
+          // What the provider is actually doing, derived from live state rather
+          // than from a column that could be stale (see domain/provider-state.ts).
+          state: providerState,
+          stateLabel: providerState ? describeProviderState(providerState) : null,
+          // Only the customer on this booking may call the mechanic.
+          msisdn: booking.userId === req.user!.sub ? mechanic.msisdn : null,
+        }
+      : null,
+    customer: customer ? { fullName: customer.fullName, msisdn: customer.msisdn } : null,
+  }, { nextCommands: allowedFrom(booking.status as Status) });
 });
 
 app.get("/v1/bookings", { preHandler: authenticate }, async (req) => {
@@ -609,31 +1760,114 @@ app.get("/v1/bookings", { preHandler: authenticate }, async (req) => {
 });
 
 // ══ offline sync ═══════════════════════════════════════════════════════════
-app.post("/v1/sync/operations", { preHandler: authenticate }, async (req) => {
+app.post("/v1/sync/operations", { preHandler: [authenticate, limit("sync")] }, async (req) => {
   const { operations } = z.object({
     operations: z.array(z.object({
       opId: z.string().min(8).max(64),
       entity: z.string().max(40),
+      /** Which row the operation is about, when it is about an existing one. */
+      entityId: z.string().uuid().optional(),
       operation: z.enum(["create", "update", "delete"]),
       payload: z.record(z.unknown()),
       clientUpdatedAt: z.coerce.date(),
     })).max(200),
   }).parse(req.body);
 
-  const results: Array<{ opId: string; status: string; reason?: string }> = [];
+  const results: Array<Record<string, unknown>> = [];
   for (const op of operations) {
+    /**
+     * ── conflict resolution (ADR-0004 §8) ───────────────────────────────────
+     *
+     * A device that was offline can hold a stale belief about a booking: it
+     * left the network at EN_ROUTE, and by the time it reconnects the mechanic
+     * has already marked ARRIVED. If the client's assertion were replayed
+     * blindly, the newer, correct state would be overwritten by an older one —
+     * and the customer would watch their mechanic un-arrive.
+     *
+     * ADR-0004 settled the rule before any sync code existed: **booking status
+     * is server-authoritative.** So a status assertion is never applied. It is
+     * refused, written to `conflict_log` with the rule that fired, and the
+     * device is handed the authoritative value so it can correct itself in the
+     * same round trip rather than needing a second call to discover it was
+     * wrong.
+     */
+    const asserted = (op.payload as { status?: unknown }).status;
+    let conflict: { field: string; serverValue: unknown; clientValue: unknown } | null = null;
+    let authoritative: Record<string, unknown> | null = null;
+
+    if (op.entity === "booking" && op.entityId && typeof asserted === "string") {
+      const [server] = await db.select().from(S.bookings)
+        .where(eq(S.bookings.id, op.entityId)).limit(1);
+      if (!server) {
+        results.push({ opId: op.opId, status: "rejected", reason: "no such booking" });
+        continue;
+      }
+      // Ownership is re-checked here too: an operation replayed from a device
+      // is unauthenticated data inside an authenticated request.
+      if (server.userId !== req.user!.sub && !req.user!.roles.includes("admin")) {
+        results.push({ opId: op.opId, status: "rejected", reason: "that booking is not yours" });
+        continue;
+      }
+      authoritative = { id: server.id, status: server.status, updatedAt: server.updatedAt };
+      if (server.status !== asserted) {
+        conflict = { field: "status", serverValue: server.status, clientValue: asserted };
+      }
+    }
+
     // op_id is unique, so a replay is a no-op rather than a duplicate booking.
-    const inserted = await db.insert(S.syncOperations).values({
-      userId: req.user!.sub, opId: op.opId, entity: op.entity,
+    const [inserted] = await db.insert(S.syncOperations).values({
+      userId: req.user!.sub, opId: op.opId, entity: op.entity, entityId: op.entityId,
       operation: op.operation, payload: op.payload, clientUpdatedAt: op.clientUpdatedAt,
-      appliedAt: new Date(),
+      appliedAt: conflict ? null : new Date(),
+      rejectedReason: conflict
+        ? `status is server-authoritative (ADR-0004): server=${conflict.serverValue}, client=${conflict.clientValue}`
+        : null,
     }).onConflictDoNothing().returning({ id: S.syncOperations.id });
 
-    results.push(inserted.length
-      ? { opId: op.opId, status: "applied" }
-      : { opId: op.opId, status: "duplicate", reason: "already applied — replay is safe" });
+    if (!inserted) {
+      results.push({ opId: op.opId, status: "duplicate",
+        reason: "already applied — replay is safe", authoritative });
+      continue;
+    }
+
+    if (conflict) {
+      // A wrong rule has to be findable after the fact rather than invisible,
+      // which is what this table is for.
+      await db.insert(S.conflictLog).values({
+        syncOperationId: inserted.id, entity: op.entity, field: conflict.field,
+        rule: "server_wins",
+        serverValue: conflict.serverValue, clientValue: conflict.clientValue,
+        resolvedValue: conflict.serverValue,
+      });
+      results.push({
+        opId: op.opId, status: "conflict", rule: "server_wins",
+        reason: "booking status is server-authoritative — the server's value stands",
+        serverValue: conflict.serverValue, clientValue: conflict.clientValue,
+        authoritative,
+      });
+      continue;
+    }
+
+    results.push({ opId: op.opId, status: "applied", authoritative });
   }
-  return ok({ results }, { applied: results.filter((r) => r.status === "applied").length });
+
+  const applied = results.filter((r) => r.status === "applied").length;
+  const conflicts = results.filter((r) => r.status === "conflict").length;
+  await audit({
+    actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
+    action: "sync.completed", entity: "sync_batch", entityId: null,
+    after: { kind: "operations", submitted: operations.length, applied, conflicts,
+             duplicates: results.filter((r) => r.status === "duplicate").length,
+             rejected: results.filter((r) => r.status === "rejected").length },
+    ip: req.ip,
+  });
+
+  return ok({ results }, {
+    applied, conflicts,
+    note: conflicts
+      ? "Some operations conflicted. The server's value is authoritative — apply `authoritative` locally."
+      : undefined,
+  });
 });
 
 // ══ emergency contacts ═════════════════════════════════════════════════════
@@ -670,6 +1904,268 @@ app.delete("/v1/me/emergency-contacts/:id", { preHandler: authenticate }, async 
     return reply.code(404).send({ error: { code: "not_found", title: "Contact not found", retryable: false } });
   }
   return ok({ id, removed: true });
+});
+
+// ══ medical profile ════════════════════════════════════════════════════════
+/**
+ * The information a paramedic needs about an unconscious person: blood group,
+ * allergies, conditions, current medications.
+ *
+ * It is the most sensitive data the platform holds, so it is readable by
+ * exactly two parties — the person it describes, and a responder standing at
+ * the scene of *their* live incident, who has to give a reason that is written
+ * down (see break-glass below). There is no third path, including for admins.
+ */
+const medicalSchema = z.object({
+  bloodGroup: z.enum(["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]).optional(),
+  allergies: z.string().max(500).optional(),
+  conditions: z.string().max(500).optional(),
+  medications: z.string().max(500).optional(),
+});
+
+app.get("/v1/me/medical", { preHandler: authenticate }, async (req) => {
+  const [row] = await db.select().from(S.medicalProfiles)
+    .where(and(eq(S.medicalProfiles.userId, req.user!.sub), isNull(S.medicalProfiles.deletedAt)))
+    .limit(1);
+  return ok(row ?? null, { configured: Boolean(row) });
+});
+
+app.put("/v1/me/medical", { preHandler: authenticate }, async (req) => {
+  const body = medicalSchema.parse(req.body ?? {});
+  const userId = req.user!.sub;
+
+  const [existing] = await db.select({ id: S.medicalProfiles.id, version: S.medicalProfiles.version })
+    .from(S.medicalProfiles).where(eq(S.medicalProfiles.userId, userId)).limit(1);
+
+  let row;
+  if (existing) {
+    [row] = await db.update(S.medicalProfiles)
+      .set({ ...body, deletedAt: null, updatedAt: new Date(), version: existing.version + 1 })
+      .where(eq(S.medicalProfiles.id, existing.id)).returning();
+  } else {
+    [row] = await db.insert(S.medicalProfiles).values({ userId, ...body }).returning();
+  }
+
+  // The values are never audited, only the fact of a change: an audit log that
+  // copies the record defeats the point of restricting the record.
+  await audit({
+    actorId: userId, actorRole: req.user!.roles[0] ?? "citizen",
+    action: "medical.updated", entity: "medical_profile", entityId: row.id,
+    after: { fieldsSet: Object.keys(body).sort().join(",") || "none" }, ip: req.ip,
+  });
+  return ok(row);
+});
+
+/**
+ * Break-glass: a responder reads the medical record of the person in a live
+ * incident.
+ *
+ * Emergencies are exactly when a consent dialogue is impossible, so the answer
+ * is not to refuse — it is to let the read happen and make it impossible to
+ * hide. Every condition below is a deliberate narrowing:
+ *
+ *   · authority role only (gov_officer or admin);
+ *   · the incident must be live — a resolved or cancelled one is history, and
+ *     history is not an emergency;
+ *   · a written reason is mandatory and is stored verbatim;
+ *   · the access is recorded in break_glass_access AND in the hash-chained
+ *     audit log, so it cannot be quietly deleted afterwards;
+ *   · the subject is notified that it happened.
+ */
+const LIVE_INCIDENT = ["DETECTED", "AWAITING_CONFIRMATION", "CONFIRMED", "RESPONDING"] as const;
+
+app.get("/v1/incidents/:id/medical", {
+  // gov_officer is this platform's emergency-authority persona — the same role
+  // that drives the RAKSHA dashboard. There is no separate "responder" role.
+  preHandler: [authenticate, requireRole("admin", "gov_officer")],
+}, async (req, reply) => {
+  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+  const { reason } = z.object({
+    reason: z.string().min(10).max(300),
+  }).parse(req.query);
+
+  const [incident] = await db.select().from(S.incidents).where(eq(S.incidents.id, id)).limit(1);
+  if (!incident) return reply.code(404).send({ error: { code: "not_found", title: "Incident not found", retryable: false } });
+
+  if (!LIVE_INCIDENT.includes(incident.status as (typeof LIVE_INCIDENT)[number])) {
+    return reply.code(403).send({
+      error: {
+        code: "incident_not_live",
+        title: `This incident is ${incident.status}. Break-glass access is only for an emergency in progress.`,
+        retryable: false,
+      },
+    });
+  }
+  if (!incident.userId) {
+    return reply.code(409).send({
+      error: { code: "no_subject", title: "This incident is not attached to a person", retryable: false },
+    });
+  }
+
+  const subjectUserId = incident.userId;
+  const [profile] = await db.select().from(S.medicalProfiles)
+    .where(and(eq(S.medicalProfiles.userId, subjectUserId), isNull(S.medicalProfiles.deletedAt)))
+    .limit(1);
+
+  // Recorded whether or not a profile exists: an attempted read is as much a
+  // fact about the responder's behaviour as a successful one.
+  const [access] = await db.insert(S.breakGlassAccess).values({
+    incidentId: id, actorId: req.user!.sub,
+    actorRole: req.user!.roles.includes("admin") ? "admin" : "gov_officer",
+    reason, subjectUserId,
+  }).returning();
+
+  await audit({
+    actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "gov_officer",
+    action: "medical.break_glass_read", entity: "incident", entityId: id,
+    after: {
+      subjectUserId, reason, found: Boolean(profile),
+      breakGlassId: access.id,
+    },
+    ip: req.ip,
+  });
+
+  // The subject learns their record was opened. Best-effort: a failed SMS must
+  // not withhold data from a paramedic, but the unsent notice stays visible as
+  // user_notified_at being null.
+  const [subject] = await db.select({ msisdn: S.users.msisdn })
+    .from(S.users).where(eq(S.users.id, subjectUserId)).limit(1);
+  if (subject?.msisdn) {
+    try {
+      await sms.send(subject.msisdn,
+        "RoadAssist: your emergency medical details were opened by a responder during your active incident. " +
+        `Reason recorded: ${reason}`);
+      await db.update(S.breakGlassAccess)
+        .set({ userNotifiedAt: new Date(), updatedAt: new Date() })
+        .where(eq(S.breakGlassAccess.id, access.id));
+    } catch (err) {
+      req.log.warn({ err }, "break-glass notice could not be delivered");
+    }
+  }
+
+  return ok(profile ?? null, {
+    breakGlassId: access.id,
+    notice: "This read was logged against your account and the subject has been notified.",
+  });
+});
+
+/** What was opened about me, and by whom. The subject's own view of §above. */
+app.get("/v1/me/medical/access-log", { preHandler: authenticate }, async (req) => {
+  const rows = await db.select({
+    id: S.breakGlassAccess.id, incidentId: S.breakGlassAccess.incidentId,
+    actorRole: S.breakGlassAccess.actorRole, reason: S.breakGlassAccess.reason,
+    at: S.breakGlassAccess.createdAt, notifiedAt: S.breakGlassAccess.userNotifiedAt,
+  }).from(S.breakGlassAccess)
+    .where(eq(S.breakGlassAccess.subjectUserId, req.user!.sub))
+    .orderBy(desc(S.breakGlassAccess.createdAt)).limit(50);
+  return ok(rows, { count: rows.length });
+});
+
+// ══ vehicle documents ══════════════════════════════════════════════════════
+/**
+ * Insurance, PUC, RC, permit — and when they run out.
+ *
+ * An expired PUC or insurance is a stop-and-fine in India, and the renewal
+ * dates are the sort of thing nobody remembers until a checkpoint. The photo
+ * itself follows ADR-0006: the file lives on disk, only the reference is in the
+ * database. A document may also be recorded with no scan at all, because the
+ * date is the useful part and demanding an upload would stop people entering it.
+ */
+const DOC_TYPES = ["rc", "insurance", "puc", "permit"] as const;
+
+app.post("/v1/vehicles/:id/documents", { preHandler: authenticate }, async (req, reply) => {
+  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+  const body = z.object({
+    docType: z.enum(DOC_TYPES),
+    expiresOn: z.coerce.date(),
+    objectKey: z.string().max(200).optional(),
+  }).parse(req.body);
+
+  const [vehicle] = await db.select({ id: S.vehicles.id }).from(S.vehicles)
+    .innerJoin(S.userVehicles, eq(S.userVehicles.vehicleId, S.vehicles.id))
+    .where(and(
+      eq(S.vehicles.id, id),
+      eq(S.userVehicles.userId, req.user!.sub),
+      isNull(S.vehicles.deletedAt),
+    )).limit(1);
+  if (!vehicle) {
+    return reply.code(403).send({
+      error: { code: "forbidden", title: "That vehicle is not yours", retryable: false },
+    });
+  }
+
+  // Replace rather than accumulate: a renewed policy supersedes the old one,
+  // and two live "insurance" rows would make "when does it expire" ambiguous.
+  await db.update(S.vehicleDocuments)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(and(
+      eq(S.vehicleDocuments.vehicleId, id),
+      eq(S.vehicleDocuments.docType, body.docType),
+      isNull(S.vehicleDocuments.deletedAt),
+    ));
+
+  const [row] = await db.insert(S.vehicleDocuments).values({
+    vehicleId: id, docType: body.docType, expiresOn: body.expiresOn,
+    objectKey: body.objectKey ?? `manual:${randomUUID()}`,
+  }).returning();
+  return reply.code(201).send(ok(row));
+});
+
+/**
+ * Every document across the caller's vehicles, soonest expiry first, with the
+ * countdown already computed — the client should not have to do date maths to
+ * decide what to colour red.
+ */
+app.get("/v1/me/documents", { preHandler: authenticate }, async (req) => {
+  const rows = await db.select({
+    id: S.vehicleDocuments.id, vehicleId: S.vehicleDocuments.vehicleId,
+    registrationNo: S.vehicles.registrationNo, docType: S.vehicleDocuments.docType,
+    expiresOn: S.vehicleDocuments.expiresOn, objectKey: S.vehicleDocuments.objectKey,
+  }).from(S.vehicleDocuments)
+    .innerJoin(S.vehicles, eq(S.vehicles.id, S.vehicleDocuments.vehicleId))
+    .innerJoin(S.userVehicles, eq(S.userVehicles.vehicleId, S.vehicles.id))
+    .where(and(
+      eq(S.userVehicles.userId, req.user!.sub),
+      isNull(S.vehicleDocuments.deletedAt),
+      isNull(S.vehicles.deletedAt),
+    ))
+    .orderBy(asc(S.vehicleDocuments.expiresOn));
+
+  const today = Date.now();
+  const documents = rows.map((d) => {
+    const days = d.expiresOn
+      ? Math.ceil((d.expiresOn.getTime() - today) / 86_400_000)
+      : null;
+    return {
+      ...d,
+      hasScan: !d.objectKey.startsWith("manual:"),
+      daysToExpiry: days,
+      state: days === null ? "unknown" : days < 0 ? "expired" : days <= 30 ? "expiring" : "valid",
+    };
+  });
+  return ok(documents, {
+    count: documents.length,
+    expired: documents.filter((d) => d.state === "expired").length,
+    expiringWithin30Days: documents.filter((d) => d.state === "expiring").length,
+  });
+});
+
+// ══ audit trail ════════════════════════════════════════════════════════════
+/**
+ * The audit log, and proof it has not been edited.
+ *
+ * `verified` re-hashes the chain on every read, so this endpoint does not just
+ * show the trail — it answers whether the trail can still be believed.
+ */
+app.get("/v1/admin/audit", { preHandler: [authenticate, requireRole("admin")] }, async (req) => {
+  const { limit = 50 } = z.object({
+    limit: z.coerce.number().min(1).max(200).optional(),
+  }).parse(req.query);
+
+  const rows = await db.select().from(S.auditLog)
+    .orderBy(desc(S.auditLog.createdAt), desc(S.auditLog.id)).limit(limit);
+  const integrity = await verifyAuditChain();
+  return ok(rows, { count: rows.length, integrity });
 });
 
 // ══ feature-phone journey: inbound SMS ═════════════════════════════════════
@@ -714,6 +2210,11 @@ app.post("/v1/telecom/sms", async (req, res) => {
     }
   }
 
+  // Running without a signature is a development convenience, and the comment
+  // above claimed it was "flagged" — it was not. An operator reading a response
+  // could not tell a signed intake from an open one. Now they can.
+  const unsignedIntake = !env.telecomWebhookSecret;
+
   const { from, text } = z.object({
     from: msisdnSchema,
     text: z.string().max(160),
@@ -723,7 +2224,17 @@ app.post("/v1/telecom/sms", async (req, res) => {
   const verb = words[0] ?? "";
   const reply = async (body: string) => {
     await sms.send(from, body);
-    return ok({ reply: body }, { channel: "sms", to: from });
+    return ok({ reply: body }, {
+      channel: "sms", to: from,
+      // Said out loud on every response, not buried in a code comment. This
+      // endpoint can raise an SOS for any phone number it is handed, so an
+      // operator must be able to see from the wire whether the intake is
+      // authenticated. Production cannot reach this state:
+      // `assertProductionSafe` refuses to boot without the secret.
+      ...(unsignedIntake
+        ? { warning: "UNSIGNED INTAKE — TELECOM_WEBHOOK_SECRET is unset, so this endpoint accepts unauthenticated requests. Development only." }
+        : { signed: true }),
+    });
   };
 
   // The SIM is the identity. First contact registers the number.
@@ -836,7 +2347,7 @@ app.post("/v1/telecom/sms", async (req, res) => {
  * in AWAITING_CONFIRMATION for the cancel window, and only a recorded human (or
  * corroborating second signal) moves it to CONFIRMED.
  */
-app.post("/v1/sos", { preHandler: authenticate }, async (req, reply) => {
+app.post("/v1/sos", { preHandler: [authenticate, limit("sos")] }, async (req, reply) => {
   const body = z.object({
     vehicleId: z.string().uuid().optional(),
     lat: z.number().min(-90).max(90),
@@ -844,11 +2355,56 @@ app.post("/v1/sos", { preHandler: authenticate }, async (req, reply) => {
     source: z.enum(["manual", "crash_model", "sms"]).default("manual"),
     modelConfidence: z.number().min(0).max(1).optional(),
     degradedPath: z.boolean().optional(),
+    /**
+     * Optional client-minted reference, and the only real defence against a
+     * duplicate emergency.
+     *
+     * The app already guards a double tap in the UI, but a UI guard is not a
+     * rule: a retried request after a lost response, a restored tab, a flaky
+     * link that resends — each of those raises a second incident that alerts
+     * the family twice and occupies a second responder. Sending the same
+     * reference makes the retry converge on the incident it already created,
+     * exactly as the off-grid path does, on the same unique index.
+     */
+    clientIncidentId: z.string().regex(/^RA-[ABCDEFGHJKMNPQRSTVWXYZ23456789]{6}$/).optional(),
   }).parse(req.body);
+
+  /**
+   * Answer a replay with the incident it already created.
+   *
+   * A lookup here is a courtesy for the ordinary case — it saves a wasted
+   * insert and returns quickly. It is NOT the guard, and treating it as one was
+   * a real bug: three taps arriving together all read "no such reference", all
+   * proceeded to insert, and two of them hit the unique index and returned 500.
+   * A person double-tapping SOS getting a server error is the worst possible
+   * place for that failure.
+   *
+   * The actual guard is the unique index plus `onConflictDoNothing` below.
+   */
+  const respondDuplicate = (existing: typeof S.incidents.$inferSelect) => {
+    if (existing.userId !== req.user!.sub) {
+      return reply.code(409).send({ error: {
+        code: "reference_taken", title: "That reference belongs to another account",
+        retryable: false, requestId: req.id } });
+    }
+    return reply.code(200).send(ok({
+      id: existing.id, status: existing.status,
+      cancelWindowSeconds: 0, requiresConfirmation: false, duplicate: true,
+    }, { note: "This emergency was already raised — the replay was ignored." }));
+  };
+
+  if (body.clientIncidentId) {
+    const [existing] = await db.select().from(S.incidents)
+      .where(eq(S.incidents.clientIncidentId, body.clientIncidentId)).limit(1);
+    if (existing) return respondDuplicate(existing);
+  }
 
   const byModel = body.source === "crash_model";
   const [incident] = await db.insert(S.incidents).values({
     userId: req.user!.sub, vehicleId: body.vehicleId,
+    clientIncidentId: body.clientIncidentId,
+    occurredAt: new Date(),
+    emergencyType: byModel ? "accident" : "other",
     // Manual SOS is already a human act; a model signal must wait for confirmation.
     status: byModel ? "AWAITING_CONFIRMATION" : "CONFIRMED",
     severity: byModel && (body.modelConfidence ?? 0) > 0.9 ? "CRITICAL" : "HIGH",
@@ -857,7 +2413,23 @@ app.post("/v1/sos", { preHandler: authenticate }, async (req, reply) => {
     confirmedBy: byModel ? null : "user",
     confirmedAt: byModel ? null : new Date(),
     degradedPath: body.degradedPath ?? false,
-  }).returning();
+  })
+    // The real idempotency guard. Two taps racing past the lookup above both
+    // arrive here; the index lets exactly one through and the other gets no row
+    // back, which is a duplicate rather than an error.
+    .onConflictDoNothing({ target: S.incidents.clientIncidentId })
+    .returning();
+
+  if (!incident) {
+    // Lost the race. Whoever won has committed by now, so read their incident
+    // and answer with it — the caller gets the same reply either way.
+    const [winner] = await db.select().from(S.incidents)
+      .where(eq(S.incidents.clientIncidentId, body.clientIncidentId!)).limit(1);
+    if (winner) return respondDuplicate(winner);
+    return reply.code(409).send({ error: {
+      code: "reference_taken", title: "That reference is already in use",
+      retryable: false, requestId: req.id } });
+  }
 
   await db.execute(raw`
     UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
@@ -865,6 +2437,25 @@ app.post("/v1/sos", { preHandler: authenticate }, async (req, reply) => {
   await db.insert(S.incidentSignals).values({
     incidentId: incident.id, kind: body.source,
     payload: { lat: body.lat, lng: body.lng, confidence: body.modelConfidence },
+  });
+
+  await audit({
+    actorId: req.user!.sub, actorRole: "citizen", action: "sos.created",
+    entity: "incident", entityId: incident.id,
+    after: {
+      source: body.source, status: incident.status, severity: incident.severity,
+      detectedByModel: byModel, clientIncidentId: body.clientIncidentId ?? null,
+      degradedPath: body.degradedPath ?? false,
+      // Coordinates are the point of the incident, not a secret to withhold —
+      // but the audit row records only that a fix existed, since the incident
+      // row already holds the location and the chain does not need it twice.
+      locationKnown: true,
+    },
+    ip: req.ip,
+  });
+  publish(req.user!.sub, {
+    type: "sos.status", incidentId: incident.id, status: incident.status,
+    requiresConfirmation: byModel,
   });
 
   return reply.code(201).send(ok({
@@ -885,10 +2476,73 @@ app.post("/v1/sos/:id/cancel", { preHandler: authenticate }, async (req, reply) 
   if (inc.userId !== req.user!.sub) {
     return reply.code(403).send({ error: { code: "forbidden", title: "That incident is not yours", retryable: false } });
   }
-  await db.update(S.incidents)
-    .set({ status: "CANCELLED", cancelledAt: new Date(), updatedAt: new Date() })
-    .where(eq(S.incidents.id, id));
-  return ok({ id, status: "CANCELLED" }, { note: "False alarm recorded — this feeds the false-positive dataset." });
+  // The state machine decides whether a cancel is legal at all — a resolved
+  // emergency cannot be un-resolved, and it throws rather than silently
+  // succeeding. The guarded UPDATE below then makes it safe under concurrency.
+  const { to: cancelTo } = applyIncident(inc.status as IncidentStatus, "cancel");
+  const cancelled = await db.update(S.incidents)
+    .set({ status: cancelTo, cancelledAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(S.incidents.id, id), eq(S.incidents.status, inc.status)))
+    .returning({ id: S.incidents.id });
+  if (!cancelled.length) {
+    return reply.code(409).send({ error: {
+      code: "invalid_state", title: "This incident changed while the cancel was in flight. Reload it.",
+      retryable: true, requestId: req.id } });
+  }
+  await audit({
+    actorId: req.user!.sub, actorRole: "citizen", action: "sos.cancelled",
+    entity: "incident", entityId: id, before: { status: inc.status },
+    after: { status: "CANCELLED" }, ip: req.ip,
+  });
+  publish(inc.userId, {
+    type: "sos.status", incidentId: id, status: "CANCELLED",
+    stage: PUBLIC_STAGE.CANCELLED,
+  });
+  logOp(req, { op: "sos.cancel", result: "ok", incidentId: id, from: inc.status });
+  return ok({ id, status: "CANCELLED", stage: PUBLIC_STAGE.CANCELLED },
+    { note: "False alarm recorded — this feeds the false-positive dataset." });
+});
+
+/**
+ * Close an emergency.
+ *
+ * The lifecycle ended at RESPONDING and never came back: `RESOLVED` existed in
+ * the enum with nothing able to reach it, so every incident ever raised stayed
+ * open forever. That is not a cosmetic gap — an operations view counting
+ * "active emergencies" counted every emergency the platform had ever seen.
+ */
+app.post("/v1/sos/:id/resolve", { preHandler: authenticate }, async (req) => {
+  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+  const { outcome } = z.object({
+    outcome: z.enum(["assisted", "self_resolved", "false_alarm", "handed_off"]).default("assisted"),
+  }).parse(req.body ?? {});
+
+  const [inc] = await db.select().from(S.incidents).where(eq(S.incidents.id, id)).limit(1);
+  if (!inc) throw fail("INCIDENT_NOT_FOUND");
+  // The person it happened to, or an operator. A responder closing somebody
+  // else's emergency has to be an accountable role, not any signed-in account.
+  if (inc.userId !== req.user!.sub &&
+      !req.user!.roles.some((r) => r === "admin" || r === "gov_officer")) {
+    throw fail("FORBIDDEN", "That incident is not yours");
+  }
+
+  const { to } = applyIncident(inc.status as IncidentStatus, "resolve");
+  const closed = await db.update(S.incidents)
+    .set({ status: to, updatedAt: new Date() })
+    .where(and(eq(S.incidents.id, id), eq(S.incidents.status, inc.status)))
+    .returning({ id: S.incidents.id });
+  if (!closed.length) throw fail("CONFLICT", "This incident changed while the request was in flight");
+
+  await audit({
+    actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
+    action: "sos.resolved", entity: "incident", entityId: id,
+    before: { status: inc.status }, after: { status: to, outcome }, ip: req.ip,
+  });
+  publish(inc.userId, { type: "sos.status", incidentId: id, status: to, stage: PUBLIC_STAGE[to] });
+  logOp(req, { op: "sos.resolve", result: "ok", incidentId: id, outcome, from: inc.status });
+
+  return ok({ id, status: to, stage: PUBLIC_STAGE[to], outcome },
+    { note: "The emergency is closed. A new one needs a new incident." });
 });
 
 /** Escalation ladder. Each rung is timed so the <10s claim is measured, not asserted. */
@@ -925,29 +2579,401 @@ app.post("/v1/sos/:id/confirm", { preHandler: authenticate }, async (req, reply)
     step: "responder", latencyMs: Date.now() - t0, acknowledged: false,
   });
 
+  // ADR-0005 as executable code: `escalate` is reachable only from CONFIRMED,
+  // so a model-detected crash cannot reach RESPONDING without a human first.
+  const confirmed = inc.status === "AWAITING_CONFIRMATION" || inc.status === "DETECTED"
+    ? applyIncident(inc.status as IncidentStatus, "confirm").to
+    : (inc.status as IncidentStatus);
+  const { to: respondingTo } = applyIncident(confirmed, "escalate");
+
   await db.update(S.incidents).set({
-    status: "RESPONDING",
+    status: respondingTo,
     confirmedBy: inc.confirmedBy ?? "user",
     confirmedAt: inc.confirmedAt ?? new Date(),
     updatedAt: new Date(),
   }).where(eq(S.incidents.id, id));
 
+  await audit({
+    actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
+    action: "sos.escalated", entity: "incident", entityId: id,
+    before: { status: inc.status },
+    after: {
+      status: "RESPONDING", contactsAlerted: contacts.length,
+      responderFound: Boolean(responders[0]), elapsedMs: Date.now() - t0,
+    },
+    ip: req.ip,
+  });
+  publish(inc.userId, {
+    type: "sos.status", incidentId: id, status: respondingTo,
+    stage: PUBLIC_STAGE[respondingTo],
+    contactsAlerted: contacts.length, responderFound: Boolean(responders[0]),
+  });
+  logOp(req, {
+    op: "sos.escalate", result: "ok", durationMs: Date.now() - t0, incidentId: id,
+    contactsAlerted: contacts.length, responderFound: Boolean(responders[0]),
+  });
+
   return ok({
-    id, status: "RESPONDING",
+    id, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
     contactsAlerted: contacts.length,
     nearestResponder: responders[0] ?? null,
     elapsedMs: Date.now() - t0,
   }, { note: "ERSS 112 handoff is stubbed in development — no real emergency service is contacted." });
 });
 
+// ══ off-grid SOS sync (ADR-0009) ═══════════════════════════════════════════
+/**
+ * Take delivery of emergencies a device raised while it had no network.
+ *
+ * The client stores an off-grid SOS locally, tells the user plainly that
+ * nothing has been transmitted, and sends it here the moment connectivity
+ * returns. Four rules govern what happens on arrival, and each is enforced
+ * rather than assumed:
+ *
+ *   1. **Authenticated.** A device syncs as the account that raised it, using
+ *      the ordinary session. There is no anonymous intake path.
+ *   2. **Re-validated.** Everything below is validated as if it came from an
+ *      attacker, because a payload that has been sitting on a phone is exactly
+ *      that: it left our control, and it can be edited on a rooted device.
+ *      The device's integrity digest is recorded as evidence, never trusted as
+ *      authorisation — it proves the record was not corrupted in storage, not
+ *      that it was not forged.
+ *   3. **Idempotent.** `client_incident_id` is unique. A retry after a lost
+ *      response — the normal way retries duplicate things — collides and does
+ *      nothing rather than raising a second emergency.
+ *   4. **Never auto-escalated.** This creates the incident; it does not alert
+ *      anybody. An incident that may be hours old must not silently SMS a
+ *      family at 3am on reconnect. Escalation stays where it already lives, in
+ *      POST /v1/sos/:id/confirm, which the client calls as an explicit step of
+ *      the reconnection flow. Same discipline as ADR-0005's rule that a model
+ *      raises a signal and a human confirms.
+ */
+const OFFGRID_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;   // matches the device retention window
+const OFFGRID_FUTURE_SKEW_MS = 5 * 60 * 1000;         // a phone's clock is allowed to be wrong
+
+app.post("/v1/sos/offline-sync", { preHandler: [authenticate, limit("sync")] }, async (req) => {
+  const { incidents } = z.object({
+    incidents: z.array(z.object({
+      // The device-minted reference. Format is pinned so a client cannot smuggle
+      // a colliding or oversized key past the unique index.
+      clientIncidentId: z.string().regex(/^RA-[ABCDEFGHJKMNPQRSTVWXYZ23456789]{6}$/,
+        "clientIncidentId must look like RA-K7P2QX"),
+      opId: z.string().min(8).max(64),
+      occurredAt: z.coerce.date(),
+      emergencyType: z.enum(["breakdown", "accident", "medical", "unsafe", "other"]).default("other"),
+      lat: z.number().min(-90).max(90).nullable().optional(),
+      lng: z.number().min(-180).max(180).nullable().optional(),
+      accuracyM: z.number().min(0).max(1_000_000).nullable().optional(),
+      vehicleId: z.string().uuid().optional(),
+      note: z.string().max(500).optional(),
+      /** What the on-device rules engine concluded, if it was run. */
+      diagnosis: z.object({
+        cause: z.string().max(200),
+        confidence: z.number().min(0).max(1),
+        severity: z.number().int().min(1).max(5),
+        engine: z.string().max(40),
+      }).optional(),
+      /** SHA-256 the device computed over its own stored payload. Evidence only. */
+      integrity: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+    })).min(1).max(50),
+  }).parse(req.body);
+
+  const now = Date.now();
+  const results: Array<Record<string, unknown>> = [];
+
+  for (const it of incidents) {
+    const age = now - it.occurredAt.getTime();
+    if (age < -OFFGRID_FUTURE_SKEW_MS) {
+      results.push({ clientIncidentId: it.clientIncidentId, status: "rejected",
+        reason: "occurredAt is in the future — the device clock cannot be trusted for this record" });
+      continue;
+    }
+    if (age > OFFGRID_MAX_AGE_MS) {
+      results.push({ clientIncidentId: it.clientIncidentId, status: "rejected",
+        reason: "older than the 7-day retention window — raise a fresh incident instead" });
+      continue;
+    }
+
+    // A vehicle id from an offline payload is unverified. Rather than reject the
+    // whole emergency over it, the link is dropped and the incident still lands.
+    let vehicleId: string | undefined;
+    if (it.vehicleId) {
+      const [v] = await db.select({ id: S.userVehicles.vehicleId }).from(S.userVehicles)
+        .where(and(
+          eq(S.userVehicles.vehicleId, it.vehicleId),
+          eq(S.userVehicles.userId, req.user!.sub),
+          isNull(S.userVehicles.deletedAt),
+        )).limit(1);
+      vehicleId = v?.id;
+    }
+
+    // Accidents and medical calls arrive as CRITICAL; a breakdown does not.
+    const severity = it.emergencyType === "accident" || it.emergencyType === "medical"
+      ? "CRITICAL" as const : "HIGH" as const;
+
+    const [inserted] = await db.insert(S.incidents).values({
+      userId: req.user!.sub,
+      vehicleId,
+      clientIncidentId: it.clientIncidentId,
+      occurredAt: it.occurredAt,
+      emergencyType: it.emergencyType,
+      syncedAt: new Date(),
+      // A manual off-grid SOS is a human act at the moment it was raised, so it
+      // arrives confirmed — but confirmed is not escalated (rule 4 above).
+      status: "CONFIRMED",
+      severity,
+      detectedByModel: false,
+      confirmedBy: "user",
+      confirmedAt: it.occurredAt,
+      // This is the degraded path, by definition. Flagged so the emergency
+      // analytics can tell an off-grid rescue from an ordinary one.
+      degradedPath: true,
+    }).onConflictDoNothing({ target: S.incidents.clientIncidentId }).returning();
+
+    if (!inserted) {
+      // Already known. Return the existing incident so a retry converges on the
+      // same id instead of leaving the device unsure what happened.
+      const [existing] = await db.select().from(S.incidents)
+        .where(eq(S.incidents.clientIncidentId, it.clientIncidentId)).limit(1);
+      if (existing && existing.userId !== req.user!.sub) {
+        results.push({ clientIncidentId: it.clientIncidentId, status: "rejected",
+          reason: "that reference belongs to another account" });
+        continue;
+      }
+      results.push({
+        clientIncidentId: it.clientIncidentId, id: existing?.id, status: "duplicate",
+        incidentStatus: existing?.status,
+        reason: "already synchronised — the replay was ignored, no second incident was created",
+      });
+      continue;
+    }
+
+    if (it.lat != null && it.lng != null) {
+      await db.execute(raw`
+        UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${it.lng}, ${it.lat}), 4326)
+        WHERE id = ${inserted.id}`);
+    }
+
+    // The signal row is the evidence trail: what the device captured, when, how
+    // accurately, and what its own engine made of it.
+    await db.insert(S.incidentSignals).values({
+      incidentId: inserted.id,
+      kind: "offgrid_sos",
+      payload: {
+        clientIncidentId: it.clientIncidentId,
+        opId: it.opId,
+        occurredAt: it.occurredAt.toISOString(),
+        syncedAt: new Date().toISOString(),
+        lat: it.lat ?? null, lng: it.lng ?? null, accuracyM: it.accuracyM ?? null,
+        locationKnown: it.lat != null && it.lng != null,
+        emergencyType: it.emergencyType,
+        note: it.note ?? null,
+        localDiagnosis: it.diagnosis ?? null,
+        deviceIntegrity: it.integrity ?? null,
+        storedOfflineForMs: age,
+      },
+    });
+
+    // The same journal every other offline operation lands in, so "what did this
+    // device replay?" has one answer rather than two.
+    await db.insert(S.syncOperations).values({
+      userId: req.user!.sub, opId: it.opId, entity: "incident",
+      entityId: inserted.id, operation: "create",
+      payload: { clientIncidentId: it.clientIncidentId, emergencyType: it.emergencyType,
+                 offGrid: true, integrity: it.integrity ?? null },
+      clientUpdatedAt: it.occurredAt, appliedAt: new Date(),
+    }).onConflictDoNothing();
+
+    // Tamper-evident record that an off-grid emergency entered the platform.
+    await audit({
+      actorId: req.user!.sub, actorRole: "citizen",
+      action: "sos.offgrid_synced", entity: "incident", entityId: inserted.id,
+      after: {
+        clientIncidentId: it.clientIncidentId,
+        emergencyType: it.emergencyType,
+        occurredAt: it.occurredAt.toISOString(),
+        storedOfflineForMs: age,
+        locationKnown: it.lat != null && it.lng != null,
+        deviceIntegrity: it.integrity ?? null,
+      },
+      ip: req.ip,
+    });
+
+    publish(req.user!.sub, {
+      type: "sos.status", incidentId: inserted.id, status: inserted.status,
+      clientIncidentId: it.clientIncidentId, source: "offgrid_sync",
+    });
+
+    results.push({
+      clientIncidentId: it.clientIncidentId, id: inserted.id, status: "created",
+      incidentStatus: inserted.status,
+      storedOfflineForMs: age,
+      // Explicit, because the client's next step depends on it.
+      escalationRequired: true,
+    });
+  }
+
+  await audit({
+    actorId: req.user!.sub, actorRole: "citizen", action: "sync.completed",
+    entity: "sync_batch", entityId: null,
+    after: {
+      kind: "offgrid_sos",
+      submitted: incidents.length,
+      created: results.filter((r) => r.status === "created").length,
+      duplicates: results.filter((r) => r.status === "duplicate").length,
+      rejected: results.filter((r) => r.status === "rejected").length,
+    },
+    ip: req.ip,
+  });
+
+  const created = results.filter((r) => r.status === "created").length;
+  return ok({ results }, {
+    created,
+    duplicates: results.filter((r) => r.status === "duplicate").length,
+    rejected: results.filter((r) => r.status === "rejected").length,
+    note: created
+      ? "Incidents recorded. Nothing has been alerted yet — call POST /v1/sos/:id/confirm to escalate."
+      : "No new incidents; every entry was a replay or was rejected.",
+  });
+});
+
 // ══ mechanic view ══════════════════════════════════════════════════════════
 app.get("/v1/mechanic/offers", { preHandler: [authenticate, requireRole("mechanic", "admin")] }, async (req) => {
   const [mech] = await db.select().from(S.mechanics).where(eq(S.mechanics.userId, req.user!.sub)).limit(1);
   if (!mech) return ok([], { note: "This account is not registered as a mechanic" });
+  // Expired offers are filtered out rather than listed. They used to accumulate
+  // in the inbox as cards whose Accept button was guaranteed to fail, which is
+  // a dead button by any other name.
   const rows = await db.select().from(S.dispatchOffers)
-    .where(and(eq(S.dispatchOffers.mechanicId, mech.id), eq(S.dispatchOffers.status, "SENT")))
+    .where(and(eq(S.dispatchOffers.mechanicId, mech.id), eq(S.dispatchOffers.status, "SENT"),
+               raw`${S.dispatchOffers.expiresAt} > now()`))
     .orderBy(desc(S.dispatchOffers.createdAt)).limit(20);
-  return ok(rows);
+
+  // The customer is stranded somewhere specific — a mechanic deciding whether to
+  // take a job needs to know what and where before accepting, not after.
+  const enriched = await Promise.all(rows.map(async (o) => {
+    const [ctx] = await db.execute<{
+      reference: string; symptoms: string | null; address_text: string | null;
+      highway_marker: string | null; registration_no: string; vehicle_class: string;
+      service_label: string | null; lat: number | null; lng: number | null;
+    }>(raw`
+      SELECT b.reference, b.symptoms, b.address_text, b.highway_marker,
+             v.registration_no, v.vehicle_class, s.label AS service_label,
+             ST_Y(b.location) AS lat, ST_X(b.location) AS lng
+        FROM bookings b
+        JOIN vehicles v ON v.id = b.vehicle_id
+        LEFT JOIN service_types s ON s.id = b.service_type_id
+       WHERE b.id = ${o.bookingId}`);
+    return {
+      ...o,
+      booking: ctx
+        ? {
+            reference: ctx.reference, symptoms: ctx.symptoms,
+            addressText: ctx.address_text, highwayMarker: ctx.highway_marker,
+            registrationNo: ctx.registration_no, vehicleClass: ctx.vehicle_class,
+            serviceLabel: ctx.service_label, lat: ctx.lat, lng: ctx.lng,
+          }
+        : null,
+    };
+  }));
+  return ok(enriched, { availableNow: mech.isAvailable });
+});
+
+/**
+ * The mechanic's own console state: who they are, whether dispatch can reach
+ * them, the job they are currently on, and what they have finished.
+ *
+ * The active job is looked up from the bookings table rather than remembered by
+ * the client, so closing the console mid-job and reopening it lands back on the
+ * same job instead of an empty screen.
+ */
+const MECHANIC_OPEN_STATUSES = ["ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS",
+                                "AWAITING_PARTS", "ESCALATED", "COMPLETED"] as const;
+
+app.get("/v1/mechanic/jobs", { preHandler: [authenticate, requireRole("mechanic", "admin")] }, async (req) => {
+  const [mech] = await db.select().from(S.mechanics).where(eq(S.mechanics.userId, req.user!.sub)).limit(1);
+  if (!mech) return ok({ mechanic: null, active: null, history: [] }, { note: "This account is not registered as a mechanic" });
+
+  const rows = await db.execute<{
+    id: string; reference: string; status: string; created_at: string; completed_at: string | null;
+    symptoms: string | null; registration_no: string; service_label: string | null;
+    total_paise: number | null; rating: number | null;
+  }>(raw`
+    SELECT b.id, b.reference, b.status::text AS status, b.created_at, b.completed_at,
+           b.symptoms, v.registration_no, s.label AS service_label,
+           i.total_paise, r.rating
+      FROM bookings b
+      JOIN vehicles v ON v.id = b.vehicle_id
+      LEFT JOIN service_types s ON s.id = b.service_type_id
+      LEFT JOIN invoices i ON i.booking_id = b.id AND i.deleted_at IS NULL
+      LEFT JOIN reviews  r ON r.booking_id = b.id AND r.deleted_at IS NULL
+     WHERE b.mechanic_id = ${mech.id} AND b.deleted_at IS NULL
+     ORDER BY b.created_at DESC
+     LIMIT 40`);
+
+  const open = new Set<string>(MECHANIC_OPEN_STATUSES);
+  const active = rows.find((r) => open.has(r.status)) ?? null;
+
+  return ok({
+    mechanic: {
+      id: mech.id, displayName: mech.displayName, rating: Number(mech.rating),
+      jobsCompleted: mech.jobsCompleted, isAvailable: mech.isAvailable, verified: mech.verified,
+    },
+    activeBookingId: active?.id ?? null,
+    history: rows.filter((r) => r.id !== active?.id).map((r) => ({
+      id: r.id, reference: r.reference, status: r.status, createdAt: r.created_at,
+      completedAt: r.completed_at, registrationNo: r.registration_no,
+      serviceLabel: r.service_label, symptoms: r.symptoms,
+      totalPaise: r.total_paise == null ? null : Number(r.total_paise),
+      rating: r.rating == null ? null : Number(r.rating),
+    })),
+  }, { count: rows.length });
+});
+
+/**
+ * Go on or off duty.
+ *
+ * `is_available` already gated the dispatch query — nothing could ever set it,
+ * so a mechanic was whatever the seed decided, permanently. Going off duty now
+ * genuinely removes them from dispatch; the location update is accepted in the
+ * same call because a mechanic coming on duty is exactly when their position is
+ * worth refreshing.
+ */
+app.post("/v1/mechanic/availability", { preHandler: [authenticate, requireRole("mechanic", "admin")] }, async (req, reply) => {
+  const body = z.object({
+    isAvailable: z.boolean(),
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
+  }).parse(req.body);
+
+  const [mech] = await db.select().from(S.mechanics).where(eq(S.mechanics.userId, req.user!.sub)).limit(1);
+  if (!mech) {
+    return reply.code(404).send({
+      error: { code: "not_a_mechanic", title: "This account is not registered as a mechanic", retryable: false },
+    });
+  }
+
+  await db.update(S.mechanics)
+    .set({ isAvailable: body.isAvailable, updatedAt: new Date() })
+    .where(eq(S.mechanics.id, mech.id));
+
+  if (body.lat != null && body.lng != null) {
+    await db.execute(raw`
+      UPDATE mechanics
+         SET last_location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326),
+             last_location_at = now()
+       WHERE id = ${mech.id}`);
+  }
+
+  await audit({
+    actorId: req.user!.sub, actorRole: "mechanic",
+    action: body.isAvailable ? "mechanic.on_duty" : "mechanic.off_duty",
+    entity: "mechanic", entityId: mech.id,
+    after: { isAvailable: body.isAvailable }, ip: req.ip,
+  });
+
+  return ok({ id: mech.id, isAvailable: body.isAvailable },
+    { message: body.isAvailable ? "You are on duty — dispatch can reach you." : "Off duty. No new offers will be sent." });
 });
 
 // ══ email notifications ════════════════════════════════════════════════════
@@ -1017,9 +3043,36 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
 await app.register(rakshaRoutes);
 
 // ══ boot ═══════════════════════════════════════════════════════════════════
-const close = async () => { await app.close(); await sql.end({ timeout: 5 }); process.exit(0); };
+// The dispatch timeout. Without this an unanswered offer simply stopped being
+// listed while the booking sat in MATCHING forever (see dispatch.ts).
+startOfferSweeper(app.log);
+
+const close = async () => {
+  stopOfferSweeper();
+  // Live SSE streams are held open by design, so `app.close()` waits for them
+  // until its grace period runs out. Ending them first turns a 30-second
+  // shutdown into an immediate one — and each client reconnects on its own
+  // `retry` interval once the next instance is up.
+  closeAllStreams();
+  await app.close();
+  await sql.end({ timeout: 5 });
+  process.exit(0);
+};
 process.on("SIGINT", close);
 process.on("SIGTERM", close);
 
 await app.listen({ port: env.port, host: env.host });
 app.log.info({ providers: providerSummary() }, "RoadAssist API ready");
+
+// Trusting *every* hop means any client that can reach this port may set
+// X-Forwarded-For itself, mint a fresh address per request, and walk straight
+// through the per-IP OTP ceiling. It is a legitimate setting behind an ingress
+// that is genuinely the only way in — and a hole everywhere else — so it is
+// never applied silently.
+if (env.trustProxy === true) {
+  app.log.warn(
+    "TRUST_PROXY=true trusts X-Forwarded-For from every peer, so the per-IP OTP " +
+    "ceiling can be bypassed by anyone who can reach this port. Set it to your " +
+    "proxy's address instead (127.0.0.1,::1 for a local tunnel).",
+  );
+}

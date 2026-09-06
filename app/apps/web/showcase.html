@@ -4,20 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RoadAssist × RAKSHA — Live Showcase</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d8b46a'%3E%3Cg transform='rotate(-30 12 12)'%3E%3Ccircle cx='7.3' cy='3.2' r='1.45'/%3E%3Crect x='5.5' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Crect x='14.9' y='4.7' width='3.6' height='14.6' rx='1.8'/%3E%3Ccircle cx='16.7' cy='20.8' r='1.45'/%3E%3C/g%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Manrope:wght@300..800&display=swap">
+<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08090c" media="(prefers-color-scheme: dark)">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("ra.theme");
+      if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) { /* storage blocked — the system preference wins */ }
+  })();
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z' fill='none' stroke='%23e3b96a' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath fill='%23e3b96a' fill-rule='evenodd' d='M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z'/%3E%3Ccircle cx='16' cy='7.5' r='2' fill='%23e3b96a'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="vendor/fonts.css">
+<link rel="stylesheet" href="ds.css">
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* Local names alias the shared design system, so this page inherits both
+     palettes instead of carrying its own. --line, --bg, --surface and the
+     motion curves come straight from ds.css and are deliberately not redefined
+     here. --teal is this page's own accent (the edge-feed HUD). */
   :root {
-    --bg: #08090b; --panel: #0f1113; --gold: #e3b96a; --cream: #f4f2ec; --muted: #8f948f;
-    --teal: #38dcc8; --teal-soft: rgba(56,220,200,0.14);
-    --line: rgba(227,185,106,0.14); --line-teal: rgba(56,220,200,0.16);
-    --ok: #3ddc97; --warn: #ffd166; --bad: #ff9f43; --crit: #ff4d5a;
-    --serif: "Fraunces", Georgia, serif;
-    --sans: "Manrope", system-ui, sans-serif;
-    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --panel: var(--surface);
+    --gold: var(--brand); --cream: var(--text); --muted: var(--text-3);
+    --teal: #22b8a8; --teal-soft: rgba(34,184,168,0.14); --line-teal: rgba(34,184,168,0.22);
+    --ok: var(--green); --warn: var(--amber); --bad: #e07a1f; --crit: var(--red);
+    --serif: var(--display);
+  }
+  :root[data-theme="dark"] { --teal: #38dcc8; --line-teal: rgba(56,220,200,0.16); }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --teal: #38dcc8; --line-teal: rgba(56,220,200,0.16); }
   }
   /* aurora depth layers — two drifting glows behind everything */
   body::before, body::after {
@@ -32,10 +46,7 @@
   @keyframes aur2 { to { transform: translate(9vmax, -7vmax) scale(1.1); } }
   body > * { position: relative; z-index: 1; }
   html { scroll-behavior: smooth; }
-  html, body { background: var(--bg); color: var(--cream); }
-  body { font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-  a { color: inherit; text-decoration: none; }
-  img, video { max-width: 100%; display: block; }
+  body { overflow-x: hidden; }
 
   /* reveal-on-scroll — transform/opacity only, GPU friendly */
   .rv { opacity: 0; transform: translateY(34px); transition: opacity 1s var(--ease), transform 1s var(--ease); }
@@ -43,22 +54,42 @@
   .rv.d1 { transition-delay: 0.1s; } .rv.d2 { transition-delay: 0.2s; } .rv.d3 { transition-delay: 0.3s; }
 
   /* ═══ HERO — real NH-48 photo, parallax, logos ═══ */
-  .hero { position: relative; min-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
-  .hero-bg { position: absolute; inset: -12% 0; z-index: 0;
+  /* The hero sits on a photograph, so it keeps a dark treatment in BOTH themes
+     — light text over an image is the only readable option. Its own tokens are
+     scoped here and it fades into whichever page background is active at the
+     very bottom edge, so the seam disappears either way. */
+  .hero {
+    position: relative; min-height: 92vh; display: flex; flex-direction: column; overflow: hidden;
+    --cream: #f4f2ec; --muted: #b9bcc4; --gold: #e3b96a; --line: rgba(227,185,106,0.18);
+    color: #f4f2ec;
+  }
+  /* Child selector, not a bare class: `.hero > *` below has the same
+     specificity and comes later, so a bare `.hero-bg` lost to it — which made
+     the backdrop position:relative with zero height, and the hero photo has
+     never actually rendered. */
+  .hero > .hero-bg { position: absolute; inset: -12% 0; z-index: 0;
     background: url("/media/assets/nh48-expressway.jpg") center 30%/cover no-repeat;
     will-change: transform; filter: saturate(1.08) brightness(0.85); }
   .hero::after { content: ""; position: absolute; inset: 0; z-index: 1;
-    background: linear-gradient(180deg, rgba(7,7,7,0.72) 0%, rgba(7,7,7,0.25) 42%, var(--bg) 96%); }
+    background: linear-gradient(180deg,
+      rgba(6,7,10,0.74) 0%, rgba(6,7,10,0.32) 42%, rgba(6,7,10,0.72) 88%, var(--bg) 100%); }
   .hero > * { position: relative; z-index: 2; }
 
   nav { display: flex; align-items: center; gap: 16px; padding: 22px clamp(18px, 4vw, 52px); }
-  .logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 0.06em; font-size: 17px; }
-  .logo svg { width: 26px; height: 26px; filter: drop-shadow(0 0 8px rgba(216,180,106,0.6)); }
-  .logo i { font-style: normal; color: var(--gold); }
+  .logo { display: inline-flex; align-items: center; gap: 10px; }
+  .logo .mark { width: 30px; height: 30px; filter: drop-shadow(0 0 10px rgba(227,185,106,0.45)); }
+  .logo .wordmark { font-family: var(--serif); font-weight: 500; font-size: 20px; letter-spacing: -0.012em; }
+  .logo .wordmark i { font-style: normal; color: var(--gold); }
   .raksha-chip { display: inline-flex; align-items: center; gap: 7px; margin-left: 2px;
     border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px;
     font-size: 11px; letter-spacing: 0.22em; font-weight: 800; color: var(--gold);
     background: rgba(7,7,7,0.5); backdrop-filter: blur(8px); }
+  /* The theme control rides in the hero nav, on the dark photo. */
+  nav .theme-btn {
+    background: rgba(7,7,7,0.5); border-color: rgba(227,185,106,0.28); color: #f4f2ec;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); flex: none;
+  }
+  nav .theme-btn:hover { color: var(--gold); }
   .raksha-chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%;
     background: var(--ok); box-shadow: 0 0 10px var(--ok); animation: blink 2s infinite; }
   @keyframes blink { 50% { opacity: 0.3; } }
@@ -72,15 +103,15 @@
   h1 em { font-style: italic;
     background: linear-gradient(105deg, var(--gold) 20%, var(--teal) 90%);
     -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .hero-copy p { margin-top: 22px; max-width: 560px; color: #cfc8ba; font-weight: 300; line-height: 1.85; font-size: clamp(15px, 1.6vw, 18px); }
+  .hero-copy p { margin-top: 22px; max-width: 560px; color: var(--muted); font-weight: 300; line-height: 1.85; font-size: clamp(15px, 1.6vw, 18px); }
   .cta-row { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
-  .btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px;
+  .cta { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px;
     font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;
     border: 1px solid var(--gold); color: var(--gold); border-radius: 999px;
     transition: transform 0.35s var(--ease), background 0.35s, color 0.35s, box-shadow 0.35s; }
-  .btn:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(216,180,106,0.25); }
-  .btn.solid { background: var(--gold); color: #0a0805; }
-  .btn.solid:hover { box-shadow: 0 0 34px rgba(216,180,106,0.5), 0 12px 30px rgba(0,0,0,0.4); }
+  .cta:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(216,180,106,0.25); }
+  .cta.solid { background: var(--brand-fill); color: var(--brand-ink); }
+  .cta.solid:hover { box-shadow: 0 0 34px rgba(216,180,106,0.5), 0 12px 30px rgba(0,0,0,0.4); }
   .credit { position: absolute; bottom: 10px; right: 14px; z-index: 2; font-size: 9.5px; color: rgba(245,241,232,0.4); }
   .credit a { text-decoration: underline; }
 
@@ -110,13 +141,13 @@
   .pipe { transform-style: preserve-3d; transform: rotateX(56deg) rotateZ(-38deg);
     display: grid; gap: 18px; will-change: transform; transition: transform 0.2s linear; }
   .slab { position: relative; width: min(520px, 78vw); padding: 19px 24px;
-    background: linear-gradient(160deg, #191712, #0e0d0a 70%);
+    background: linear-gradient(160deg, var(--surface-2), var(--surface) 70%);
     border: 1px solid var(--line); border-radius: 14px;
     transform-style: preserve-3d;
-    box-shadow: 0 24px 40px rgba(0,0,0,0.55);
+    box-shadow: var(--shadow-2);
     transition: transform 0.6s var(--ease), border-color 0.6s, box-shadow 0.6s; }
   .slab::before { content: ""; position: absolute; inset: 0; border-radius: 10px;
-    transform: translateZ(-14px); background: #060604; border: 1px solid rgba(216,180,106,0.08); }
+    transform: translateZ(-14px); background: var(--surface-3); border: 1px solid var(--line); }
   .slab .idx { position: absolute; top: -11px; left: 16px; font-size: 10px; font-weight: 800;
     letter-spacing: 0.18em; background: var(--bg); border: 1px solid var(--line);
     color: var(--muted); padding: 3px 9px; border-radius: 999px; transition: color 0.5s, border-color 0.5s; }
@@ -125,7 +156,7 @@
   .slab .metric { position: absolute; right: 16px; top: 50%; translate: 0 -50%;
     font-family: var(--serif); font-size: 21px; color: var(--gold); font-weight: 600; opacity: 0.85; }
   .slab.on { transform: translateZ(34px); border-color: var(--gold);
-    box-shadow: 0 34px 60px rgba(0,0,0,0.65), 0 0 40px rgba(216,180,106,0.22); }
+    box-shadow: var(--shadow-3), 0 0 40px var(--brand-soft); }
   .slab.on .idx { color: var(--gold); border-color: var(--gold); }
   .slab.on::after { content: ""; position: absolute; left: 8%; right: 8%; bottom: -12px; height: 2px;
     background: linear-gradient(90deg, transparent, var(--gold), transparent);
@@ -155,7 +186,7 @@
   .monitor {
     position: relative; width: min(880px, 94%); border-radius: 20px; overflow: hidden;
     border: 1px solid var(--line-teal); background: #05070a;
-    box-shadow: 0 46px 90px rgba(0,0,0,0.65), 0 0 70px rgba(56,220,200,0.10);
+    box-shadow: var(--shadow-3), 0 0 70px var(--teal-soft);
     transform-style: preserve-3d; will-change: transform; aspect-ratio: 3 / 2;
   }
   .monitor .frame { position: absolute; inset: 0; width: 100%; height: 100%;
@@ -166,7 +197,8 @@
   .monitor .hud { position: absolute; inset: 0; z-index: 4; pointer-events: none;
     display: flex; flex-direction: column; justify-content: space-between; padding: 16px 18px;
     font-size: 10.5px; letter-spacing: 0.2em; font-weight: 800; }
-  .hud .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .hud .row { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 0; border: 0; }
   .hud .rec { display: inline-flex; align-items: center; gap: 8px; color: var(--crit);
     background: rgba(5,7,10,0.65); padding: 5px 12px; border-radius: 999px; backdrop-filter: blur(4px); }
   .hud .rec::before { content: ""; width: 8px; height: 8px; border-radius: 50%;
@@ -189,10 +221,10 @@
 
   /* ═══ VIDEO ═══ */
   .theatre { position: relative; border-radius: 22px; overflow: hidden;
-    border: 1px solid var(--line); box-shadow: 0 40px 90px rgba(0,0,0,0.6), 0 0 60px rgba(216,180,106,0.08); }
+    border: 1px solid var(--line); box-shadow: var(--shadow-3), 0 0 60px var(--brand-soft); }
   .theatre video { width: 100%; }
   .theatre .tag { position: absolute; top: 14px; left: 14px; z-index: 2; font-size: 10px; font-weight: 800;
-    letter-spacing: 0.22em; color: #0a0805; background: var(--gold); padding: 5px 12px; border-radius: 3px; }
+    letter-spacing: 0.22em; color: var(--brand-ink); background: var(--brand-fill); padding: 5px 12px; border-radius: 999px; }
 
   footer { border-top: 1px solid var(--line); padding: 28px clamp(18px, 4vw, 52px);
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
@@ -208,16 +240,25 @@
 </head>
 <body>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <linearGradient id="raGold" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#f7e4bb"/><stop offset=".5" stop-color="#e3b96a"/><stop offset="1" stop-color="#a87a22"/>
+  </linearGradient>
+  <symbol id="raMark" viewBox="0 0 32 32">
+    <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z" fill="url(#raGold)" opacity=".16"/>
+    <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z" fill="none" stroke="url(#raGold)" stroke-width="1.7" stroke-linejoin="round"/>
+    <path fill="url(#raGold)" fill-rule="evenodd" d="M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z"/>
+    <circle cx="16" cy="7.5" r="1.9" fill="url(#raGold)"/>
+  </symbol>
+</defs></svg>
+
 <header class="hero" id="top">
   <div class="hero-bg" id="hero-bg" aria-hidden="true"></div>
 
   <nav>
     <a class="logo" href="#top" aria-label="RoadAssist">
-      <svg viewBox="0 0 24 24" fill="#d8b46a" aria-hidden="true"><g transform="rotate(-30 12 12)">
-        <circle cx="7.3" cy="3.2" r="1.45"/><rect x="5.5" y="4.7" width="3.6" height="14.6" rx="1.8"/>
-        <rect x="14.9" y="4.7" width="3.6" height="14.6" rx="1.8"/><circle cx="16.7" cy="20.8" r="1.45"/>
-      </g></svg>
-      Road<i>Assist</i>
+      <svg class="mark"><use href="#raMark"/></svg>
+      <span class="wordmark">Road<i>Assist</i></span>
     </a>
     <span class="raksha-chip">RAKSHA · LIVE</span>
     <div class="links">
@@ -226,6 +267,10 @@
       <a href="#gallery">Gallery</a>
       <a href="#film">Demo film</a>
     </div>
+    <button class="theme-btn" id="theme" title="Switch theme" aria-label="Switch colour theme">
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+    </button>
   </nav>
 
   <div class="hero-copy">
@@ -237,8 +282,8 @@
       network dies. All of it is running behind this page — the numbers below are live.
     </p>
     <div class="cta-row rv d3">
-      <a class="btn solid" href="/raksha.html">Open the live dashboard</a>
-      <a class="btn" href="/app.html">Try the app</a>
+      <a class="cta solid" href="/raksha.html">Open the live dashboard</a>
+      <a class="cta" href="/app.html">Try the app</a>
     </div>
   </div>
   <span class="credit">Photo: <a href="https://commons.wikimedia.org/wiki/File:Delhi-Gurgaon_Expressway_-_Aerial_View_-_New_Delhi_2016-08-04_5808.JPG" target="_blank" rel="license noopener">Biswarup Ganguly, CC BY 3.0</a></span>
@@ -269,7 +314,7 @@
       <div class="slab"><span class="idx">06 · HUMAN</span><b>Authority verify → close</b><small>a model raises signals, never dispatches</small><span class="metric">ADR-05</span></div>
     </div>
   </div>
-  <p class="pipe-note">Every number on this page is measured, not asserted — the same pipeline passes 84/84 end-to-end assertions in CI.</p>
+  <p class="pipe-note">Every number on this page is measured, not asserted — the same pipeline passes 126/126 end-to-end assertions in CI.</p>
 </section>
 
 <section id="feed">
@@ -329,13 +374,22 @@
 
 <footer>
   <span>RoadAssist × RAKSHA — student prototype · no real emergency dispatch is connected</span>
-  <span>PostgreSQL + PostGIS · Fastify · YOLO11n on RDD2022 (CC BY 4.0, Arya et al.)</span>
+  <span>PostgreSQL + PostGIS · Fastify · YOLO11n on RDD2022 (CC BY 4.0, Arya et al.) · maps © OpenStreetMap contributors</span>
 </footer>
 
 <script>
 (function () {
   "use strict";
   var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // theme toggle — shares the key every other surface reads
+  document.getElementById("theme").onclick = function () {
+    var explicit = document.documentElement.getAttribute("data-theme");
+    var showingDark = explicit ? explicit === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    var next = showingDark ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("ra.theme", next); } catch (e) { /* per-page only */ }
+  };
 
   // reveal on scroll
   var io = new IntersectionObserver(function (es) {
@@ -476,7 +530,7 @@
       tx = (px - 0.5) * 14; ty = (0.5 - py) * 10;
       card.style.setProperty("--gx", (px * 100) + "%");
       card.style.setProperty("--gy", (py * 100) + "%");
-      card.style.boxShadow = "0 30px 60px rgba(0,0,0,0.55)";
+      card.style.boxShadow = "var(--shadow-3)";
       if (!raf) raf = requestAnimationFrame(loop);
     });
     card.addEventListener("pointerleave", function () {
