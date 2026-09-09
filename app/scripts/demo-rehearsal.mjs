@@ -21,13 +21,18 @@
  *   node scripts/demo-rehearsal.mjs --headed   # watch it happen
  */
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:4000";
 const HEADED = process.argv.includes("--headed");
 const PORT = 9555;
+// --shots writes evidence PNGs from the beats that already reach these states.
+// Capturing here rather than in a second script means the screenshot is of a
+// screen an assertion has just passed on, so it cannot be of an error state.
+const SHOTS = process.argv.includes("--shots");
+const SHOT_DIR = new URL("../docs/screenshots/", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 
 const CHROME_CANDIDATES = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -96,6 +101,14 @@ class Page {
       }
       await sleep(120);
     }
+  }
+  async shot(name, caption) {
+    if (!SHOTS) return;
+    await sleep(600);                       // let animations settle
+    const { data } = await this.send("Page.captureScreenshot", { format: "png" });
+    mkdirSync(SHOT_DIR, { recursive: true });
+    writeFileSync(SHOT_DIR + name + ".png", Buffer.from(data, "base64"));
+    console.log(`       shot ${name}.png — ${caption}`);
   }
   click(sel) {
     return this.eval(`(() => { const el = document.querySelector(${JSON.stringify(sel)});
@@ -372,6 +385,7 @@ const run = async () => {
       }
       await customer.waitFor(`document.getElementById("t-stars") ||
         /PAID/i.test(document.getElementById("t-body").textContent)`, 35000);
+      await customer.shot("16-payment", "Invoice settled — booking PAID, provider mock");
       return `invoice ${total} settled (provider=mock, simulated)${note}`;
     });
 
@@ -402,6 +416,7 @@ const run = async () => {
       await customer.click("#sos-now");
       await customer.waitFor(`/incident|contact|responder|escalat/i
         .test(document.getElementById("sos-out").textContent)`, 35000);
+      await customer.shot("17-sos-online", "Online SOS — escalation ladder, each rung reported as fact");
       return String(await customer.eval(
         `document.getElementById("sos-out").textContent.replace(/\\s+/g, " ").trim().slice(0, 70)`));
     });

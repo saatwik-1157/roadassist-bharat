@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-09-06T13:16:17.464Z",
+  "capturedAt": "2026-09-06T17:46:16.914Z",
   "base": "http://localhost:4000",
   "shots": [
     {
@@ -57,6 +57,10 @@
     {
       "name": "14-authority",
       "caption": "RAKSHA authority dashboard — live map, road health, detections"
+    },
+    {
+      "name": "18-live-map",
+      "caption": "RAKSHA live map — clustered mechanics, responders and detections"
     },
     {
       "name": "15-landing",
