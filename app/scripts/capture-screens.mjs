@@ -302,6 +302,25 @@ const run = async () => {
       console.log("  – authority dashboard skipped (seed operator absent)");
     }
 
+    // ── the citizen live map ─────────────────────────────────────────────
+    // Its own capture because it is the clearest single picture of the
+    // geospatial tier: clustered mechanics, responders and detections drawn
+    // from real PostGIS rows, not a static image.
+    console.log("\nlive map");
+    await page.viewport(430, 900, true);
+    await page.goto(`${BASE}/map.html`);
+    try {
+      await page.waitFor(
+        `document.querySelectorAll(".leaflet-marker-icon, .marker-cluster").length > 0`, 25000);
+      await sleep(2500);
+      await page.expect(`document.querySelectorAll(".leaflet-marker-icon, .marker-cluster").length > 0`,
+        "live markers drawn on the map");
+      await page.shot("18-live-map", "RAKSHA live map — clustered mechanics, responders and detections");
+    } catch {
+      console.log("  – live map skipped (no markers rendered)");
+    }
+
+    await page.viewport(1280, 860, false);
     await page.goto(`${BASE}/index.html`);
     await sleep(2200);
     await page.shot("15-landing", "Product landing page");
