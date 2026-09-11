@@ -64,7 +64,7 @@ repository; nothing is aspirational.
 > forwards idempotently. **Payment** never trusts the client: the amount is the
 > invoice total and settlement needs a signature the server recomputes.
 >
-> All of it on **PostgreSQL 16 + PostGIS** — 57 tables, 62 foreign keys, and an
+> All of it on **PostgreSQL 16 + PostGIS** — 56 tables, 62 foreign keys, and an
 > append-only hash-chained audit log.
 
 ## 30 seconds: "How does it work without internet?"

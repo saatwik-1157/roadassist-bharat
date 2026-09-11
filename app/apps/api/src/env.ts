@@ -246,11 +246,30 @@ export function validateEnv(): void {
     ["DISPATCH_WAVE_SIZE", env.dispatchWaveSize, "providers per wave, e.g. 5"],
     ["DISPATCH_RADIUS_KM", env.dispatchRadiusKm, "kilometres, e.g. 25"],
     ["OFFER_SWEEP_SECONDS", env.offerSweepSeconds, "seconds, e.g. 10"],
+    // These five were missing, and each one fails SILENTLY rather than loudly:
+    // a NaN ceiling makes `length > NaN` and `count >= NaN` both false, so the
+    // photo size cap and the hazard-report ceiling simply stop existing; a NaN
+    // window reaches Postgres as make_interval(mins => NaN) and throws on every
+    // report; and a NaN timeout makes setTimeout fire at 1ms, so a configured
+    // model always aborts into the rules fallback and looks merely "slow".
+    ["AI_TIMEOUT_MS", env.ai.timeoutMs, "milliseconds, e.g. 3000"],
+    ["UPLOAD_MAX_BYTES", env.uploadMaxBytes, "bytes, e.g. 4000000"],
+    ["REPORT_MAX_PER_WINDOW", env.reportMaxPerWindow, "reports per window, e.g. 20"],
+    ["REPORT_WINDOW_MINUTES", env.reportWindowMinutes, "minutes, e.g. 60"],
   ];
   for (const [name, value, hint] of numbers) {
     if (!Number.isFinite(value) || value <= 0) {
       problems.push(`${name}="${process.env[name]}" is not a positive number — expected ${hint}`);
     }
+  }
+
+  // A confidence threshold is a probability, not a count: 0 accepts anything the
+  // model says and >1 rejects everything, so both ends are checked, not just NaN.
+  if (!Number.isFinite(env.ai.minConfidence) || env.ai.minConfidence <= 0 || env.ai.minConfidence > 1) {
+    problems.push(
+      `AI_MIN_CONFIDENCE="${process.env.AI_MIN_CONFIDENCE}" is not a probability — ` +
+      "expected a value above 0 and at most 1, e.g. 0.45",
+    );
   }
 
   if (!/^postgres(ql)?:\/\//.test(env.databaseUrl)) {

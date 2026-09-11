@@ -20,7 +20,7 @@ present tense. These were corrected in `review1-ppt/presentation-script.md`.
 | 2 | *"Two more architectures, **both running**."* (Slide 16, **LIVE**) | Neither load balancing nor redundant storage is deployed. | "Both are designed; neither is deployed." |
 | 3 | *"cloud bursting on a **real evening**… we autoscale to twenty-two"* | A worked scenario, not telemetry. | "a **modelled** evening — a worked scenario, not telemetry from a running system… I will not present them as measurements." |
 | 4 | *"Cloud infrastructure provisioned — virtual network, subnets, security groups and the Kubernetes cluster"* listed under **"five things are complete"** | None of it exists. | Split into "Running, and I can demonstrate every one of these" and "Not provisioned, and I will not claim it". |
-| 5 | *"The database deployed and seeded — **sixty tables, multi-zone**, a hundred thousand rows"* | 57 tables, single node, ~13.7k rows at the seed volume used. | "57 tables on PostgreSQL with PostGIS, migrated from empty and seeded, on Docker." |
+| 5 | *"The database deployed and seeded — **sixty tables, multi-zone**, a hundred thousand rows"* | 56 tables, single node, ~13.7k rows at the seed volume used. | "56 tables on PostgreSQL with PostGIS, migrated from empty and seeded, on Docker." |
 | 6 | *"the handoff to ERSS 112 over mutual TLS with a signed payload"* (Slide 26, **LIVE**) | Stubbed. The API's own response says so. | "The handoff to ERSS 112 is **not built**… our own API says so in the response." |
 | 7 | *"through the **isolated** emergency service… runs even if the main platform is down"* | ADR-0005 designs isolation; today it is a module in the same process. | "Today it is a module in the same process. The rule it exists to protect — that a model can never dispatch — is enforced regardless." |
 | 8 | *"A service that must never fail — answered by multi-zone replication and redundant storage"* | Neither exists. | Re-pointed at what *is* built: "the answer we actually built is not in the cloud at all: it is on the device." |
@@ -73,7 +73,36 @@ Recorded because an audit that only lists faults is not an audit.
 
 ---
 
-## 4. Remaining wording risk
+## 4. Schema counts, re-measured
+
+Every schema number the project quotes was re-measured against a database
+migrated from empty. Five of the seven were wrong, all in our favour, and all
+from the same two mistakes.
+
+| Claim | Was | Is | Why it was wrong |
+|---|---|---|---|
+| Tables | 57 | **56** | `CREATE EXTENSION postgis` installs its own `spatial_ref_sys` into `public`, and the count in `migrate.ts` asked `information_schema` for every base table in the schema rather than for ours. |
+| Primary keys | 57 | **56** | The same table, counted again. |
+| Indexes | 138 | **137** | And again — its index. |
+| Unique indexes | 84 | **83** | And again — its unique index. |
+| CHECK constraints | 433 | **5** | A different and worse mistake: `information_schema.check_constraints` emits one row per `NOT NULL` column. 938 of the rows counted were `NOT NULL`. The domain CHECKs we actually wrote are the five in `migrate.ts`: severity 1–5, confidence 0–1, road-health 0–100, rating 1–5, invoice total non-negative. |
+| Foreign keys | 62 | 62 | Correct. |
+| GiST indexes | 5 | 5 | Correct. |
+
+**Why this mattered.** The table count is the kind of claim that gets tested
+directly — "name the 57th" has no good answer when the honest reply is "it
+belongs to PostGIS". The CHECK-constraint figure was the more exposed of the
+two: 433 invites "show me one", and the five that exist are worth showing.
+
+**Fixed at the source,** not just in the prose. `migrate.ts` now counts through
+`pg_depend` and excludes anything an extension owns, so it reports 56 and the
+number in the documents is the number the tool prints. (Drizzle's own
+`__drizzle_migrations` was never in the count — it lives in the `drizzle`
+schema, not `public`.)
+
+---
+
+## 5. Remaining wording risk
 
 **Resolved in Phase 9.** The two decks were examined separately:
 
@@ -99,3 +128,8 @@ Recorded because an audit that only lists faults is not an audit.
 **Still open:** `review1-ppt/RoadAssist-Presentation-Script.pdf` is a stale
 render of the corrected `presentation-script.md`. Re-export it, or present from
 the Markdown — the Markdown is the corrected source of truth.
+
+**Also open:** `ppt/RoadAssist-Bharat-FINAL.pdf` is now a stale render of the
+deck. `ppt/part_final.py` and `ppt/RoadAssist-Bharat-FINAL.pptx` carry the
+corrected schema counts from §4; the PDF still shows 57 / 138 / 433. Re-export
+it with the PowerPoint command in `ppt/README.md`, or present from the `.pptx`.

@@ -33,7 +33,7 @@ becomes a second ambulance.
 |----------|----------|
 | [Team Charter](docs/00-team-charter.md) | Team composition, RACI, rituals, sprint calendar, git/PR/commit rules, code review checklist, Definition of Done, documentation standards, quality gates, risk register |
 | [Master Roadmap](docs/01-master-roadmap.md) | All 18 phases with objectives/tasks/dependencies/deliverables/acceptance criteria, target architecture, why each service exists, business model |
-| [D1 — Backend & Data Lead](docs/02-backend-lead-roadmap.md) | Per-phase plan: schema (60 tables planned; 57 shipped), 140 APIs, booking state machine, dispatch, auth/RBAC, sync conflict resolution, emergency engine |
+| [D1 — Backend & Data Lead](docs/02-backend-lead-roadmap.md) | Per-phase plan: schema (60 tables planned; 56 shipped), 140 APIs, booking state machine, dispatch, auth/RBAC, sync conflict resolution, emergency engine |
 | [D2 — Frontend & Mobile Lead](docs/03-frontend-lead-roadmap.md) | Per-phase plan: design system, 48 screens, 42 components, offline client, maps, gov portal, accessibility, 8 languages |
 | [D3 — AI & Data Science Lead](docs/04-ai-lead-roadmap.md) | Per-phase plan: 9 AI systems with inputs/outputs/algorithms/training data/metrics/baselines, on-device bundle, analytics |
 | [D4 — DevOps, QA & Security Lead](docs/05-devops-qa-lead-roadmap.md) | Per-phase plan: K8s/Terraform/CI-CD, observability, telecom gateway, load/chaos/security testing, deployment, DR |
@@ -42,7 +42,13 @@ becomes a second ambulance.
 
 ## Team
 
-| ID | Role | Owns |
+Ownership across all 18 phases of the plan — **not** a description of what
+ships today. Several things named here are roadmap (React Native, Next.js,
+Android Auto, Kubernetes, Terraform, 8 languages, the 9-subsystem AI suite);
+what actually exists is the list at the top of this file, and the shipped web
+surfaces are plain HTML/CSS/JS served by the API with no build step.
+
+| ID | Role | Owns (planned) |
 |----|------|------|
 | D1 | Backend & Data Lead | Services, PostgreSQL/PostGIS, event bus, API contracts, auth, booking/dispatch, emergency, payments |
 | D2 | Frontend & Mobile Lead | React Native app, Next.js portals, design system, offline client, maps UI, Android Auto, a11y, i18n |

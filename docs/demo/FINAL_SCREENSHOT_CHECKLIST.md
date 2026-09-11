@@ -33,7 +33,7 @@ node scripts/capture-screens.mjs        # in another → docs/screenshots/*.png 
 | 17 | SOS online | hold SOS while online | — | Escalation ladder, each rung a fact | Emergency path | 20 | ⬜ **capture** |
 | 18 | Live map | Map tab | seeded data | Clustered mechanics/responders/detections over India | Cloud storage + geospatial | 22 | ⬜ **capture** |
 | 19 | Health endpoint | `/health` with the DB stopped | — | **503** `database: down` while `/v1/ping` returns 200 | **Readiness gate — dynamic scalability** | 24 | ⬜ **capture** |
-| 20 | Database schema | `\dt` in psql | seeded DB | 57 tables | Data tier | 23 | ⬜ **capture** |
+| 20 | Database schema | `\dt` in psql | seeded DB | 56 tables | Data tier | 23 | ⬜ **capture** |
 | 21 | Test results | `npm run test:security` | running API | `74 passed, 0 failed` | Testing evidence | 26 | ⬜ **capture** |
 | 22 | Concurrency proof | `npm run test:concurrency` | running API | Ten simultaneous accepts → one winner | Concurrency guarantee | 26 | ⬜ **capture** |
 | 23 | Boundaries check | `npm run boundaries` | — | `✓ module boundaries clean` | Roles and boundaries, enforced | 11 | ⬜ **capture** |

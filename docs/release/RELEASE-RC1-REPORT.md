@@ -10,7 +10,7 @@ Where something was not run, this report says **NOT RUN** rather than assuming.
 | Working tree | **41 modified, 59 untracked — uncommitted.** Everything below was executed in this state; `f771df5` alone contains none of it |
 | Build date | 2026-09-06T14:30:57Z |
 | Environment | Windows 11, Node v24.18.0, npm 11.16.0, Docker (postgis/postgis:16-3.4) |
-| Database | PostgreSQL 16.4 + PostGIS 3.4, migration `0004_offgrid_incident` (5 applied), 57 tables |
+| Database | PostgreSQL 16.4 + PostGIS 3.4, migration `0004_offgrid_incident` (5 applied), 56 tables |
 
 ---
 
@@ -20,7 +20,7 @@ Where something was not run, this report says **NOT RUN** rather than assuming.
 |---|---|---|
 | BUILD | **PASS** | `typecheck` 0 errors (after wiping `.tsbuildinfo`), `lint` 0 problems, boundaries clean, `npm run build` clean |
 | FRESH INSTALL | **PASS** | `node_modules` deleted, `npm ci` from lockfile, exit 0 |
-| DATABASE | **PASS** | Database created empty → 5 migrations → 57 tables → seed 37,753 rows; 0 impossible states across 6 integrity checks |
+| DATABASE | **PASS** | Database created empty → 5 migrations → 56 tables → seed 37,753 rows; 0 impossible states across 6 integrity checks |
 | CUSTOMER | **PASS** | e2e §1–9, ui §3/§9/§15 |
 | MECHANIC | **PASS** | e2e §8 state machine, ui §14/§15 (mechanic drives, customer pays and rates) |
 | DISPATCH | **PASS** | e2e §7, concurrency §1–3 |

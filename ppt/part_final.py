@@ -178,7 +178,7 @@ for i, (t, sub) in enumerate([("AUTH + RBAC", "OTP · JWT · rotation"),
                               ("PAYMENTS", "order · webhook")]):
     node(s, 1.0 + i * 2.32, 4.98, 2.2, 0.75, t, sub, color=AMBER, tsize=9.5, ssize=8)
 down_arrow(s, 6.75, 5.77, 0.24)
-node(s, 3.6, 6.05, 6.3, 0.62, "PostgreSQL 16 + PostGIS  ·  57 tables  ·  62 FKs  ·  5 GiST indexes",
+node(s, 3.6, 6.05, 6.3, 0.62, "PostgreSQL 16 + PostGIS  ·  56 tables  ·  62 FKs  ·  5 GiST indexes",
      color=GREEN, tsize=11.5)
 footer(s); page_no(s, 5)
 notes(s, """Note what is NOT here: no Kubernetes, no load balancer, no message
@@ -497,8 +497,8 @@ footer(s); page_no(s, 17)
 s = new_slide()
 title_block(s, "PostgreSQL 16 + PostGIS", eyebrow="DATABASE ARCHITECTURE",
             sub="Chosen for one query, and kept for four more reasons.")
-stats = [("57", "tables"), ("62", "foreign keys"), ("138", "indexes"),
-         ("5", "GiST spatial"), ("433", "check constraints"), ("5", "migrations")]
+stats = [("56", "tables"), ("62", "foreign keys"), ("137", "indexes"),
+         ("5", "GiST spatial"), ("5", "check constraints"), ("5", "migrations")]
 for i, (n, label) in enumerate(stats):
     panel(s, 0.85 + i * 1.95, 2.2, 1.8, 1.0, fill=INK_2, line_col=LINE)
     txt(s, 0.85 + i * 1.95, 2.36, 1.8, 0.45, n, size=25, color=CYAN, bold=True,
@@ -832,7 +832,7 @@ panel(s, 0.85, 5.05, 11.6, 1.0, fill=INK_2, line_col=RED, line_w=1.75)
 txt(s, 1.1, 5.28, 11.1, 0.55, "“RoadAssist doesn't stop when the network stops.”",
     size=22, color=WHITE, bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.3, 11.6, 0.35,
-    "578 assertions · 6 suites · 0 failures  •  57 tables · 64 routes · 10 ADRs  •  every claim on these slides is testable",
+    "578 assertions · 6 suites · 0 failures  •  56 tables · 64 routes · 10 ADRs  •  every claim on these slides is testable",
     size=10.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 footer(s)
 notes(s, """Close on the promise, then stop talking. If there is time, offer to run

@@ -64,8 +64,8 @@ or 13 fixes. Nothing is committed and no tag exists.
 
 ## Database status — PASS
 
-57 tables · 62 foreign keys · 57 primary keys · 433 check constraints ·
-138 indexes (5 GiST for PostGIS) · 84 unique indexes · 5 migrations applied ·
+56 tables · 62 foreign keys · 56 primary keys · 5 check constraints ·
+137 indexes (5 GiST for PostGIS) · 83 unique indexes · 5 migrations applied ·
 2 append-only rules on `audit_log`.
 
 Current seeded volume: 6,038 bookings, 4,628 users, 600 mechanics,

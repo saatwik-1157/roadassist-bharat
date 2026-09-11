@@ -123,7 +123,7 @@ docker compose -f docker-compose.prod.yml exec api \
   node packages/db/dist/src/seed.js --reference-only
 ```
 
-**Verified.** Run against a fresh database in this audit: 57 tables, 7 roles,
+**Verified.** Run against a fresh database in this audit: 56 tables, 7 roles,
 8 service types, 10 DTC codes, 12 vehicle models — and **0 users, 0 mechanics,
 0 bookings, 0 incidents**. The API was then started against it, `/health`
 returned 200, the service catalogue served, and a first account signed in and
@@ -265,7 +265,7 @@ the reliable order.
 
 ### Rehearsed in this audit — not a paper procedure
 
-Measured against the development database (57 tables, 666 users, 1,601 bookings,
+Measured against the development database (56 tables, 666 users, 1,601 bookings,
 638 audit entries):
 
 | Step | Result |

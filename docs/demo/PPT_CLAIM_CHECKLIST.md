@@ -24,7 +24,7 @@ the start of this phase and has been fixed.
 | 15 | "Three states, three honest answers" | ONLINE / LIMITED / OFF-GRID from measured evidence | `connectivity.js` | **GREEN** | None |
 | 16 | "The client never decides that money arrived" | Amount is the invoice total; signature recomputed server-side | gateway suite | **GREEN** | None |
 | 17 | "Seven layers, and 74 attacks that fail" | 74 executed, all refused | `security-audit.mjs` | **GREEN** | None |
-| 18 | "57 tables · 62 foreign keys · 138 indexes" | Verified exactly against the live database | this phase | **GREEN** | None |
+| 18 | "56 tables · 62 foreign keys · 137 indexes" | Verified exactly against the live database | this phase | **GREEN** | None |
 | 19 | "Consumer of IaaS and PaaS, provider of SaaS to three user classes" | Accurate | `providers.ts`, three surfaces | **GREEN** | None |
 | 20 | "Four genuinely built; one is partial and says so" | Matches the mapping | `SWE4004-MAPPING.md` | **GREEN** | None |
 | 21 | "Full test suite passes AGAINST the image" | True — verified in an earlier phase | — | **GREEN** | None |
@@ -51,7 +51,7 @@ the failure this deck otherwise avoids, and a professor who asked *"show me the
 seventh suite"* would have found it unrunnable.
 
 **Applied:** slide retitled **"578 assertions, all executed"**; footer now reads
-"578 assertions · 6 suites · 0 failures · 57 tables · 64 routes · 10 ADRs". The
+"578 assertions · 6 suites · 0 failures · 56 tables · 64 routes · 10 ADRs". The
 deck was rebuilt (`python ppt/make_final.py`) and re-exported to PDF (32 pages,
 verified). The same correction was applied to six documents — see
 `CLAIM_VERIFICATION_FINAL.md`.

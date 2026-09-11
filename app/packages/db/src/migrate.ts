@@ -119,10 +119,22 @@ async function main() {
     CREATE OR REPLACE RULE audit_log_no_delete AS
       ON DELETE TO audit_log DO INSTEAD NOTHING`);
 
+  // Count OUR tables, not everything that happens to live in `public`.
+  //
+  // `CREATE EXTENSION postgis` installs its own `spatial_ref_sys` table there,
+  // so the obvious information_schema count returned 57 for a schema that
+  // defines 56 — and that inflated number was quoted in six documents before
+  // anyone asked which table was the odd one out. pg_depend knows the
+  // difference: anything an extension owns has a 'e' dependency on it.
+  // (Drizzle's own __drizzle_migrations never appeared here — it lives in the
+  // `drizzle` schema, not this one.)
   const [{ count }] = await db.execute<{ count: string }>(sql`
-    SELECT count(*)::text AS count FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`);
-  console.log(`✓ migrations complete — ${count} tables in public schema`);
+    SELECT count(*)::text AS count
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+      LEFT JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'e'
+     WHERE c.relkind = 'r' AND d.objid IS NULL`);
+  console.log(`✓ migrations complete — ${count} application tables in public schema`);
 }
 
 main()
