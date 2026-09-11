@@ -123,6 +123,76 @@ end and writes `runs/<name>/results.csv` per epoch; latency and model size come
 from `detect.py` output and the ONNX file. The severity number is a documented
 box-area heuristic — an engineering assumption, not a safety standard.
 
+## Serving the model over HTTP
+
+```bash
+python -m venv .venv
+./.venv/Scripts/pip install -r requirements-serve.txt
+python serve.py --weights runs/yolo11s-multi-rich/weights/best.onnx
+
+curl http://127.0.0.1:8500/health
+curl -X POST --data-binary @road.jpg http://127.0.0.1:8500/detect
+```
+
+Until now the detectors reached the platform through `detect.py` writing JSON
+to a file — a pipeline, not a service. `serve.py` puts the same model behind
+`POST /detect`, returning detections in exactly the shape
+`POST /v1/raksha/detections` expects.
+
+### It runs on ONNX Runtime, not ultralytics
+
+| | Training (`requirements.txt`) | Serving (`requirements-serve.txt`) |
+|---|---|---|
+| Stack | ultralytics + PyTorch | onnxruntime + numpy + pillow |
+| Installed size | ~2 GB | ~50 MB |
+| Licence | **AGPL-3.0** | MIT / BSD-3 / MIT-CMU |
+
+The licence column is the point. This README already recorded that *"an
+Apache-2.0 alternative must be scored before any commercial deployment"*
+(dataset-licence doc §2). This is that alternative, scored and working: the
+path that would actually ship — an edge device, a container — only ever runs
+inference, and inference does not need the AGPL dependency. Training keeps
+ultralytics, where the AGPL is an internal matter because nothing is
+distributed.
+
+It loads the **same** `best.onnx` that `yolo export` already produces. No
+second conversion, no second source of truth, and `severity.py` is shared with
+`detect.py` so the heuristic cannot drift between the two paths.
+
+### Verified against ground truth, not against itself
+
+A decoder that is merely self-consistent will happily return boxes in the
+wrong place — a wrong letterbox does not crash, it silently shifts every
+detection, and the output of this system is a pin on an authority's map. So
+the check is against RDD2022's own annotations:
+
+```
+India_000005.jpg   (720x720, one annotated D40 pothole)
+  ground truth   box = [ 20, 473, 368, 576]
+  predicted      box = [ 74, 469, 355, 572]   conf 0.308
+  IoU 0.753
+```
+
+Three edges land within five pixels. That is the evidence the letterbox,
+un-letterbox and NMS maths is right; `tests/test_onnx_detector.py` pins that
+IoU as a number so a regression shows up as a failure rather than as drift.
+Throughput on this CPU is ~140 ms/image for the 512px `yolo11s-multi-rich`.
+
+### What it deliberately does not do
+
+There is **no `/diagnose`**. `AI_BASE_URL` in the API expects one, and no
+vehicle-fault model has been trained — the platform's diagnosis is a rules
+engine by decision (ADR-0006). A stub returning plausible-looking faults is
+exactly what `CLAIMS-AUDIT.md` exists to catch, so `GET /health` says the
+endpoint is not implemented rather than leaving someone to wonder why wiring
+`AI_BASE_URL` here changes nothing.
+
+`faded_marking` and `manhole` are detected by the rich model and returned
+under `notIngestable` — reported so the data is not lost, separated so it is
+never sent to an ingest enum that would reject it.
+
+---
+
 ## Edge runtime (ONNX)
 
 ```bash
