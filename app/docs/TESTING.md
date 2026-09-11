@@ -97,6 +97,17 @@ Stated here rather than discovered later.
   seconds otherwise, so CI runs the concurrency suite a second time against an
   API booted with `OFFER_TTL_SECONDS=2`.
 
+- **The Android client has no unit tests yet.** CI builds it, lints it and runs
+  `testDebugUnitTest` — but `mobile/app/src` has no `test/` source set, so that
+  task currently passes by having nothing to run. It is wired up so the first
+  test anyone writes is executed automatically. `Emergency.kt` is where they are
+  most needed: it is the SOS path, and non-negotiable #1 says those never
+  regress.
+- **No CV inference or training runs in CI.** The `ai` job checks the pipeline
+  logic and that every script parses; loading a model and running a frame stays
+  a local, GPU-shaped activity. A syntax error in `train.py` used to surface
+  only when someone started a multi-hour run — that part is now caught.
+
 ## Chaos and recovery, automated
 
 Two steps that used to be prose are now CI steps:
@@ -123,8 +134,26 @@ health 15 ms · diagnose 16 ms · booking detail 31 ms · map 16 ms · **dispatc
 
 ## CI
 
-`.github/workflows/ci.yml` runs all of it on every push: install, typecheck,
-lint, unit tests, secret scan, dependency audit, then a full PostGIS container
-with migrate, seed, and every integration suite — including the second
-short-TTL pass, the security audit, the database-loss chaos step and the
-backup/restore rehearsal — plus the module-boundary fitness function.
+`.github/workflows/ci.yml` runs all of it on every push, in five jobs:
+
+| Job | What it does |
+|---|---|
+| `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
+| `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
+| `boundaries` | the module-boundary fitness function |
+| `android` | lint, unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
+| `ai` | syntax-checks every CV script and runs the pipeline unit tests |
+
+`android` and `ai` were added because `mobile/` and `ai/` ship as real artefacts
+and previously had **no automated check at all** — a broken Gradle build or a
+lint regression was found only by building by hand. The first `android` run
+caught one: `SEND_SMS` was declared without a telephony `<uses-feature
+android:required="false">`, so Google Play would have treated a radio as
+mandatory and hidden the app from every tablet — the opposite of what this
+product claims.
+
+The `ai` job deliberately does **not** install `ultralytics`. Pulling torch costs
+minutes and hundreds of megabytes per push and proves nothing about a commit;
+the logic worth protecting — the RDD2022 class mapping and the severity
+heuristic that reaches `raksha_detections` — is pure Python and runs in 0.02s.
+Twelve tests, `python -m unittest discover -s ai/tests`.

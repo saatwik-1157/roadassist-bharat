@@ -232,3 +232,114 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: No cross-module imports outside the contract
         run: node scripts/check-boundaries.mjs
+
+  # ── the Android client ──────────────────────────────────────────────────────
+  # `mobile/` ships as a real artefact and had no automated check at all: a broken
+  # Gradle build or a lint regression was only ever found by building it by hand.
+  #
+  # JDK 21 is pinned rather than inherited. The build was verified to work on 17,
+  # 21 and 25 alike, so this is not a workaround for an incompatibility — it is so
+  # that CI and the team's machines agree on one JVM instead of drifting apart.
+  android:
+    name: android · lint · unit · assemble
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Installs the SDK, accepts the licences and exports ANDROID_HOME.
+      # mobile/local.properties is machine-specific and gitignored, so the SDK
+      # path has to come from the environment here.
+      - uses: android-actions/setup-android@v3
+
+      # Caches ~/.gradle between runs — the difference between a 4-minute job and
+      # a 15-minute one, because Compose pulls a lot of artefacts.
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Lint first: it is the cheapest of the three and catches the manifest and
+      # resource problems that a successful compile says nothing about. An error
+      # fails the build (see the lint block in app/build.gradle.kts); the
+      # version-availability checks are disabled there because they compare
+      # against whatever is newest today, not against this commit.
+      - name: Lint
+        run: ./gradlew --no-daemon lint
+
+      # Currently a no-op — mobile/app/src has no test/ source set yet. It is wired
+      # up now so that the first test anyone writes is run automatically instead of
+      # waiting for someone to remember to add a CI step. Emergency.kt is the file
+      # that most needs them: it is the SOS path, and non-negotiable #1 says those
+      # never regress.
+      - name: Unit tests
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      # The release path is a different build: R8 in optimising mode, resource
+      # shrinking and the ProGuard rules. It breaks in ways the debug build cannot,
+      # and it is the one the demo device actually installs — so it is built here
+      # rather than assumed.
+      - name: Release APK (R8 minification + resource shrinking)
+        run: ./gradlew --no-daemon assembleRelease
+
+      # Uploaded on failure too: the lint HTML report is the thing you actually
+      # want when a run goes red, and it is otherwise trapped on the runner.
+      - name: Reports and APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: |
+            mobile/app/build/reports/
+            mobile/app/build/outputs/apk/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ── the RAKSHA CV pipeline ──────────────────────────────────────────────────
+  # Deliberately does NOT install ultralytics. Pulling torch costs minutes and
+  # hundreds of megabytes on every push, and buys nothing here: the logic that
+  # decides what the model is TAUGHT (the RDD2022 class mapping) and what the
+  # platform is TOLD (the severity heuristic that reaches raksha_detections) is
+  # pure Python. Checking it cheaply is what makes it get checked at all.
+  #
+  # Training and inference stay a local, GPU-shaped activity; see ai/README.md.
+  ai:
+    name: ai · syntax · pipeline tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Every script, including the two that need torch to RUN. A syntax error in
+      # train.py currently surfaces only when someone starts a multi-hour training
+      # run, which is the worst possible moment to find out.
+      - name: Syntax-check every script
+        run: python -m compileall -q ai/road_damage ai/tests
+
+      - name: Pipeline unit tests
+        run: python -m unittest discover -s ai/tests -v
+
+      # The dataset licensing argument in docs/raksha/05-dataset-license-verification.md
+      # rests on knowing exactly which versions were used. An unpinned requirement
+      # makes that argument unreproducible, so it fails the build.
+      - name: Every requirement is pinned
+        run: |
+          bad=$(grep -vE '^\s*(#|$)' ai/requirements.txt | grep -v '==' || true)
+          if [ -n "$bad" ]; then
+            echo "unpinned requirement(s) — use ==:"; echo "$bad"; exit 1
+          fi
+          echo "all requirements pinned"

@@ -52,6 +52,36 @@ clarified. Class mapping (skipped labels are counted, never folded in):
 | D00 / D10 / D20 (cracks) | `road_damage` |
 | D01, D11, D43, D44, D50, … | skipped — outside the MVP contract |
 
+## Tests
+
+```bash
+python -m unittest discover -s tests -v     # from ai/, or -s ai/tests from the repo root
+```
+
+Twelve tests, ~0.02s, **stdlib only** — no `ultralytics`, no torch, no `cv2`.
+That is the point: they run on every push in CI, which is the only way they stay
+honest. They pin the two things that decide what the model is taught and what the
+platform is told:
+
+- the **RDD2022 → RAKSHA class mapping** in the table above, including the promise
+  that an unmapped label is skipped *and counted*, never quietly folded into a
+  class — a mis-mapped label is a training bug nobody can see afterwards;
+- the **box maths** that turns VOC pixels into normalised YOLO coordinates,
+  including clamping and the sub-2px rejection;
+- the **severity heuristic** in `detect.py`, which is an engineering assumption
+  that reaches the database through `POST /v1/raksha/detections` — and whose 1–5
+  cap is load-bearing, because `raksha_detections` has `CHECK (severity BETWEEN 1
+  AND 5)` and a 6 would be refused at ingest.
+
+`detect.py` imports `YOLO` at module scope, so the suite stubs `ultralytics` to
+reach `severity()`. The stub *raises* if anything actually calls it, rather than
+returning a fake detection.
+
+Training and inference are not in CI and are not meant to be — see the CPU-only
+caveat above.
+
+---
+
 ## Setup & reproduce
 
 ```bash
