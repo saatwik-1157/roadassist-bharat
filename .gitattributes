@@ -1,0 +1,40 @@
+# Line endings.
+#
+# This is a Windows working tree with core.autocrlf=true, so git checks most
+# files out as CRLF. For source that is fine. For a file that is EXECUTED BY
+# LINUX it is not: a shell script with CRLF fails as
+#
+#   /bin/sh: bad interpreter: /bin/sh^M
+#
+# and `scripts/backup.sh` is bind-mounted straight from the working tree into
+# the backup container by docker-compose.prod.yml. It would have been broken on
+# every Windows checkout while looking correct in the repository, because the
+# stored blob is LF and only the checkout differs.
+
+* text=auto
+
+# Executed by Linux — must be LF wherever they are checked out.
+*.sh           text eol=lf
+gradlew        text eol=lf
+Dockerfile     text eol=lf
+*.Dockerfile   text eol=lf
+
+# Executed by Windows — must be CRLF.
+*.bat          text eol=crlf
+*.cmd          text eol=crlf
+gradlew.bat    text eol=crlf
+
+# Never touched. Normalising these corrupts them.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.pdf    binary
+*.pptx   binary
+*.docx   binary
+*.zip    binary
+*.jar    binary
+*.pt     binary
+*.onnx   binary
+*.keystore binary
