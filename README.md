@@ -27,6 +27,12 @@ becomes a second ambulance.
 
 ---
 
+## Documentation
+
+**[docs/README.md](docs/README.md) indexes all 56 documents** and says which are
+kept current and which are dated evidence for v1.0.0-RC1 — they age differently.
+[CLAUDE.md](CLAUDE.md) covers running and changing the repo.
+
 ## Planning documents
 
 | Document | Contents |

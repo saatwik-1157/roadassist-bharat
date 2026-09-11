@@ -328,7 +328,7 @@ jobs:
       # train.py currently surfaces only when someone starts a multi-hour training
       # run, which is the worst possible moment to find out.
       - name: Syntax-check every script
-        run: python -m compileall -q ai/road_damage ai/tests
+        run: python -m compileall -q ai/road_damage ai/tests ai/serve.py
 
       - name: Pipeline unit tests
         run: python -m unittest discover -s ai/tests -v
@@ -338,7 +338,7 @@ jobs:
       # makes that argument unreproducible, so it fails the build.
       - name: Every requirement is pinned
         run: |
-          bad=$(grep -vE '^\s*(#|$)' ai/requirements.txt | grep -v '==' || true)
+          bad=$(cat ai/requirements.txt ai/requirements-serve.txt | grep -vE '^\s*(#|$)' | grep -v '==' || true)
           if [ -n "$bad" ]; then
             echo "unpinned requirement(s) — use ==:"; echo "$bad"; exit 1
           fi

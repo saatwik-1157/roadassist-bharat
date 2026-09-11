@@ -22,7 +22,6 @@ Run:  python -m unittest discover -s ai/tests -v
 from __future__ import annotations
 
 import sys
-import types
 import unittest
 from pathlib import Path
 
@@ -32,33 +31,9 @@ sys.path.insert(0, str(ROAD_DAMAGE))
 import convert_voc_to_yolo as conv  # noqa: E402
 
 
-def _stub_ultralytics() -> None:
-    """Let detect.py import without torch present.
-
-    detect.py imports YOLO at module scope, which is right for a CLI and wrong
-    for a test that only wants `severity()`. Stubbing the module is honest here
-    because nothing under test touches it - if that ever stops being true, the
-    stub raises rather than silently returning a fake detection.
-    """
-    if "ultralytics" in sys.modules:
-        return
-
-    class _Unavailable:
-        def __init__(self, *a, **k):
-            raise RuntimeError(
-                "ultralytics is stubbed in unit tests - install it to run inference"
-            )
-
-    mod = types.ModuleType("ultralytics")
-    mod.YOLO = _Unavailable
-    utils = types.ModuleType("ultralytics.utils")
-    utils.LOGGER = types.SimpleNamespace(setLevel=lambda *_: None)
-    sys.modules["ultralytics"] = mod
-    sys.modules["ultralytics.utils"] = utils
-
-
-_stub_ultralytics()
-import detect  # noqa: E402
+# `severity` moved into its own module so this no longer has to stub
+# `ultralytics` just to reach a pure function. detect.py imports the same one.
+import severity as severity_mod
 
 
 def voc(tmp, w, h, objects):
@@ -176,14 +151,14 @@ class SeverityHeuristic(unittest.TestCase):
 
     def test_bands_follow_the_documented_thresholds(self):
         for frac, expected in [(0.005, 1), (0.02, 2), (0.05, 3), (0.10, 4), (0.50, 5)]:
-            self.assertEqual(detect.severity("road_damage", frac), expected,
+            self.assertEqual(severity_mod.severity("road_damage", frac), expected,
                              "frac={}".format(frac))
 
     def test_a_pothole_is_one_band_worse_than_a_crack_of_equal_size(self):
         for frac in (0.005, 0.02, 0.05, 0.10):
             self.assertEqual(
-                detect.severity("pothole", frac),
-                detect.severity("road_damage", frac) + 1,
+                severity_mod.severity("pothole", frac),
+                severity_mod.severity("road_damage", frac) + 1,
                 "frac={}".format(frac),
             )
 
@@ -193,12 +168,12 @@ class SeverityHeuristic(unittest.TestCase):
         for i in range(0, 101):
             frac = i / 100.0
             for name in ("pothole", "road_damage", "faded_marking", "manhole"):
-                s = detect.severity(name, frac)
+                s = severity_mod.severity(name, frac)
                 self.assertGreaterEqual(s, 1)
                 self.assertLessEqual(s, 5)
 
     def test_the_largest_pothole_is_capped_not_wrapped(self):
-        self.assertEqual(detect.severity("pothole", 0.99), 5)
+        self.assertEqual(severity_mod.severity("pothole", 0.99), 5)
 
 
 if __name__ == "__main__":
