@@ -40,6 +40,8 @@ mobile/local.properties
 mobile/*.png
 mobile/build.log
 mobile/build*.log
+# Kotlin 2.x writes per-session build state here; it is regenerated every run.
+mobile/.kotlin/
 
 # Generated deck artefacts. `make.py` and `make_final.py` concatenate
 # build_deck.py with the slide parts into these files and run them — they are

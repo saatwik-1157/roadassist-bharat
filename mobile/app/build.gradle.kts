@@ -44,6 +44,24 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        // An error fails the build. The one that was failing — SEND_SMS without
+        // a telephony <uses-feature required="false"> — was a real defect: Play
+        // would have treated a radio as mandatory and hidden the app from every
+        // tablet, which is the opposite of what this product claims.
+        abortOnError = true
+
+        // These three compare our pins against whatever is newest on the day the
+        // check runs, so they turn CI red when someone ELSE publishes a release
+        // and tell us nothing about this commit. Dependency freshness is a
+        // deliberate decision with its own cadence, not a build failure.
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
+
+        // CI reads the XML; a human reads the HTML.
+        xmlReport = true
+        htmlReport = true
+    }
 }
 
 dependencies {
