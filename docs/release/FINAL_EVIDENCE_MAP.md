@@ -17,7 +17,7 @@
 | Sync | `11-sync-complete.png` ✅ | Store-and-forward completing, journal empty | 21 |
 | Payment | ⬜ **capture** | Invoice total then PAID | 18 |
 | Security | ⬜ **capture** — `npm run test:security` | 74 attacks refused | 26 |
-| Database | ⬜ **capture** — `psql \dt` | 57 tables | 23 |
+| Database | ⬜ **capture** — `psql \dt` | 56 tables | 23 |
 | Testing | ⬜ **capture** — `npm run test:concurrency` | Ten accepts, one winner | 26 |
 | Health / readiness | ⬜ **capture** — `/health` with the DB stopped | 503 vs `/v1/ping` 200 — **dynamic scalability** | 24 |
 | Authority | `14-authority.png` ✅ | Third tenant class | 22 |

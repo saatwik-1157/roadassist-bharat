@@ -4,7 +4,7 @@
 
 | | Item | Where | Status |
 |---|---|---|---|
-| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 57-table schema, 64 routes, 6 web surfaces |
+| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 56-table schema, 64 routes, 6 web surfaces |
 | ✅ | Database migrations | `app/packages/db/drizzle/` | 5, run from empty in this phase |
 | ✅ | Seed data | `seed.ts`, `seed-raksha.ts` | ~37k rows; 10 consistency checks return 0 |
 | ✅ | README | `README.md`, `app/README.md` | Followed literally; reproduces the app |

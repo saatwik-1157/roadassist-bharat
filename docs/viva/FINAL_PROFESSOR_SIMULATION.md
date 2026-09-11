@@ -1,5 +1,5 @@
 > Written after inspecting the actual repository on 2026-09-06 — 16 API files,
-> 57 tables, 64 routes, 578 executed assertions. Nothing here is assumed.
+> 56 tables, 64 routes, 578 executed assertions. Nothing here is assumed.
 >
 > **Scope note, stated rather than hidden:** the *content* answers for
 > architecture, AI, offline, security, database, dispatch and payment already
@@ -287,7 +287,7 @@ What follows is what actually loses marks in each round.
 |---|---|---|
 | "Stop. Explain this screen." | Name the screen, the endpoint behind it, and the one guarantee it demonstrates. | any |
 | "Where is the cloud?" | "Consumed, not operated — nothing is deployed. What is built is containerisation, a stateless API and a readiness gate." | slide 9 |
-| "Show me the database." | `docker exec ra-db psql -U roadassist -d roadassist_rc -c "\dt"` → 57 tables. | terminal |
+| "Show me the database." | `docker exec ra-db psql -U roadassist -d roadassist_rc -c "\dt"` → 56 tables. | terminal |
 | "Show me the API." | `apps/api/src/server.ts` — point at a route and its zod schema. | editor |
 | "Why did *this* mechanic get selected?" | "Nearest available after excluding off-duty and busy — proximity 60%, rating 34%, newcomer bonus. The card shows the distance the ranking used." | dispatch screen |
 | "What if this mechanic rejects?" | "The offer closes and the ladder escalates to the next wave on the sweeper's interval — that is the timeout-driven re-scheduling." | `dispatch.ts` |
@@ -317,7 +317,7 @@ Not inflated. This is my estimate as an examiner, given the evidence that exists
 | Cloud concepts | 15 | **10–12** | 8 implemented, 5 partial, 8 design | **Highest risk** — 8 are design | Lead with pooling + distribution + scheduling; name blockers precisely |
 | Implementation | 15 | **13–14** | 578 assertions, 6 real bugs found and fixed | Little | Show the row lock |
 | AI | 10 | **6–7** | Rules engine, labelled; trained YOLO11n separate | "Not real AI" | Agree instantly, pivot to asymmetry + CI guard |
-| Database | 10 | **9** | 57 tables, hash-chained audit, PostGIS | Little | Show the append-only RULES |
+| Database | 10 | **9** | 56 tables, hash-chained audit, PostGIS | Little | Show the append-only RULES |
 | Security | 10 | **8–9** | 100 attacks refused; real CVE fixed | No pentest | Volunteer that before asked |
 | Testing | 8 | **8** | 578 executed, twice, plus timed rehearsal | Little | Run a suite live |
 | UI/UX | 5 | **4** | Real screenshots, phone-first | Sparse on a projector | Demo at 430 px |
@@ -351,7 +351,7 @@ authority dashboard — plain HTML and ES modules served by one process, so
 there's no build step and no second deployment unit. Behind them a Fastify API,
 64 routes, zod validation at every boundary, a uniform envelope. Five modules in
 one deployable, and the boundaries are enforced mechanically: a cross-module
-import fails the build. Underneath, PostgreSQL 16 with PostGIS — 57 tables, and
+import fails the build. Underneath, PostgreSQL 16 with PostGIS — 56 tables, and
 an append-only hash-chained audit log the database itself won't let you edit."
 
 **1:45 — Cloud.** "We're a SaaS provider to three user classes and a consumer

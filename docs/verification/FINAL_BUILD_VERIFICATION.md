@@ -38,7 +38,7 @@ npm run demo:reset     # db:reset → db:migrate → db:seed → db:seed:raksha
 
 ```
 ✓ schema and migration journal reset
-✓ migrations complete — 57 tables in public schema
+✓ migrations complete — 56 application tables in public schema
   4076 invoices · 1789 settled payments
 ✓ seeded in 65.7s
 ✓ RAKSHA seed complete — demo admin ready, 4 segment(s) created

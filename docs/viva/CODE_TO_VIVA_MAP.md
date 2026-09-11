@@ -21,7 +21,7 @@
 | Webhook | `apps/api/src/server.ts:1431` | `POST /v1/webhooks/razorpay` | Recomputes the signature server-side | "A forged signature settles nothing — 402." |
 | Payment guard | `apps/api/src/server.ts:1141` | transition check | Refuses PAID without settlement | "409 `payment_required`." |
 | Audit | `apps/api/src/audit.ts:83` / `:122` | `audit()` / `verifyAuditChain()` | Hash-chained append-only log | "Each entry carries the previous digest; Postgres RULES make UPDATE and DELETE no-ops." |
-| Database schema | `packages/db/src/schema/` | 6 modules | 57 tables | "Money is integer paise. A unit test enforces it." |
+| Database schema | `packages/db/src/schema/` | 6 modules | 56 tables | "Money is integer paise. A unit test enforces it." |
 | Monitoring | `apps/api/src/server.ts:354` + `observability.ts` | `/health`, `/v1/ops/overview` | Readiness, live counts, chain verification | "Health separates application from database — that is the readiness gate." |
 | Config guard | `apps/api/src/env.ts:286` | `assertProductionSafe()` | Refuses eight unsafe production settings | "Production will not boot on a development secret or a mock gateway." |
 | Boundaries | `app/scripts/check-boundaries.mjs` | — | Fails CI on a cross-module import | "Enforced, not agreed." |

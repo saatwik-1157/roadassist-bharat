@@ -60,7 +60,7 @@ it, **and** a test exercises it.
 
 One container serving three web surfaces plus the API, and one PostGIS database.
 
-- **57 tables**, 62 foreign keys, 138 indexes, 5 GiST spatial indexes,
+- **56 tables**, 62 foreign keys, 137 indexes, 5 GiST spatial indexes,
   5 migrations
 - **64 routes**, 61 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
 - **6 web surfaces**: citizen app, mechanic console, authority dashboard, live

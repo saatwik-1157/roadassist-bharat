@@ -14,7 +14,7 @@
 
 **SECURITY:** OTP with per-number and per-IP ceilings, refresh rotation with reuse detected as theft, ownership checks on every resource, and 100 attacks across two suites that all fail.
 
-**DATABASE:** PostgreSQL 16 + PostGIS — 57 tables, 62 foreign keys, money in integer paise, and an append-only hash-chained audit log the database itself refuses to let you edit.
+**DATABASE:** PostgreSQL 16 + PostGIS — 56 tables, 62 foreign keys, money in integer paise, and an append-only hash-chained audit log the database itself refuses to let you edit.
 
 **PAYMENT:** The client never decides money arrived — the amount is the server-computed invoice total, the signature is recomputed server-side, and a booking cannot be marked paid without a settled payment.
 

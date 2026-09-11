@@ -108,7 +108,7 @@ against a fresh PostGIS container on every push.
 | 0 · Research | Problem validation, integration feasibility, constraints | ✅ [`../docs/`](../docs/) |
 | 1 · Planning | Backlog, repo scaffold, CI pipeline, quality gates | ✅ |
 | 2 · Architecture | C4 diagrams, 10 ADRs, event catalogue, API style guide, failure matrix, threat model | ✅ [`docs/`](docs/) |
-| 3 · Database | 57 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
+| 3 · Database | 56 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
 | 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS, gateway-verified payments | ◐ slice complete, full surface pending |
 | 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web only; no React Native app |
@@ -357,7 +357,7 @@ app/
 │       ├── connectivity.js     ONLINE · LIMITED · OFF-GRID manager
 │       └── sw.js               service worker (app shell + map tiles)
 ├── packages/
-│   └── db/                   Drizzle schema (6 modules, 57 tables)
+│   └── db/                   Drizzle schema (6 modules, 56 tables)
 ├── scripts/
 │   └── check-boundaries.mjs  Architecture fitness function (ADR-0002)
 ├── .github/workflows/ci.yml  lint · typecheck · test · secret scan · boundaries

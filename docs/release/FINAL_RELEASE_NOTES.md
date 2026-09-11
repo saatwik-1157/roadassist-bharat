@@ -16,7 +16,7 @@ in this phase.
 | Base commit | `f771df5` (`main`) |
 | Recommended tag | `v1.0.0-RC1` — **not created** |
 | Node / npm | v24.18.0 / 11.16.0 |
-| Database | PostgreSQL 16.4 + PostGIS 3.4, 5 migrations, 57 tables |
+| Database | PostgreSQL 16.4 + PostGIS 3.4, 5 migrations, 56 tables |
 
 ## Verified features
 

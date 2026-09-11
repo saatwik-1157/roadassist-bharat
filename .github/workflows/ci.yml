@@ -23,18 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Phase 3 onward will run integration tests against these.
-    services:
-      db:
-        image: postgis/postgis:16-3.4
-        env:
-          POSTGRES_USER: roadassist
-          POSTGRES_PASSWORD: devpassword
-          POSTGRES_DB: roadassist_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U roadassist"
-          --health-interval 5s --health-timeout 5s --health-retries 20
+    # No database service here. This job is typecheck, lint and the unit tests,
+    # none of which open a connection — the integration job below brings up its
+    # own PostGIS. The one that used to sit here was left over from Phase 3 and
+    # cost every run the container pull for nothing.
 
     steps:
       - uses: actions/checkout@v5
@@ -79,7 +71,11 @@ jobs:
         continue-on-error: false
 
   # The whole vertical slice against a real PostGIS: migrate, seed, boot the
-  # API, then the 165-assertion journey and the gateway security suite.
+  # API, then the end-to-end journey and the gateway security suite.
+  #
+  # Step names carry no assertion counts: they were hardcoded, drifted from
+  # both the scripts and the README, and each suite already prints its own
+  # total. One place to read the number, and it is the one that ran.
   integration:
     name: e2e journey · gateway security
     runs-on: ubuntu-latest
@@ -122,21 +118,21 @@ jobs:
             sleep 1
           done
           curl -sf http://localhost:4000/health
-      - name: End-to-end journey (183 assertions)
+      - name: End-to-end journey
         run: node scripts/e2e-journey.mjs
       - name: Gateway security suite
         run: node scripts/gateway-security-test.mjs
       # Races, idempotency and the live event stream. These are the checks a
       # sequential suite structurally cannot make: two mechanics accepting the
       # same job, three SOS taps arriving together, ten simultaneous accepts.
-      - name: Concurrency, idempotency and real-time (64 assertions)
+      - name: Concurrency, idempotency and real-time
         run: node scripts/concurrency-test.mjs
       # Application-level penetration checks. Every case is an attack that must
       # fail: cross-tenant reads and writes, role escalation, id manipulation,
       # SQL injection, forged and alg:none tokens, unsigned webhooks, oversized
       # input, error-body leakage. A green run means we tried and could not get
       # in — a stronger statement than "the code looks right".
-      - name: Security audit (74 attacks, all must be refused)
+      - name: Security audit (every case must be refused)
         run: node scripts/security-audit.mjs
 
       # Chaos: kill the database under a running API and assert the platform is
@@ -199,7 +195,7 @@ jobs:
       # the whole Off-Grid Mode scenario (ADR-0009) works end to end: network
       # lost, SOS stored locally with a reference and a GPS fix, local
       # diagnosis, network restored, automatic sync, no duplicate incident.
-      - name: Browser journey (163 assertions)
+      - name: Browser journey
         run: node scripts/ui-journey.mjs
 
       # Last, because it replaces the running API. A dispatch offer lives 90

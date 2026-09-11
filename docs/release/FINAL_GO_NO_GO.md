@@ -8,7 +8,7 @@
 | Build | **PASS** | typecheck, lint, boundaries, build all clean after deleting the incremental cache | No |
 | Backend | **PASS** | Boots with zero error-level logs; `/health` 200, `dbLatencyMs: 2` | No |
 | Frontend | **PASS** | Three surfaces served by the same process; 163 browser assertions | No |
-| Database | **PASS** | 57 tables, 62 FKs, 138 indexes, 5 migrations; 10 consistency checks all 0 | No |
+| Database | **PASS** | 56 tables, 62 FKs, 137 indexes, 5 migrations; 10 consistency checks all 0 | No |
 | Authentication | **PASS** | OTP + rotation; reuse detected as theft (e2e §2) | No |
 | Authorization | **PASS** | `bookingAudience()`; 12 cross-tenant attacks refused | No |
 | Customer | **PASS** | 19 steps, all pass (`CUSTOMER_FINAL_TEST_REPORT.md`) | No |

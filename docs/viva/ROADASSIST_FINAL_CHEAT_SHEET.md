@@ -25,7 +25,7 @@ data residency. **Nothing is deployed.**
 8 implemented · 5 partial · 8 design, of 21 concepts.
 
 ### Database
-57 tables · 62 FKs · 138 indexes (5 GiST) · 433 checks · 84 unique indexes ·
+56 tables · 62 FKs · 137 indexes (5 GiST) · 5 checks · 83 unique indexes ·
 5 migrations. Money in **integer paise**. Audit log **hash-chained and
 append-only** — Postgres RULES make UPDATE/DELETE change nothing.
 
