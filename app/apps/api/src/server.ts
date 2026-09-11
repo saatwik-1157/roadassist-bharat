@@ -33,6 +33,8 @@ import {
   type IncidentStatus,
 } from "./domain/incident-machine.js";
 import { describeProviderState } from "./domain/provider-state.js";
+import { parseSmsCoordinates } from "./domain/sms-coordinates.js";
+import { t, resolveLocale, parseLangCommand, DEFAULT_LOCALE } from "./i18n.js";
 import {
   closeAllStreams, MAX_STREAMS_PER_USER, openStream, publish, publishMany,
   realtimeStats, subscribe, type RealtimeEvent,
@@ -505,7 +507,23 @@ app.post("/v1/auth/otp/request", async (req, reply) => {
     msisdn, codeHash: sha256(code), ip: req.ip,
     expiresAt: new Date(Date.now() + 5 * 60_000),
   });
-  await sms.send(msisdn, `${code} is your RoadAssist verification code. It expires in 5 minutes.`);
+
+  /**
+   * The OTP is the first message the platform ever sends somebody, and until
+   * now it was always English.
+   *
+   * A returning number already told us its language — possibly by texting
+   * `LANG HI` from a phone with no settings screen. A number we have never
+   * seen has told us nothing, so the browser's Accept-Language is the only
+   * hint available, and English is the floor.
+   */
+  const [known] = await db.select({ lang: S.users.preferredLanguage })
+    .from(S.users).where(eq(S.users.msisdn, msisdn)).limit(1);
+  const otpLocale = resolveLocale({
+    stored: known?.lang,
+    acceptLanguage: req.headers["accept-language"],
+  });
+  await sms.send(msisdn, t(otpLocale, "otp.code", { code }));
 
   return ok(
     { sent: true, expiresInSeconds: 300 },
@@ -2222,7 +2240,18 @@ app.post("/v1/telecom/sms", async (req, res) => {
 
   const words = text.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const verb = words[0] ?? "";
-  const reply = async (body: string) => {
+
+  /**
+   * Language for this conversation.
+   *
+   * Set below the user lookup, because the SIM is the identity here and the
+   * stored preference belongs to the row. A feature phone sends no
+   * Accept-Language and has no settings screen, so `LANG HI` is the only way
+   * its owner can ever change this — which is why the command exists.
+   */
+  let locale = DEFAULT_LOCALE;
+  const reply = async (key: string, params: Record<string, string | number> = {}) => {
+    const body = t(locale, key, params);
     await sms.send(from, body);
     return ok({ reply: body }, {
       channel: "sms", to: from,
@@ -2252,35 +2281,80 @@ app.post("/v1/telecom/sms", async (req, res) => {
     return b && !["PAID", "CANCELLED"].includes(b.status) ? b : null;
   };
 
+  locale = resolveLocale({ stored: user.preferredLanguage });
+
+  /**
+   * `LANG` — the only language switch a feature phone has.
+   *
+   * Handled before every other verb so it works even mid-conversation, and
+   * the confirmation is sent in the NEW language: that is the proof it
+   * worked, for a reader who cannot check a settings screen.
+   */
+  const asked = parseLangCommand(words);
+  if (asked !== undefined) {
+    if (asked === null) return reply("lang.options");
+    await db.update(S.users)
+      .set({ preferredLanguage: asked, updatedAt: new Date() })
+      .where(eq(S.users.id, user.id));
+    locale = asked;
+    return reply("lang.set");
+  }
+
   if (["stop", "unsubscribe"].includes(verb)) {
-    return reply("You will receive no further messages from RoadAssist. Send START to opt back in.");
+    return reply("sms.stopped");
   }
 
   if (["sos", "emergency", "112"].includes(verb)) {
+    /**
+     * Read the coordinates the Android client already sends.
+     *
+     * Its SMS body is `SOS <lat> <lng> RoadAssist` (Emergency.smsBody), and
+     * this endpoint used to drop the two numbers on the floor: the raw text was
+     * kept in incident_signals, but incidents.location was never set. So the
+     * one SOS raised precisely BECAUSE there is no data coverage — the most
+     * remote person on the worst road — was the only SOS that reached a
+     * responder with no location, and the reply asked them to describe a
+     * landmark that the phone had already measured to six decimal places.
+     *
+     * A human texting a bare "SOS" from a feature phone is still valid and
+     * still has no location, exactly as before. Anything that is not a pair of
+     * in-range coordinates is ignored rather than guessed at.
+     */
+    const fix = parseSmsCoordinates(words);
+
     const [incident] = await db.insert(S.incidents).values({
       userId: user.id, status: "CONFIRMED", severity: "CRITICAL",
       detectedByModel: false, confirmedBy: "sms", confirmedAt: new Date(),
       degradedPath: true,   // this path works with the app platform down
     }).returning();
-    await db.insert(S.incidentSignals).values({ incidentId: incident.id, kind: "sms", payload: { text } });
+    if (fix) {
+      await db.execute(raw`
+        UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${fix.lng}, ${fix.lat}), 4326)
+        WHERE id = ${incident.id}`);
+    }
+    await db.insert(S.incidentSignals).values({
+      incidentId: incident.id, kind: "sms",
+      payload: { text, ...(fix ? { lat: fix.lat, lng: fix.lng } : {}) },
+    });
     await db.insert(S.incidentResponses).values({ incidentId: incident.id, step: "contacts", latencyMs: 0 });
-    return reply("SOS received. Help is being arranged. Reply with a landmark or highway marker if you can.");
+    return reply(fix ? "sos.received.located" : "sos.received");
   }
 
   if (["status", "s"].includes(verb)) {
     const b = await activeBooking();
-    if (!b) return reply("You have no active request. Send HELP CAR (or BIKE, AUTO, TRUCK) to start one.");
+    if (!b) return reply("sms.noActive");
     const [mech] = b.mechanicId
       ? await db.select().from(S.mechanics).where(eq(S.mechanics.id, b.mechanicId)).limit(1)
       : [];
-    return reply(mech
-      ? `${b.reference}: ${b.status}. ${mech.displayName} is assigned. Reply CANCEL to cancel.`
-      : `${b.reference}: ${b.status}. We are still finding a mechanic. Reply CANCEL to cancel.`);
+    return reply(
+      mech ? "sms.status.assigned" : "sms.status.searching",
+      { reference: b.reference, status: b.status, mechanic: mech?.displayName ?? "" },
+    );
   }
 
   if (["cancel", "c"].includes(verb)) {
     const b = await activeBooking();
-    if (!b) return reply("You have no active request to cancel.");
+    if (!b) return reply("sms.nothingToCancel");
     try {
       const { to, cancellationFee } = apply(b.status as Status, "cancel");
       await db.update(S.bookings)
@@ -2560,8 +2634,20 @@ app.post("/v1/sos/:id/confirm", { preHandler: authenticate }, async (req, reply)
   const contacts = await db.select().from(S.emergencyContacts)
     .where(and(eq(S.emergencyContacts.userId, inc.userId!), isNull(S.emergencyContacts.deletedAt)));
 
+  /**
+   * In the language of the person in trouble, not the platform's default.
+   *
+   * An emergency contact is usually family, and family usually shares a
+   * language. This is the single most important message the platform ever
+   * sends, and it went out in English to every contact in the country.
+   */
+  const [owner] = await db.select({ lang: S.users.preferredLanguage })
+    .from(S.users).where(eq(S.users.id, inc.userId!)).limit(1);
+  const contactLocale = resolveLocale({ stored: owner?.lang });
   for (const c of contacts) {
-    await sms.send(c.msisdn, `EMERGENCY: your contact may have been in a crash. Live location: https://roadassist.in/i/${id}`);
+    await sms.send(c.msisdn, t(contactLocale, "sos.contact.alert", {
+      url: `https://roadassist.in/i/${id}`,
+    }));
   }
   await db.insert(S.incidentResponses).values({
     incidentId: id, step: "contacts", latencyMs: Date.now() - t0, acknowledged: false,

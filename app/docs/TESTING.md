@@ -39,7 +39,7 @@ expected outcome of each, and times it. It fails if any beat fails.
 
 | Suite | Assertions | What it exists for |
 |---|---|---|
-| `npm test` (node:test) | **61** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. |
+| `npm test` (node:test) | **98** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. |
 | `scripts/e2e-journey.mjs` | **189** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. |
 | `scripts/concurrency-test.mjs` | **65** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
 | `scripts/gateway-security-test.mjs` | **26** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |
@@ -97,16 +97,46 @@ Stated here rather than discovered later.
   seconds otherwise, so CI runs the concurrency suite a second time against an
   API booted with `OFFER_TTL_SECONDS=2`.
 
-- **The Android client has no unit tests yet.** CI builds it, lints it and runs
-  `testDebugUnitTest` — but `mobile/app/src` has no `test/` source set, so that
-  task currently passes by having nothing to run. It is wired up so the first
-  test anyone writes is executed automatically. `Emergency.kt` is where they are
-  most needed: it is the SOS path, and non-negotiable #1 says those never
-  regress.
+- **Android coverage is the SOS ladder and nothing else yet.** `SosLadderTest`
+  is 18 tests over the decisions in `SosLadder.kt` — which rung fires, whether a
+  backup is queued, and the SMS body's contract with the server. The Compose UI,
+  the API client and the local queue are still untested: they need a device or
+  Robolectric, and neither is wired up.
 - **No CV inference or training runs in CI.** The `ai` job checks the pipeline
   logic and that every script parses; loading a model and running a frame stays
   a local, GPU-shaped activity. A syntax error in `train.py` used to surface
   only when someone started a multi-hour run — that part is now caught.
+
+## Localisation, and exactly how far it goes
+
+English and Hindi. The roadmap names eight languages; six are **not built**, and
+`LOCALES` in `apps/api/src/i18n.ts` is the whole truth about which ship.
+
+What is covered was chosen the way the rest of this product is: the messages
+that reach the people with the worst connections and the cheapest phones, first.
+
+| Surface | Covered | Not covered |
+|---|---|---|
+| API (SMS + OTP) | **Everything the platform sends** — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
+| Android | The SOS ladder's four outcomes (`values-hi/strings.xml`) | The rest of the UI, still hardcoded English in `MainActivity.kt` |
+| Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 31 keys | Long explanatory prose; `I18N.coverage()` reports the real numbers |
+| Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
+
+A feature phone has no settings screen, so **`LANG HI` over SMS** is the switch —
+and the confirmation comes back in the new language, which is the only proof a
+reader who cannot check a menu will get. The stored preference lives in
+`users.preferred_language`, a column the schema has always had and nothing ever
+read: the seeder wrote eight languages into it while every message went out in
+English.
+
+**The trap is encoding, and it is tested.** Devanagari is outside GSM 03.38, so a
+Hindi SMS is UCS-2 and one segment holds 70 characters, not 160. `i18n.test.ts`
+holds every catalogue entry to a segment budget; two messages are allowed two
+segments and are named there, because one carries a 60-character URL and the
+others interpolate a mechanic's full name. Everything else is one segment, which
+is why the Hindi is written for SMS rather than translated from the English.
+
+---
 
 ## Chaos and recovery, automated
 
@@ -141,7 +171,7 @@ health 15 ms · diagnose 16 ms · booking detail 31 ms · map 16 ms · **dispatc
 | `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
 | `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
 | `boundaries` | the module-boundary fitness function |
-| `android` | lint, unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
+| `android` | lint, 18 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
 | `ai` | syntax-checks every CV script and runs the pipeline unit tests |
 
 `android` and `ai` were added because `mobile/` and `ai/` ship as real artefacts
