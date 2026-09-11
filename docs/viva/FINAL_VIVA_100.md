@@ -593,7 +593,7 @@ concrete example) · *Code* (where to open it).
 > assumed. Off-grid, an SOS becomes a real incident on the device, and a unique
 > key makes a duplicate impossible on sync.
 >
-> **Result.** 578 assertions across six suites, zero failures, including 74
+> **Result.** 615 assertions across six suites, zero failures, including 74
 > attacks that must fail. Every claim on our slides is something I can show you.
 
 ## 3 minutes — architecture
