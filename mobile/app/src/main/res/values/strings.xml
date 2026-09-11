@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">RoadAssist</string>
+    <!-- translatable="false": the brand is what a user looks for on a home
+         screen and in a list of installed apps. It is the same word in every
+         language, and lint should stop asking. -->
+    <string name="app_name" translatable="false">RoadAssist</string>
+
+    <!--
+      The SOS ladder's four outcomes — what a person reads at the worst moment
+      they will ever use this app.
+
+      These are extracted, and translated, ahead of the rest of the UI on
+      purpose: the same reasoning as the server's message catalogue, which
+      localised SMS and OTP before anything on a screen. Someone who cannot read
+      the result of pressing SOS cannot tell whether help is coming.
+
+      The remaining UI strings are still hardcoded English in MainActivity.kt.
+      That is stated in app/docs/TESTING.md rather than left to be discovered.
+    -->
+    <string name="sos_sms_sent">Sent SOS by SMS to RoadAssist (%1$s). No data needed — the SIM is your identity.</string>
+    <string name="sos_sms_unconfirmed">SOS sent by SMS (delivery unconfirmed) — a backup will also sync when data returns. The SIM is your identity; no data needed.</string>
+    <string name="sos_dialer">No RoadAssist channel reachable — opening 112. It connects through any tower. Your SOS is queued and will sync when signal returns.</string>
+    <string name="sos_queued">No signal at all. SOS saved on this device — it will send automatically the moment connectivity returns. Move toward open sky or a highway if you can.</string>
 </resources>

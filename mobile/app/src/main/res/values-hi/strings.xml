@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Hindi. Android picks this automatically when the device locale is hi, with no
+  switcher to find and no setting to change — which is the right behaviour for
+  a phone whose owner already set their language once.
+
+  app_name is deliberately NOT translated: it is the brand, and it is what the
+  user looks for on a home screen and in a list of installed apps.
+
+  Written for the screen a stranded person is actually holding — short lines,
+  the outcome first. A faithful translation of the English would be longer than
+  the button it sits under.
+-->
+<resources>
+    <string name="sos_sms_sent">SOS एसएमएस से भेज दिया (%1$s)। डेटा की ज़रूरत नहीं — आपका सिम ही पहचान है।</string>
+    <string name="sos_sms_unconfirmed">SOS एसएमएस से भेजा, पुष्टि नहीं हुई। डेटा आते ही एक बैकअप भी भेजा जाएगा।</string>
+    <string name="sos_dialer">RoadAssist तक नहीं पहुँच सके — 112 खोल रहे हैं, जो किसी भी टावर से जुड़ता है। आपका SOS सेव है और सिग्नल आते ही चला जाएगा।</string>
+    <string name="sos_queued">बिल्कुल सिग्नल नहीं। SOS इसी फ़ोन में सेव है — कनेक्शन आते ही अपने आप चला जाएगा। हो सके तो खुले आसमान या हाईवे की ओर बढ़ें।</string>
+</resources>

@@ -75,6 +75,11 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
+
+    // JVM unit tests only — never shipped. JUnit 4 rather than 5 because that is
+    // what AGP's testDebugUnitTest task runs without extra wiring, and the tests
+    // here need nothing JUnit 5 provides.
+    testImplementation("junit:junit:4.13.2")
     // WindowCompat — flips the status/navigation-bar icon polarity when the
     // in-app light/dark toggle changes. AndroidX, not a third-party library.
     implementation("androidx.core:core-ktx:1.13.1")

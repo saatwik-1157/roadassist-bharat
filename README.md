@@ -79,11 +79,14 @@ surfaces are plain HTML/CSS/JS served by the API with no build step.
 
 ## Non-negotiables
 
-1. **Emergency paths never regress.** Two approvals, dedicated test run, staged rollout.
+1. **Emergency paths never regress.** Two approvals, dedicated test run, staged
+   rollout — and, since the ladder's decisions moved into `SosLadder.kt`, 18
+   tests that run on every push.
 2. **Offline is a first-class mode, not a fallback.** And we never claim something
    reached the cloud when it did not — the app says "stored on this device", with a
    reference, or it says nothing at all.
-3. **Feature phones are users.** Every core journey completable over SMS/IVR.
+3. **Feature phones are users.** Every core journey completable over SMS — in
+   English or Hindi, switched by texting `LANG HI`. (IVR is not built.)
 4. **No PII leaves India.** Including logs, backups, and crash reports.
 5. **We never fake it in a demo.** If it's mocked, we say so.
 

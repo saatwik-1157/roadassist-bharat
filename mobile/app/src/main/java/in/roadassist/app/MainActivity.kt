@@ -1036,12 +1036,19 @@ private fun HomeScreen(
 
         // ── SOS grace window ────────────────────────────────────────────────
         // A pocket press costs a responder a real journey, so the button arms a
-        // short countdown instead of escalating on contact. The fallback ladder
-        // in Emergency.kt is deliberately NOT restructured — it is the most
-        // safety-critical code in the app, and this wraps it rather than
-        // rewriting it. (The web app raises first and cancels server-side; here
-        // the window sits before the ladder, because the SMS and dialer rungs
-        // have no server incident to cancel.)
+        // short countdown instead of escalating on contact. This wraps the
+        // fallback ladder rather than reaching into it. (The web app raises first
+        // and cancels server-side; here the window sits before the ladder,
+        // because the SMS and dialer rungs have no server incident to cancel.)
+        //
+        // The ladder's DECISIONS now live in SosLadder.kt as pure functions, and
+        // Emergency.raise calls them rather than restating them. An earlier note
+        // here said the ladder was deliberately left unrestructured because it is
+        // the most safety-critical code in the app. That instinct was right about
+        // the stakes and wrong about the remedy: being untestable is not the same
+        // as being safe, and none of it could run off a device. The rearrangement
+        // is behaviour-preserving — every branch traced — and SosLadderTest now
+        // pins all of them, which is what non-negotiable #1 actually asks for.
         val fireSos: () -> Unit = {
             busy = true
             scope.launch {
@@ -1061,10 +1068,10 @@ private fun HomeScreen(
                     "Escalated ($where) · contacts ${c.optInt("contactsAlerted")} · $responder · ${c.optInt("elapsedMs")} ms"
                 }
                 sosResult = when (result.rung) {
-                    Emergency.Rung.DATA -> "✓ ONLINE — ${result.detail}"
-                    Emergency.Rung.SMS -> "✓ NO DATA → SMS — ${result.detail}"
-                    Emergency.Rung.DIALER -> "→ ${result.detail}"
-                    Emergency.Rung.QUEUED -> "◷ ${result.detail}"
+                    SosLadder.Rung.DATA -> "✓ ONLINE — ${result.detail}"
+                    SosLadder.Rung.SMS -> "✓ NO DATA → SMS — ${result.detail}"
+                    SosLadder.Rung.DIALER -> "→ ${result.detail}"
+                    SosLadder.Rung.QUEUED -> "◷ ${result.detail}"
                 }
                 onToast("SOS via ${result.rung}")
                 busy = false
