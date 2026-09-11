@@ -69,7 +69,7 @@ One container serving three web surfaces plus the API, and one PostGIS database.
 
 ## Verification
 
-**578 assertions executed across six suites, no failures** (a seventh, 22 payment-gateway checks, needs a Razorpay sandbox account), against a real
+**615 assertions executed across six suites, no failures** (a seventh, 22 payment-gateway checks, needs a Razorpay sandbox account), against a real
 PostgreSQL + PostGIS and a real Chrome:
 
 | Suite | Assertions |

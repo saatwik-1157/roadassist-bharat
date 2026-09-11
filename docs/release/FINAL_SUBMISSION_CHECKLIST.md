@@ -12,7 +12,7 @@
 | ✅ | API documentation | `app/docs/architecture/README.md` | Style guide + envelope + error codes |
 | ✅ | Architecture diagram | `app/docs/architecture/`, deck slides 5–6 | C4 container view |
 | ✅ | SWE4004 mapping | `SWE4004_IMPLEMENTATION_MAPPING_FINAL.md`, `app/docs/SWE4004-MAPPING.md` | 21 concepts classified |
-| ✅ | Testing report | `FINAL_REPOSITORY_STATUS.md`, `app/docs/TESTING.md` | 578 assertions, 0 failures |
+| ✅ | Testing report | `FINAL_REPOSITORY_STATUS.md`, `app/docs/TESTING.md` | 615 assertions, 0 failures |
 | ✅ | Security report | `SECURITY_FINAL_VERIFICATION.md`, `app/docs/SECURITY.md` | 100 attacks refused |
 | ✅ | Offline report | `OFFLINE_FINAL_TEST_REPORT.md`, `app/docs/OFFLINE.md` | Includes "NO NETWORK ≠ NO SAFETY" |
 | ✅ | Demo script | `FINAL_10_MINUTE_DEMO_SCRIPT.md`, `app/docs/DEMO-SCRIPT.md` | Timing measured, not estimated |

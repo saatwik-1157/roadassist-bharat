@@ -52,6 +52,12 @@ Where something was not run, this report says **NOT RUN** rather than assuming.
 | Security attacks | 74 | 74 | 0 | 0 |
 | Browser journey (real Chrome) | 163 | 163 | 0 | 0 |
 | **Executed total** | **578** | **578** | **0** | — |
+
+> These are the numbers **as of v1.0.0-RC1** and are left as the record of
+> that build. The suites have grown since — 615 at last run, the increase
+> being new unit tests for the SOS ladder, the SMS coordinate parser and the
+> message catalogue. `app/docs/TESTING.md` carries the current figures.
+
 | Payment (live sandbox) | 22 | — | — | **22 not run** |
 
 Every suite was run twice: once on the freshly migrated and seeded database, and
@@ -247,7 +253,7 @@ mobile/.../MainActivity.kt                 toast timer → LaunchedEffect; brush
 
 Qualified precisely: the application installs from a clean checkout, migrates
 and seeds an empty database, starts without a single error-level log line,
-and passes 578 assertions across six suites twice — including after a full
+and passes 615 assertions across six suites twice — including after a full
 `demo:reset`. Runtime dependencies carry no known vulnerabilities.
 
 It is **not** ready for production, and does not claim to be: nothing is

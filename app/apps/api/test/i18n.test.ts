@@ -101,6 +101,9 @@ describe("SMS segment cost", () => {
     // ordinary case is one segment, but no wording can bound "Ramesh Kumar".
     "sms.status.assigned": 2,
     "sms.status.searching": 2,
+    // A reference card, sent on request and never on an emergency path. A
+    // five-line command list cannot fit 70 UCS-2 characters in any wording.
+    "sms.commands": 2,
   };
 
   it("every catalogue message costs one segment, bar the one that carries a link", () => {

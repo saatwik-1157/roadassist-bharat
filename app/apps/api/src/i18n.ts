@@ -132,6 +132,14 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
     "sms.status.assigned": "{reference}: {status}. {mechanic} is assigned. Reply CANCEL to cancel.",
     "sms.status.searching": "{reference}: {status}. We are still finding a mechanic. Reply CANCEL to cancel.",
 
+    "sms.cancelled": "{reference} cancelled.",
+    "sms.cancelled.fee": "{reference} cancelled. A cancellation fee applies as a mechanic was already on the way.",
+    "sms.cancel.tooLate": "{reference} is {status} and can no longer be cancelled by SMS. Call us for help.",
+    "sms.whichVehicle": "Which vehicle? Reply HELP CAR, HELP BIKE, HELP AUTO, HELP TRUCK or HELP TRACTOR.",
+    "sms.alreadyOpen": "You already have request {reference} ({status}). Reply STATUS or CANCEL.",
+    "sms.requested": "Request {reference} received. We are finding a mechanic near you. Reply STATUS for an update or CANCEL to stop.",
+    "sms.commands": "RoadAssist commands:\nHELP CAR / BIKE / AUTO / TRUCK - request assistance\nSTATUS - your current request\nCANCEL - cancel it\nSOS - emergency\nSTOP - opt out",
+
     "lang.set": "Language set to English. Send LANG HI for Hindi.",
     "lang.options": "Reply LANG EN for English or LANG HI for Hindi.",
   },
@@ -147,6 +155,14 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
     "sms.nothingToCancel": "रद्द करने के लिए कोई अनुरोध नहीं है।",
     "sms.status.assigned": "{reference} {status}। {mechanic} आ रहे हैं। रद्द को CANCEL।",
     "sms.status.searching": "{reference} {status}। मैकेनिक खोज रहे हैं। रद्द को CANCEL।",
+
+    "sms.cancelled": "{reference} रद्द कर दिया।",
+    "sms.cancelled.fee": "{reference} रद्द। मैकेनिक निकल चुका था, इसलिए रद्द शुल्क लगेगा।",
+    "sms.cancel.tooLate": "{reference} {status}। SMS से रद्द नहीं। कॉल करें।",
+    "sms.whichVehicle": "कौन सा वाहन? HELP CAR, BIKE, AUTO, TRUCK या TRACTOR भेजें।",
+    "sms.alreadyOpen": "{reference} ({status}) पहले से चालू है। STATUS या CANCEL भेजें।",
+    "sms.requested": "{reference} मिल गया। मैकेनिक खोज रहे हैं। STATUS या CANCEL।",
+    "sms.commands": "RoadAssist:\nHELP CAR/BIKE/AUTO/TRUCK - मदद\nSTATUS - स्थिति\nCANCEL - रद्द\nSOS - आपातकाल\nSTOP - बंद",
 
     "lang.set": "भाषा हिंदी कर दी गई। English के लिए LANG EN भेजें।",
     "lang.options": "English के लिए LANG EN, हिंदी के लिए LANG HI भेजें।",

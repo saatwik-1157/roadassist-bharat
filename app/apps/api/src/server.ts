@@ -2200,14 +2200,6 @@ app.get("/v1/admin/audit", { preHandler: [authenticate, requireRole("admin")] },
  * refuses to boot without the secret (assertProductionSafe). With no secret
  * configured the endpoint stays open for development and says so.
  */
-const SMS_HELP = [
-  "RoadAssist commands:",
-  "HELP CAR / BIKE / AUTO / TRUCK — request assistance",
-  "STATUS — your current request",
-  "CANCEL — cancel it",
-  "SOS — emergency",
-  "STOP — opt out",
-].join("\n");
 
 const CLASS_WORDS: Record<string, string> = {
   car: "car", bike: "motorcycle", motorcycle: "motorcycle", scooter: "scooter",
@@ -2364,9 +2356,9 @@ app.post("/v1/telecom/sms", async (req, res) => {
         bookingId: b.id, fromStatus: b.status, toStatus: to,
         command: "cancel", actorId: user.id, actorRole: "citizen",
       });
-      return reply(`${b.reference} cancelled.${cancellationFee ? " A cancellation fee applies as a mechanic was already on the way." : ""}`);
+      return reply(cancellationFee ? "sms.cancelled.fee" : "sms.cancelled", { reference: b.reference });
     } catch {
-      return reply(`${b.reference} is ${b.status} and can no longer be cancelled by SMS. Call us for help.`);
+      return reply("sms.cancel.tooLate", { reference: b.reference, status: b.status });
     }
   }
 
@@ -2382,7 +2374,7 @@ app.post("/v1/telecom/sms", async (req, res) => {
     let vehicleId = existing?.id;
     if (!vehicleId) {
       if (!asked) {
-        return reply("Which vehicle? Reply HELP CAR, HELP BIKE, HELP AUTO, HELP TRUCK or HELP TRACTOR.");
+        return reply("sms.whichVehicle");
       }
       // A feature-phone user cannot type a registration number reliably, so the
       // record is created from the vehicle class and completed later.
@@ -2395,7 +2387,7 @@ app.post("/v1/telecom/sms", async (req, res) => {
     }
 
     const open = await activeBooking();
-    if (open) return reply(`You already have request ${open.reference} (${open.status}). Reply STATUS or CANCEL.`);
+    if (open) return reply("sms.alreadyOpen", { reference: open.reference, status: open.status });
 
     const [svc] = await db.select().from(S.serviceTypes)
       .where(eq(S.serviceTypes.code, "minor_repair")).limit(1);
@@ -2409,10 +2401,10 @@ app.post("/v1/telecom/sms", async (req, res) => {
       command: "submit", actorId: user.id, actorRole: "citizen",
       meta: { channel: "sms" },
     });
-    return reply(`Request ${b.reference} received. We are finding a mechanic near you. Reply STATUS for an update or CANCEL to stop.`);
+    return reply("sms.requested", { reference: b.reference });
   }
 
-  return reply(SMS_HELP);
+  return reply("sms.commands");
 });
 
 // ══ emergency (ADR-0005) ═══════════════════════════════════════════════════
