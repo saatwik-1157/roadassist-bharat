@@ -1,5 +1,7 @@
-> Written after inspecting the actual repository on 2026-09-06 — 16 API files,
-> 56 tables, 64 routes, 578 executed assertions. Nothing here is assumed.
+> Written after inspecting the actual repository on 2026-09-06 and re-measured
+> against it on 2026-09-12 — 56 tables, 64 routes, 626 executed assertions.
+> Nothing here is assumed. This is prep to be spoken aloud, not a dated record:
+> when the code moves, the numbers here move with it.
 >
 > **Scope note, stated rather than hidden:** the *content* answers for
 > architecture, AI, offline, security, database, dispatch and payment already
@@ -318,8 +320,8 @@ Not inflated. This is my estimate as an examiner, given the evidence that exists
 | Implementation | 15 | **13–14** | 626 assertions, 6 real bugs found and fixed | Little | Show the row lock |
 | AI | 10 | **6–7** | Rules engine, labelled; trained YOLO11n separate | "Not real AI" | Agree instantly, pivot to asymmetry + CI guard |
 | Database | 10 | **9** | 56 tables, hash-chained audit, PostGIS | Little | Show the append-only RULES |
-| Security | 10 | **8–9** | 100 attacks refused; real CVE fixed | No pentest | Volunteer that before asked |
-| Testing | 8 | **8** | 578 executed, twice, plus timed rehearsal | Little | Run a suite live |
+| Security | 10 | **8–9** | 101 attacks refused; real CVE fixed | No pentest | Volunteer that before asked |
+| Testing | 8 | **8** | 626 executed, twice, plus timed rehearsal | Little | Run a suite live |
 | UI/UX | 5 | **4** | Real screenshots, phone-first | Sparse on a projector | Demo at 430 px |
 | Offline resilience | 10 | **9–10** | The strongest area; unanswerable demo | Overclaiming offline reach | Give the three-way split unprompted |
 | Demo | 5 | **4–5** | Rehearsed, timed, 9 clean runs | Live failure | Backups ready |

@@ -41,8 +41,8 @@ the start of this phase and has been fixed.
 
 ## The one RED, and its fix
 
-**Slide 24 previously read "600 assertions, all executed"**, with a footer
-reading "600 assertions · 7 suites · 0 failures".
+**Slide 24 previously read "600 assertions, all executed"**, with a footer  <!-- claims-check:ignore: quotes the corrected-away figure on purpose -->
+reading "600 assertions · 7 suites · 0 failures".  <!-- claims-check:ignore: quotes the corrected-away figure on purpose -->
 
 Only **626** assertions across **six** suites actually execute. The seventh —
 22 payment-gateway checks — requires a Razorpay sandbox account and refuses to

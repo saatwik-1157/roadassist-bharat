@@ -3,7 +3,7 @@
 > **These are planning targets written before implementation, not
 > measurements.** No availability figure in this document has been
 > observed. For what was actually measured, see
-> [`PERFORMANCE_FINAL_REPORT.md`](../PERFORMANCE_FINAL_REPORT.md).
+> [`PERFORMANCE_FINAL_REPORT.md`](verification/PERFORMANCE_FINAL_REPORT.md).
 
 **Owns:** Kubernetes, Terraform, CI/CD, observability, all testing disciplines, security, load and chaos engineering, SMS/IVR/USSD gateway operations, compliance evidence.
 **Backs up:** D2 on portal builds.

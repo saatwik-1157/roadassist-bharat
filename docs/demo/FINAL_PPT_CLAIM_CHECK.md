@@ -25,8 +25,8 @@ Do not add any of them verbally.
 
 ## The one correction already applied
 
-Slide 24 read **"600 assertions, all executed"** with a footer of "600
-assertions · 7 suites". Only 578 across six execute. Corrected, deck rebuilt,
+Slide 24 read **"600 assertions, all executed"** with a footer of "600  <!-- claims-check:ignore: quotes the corrected-away figure on purpose -->
+assertions · 7 suites". Only 626 across six execute. Corrected, deck rebuilt,
 PDF re-exported (32 pages, verified). Had it gone unfixed, *"show me the seventh
 suite"* would have exposed an unrunnable suite mid-viva.
 
