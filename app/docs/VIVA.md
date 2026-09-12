@@ -172,7 +172,7 @@ and the offer sweeper are all in-process.
 **Short.** Adding and removing capacity automatically in response to load.
 
 **In RoadAssist.** Designed as an HPA on queue depth rather than CPU, because
-our workload is I/O-bound — we measured it: dispatch spends its 113 ms in
+our workload is I/O-bound — we measured it: dispatch spends its ~100 ms in
 PostGIS, not in Node. One component is built: the **readiness gate**. `/health`
 returns **503** when the database is unreachable, so an orchestrator removes the
 instance rather than sending traffic to a server that cannot serve. Verified.
