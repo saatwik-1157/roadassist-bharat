@@ -23,7 +23,7 @@
 | Synchronization | **PASS** | `SYNCED` with server id; re-sync creates nothing | No |
 | Payment | **PASS** *(stub)* | 26 gateway checks; live sandbox **NOT VERIFIED** — needs your account | No |
 | Security | **PASS** | 100 attacks refused; runtime deps 0 vulnerabilities | No |
-| Testing | **PASS** | 615 executed, 0 failures, run twice | No |
+| Testing | **PASS** | 618 executed, 0 failures, run twice | No |
 | Deployment | **PARTIAL** | Image builds, suite passes against it; **nothing deployed** | No — declared, not hidden |
 | SWE4004 mapping | **PASS** | 13 implemented / 8 partial / 3 conceptual / 3 target | No |
 | Documentation | **PASS** | 30+ documents, 10 ADRs, master report as the entry point | No |

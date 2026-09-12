@@ -97,7 +97,7 @@ professor" pointer for every topic. Eight implemented, five partial, eight
 design and not provisioned.
 
 ## 16. Testing
-615 assertions across six suites, 0 failures, executed twice — once on the
+618 assertions across six suites, 0 failures, executed twice — once on the
 fresh database and again after `demo:reset` rebuilt it. Plus a 15-beat timed
 demo rehearsal, nine consecutive clean runs.
 

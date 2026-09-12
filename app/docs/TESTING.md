@@ -1,6 +1,6 @@
 # Testing
 
-Six suites, 615 assertions, all executed against a real PostgreSQL + PostGIS and a
+Six suites, 618 assertions, all executed against a real PostgreSQL + PostGIS and a
 real Chrome, with no failures. A seventh — 22 payment-gateway checks — runs only
 against a Razorpay sandbox account and refuses to run without one. Nothing here is mocked except the third-party vendors, and each
 of those has a stub that speaks the vendor's actual wire format.
@@ -39,7 +39,7 @@ expected outcome of each, and times it. It fails if any beat fails.
 
 | Suite | Assertions | What it exists for |
 |---|---|---|
-| `npm test` (node:test) | **98** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. |
+| `npm test` (node:test) | **101** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. |
 | `scripts/e2e-journey.mjs` | **189** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. |
 | `scripts/concurrency-test.mjs` | **65** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
 | `scripts/gateway-security-test.mjs` | **26** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |

@@ -62,7 +62,7 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 98 unit — no I/O, the only ones that run standalone
+npm test                 # 101 unit — no I/O, the only ones that run standalone
 npm run test:e2e         # 189
 npm run test:concurrency # 65
 npm run test:gateway     # 26
@@ -71,7 +71,7 @@ npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
 ```
 
 `npm run test:razorpay` (22) needs a Razorpay sandbox account and refuses to run
-without one. It is **not** part of the 615 and must never be described as
+without one. It is **not** part of the 618 and must never be described as
 passing.
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (18
@@ -124,10 +124,10 @@ SELECT count(*) FROM pg_class c
 ```
 
 `CREATE EXTENSION postgis` installs `spatial_ref_sys` into `public`, which made
-the schema look like 57 tables when it defines **56** — and that inflated number
+the schema look like 57 tables when it defines **56** — and that inflated number  <!-- claims-check:ignore -->
 reached 27 documents and a slide deck. The same mistake inflated the primary-key
 and index counts. Separately, `information_schema.check_constraints` emits one
-row per `NOT NULL` column, which is how "433 check constraints" was published
+row per `NOT NULL` column, which is how "433 check constraints" was published  <!-- claims-check:ignore -->
 when there are **5**. See `app/docs/CLAIMS-AUDIT.md` §4.
 
 ## Architecture rules that fail the build
