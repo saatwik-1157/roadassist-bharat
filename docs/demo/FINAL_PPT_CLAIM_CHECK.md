@@ -13,7 +13,7 @@
 |---|---|---|
 | "AI-Powered" (slide 1) | *"Is it really AI?"* | Slide 8 already labels it a rules engine and every API response carries `rules-1.0.0`. Agree instantly, then pivot: the safety asymmetry (a model may make a verdict stricter, never laxer) and the CI guard that fails the build if the device and server rule tables diverge. Then mention the trained YOLO11n with measured metrics. |
 | "Dispatch is dynamic scheduling" (10) | *"Justify that term."* | Work assigned **at run time**, from a **pool**, by a score from **live state**, with **timeout-driven re-scheduling**. `dispatch.ts`. That is the textbook definition, four properties for four. |
-| "615 assertions, all executed" (24) | *"Show me."* | `npm run test:security` live — 74 passed, 0 failed, in about a minute. Volunteer that a seventh suite needs a Razorpay account and does not run. |
+| "618 assertions, all executed" (24) | *"Show me."* | `npm run test:security` live — 74 passed, 0 failed, in about a minute. Volunteer that a seventh suite needs a Razorpay account and does not run. |
 | "Two are built. Six are design." (22) | *"Where is autoscaling?"* | Not provisioned; the slide says DESIGN. Show the one real component — stop Postgres, `/health` returns 503 while `/v1/ping` returns 200. |
 | "Nothing has been transmitted" (7, 15) | *"Can SOS reach emergency services offline?"* | **No.** No satellite, no mesh, no SMS bypass. The app says exactly that and advises calling 112. Even online, 112 is a stub and the API response says so. |
 

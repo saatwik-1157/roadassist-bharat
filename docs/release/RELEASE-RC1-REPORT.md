@@ -253,7 +253,7 @@ mobile/.../MainActivity.kt                 toast timer → LaunchedEffect; brush
 
 Qualified precisely: the application installs from a clean checkout, migrates
 and seeds an empty database, starts without a single error-level log line,
-and passes 615 assertions across six suites twice — including after a full
+and passes 618 assertions across six suites twice — including after a full
 `demo:reset`. Runtime dependencies carry no known vulnerabilities.
 
 It is **not** ready for production, and does not claim to be: nothing is

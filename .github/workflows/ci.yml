@@ -233,6 +233,13 @@ jobs:
       - name: No cross-module imports outside the contract
         run: node scripts/check-boundaries.mjs
 
+      # The documents must agree with the code. This project's whole argument is
+      # that every claim is demonstrable, and the same number has now gone stale
+      # in twenty-odd files three separate times — each caught by a human reading
+      # carefully, which is not a mechanism.
+      - name: Documented claims match app/docs/measured.json
+        run: node scripts/check-claims.mjs
+
   # ── the Android client ──────────────────────────────────────────────────────
   # `mobile/` ships as a real artefact and had no automated check at all: a broken
   # Gradle build or a lint regression was only ever found by building it by hand.
