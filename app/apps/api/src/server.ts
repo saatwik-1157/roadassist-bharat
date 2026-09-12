@@ -6,21 +6,22 @@ import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import { z } from "zod";
 import { and, asc, desc, eq, isNull, sql as raw } from "drizzle-orm";
-import { createHmac, randomInt, randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 
 import { env, assertProductionSafe, validateEnv } from "./env.js";
 import { db, sql } from "./db.js";
 import * as S from "@roadassist/db";
 import {
-  authenticate, constantTimeEquals, otpAttemptsInWindow, otpRequestsFromIp,
-  requireRole, rotateSession, sha256, startSession, verifyAccessToken,
+  authenticate, constantTimeEquals, requireRole, sha256, verifyAccessToken,
 } from "./auth.js";
 import { apply, allowedFrom, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
 import { shrunkRating } from "./domain/ai-rules.js";
 import {
   diagnoseWithFallback, email, maps, payments, PAYMENT_METHODS, providerSummary, sms,
 } from "./providers.js";
+import { ok, msisdnSchema } from "./http.js";
 import { rakshaRoutes } from "./raksha.js";
+import { authRoutes } from "./routes/auth.js";
 import { audit, verifyAuditChain } from "./audit.js";
 import { limit } from "./ratelimit.js";
 import { ApiError, fail } from "./errors.js";
@@ -34,7 +35,6 @@ import {
 } from "./domain/incident-machine.js";
 import { describeProviderState } from "./domain/provider-state.js";
 import { parseSmsCoordinates } from "./domain/sms-coordinates.js";
-import { otpPolicy } from "./domain/otp-policy.js";
 import { t, resolveLocale, parseLangCommand, DEFAULT_LOCALE } from "./i18n.js";
 import {
   closeAllStreams, MAX_STREAMS_PER_USER, openStream, publish, publishMany,
@@ -179,7 +179,7 @@ await app.register(fastifyStatic, {
   decorateReply: false,
 });
 
-const ok = <T>(data: T, meta: Record<string, unknown> = {}) => ({ data, meta });
+
 
 /**
  * Find a sibling directory by walking up from this module.
@@ -477,150 +477,6 @@ app.get("/v1/service-types", async () => {
   return ok(rows);
 });
 
-// ══ auth ═══════════════════════════════════════════════════════════════════
-const msisdnSchema = z.string().regex(/^\+91[6-9]\d{9}$/, "Enter a valid Indian mobile number");
-
-app.post("/v1/auth/otp/request", async (req, reply) => {
-  const { msisdn } = z.object({ msisdn: msisdnSchema }).parse(req.body);
-
-  if (await otpAttemptsInWindow(db, msisdn) >= env.otpMaxAttempts) {
-    return reply.code(429).send({
-      error: {
-        code: "too_many_requests",
-        title: `Too many codes requested. Try again in ${env.otpWindowMinutes} minutes.`,
-        retryable: true,
-      },
-    });
-  }
-  // Second axis of threat #1: one address hammering many numbers.
-  if (await otpRequestsFromIp(db, req.ip) >= env.otpIpMax) {
-    return reply.code(429).send({
-      error: {
-        code: "otp_ip_limited",
-        title: `Too many codes requested from this connection. Try again in ${env.otpWindowMinutes} minutes.`,
-        retryable: true,
-      },
-    });
-  }
-
-  // Whether the code is real, and whether it may be shown — see otp-policy.ts.
-  const policy = otpPolicy({
-    smsProvider: env.sms.provider,
-    exposeDevOtp: env.exposeDevOtp,
-  });
-
-  // randomInt, not Math.random. Math.random is a PRNG seeded per process and is
-  // not unpredictable to an attacker who has seen previous outputs — for a
-  // credential with a five-minute life and a six-digit space, that is the
-  // difference between guessing 1-in-900000 and computing the next one.
-  const code = policy.random ? String(randomInt(100000, 1000000)) : env.devOtp;
-  await db.insert(S.otpChallenges).values({
-    msisdn, codeHash: sha256(code), ip: req.ip,
-    expiresAt: new Date(Date.now() + 5 * 60_000),
-  });
-
-  /**
-   * The OTP is the first message the platform ever sends somebody, and until
-   * now it was always English.
-   *
-   * A returning number already told us its language — possibly by texting
-   * `LANG HI` from a phone with no settings screen. A number we have never
-   * seen has told us nothing, so the browser's Accept-Language is the only
-   * hint available, and English is the floor.
-   */
-  const [known] = await db.select({ lang: S.users.preferredLanguage })
-    .from(S.users).where(eq(S.users.msisdn, msisdn)).limit(1);
-  const otpLocale = resolveLocale({
-    stored: known?.lang,
-    acceptLanguage: req.headers["accept-language"],
-  });
-  await sms.send(msisdn, t(otpLocale, "otp.code", { code }));
-
-  return ok(
-    { sent: true, expiresInSeconds: 300, channel: policy.channel },
-    policy.echo
-      ? { devOtp: code, note: "Returned only because SMS_PROVIDER=console and EXPOSE_DEV_OTP is on" }
-      : {},
-  );
-});
-
-app.post("/v1/auth/otp/verify", async (req, reply) => {
-  const { msisdn, code } = z.object({ msisdn: msisdnSchema, code: z.string().length(6) }).parse(req.body);
-
-  const [challenge] = await db.select().from(S.otpChallenges)
-    .where(and(eq(S.otpChallenges.msisdn, msisdn), isNull(S.otpChallenges.consumedAt)))
-    .orderBy(desc(S.otpChallenges.createdAt)).limit(1);
-
-  const invalid = () => reply.code(401).send({
-    error: { code: "otp_invalid", title: "That code is not right. Check it and try again.", retryable: true },
-  });
-
-  if (!challenge) return invalid();
-  if (challenge.expiresAt.getTime() < Date.now()) {
-    return reply.code(401).send({
-      error: { code: "otp_expired", title: "That code has expired. Request a new one.", retryable: true },
-    });
-  }
-  if (challenge.attempts >= env.otpMaxAttempts) {
-    return reply.code(429).send({
-      error: { code: "otp_locked", title: "Too many wrong attempts. Request a new code.", retryable: true },
-    });
-  }
-  if (!constantTimeEquals(sha256(code), challenge.codeHash)) {
-    await db.update(S.otpChallenges)
-      .set({ attempts: challenge.attempts + 1, updatedAt: new Date() })
-      .where(eq(S.otpChallenges.id, challenge.id));
-    return invalid();
-  }
-
-  await db.update(S.otpChallenges)
-    .set({ consumedAt: new Date(), updatedAt: new Date() })
-    .where(eq(S.otpChallenges.id, challenge.id));
-
-  let [user] = await db.select().from(S.users).where(eq(S.users.msisdn, msisdn)).limit(1);
-  let created = false;
-  if (!user) {
-    [user] = await db.insert(S.users).values({ msisdn, isVerified: true }).returning();
-    const [citizen] = await db.select().from(S.roles).where(eq(S.roles.name, "citizen")).limit(1);
-    if (citizen) await db.insert(S.userRoles).values({ userId: user.id, roleId: citizen.id });
-    created = true;
-  } else if (!user.isVerified) {
-    await db.update(S.users).set({ isVerified: true, updatedAt: new Date() }).where(eq(S.users.id, user.id));
-  }
-
-  const session = await startSession(db, user.id, { ip: req.ip, ua: req.headers["user-agent"] });
-
-  // Sign-in is an auditable event, and it is one of the few whose ABSENCE is
-  // also evidence — a session that exists with no login behind it means a token
-  // was minted some other way. The MSISDN is deliberately not written here: the
-  // subject id already identifies the account, and repeating the phone number
-  // in an append-only table only widens what a leak of that table exposes.
-  await audit({
-    actorId: user.id, actorRole: "citizen", action: "auth.login",
-    entity: "user", entityId: user.id,
-    after: { newAccount: created, sessionCreated: true },
-    ip: req.ip,
-  });
-
-  return ok({ ...session, user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName } }, { newAccount: created });
-});
-
-app.post("/v1/auth/refresh", async (req, reply) => {
-  const { refreshToken } = z.object({ refreshToken: z.string().min(20) }).parse(req.body);
-  const result = await rotateSession(db, refreshToken, { ip: req.ip, ua: req.headers["user-agent"] });
-  if (!result.ok) {
-    return reply.code(401).send({
-      error: {
-        code: result.reason,
-        title: result.reason === "reuse_detected"
-          ? "For your security every session has been signed out. Please sign in again."
-          : "Your session has expired. Sign in again.",
-        retryable: false,
-      },
-    });
-  }
-  return ok(result);
-});
 
 app.get("/v1/me", { preHandler: authenticate }, async (req) => {
   const [user] = await db.select().from(S.users).where(eq(S.users.id, req.user!.sub)).limit(1);
@@ -3131,6 +2987,7 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
 });
 
 // ══ RAKSHA — autonomous road monitoring (ADR-0007) ═════════════════════════
+await app.register(authRoutes);
 await app.register(rakshaRoutes);
 
 // ══ boot ═══════════════════════════════════════════════════════════════════
