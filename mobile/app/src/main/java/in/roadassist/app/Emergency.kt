@@ -50,6 +50,9 @@ object Emergency {
     const val NATIONAL_EMERGENCY = "112"
     private const val QUEUE_KEY = "ra.sos.queue"
 
+    /** Guards the read-modify-write of [QUEUE_KEY]. Never held across I/O. */
+    private val queueLock = Any()
+
     /** The ladder's vocabulary and its decisions live in [SosLadder], which is
      *  pure Kotlin and therefore testable without a device. */
     data class Result(val rung: SosLadder.Rung, val detail: String)
@@ -244,16 +247,22 @@ object Emergency {
      * per try and defeat the whole point. See [SosLadder.newIncidentRef].
      */
     fun queue(ctx: Context, lat: Double, lng: Double) {
-        val prefs = ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
-        val arr = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
-        arr.put(
-            JSONObject()
-                .put("lat", lat).put("lng", lng)
-                .put("ref", SosLadder.newIncidentRef())
-                .put("at", System.currentTimeMillis()),
-        )
-        prefs.edit().putString(QUEUE_KEY, arr.toString()).apply()
+        val entry = JSONObject()
+            .put("lat", lat).put("lng", lng)
+            .put("ref", SosLadder.newIncidentRef())
+            .put("at", System.currentTimeMillis())
+        // Read-modify-write on one preferences key, so it has to be atomic
+        // against a concurrent flush rewriting the same key. Nothing slow
+        // happens inside the lock.
+        synchronized(queueLock) {
+            val prefs = prefs(ctx)
+            val current = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
+            prefs.edit().putString(QUEUE_KEY, SosQueue.append(current, entry).toString()).apply()
+        }
     }
+
+    private fun prefs(ctx: Context) =
+        ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
 
     fun queueDepth(ctx: Context): Int {
         val prefs = ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
@@ -275,11 +284,15 @@ object Emergency {
      */
     suspend fun flush(ctx: Context): Int {
         if (!hasData(ctx)) return 0
-        val prefs = ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
-        val arr = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
-        var sent = 0
-        for (i in 0 until arr.length()) {
-            val o = arr.getJSONObject(i)
+        val snapshot = synchronized(queueLock) {
+            JSONArray(prefs(ctx).getString(QUEUE_KEY, "[]"))
+        }
+        // Keys, not indices. The queue is rewritten at the END against whatever
+        // it holds THEN, so an SOS raised while this flush is in the air is not
+        // erased by it — see SosQueue for the bug that argument comes from.
+        val sentKeys = LinkedHashSet<String>()
+        for (i in 0 until snapshot.length()) {
+            val o = snapshot.getJSONObject(i)
             try {
                 // Entries queued by an older build have no reference. Mint one
                 // so at least THIS flush's own retries converge, rather than
@@ -292,14 +305,20 @@ object Emergency {
                         .put("clientIncidentId", ref),
                 ).getJSONObject("data")
                 Api.post("/v1/sos/${raised.getString("id")}/confirm")
-                sent++
+                sentKeys.add(SosQueue.keyOf(o))
             } catch (_: Exception) { break }   // still flaky — keep the rest queued
         }
-        if (sent > 0) {
-            val remaining = JSONArray()
-            for (i in sent until arr.length()) remaining.put(arr.getJSONObject(i))
-            prefs.edit().putString(QUEUE_KEY, remaining.toString()).apply()
+        if (sentKeys.isNotEmpty()) {
+            synchronized(queueLock) {
+                val prefs = prefs(ctx)
+                // Re-read: the queue now may hold an SOS raised while the posts
+                // above were in flight, and that one has not been sent.
+                val current = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
+                prefs.edit()
+                    .putString(QUEUE_KEY, SosQueue.remaining(current, sentKeys).toString())
+                    .apply()
+            }
         }
-        return sent
+        return sentKeys.size
     }
 }
