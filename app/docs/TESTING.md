@@ -97,11 +97,12 @@ Stated here rather than discovered later.
   seconds otherwise, so CI runs the concurrency suite a second time against an
   API booted with `OFFER_TTL_SECONDS=2`.
 
-- **Android coverage is the SOS ladder and nothing else yet.** `SosLadderTest`
-  is 18 tests over the decisions in `SosLadder.kt` — which rung fires, whether a
-  backup is queued, and the SMS body's contract with the server. The Compose UI,
-  the API client and the local queue are still untested: they need a device or
-  Robolectric, and neither is wired up.
+- **Android TESTS are the SOS ladder and nothing else.** `SosLadderTest` is 18
+  tests over the decisions in `SosLadder.kt` — which rung fires, whether a backup
+  is queued, and the SMS body's contract with the server. The Compose UI, the API
+  client and the local queue are still untested: they need a device or
+  Robolectric, and neither is wired up. (Localisation is a separate axis and is
+  complete — see below.)
 - **No CV inference or training runs in CI.** The `ai` job checks the pipeline
   logic and that every script parses; loading a model and running a frame stays
   a local, GPU-shaped activity. A syntax error in `train.py` used to surface
@@ -118,7 +119,7 @@ that reach the people with the worst connections and the cheapest phones, first.
 | Surface | Covered | Not covered |
 |---|---|---|
 | API (SMS + OTP) | **Everything the platform sends** — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
-| Android | The SOS ladder's four outcomes (`values-hi/strings.xml`) | The rest of the UI, still hardcoded English in `MainActivity.kt` |
+| Android | **The whole UI** — 62 strings in `values-hi/strings.xml`, and zero hardcoded literals left in `MainActivity.kt` | Toast text assembled from server responses, which arrives already localised |
 | Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 31 keys | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 
@@ -128,6 +129,14 @@ reader who cannot check a menu will get. The stored preference lives in
 `users.preferred_language`, a column the schema has always had and nothing ever
 read: the seeder wrote eight languages into it while every message went out in
 English.
+
+**Android translation completeness is enforced by the build.** Every UI string
+lives in `values/strings.xml`, and Android lint's `MissingTranslation` is an
+error — verified by deleting one Hindi string, which failed the build. So a new
+string cannot ship English-only without someone noticing, which is the failure
+mode every half-finished localisation dies of. `app_name` is marked
+`translatable="false"`: it is the brand, and it is what a user looks for on a
+home screen.
 
 **The trap is encoding, and it is tested.** Devanagari is outside GSM 03.38, so a
 Hindi SMS is UCS-2 and one segment holds 70 characters, not 160. `i18n.test.ts`

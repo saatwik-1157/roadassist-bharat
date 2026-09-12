@@ -16,4 +16,68 @@
     <string name="sos_sms_unconfirmed">SOS एसएमएस से भेजा, पुष्टि नहीं हुई। डेटा आते ही एक बैकअप भी भेजा जाएगा।</string>
     <string name="sos_dialer">RoadAssist तक नहीं पहुँच सके — 112 खोल रहे हैं, जो किसी भी टावर से जुड़ता है। आपका SOS सेव है और सिग्नल आते ही चला जाएगा।</string>
     <string name="sos_queued">बिल्कुल सिग्नल नहीं। SOS इसी फ़ोन में सेव है — कनेक्शन आते ही अपने आप चला जाएगा। हो सके तो खुले आसमान या हाईवे की ओर बढ़ें।</string>
+
+    <!-- MainActivity UI. Extracted wholesale rather than a few at a
+         time: lint's MissingTranslation check only protects strings that
+         are IN here, so a partial extraction is the state where a missing
+         Hindi string stops being caught. -->
+    <string name="report_hazard_short">⚠  खतरा बताएं</string>
+    <string name="report_hazard_title">सड़क का खतरा बताएं</string>
+    <string name="report_hazard_sub">आपकी लोकेशन जुड़ जाएगी, ताकि अधिकारी मौके पर पहुँच सकें।</string>
+    <string name="label_type_prefix">"प्रकार: "</string>
+    <string name="action_remove">हटाएं</string>
+    <string name="action_attach_photo">📷  फोटो लगाएं</string>
+    <string name="action_cancel">रद्द करें</string>
+    <string name="photo_attached">📷 फोटो लग गयी</string>
+    <string name="cd_attached_photo">लगाई गई फोटो</string>
+    <string name="field_note_optional">टिप्पणी (वैकल्पिक)</string>
+    <string name="bookings_empty">मदद बुक करें, वह यहाँ दिखेगी।</string>
+    <string name="action_request_assistance">मदद मांगें</string>
+    <string name="bookings_sub">आपकी बुकिंग का इतिहास — नयी पहले।</string>
+    <string name="trip_guardian">ट्रिप गार्डियन</string>
+    <string name="trip_guardian_sub">सिग्नल जाने से पहले रास्ता तैयार करें — मौसम, सिग्नल रहित इलाके और ऑफ़लाइन नक्शा इसी फ़ोन में।</string>
+    <string name="label_weather">"मौसम  "</string>
+    <string name="label_deadzone_risk">सिग्नल रहित का खतरा</string>
+    <string name="cd_offline_route_map">ऑफ़लाइन रूट नक्शा</string>
+    <string name="my_reports">आपकी खतरा रिपोर्ट</string>
+    <string name="my_reports_sub">हर रिपोर्ट की जाँच की स्थिति देखें।</string>
+    <string name="emergency_contacts">आपात संपर्क</string>
+    <string name="emergency_contacts_sub">SOS पक्का करने पर इन्हें आपकी लाइव लोकेशन भेजी जाएगी।</string>
+    <string name="emergency_contacts_empty">अभी कोई नहीं — एक जोड़ें ताकि SOS किसी तक पहुँचे।</string>
+    <string name="action_add_contact">संपर्क जोड़ें</string>
+    <string name="field_contact_name">संपर्क का नाम</string>
+    <string name="field_contact_phone">उनका मोबाइल (+91…)</string>
+    <string name="about">परिचय</string>
+    <string name="about_body">RoadAssist भारत — एक मंच, हर वाहन, हर सड़क। यह छात्र प्रोटोटाइप है; कोई वास्तविक आपात सेवा जुड़ी नहीं है।</string>
+    <string name="action_sign_out">साइन आउट</string>
+    <string name="tagline">हर वाहन · हर सड़क · हर फ़ोन</string>
+    <string name="signin_sub">लाइव RoadAssist API से असली OTP। डेवलपमेंट में सर्वर कोड लौटाता है और वह खुद भर जाता है।</string>
+    <string name="field_api_base_url">API बेस URL (10.0.2.2 = एमुलेटर से आपका PC)</string>
+    <string name="field_mobile_number">मोबाइल नंबर (+91…)</string>
+    <string name="field_otp_code">6 अंकों का कोड</string>
+    <string name="action_send_otp">OTP भेजें</string>
+    <string name="action_verify_sign_in">जाँचकर साइन इन करें</string>
+    <string name="sos_alert_now">अभी भेजें</string>
+    <string name="sos_5s_to_cancel">रद्द करने को 5 सेकंड</string>
+    <string name="vehicle_add_title">अपना वाहन जोड़ें</string>
+    <string name="vehicle_yours">आपका वाहन</string>
+    <string name="field_registration_number">रजिस्ट्रेशन नंबर</string>
+    <string name="action_add_vehicle">वाहन जोड़ें</string>
+    <string name="action_add_vehicle_first">पहले वाहन जोड़ें</string>
+    <string name="hazard_prompt_title">सड़क पर खतरा दिखा?</string>
+    <string name="hazard_prompt_sub">गड्ढा, टूट-फूट या रुकावट बताएं। यह RAKSHA नक्शे और अधिकारियों की सूची में जाएगा।</string>
+    <string name="hazard_prompt_action">⚠  सड़क का खतरा बताएं</string>
+    <string name="dispatch_requesting_near">यहाँ मदद मांग रहे हैं</string>
+    <string name="action_clear">साफ़ करें</string>
+    <string name="from_map">"  ★ नक्शे से"</string>
+    <string name="action_accept">स्वीकारें</string>
+    <string name="mechanics_nearby">पास के प्रमाणित मैकेनिक</string>
+    <string name="mechanics_nearby_sub">सबसे पास के प्रमाणित मैकेनिक, सर्वर पर असली PostGIS क्वेरी से क्रम में।</string>
+    <string name="action_request">मांगें</string>
+    <string name="field_what_happened">क्या हुआ?</string>
+    <string name="action_book_dispatch">बुक करके भेजें</string>
+    <string name="label_severity">गंभीरता: %1$s</string>
+    <string name="sos_alerting_in">%1$d में भेजा जाएगा…</string>
+    <string name="label_vehicle_type">प्रकार: %1$s</string>
+    <string name="map_tiles_cached">%1$d/%2$d नक्शा टाइलें इसी फ़ोन में · ऑफ़लाइन दिखेंगी · © OpenStreetMap</string>
 </resources>
