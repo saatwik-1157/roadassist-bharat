@@ -6,7 +6,7 @@ import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import { z } from "zod";
 import { and, asc, desc, eq, isNull, sql as raw } from "drizzle-orm";
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomInt, randomUUID } from "node:crypto";
 
 import { env, assertProductionSafe, validateEnv } from "./env.js";
 import { db, sql } from "./db.js";
@@ -34,6 +34,7 @@ import {
 } from "./domain/incident-machine.js";
 import { describeProviderState } from "./domain/provider-state.js";
 import { parseSmsCoordinates } from "./domain/sms-coordinates.js";
+import { otpPolicy } from "./domain/otp-policy.js";
 import { t, resolveLocale, parseLangCommand, DEFAULT_LOCALE } from "./i18n.js";
 import {
   closeAllStreams, MAX_STREAMS_PER_USER, openStream, publish, publishMany,
@@ -502,7 +503,17 @@ app.post("/v1/auth/otp/request", async (req, reply) => {
     });
   }
 
-  const code = env.nodeEnv === "production" ? String(Math.floor(100000 + Math.random() * 900000)) : env.devOtp;
+  // Whether the code is real, and whether it may be shown — see otp-policy.ts.
+  const policy = otpPolicy({
+    smsProvider: env.sms.provider,
+    exposeDevOtp: env.exposeDevOtp,
+  });
+
+  // randomInt, not Math.random. Math.random is a PRNG seeded per process and is
+  // not unpredictable to an attacker who has seen previous outputs — for a
+  // credential with a five-minute life and a six-digit space, that is the
+  // difference between guessing 1-in-900000 and computing the next one.
+  const code = policy.random ? String(randomInt(100000, 1000000)) : env.devOtp;
   await db.insert(S.otpChallenges).values({
     msisdn, codeHash: sha256(code), ip: req.ip,
     expiresAt: new Date(Date.now() + 5 * 60_000),
@@ -526,8 +537,10 @@ app.post("/v1/auth/otp/request", async (req, reply) => {
   await sms.send(msisdn, t(otpLocale, "otp.code", { code }));
 
   return ok(
-    { sent: true, expiresInSeconds: 300 },
-    env.exposeDevOtp ? { devOtp: code, note: "Returned only because EXPOSE_DEV_OTP is on" } : {},
+    { sent: true, expiresInSeconds: 300, channel: policy.channel },
+    policy.echo
+      ? { devOtp: code, note: "Returned only because SMS_PROVIDER=console and EXPOSE_DEV_OTP is on" }
+      : {},
   );
 });
 

@@ -31,7 +31,7 @@ removed or rewritten).
 ## Fixed in this phase
 
 **"600 assertions across seven suites, all passing."** This was **UNSUPPORTED**.
-Only 618 assertions across six suites actually execute; the seventh — 22
+Only 626 assertions across six suites actually execute; the seventh — 22
 payment-gateway checks — requires a Razorpay sandbox account and refuses to run
 without one. Claiming a suite passes when it cannot run is the exact failure
 mode this project is otherwise careful about.
@@ -39,7 +39,7 @@ mode this project is otherwise careful about.
 Corrected in six places: `README.md`, `app/docs/ATTACK-PACK.md`,
 `app/docs/TESTING.md`, `app/docs/DEMO-SCRIPT.md`,
 `app/docs/PROJECT_OVERVIEW.md`, `app/docs/VIVA.md`, and the deck source
-`ppt/part_final.py` (slide retitled "618 assertions, all executed"). The deck
+`ppt/part_final.py` (slide retitled "626 assertions, all executed"). The deck
 was rebuilt and re-exported to PDF.
 
 **"64 endpoints under `/v1`."** Imprecise. There are 64 route registrations, 61

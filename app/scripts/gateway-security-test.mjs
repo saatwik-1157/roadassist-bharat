@@ -148,9 +148,33 @@ const api1 = async (method, path, { token, body } = {}) => {
   return { status: r.status, ...(await r.json().catch(() => ({}))) };
 };
 
+/**
+ * Read the OTP out of the SMS the stub captured.
+ *
+ * This instance runs with SMS_PROVIDER=twilio so the adapter's wire format can
+ * be checked, and that means the code is random and is NOT returned in the API
+ * response — `otpPolicy` refuses to publish a credential that reached a
+ * handset. So the suite does what a real user does: reads it off the message.
+ *
+ * It used to take `meta.devOtp`, which only worked because a fixed code was
+ * being echoed even with a gateway configured. Going through the SMS makes
+ * every sign-in below an end-to-end test of real OTP delivery.
+ */
+const otpFromSms = () => {
+  const body = lastTwilio?.body ?? "";
+  const text = new URLSearchParams(body).get("Body") ?? "";
+  const code = /\b(\d{6})\b/.exec(text)?.[1];
+  if (!code) throw new Error(`no OTP in the captured SMS: ${text || "(nothing captured)"}`);
+  return code;
+};
+
 const payer = "+91" + (7000000000 + Math.floor(Math.random() * 8e8));
 const challenge = await api1("POST", "/v1/auth/otp/request", { body: { msisdn: payer } });
-const session = await api1("POST", "/v1/auth/otp/verify", { body: { msisdn: payer, code: challenge.meta?.devOtp } });
+// The response carries no code — only that one was sent, and by what.
+ok("a configured gateway means the code is never echoed over HTTP",
+   challenge.meta?.devOtp === undefined && challenge.data?.channel === "twilio",
+   `channel=${challenge.data?.channel} devOtp=${challenge.meta?.devOtp}`);
+const session = await api1("POST", "/v1/auth/otp/verify", { body: { msisdn: payer, code: otpFromSms() } });
 const payToken = session.data?.accessToken;
 
 const vehicle = await api1("POST", "/v1/vehicles", {
@@ -229,9 +253,9 @@ ok("replaying the confirmation does not charge twice",
 // administrator with database access would.
 await api1("PUT", "/v1/me/medical", { token: payToken, body: { bloodGroup: "B+" } });
 
-const adminReq = await api1("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } });
+await api1("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } });
 const adminVer = await api1("POST", "/v1/auth/otp/verify", {
-  body: { msisdn: "+919999900001", code: adminReq.meta?.devOtp },
+  body: { msisdn: "+919999900001", code: otpFromSms() },
 });
 const adminTok = adminVer.data?.accessToken;
 
