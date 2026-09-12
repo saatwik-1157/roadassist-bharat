@@ -108,6 +108,23 @@ Stated here rather than discovered later.
   a local, GPU-shaped activity. A syntax error in `train.py` used to surface
   only when someone started a multi-hour run — that part is now caught.
 
+## Fitness functions — the rules that fail the build
+
+Three, all in the `boundaries` CI job, all added because a rule nobody can
+enforce is a suggestion.
+
+| Check | Guards against |
+|---|---|
+| `check-boundaries.mjs` rules 1–2 | A schema module importing what ADR-0002 forbids, or anything reaching past the `@roadassist/db` index |
+| `check-boundaries.mjs` rule 3 | **A cached page loading a script that is not itself cached.** Off-Grid Mode fails in the quietest possible way — the page boots, one file is missing, the feature is gone. It caught `i18n.js`: `app.html` loaded it, `SHELL_ASSETS` did not list it, and every off-grid user silently fell back to English |
+| `check-claims.mjs` | A number in the documents disagreeing with `docs/measured.json`. The same figure went stale in twenty-odd files three separate times before this existed |
+
+Both new checks were mutation-tested — the rule was broken on purpose and the
+build failed — because a check that has never failed has not been shown to work.
+
+---
+
+
 ## Localisation, and exactly how far it goes
 
 **All eight languages the roadmap names now ship**: English, Hindi, Tamil,
@@ -214,7 +231,7 @@ health 15 ms · diagnose 16 ms · booking detail 31 ms · map 16 ms · **dispatc
 |---|---|
 | `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
 | `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
-| `boundaries` | the module-boundary fitness function |
+| `boundaries` | three fitness functions: module boundaries, the offline-shell completeness check, and the documented-claims check |
 | `android` | lint, 18 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
 | `ai` | syntax-checks every CV script and runs the pipeline unit tests |
 

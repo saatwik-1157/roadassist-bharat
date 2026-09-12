@@ -81,7 +81,7 @@ Facts that *are* asserted, all verified against the running system:
 - TypeScript · Fastify 5 · Drizzle ORM · Zod · jose
 - PostgreSQL 16 + PostGIS 3.4.3, 56 tables, 64 API routes
 - Seven roles: citizen, mechanic, admin, gov_officer, fleet_admin, fleet_driver, support
-- PWA with a service worker caching 22 shell assets; manifest with 5 shortcuts
+- PWA with a service worker caching 23 shell assets; manifest with 5 shortcuts
 - Rules-based AI diagnosis (ADR-0006), with an optional HTTP model provider
 - Razorpay payments: Orders API, HMAC signature verification, and a signed
   webhook — default provider is `mock`; live keys need a KYC-verified account
