@@ -55,6 +55,8 @@ export const STATUS_FAILED = "SYNC_RETRY_PENDING";
 
 let dbPromise = null;
 let cryptoKey = null;
+/** The in-flight `resolveKey()`, so concurrent callers share one outcome. */
+let keyPromise = null;
 let encryptionAvailable = null;
 
 /* ── plumbing ─────────────────────────────────────────────────────────────── */
@@ -125,6 +127,27 @@ async function metaPut(key, value) {
   return value;
 }
 
+/**
+ * Write only if nothing is there, and return whoever won.
+ *
+ * The read and the conditional write are the same readwrite transaction, so two
+ * tabs racing to create the device key cannot both win. The `await` between them
+ * is safe specifically because `idbRequest` resolves inside `onsuccess`: the
+ * continuation runs on the microtask checkpoint of that event, while the
+ * transaction is still active. Awaiting anything else here — a fetch, a
+ * `generateKey` — would let the transaction auto-close and the put would throw.
+ */
+async function metaPutIfAbsent(key, value) {
+  const db = await open();
+  const { t, done } = tx(db, [STORE_META], "readwrite");
+  const store = t.objectStore(STORE_META);
+  const row = await idbRequest(store.get(key));
+  if (row) { await done; return row.v; }
+  store.put({ k: key, v: value });
+  await done;
+  return value;
+}
+
 /* ── encryption at rest ───────────────────────────────────────────────────── */
 
 function subtle() {
@@ -141,16 +164,31 @@ function subtle() {
  */
 async function getKey() {
   if (cryptoKey) return cryptoKey;
+  // One resolution per page, shared by every concurrent caller.
+  //
+  // Without this, two seals that start before either finishes each find no key,
+  // each generate one, and the second overwrites the first — leaving whatever
+  // was sealed with the loser permanently unreadable. It is reachable: the
+  // off-grid diagnosis journals itself WITHOUT being awaited (app.html), so
+  // diagnosing in a dead zone and then tapping SOS is exactly the sequence that
+  // races, and the record that loses can be the SOS incident itself.
+  if (!keyPromise) keyPromise = resolveKey();
+  return keyPromise;
+}
+
+async function resolveKey() {
   const s = subtle();
   if (!s) { encryptionAvailable = false; return null; }
   try {
     const existing = await metaGet("cryptoKey");
     if (existing) { cryptoKey = existing; encryptionAvailable = true; return cryptoKey; }
-    const key = await s.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
-    await metaPut("cryptoKey", key);
-    cryptoKey = key;
+    // Generate first, then claim the slot: `generateKey` cannot be awaited
+    // inside the transaction. If another tab got there first, metaPutIfAbsent
+    // hands back THEIR key and this one is discarded — which is the point.
+    const candidate = await s.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    cryptoKey = await metaPutIfAbsent("cryptoKey", candidate);
     encryptionAvailable = true;
-    return key;
+    return cryptoKey;
   } catch {
     // Some browsers refuse to structured-clone a CryptoKey in private mode.
     encryptionAvailable = false;

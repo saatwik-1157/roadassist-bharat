@@ -160,10 +160,46 @@ test("incident references are readable aloud and free of ambiguous glyphs", () =
   }
 });
 
-test("incident references do not collide in any plausible number of retries", () => {
+test("incident references carry the entropy their length claims", () => {
+  // Two assertions, one property: the keyspace is the size this id's whole
+  // argument assumes, and every letter is equally likely to fill it.
+  //
+  // This used to assert ZERO collisions in 5,000 draws and failed roughly one
+  // run in sixty — not a bug in the generator, the birthday paradox. 30^6 is
+  // 7.29e8, so 5,000 draws collide with probability 1 - e^(-5000^2/2N), about
+  // 1.7%. A test that red-lights the build 1.7% of the time teaches people to
+  // re-run it, which is how a real failure gets waved through. Uniqueness
+  // itself is guaranteed by the server's constraint, which is where it belongs.
+  const ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
+  const DRAWS = 10000;
   const seen = new Set<string>();
-  for (let i = 0; i < 5000; i++) seen.add(engine.newIncidentId());
-  assert.equal(seen.size, 5000, "a collision here would merge two people's emergencies");
+  const counts = new Map<string, number>(ALPHABET.split("").map((c) => [c, 0]));
+
+  for (let i = 0; i < DRAWS; i++) {
+    const id = engine.newIncidentId();
+    seen.add(id);
+    for (const ch of id.slice(3)) counts.set(ch, (counts.get(ch) ?? 0) + 1);
+  }
+
+  // A generator with a broken alphabet or a byte source stuck near zero
+  // collides hundreds of times here, not a dozen. Expected is about 0.07.
+  const collisions = DRAWS - seen.size;
+  assert.ok(
+    collisions <= 12,
+    `${collisions} collisions in ${DRAWS} draws — the keyspace is far smaller than 30^6`,
+  );
+
+  // `byte % 30` maps 16 letters to nine byte values and 14 to eight, making the
+  // first half of the alphabet 12.5% likelier — far outside sampling noise over
+  // 60,000 characters, so this pins the rejection sampling down.
+  const expected = (DRAWS * 6) / ALPHABET.length;
+  for (const [ch, n] of counts) {
+    const drift = Math.abs(n - expected) / expected;
+    assert.ok(
+      drift < 0.08,
+      `"${ch}" appeared ${n} times, expected about ${expected} (${(drift * 100).toFixed(1)}% off)`,
+    );
+  }
 });
 
 test("the server's clientIncidentId pattern accepts exactly what the device mints", () => {
