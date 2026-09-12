@@ -237,7 +237,7 @@ health 15 ms · diagnose 16 ms · booking detail 31 ms · map 16 ms · **dispatc
 | `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
 | `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
 | `boundaries` | four fitness functions: module boundaries, the offline-shell completeness check, the documented-claims check and the code-citation check |
-| `android` | lint, 29 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
+| `android` | lint, 36 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
 | `ai` | syntax-checks every CV script and runs the pipeline unit tests |
 
 `android` and `ai` were added because `mobile/` and `ai/` ship as real artefacts
