@@ -30,7 +30,7 @@
       "why": "needs a Razorpay sandbox account and refuses to run without one; never counted in the total, never described as passing"
     },
     "otherRunners": {
-      "android": 21,
+      "android": 23,
       "ai": 39,
       "why": "separate toolchains with their own runners; not part of the six-suite total"
     }

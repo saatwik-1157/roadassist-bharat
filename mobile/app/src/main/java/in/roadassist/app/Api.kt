@@ -2,6 +2,8 @@ package `in`.roadassist.app
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -27,6 +29,12 @@ object Api {
     @Volatile var base: String = "http://10.0.2.2:4000"
     @Volatile var token: String? = null
     @Volatile var refreshToken: String? = null
+
+    /**
+     * Only one rotation at a time, across coroutines AND the WebView's binder
+     * threads. See [refresh] for why this is not merely an optimisation.
+     */
+    private val rotating = Mutex()
 
     /** The access token the WebView bridge should use right now. */
     fun currentToken(): String = token ?: ""
@@ -60,17 +68,47 @@ object Api {
         return json
     }
 
-    /** Rotate the refresh token; returns true if a fresh access token was obtained. */
+    /**
+     * Rotate the refresh token; returns true if a fresh access token was obtained.
+     *
+     * Single-flight, and that is a correctness requirement rather than a saved
+     * round-trip. The server rotates refresh tokens and treats a SECOND
+     * presentation of an already-rotated one as theft: `rotateSession` burns
+     * every session in the family and answers "For your security every session
+     * has been signed out." Two callers refreshing the same token concurrently
+     * therefore do not merely duplicate work — the first succeeds and the
+     * second signs the user out of everything and raises a false theft signal.
+     *
+     * It is reachable: the map WebView's `AndroidAuth.refresh()` bridge runs on
+     * a binder thread and can land while a Compose coroutine is already
+     * rotating, and any two screens whose access token expires together will
+     * both 401 and both try.
+     *
+     * So the token is re-read INSIDE the lock: a caller that queued behind a
+     * successful rotation finds it already changed and reports success without
+     * presenting the burnt one.
+     */
     suspend fun refresh(): Boolean {
-        val rt = refreshToken ?: return false
-        val (code, json) = raw("POST", "/v1/auth/refresh", JSONObject().put("refreshToken", rt))
-        if (code in 200..299) {
-            adoptSession(json.optJSONObject("data") ?: return false)
-            return true
+        // Captured BEFORE the lock: this is the token this caller actually saw
+        // fail. Re-reading inside would pick up a rotation that already
+        // happened and present the fresh token for a second, pointless spin.
+        val presented = refreshToken ?: return false
+        return rotating.withLock {
+            // Somebody rotated while this caller queued. Their token is live,
+            // `presented` is now the burnt one, and sending it is precisely the
+            // reuse this lock exists to prevent. Report their success as ours.
+            if (refreshToken != presented) return@withLock refreshToken != null
+
+            val (code, json) = raw("POST", "/v1/auth/refresh", JSONObject().put("refreshToken", presented))
+            if (code in 200..299) {
+                adoptSession(json.optJSONObject("data") ?: return@withLock false)
+                return@withLock true
+            }
+            // Genuinely rejected (expired, or a reuse from another device) —
+            // the session is gone.
+            clear()
+            return@withLock false
         }
-        // Refresh failed (expired / reuse) — the session is truly gone.
-        clear()
-        return false
     }
 
     /** Blocking rotation for the WebView JS bridge (runs on a binder thread). */
