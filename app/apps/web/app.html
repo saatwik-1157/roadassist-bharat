@@ -1562,6 +1562,22 @@
     } catch (e) {
       if (!ctrl.signal.aborted) stream.attempts++;
     } finally {
+      // Only tear down the stream this call actually owns.
+      //
+      // The 401 path does `return streamOpen()` from inside this try, and
+      // `return f()` runs the finally IMMEDIATELY — before f settles, not
+      // after. So without this check the outer call's finally nulls the
+      // controller the REOPEN just claimed: a live stream nobody holds a
+      // handle to, plus a scheduled reconnect whose guard now passes, opening
+      // a second one beside it.
+      //
+      // An access token expires every ten minutes, so that is one orphaned
+      // stream every ten minutes, each kept alive by the server's 25s
+      // heartbeat and unabortable because the controller is gone. At
+      // MAX_STREAMS_PER_USER (4) the server starts refusing, and real-time
+      // quietly stops working — the polling fallback hides it, which is
+      // exactly why it would never be reported.
+      if (stream.ctrl !== ctrl) return;
       stream.alive = false;
       stream.ctrl = null;
       startBookingPoll();                      // back to the fast cadence
