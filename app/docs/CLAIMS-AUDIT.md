@@ -39,7 +39,7 @@ claims that cannot be demonstrated for a list that can be, live, in five minutes
 | SOS works with no internet | `raiseOffGridSos()` → IndexedDB → `/v1/sos/offline-sync` | `ui-journey.mjs` §7b, `e2e-journey.mjs` §12b | **IMPLEMENTED** |
 | "No duplicate incident" on reconnect | `incidents.client_incident_id` UNIQUE + `onConflictDoNothing` | `concurrency-test.mjs` §4, §5 | **IMPLEMENTED** |
 | AI diagnosis works offline | `offline-engine.js`, mirrors the server rule table | `offline-engine.test.ts` divergence guard | **IMPLEMENTED** |
-| "AI-powered" | Deterministic rules engine (ADR-0006) + a trained YOLO11n for road damage in `ai/` | 101 unit tests | **PARTIAL** — the diagnosis "AI" is a rules engine, labelled as such in the UI. A remote model is an env change away and none is configured. |
+| "AI-powered" | Deterministic rules engine (ADR-0006) + a trained YOLO11n for road damage in `ai/` | 108 unit tests | **PARTIAL** — the diagnosis "AI" is a rules engine, labelled as such in the UI. A remote model is an env change away and none is configured. |
 | Two mechanics can't take one job | `SELECT … FOR UPDATE` on the booking row | `concurrency-test.mjs` §1, §2 | **IMPLEMENTED** |
 | Real-time status without refresh | SSE `/v1/events` | `concurrency-test.mjs` §8, `ui-journey.mjs` §7c — measured 65 ms | **IMPLEMENTED** |
 | Payments are gateway-verified | HMAC signature check, webhook, amount match | `razorpay-test.mjs` (22) | **IMPLEMENTED** against a local stub of Razorpay's API. Never run against a real account. |

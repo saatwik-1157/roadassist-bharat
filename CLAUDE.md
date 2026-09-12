@@ -62,7 +62,7 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 101 unit — no I/O, the only ones that run standalone
+npm test                 # 108 unit — no I/O, the only ones that run standalone
 npm run test:e2e         # 189
 npm run test:concurrency # 65
 npm run test:gateway     # 26
@@ -71,7 +71,7 @@ npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
 ```
 
 `npm run test:razorpay` (22) needs a Razorpay sandbox account and refuses to run
-without one. It is **not** part of the 618 and must never be described as
+without one. It is **not** part of the 626 and must never be described as
 passing.
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (18

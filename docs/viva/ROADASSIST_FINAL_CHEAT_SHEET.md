@@ -66,7 +66,7 @@ no double charge. **Sandbox/stub only.**
 
 ### Testing
 Unit **61** · E2E **189** · Gateway **26** · Concurrency **65** · Security **74**
-· Browser **163** = **618 executed, 0 failures**, run twice. Plus a 15-beat
+· Browser **163** = **626 executed, 0 failures**, run twice. Plus a 15-beat
 timed demo rehearsal. A 7th suite (22 payment checks) **needs a Razorpay
 account and is not run — say so.**
 
