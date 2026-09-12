@@ -3833,10 +3833,33 @@
     opts = opts || {};
     if (ogSyncing || !Store || state.tier === RA_OFFLINE) return null;
 
-    var entries = await Store.dueEntries();
-    if (!entries.length) { renderOffGrid(); return null; }
-
+    // Claim the flag BEFORE the first await, not after.
+    //
+    // It used to be set below the dueEntries() read, which meant the guard
+    // above covered nothing: two calls arriving before that read resolved both
+    // passed it and both ran the whole replay. Reachable on the one event this
+    // screen exists for — boot fires syncOffGrid() WITHOUT awaiting it, while a
+    // tier change fires onConnectionRestored() in the same tick.
+    //
+    // The journal itself survives a double replay (markSynced deletes the entry
+    // and markFailed no-ops on a missing row) and the server dedupes the sends,
+    // so no duplicate incident was ever created. What it cost was the retry
+    // budget: both loops called markFailed on the same entry, so ONE real
+    // attempt consumed TWO of the twelve automatic retries and stepped the
+    // backoff twice. An unsent emergency reached the ceiling — nextAttemptAt
+    // Infinity, no further automatic attempts — in half the attempts it was
+    // designed to get.
     ogSyncing = true;
+
+    var entries;
+    try {
+      entries = await Store.dueEntries();
+    } catch (e) {
+      ogSyncing = false;
+      throw e;
+    }
+    if (!entries.length) { ogSyncing = false; renderOffGrid(); return null; }
+
     setSyncState("syncing");
     ogProgress("<b>Synchronizing emergency information…</b>");
     if (!opts.quiet) toast("Synchronizing emergency information…", "ok");
