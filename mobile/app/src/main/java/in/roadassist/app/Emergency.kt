@@ -236,10 +236,22 @@ object Emergency {
     }
 
     // ── local queue: survives no-signal and replays when data returns ──────
+    /**
+     * A queued SOS carries a client reference minted HERE, not at replay time.
+     *
+     * The reference is what makes the replay idempotent, so it has to be the
+     * same on every attempt: minting it in [flush] would produce a fresh one
+     * per try and defeat the whole point. See [SosLadder.newIncidentRef].
+     */
     fun queue(ctx: Context, lat: Double, lng: Double) {
         val prefs = ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
         val arr = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
-        arr.put(JSONObject().put("lat", lat).put("lng", lng).put("at", System.currentTimeMillis()))
+        arr.put(
+            JSONObject()
+                .put("lat", lat).put("lng", lng)
+                .put("ref", SosLadder.newIncidentRef())
+                .put("at", System.currentTimeMillis()),
+        )
         prefs.edit().putString(QUEUE_KEY, arr.toString()).apply()
     }
 
@@ -248,7 +260,19 @@ object Emergency {
         return JSONArray(prefs.getString(QUEUE_KEY, "[]")).length()
     }
 
-    /** Replay queued SOS through the API once data is back; clears on success. */
+    /**
+     * Replay queued SOS through the API once data is back; clears on success.
+     *
+     * Every post carries the entry's `clientIncidentId`, which is the only
+     * thing standing between a retry and a second ambulance. Without it, an
+     * attempt that the server COMMITTED but whose response was lost looks
+     * identical to one that never arrived: the entry stays queued, the next
+     * flush posts it again, and one breakdown becomes two incidents and two
+     * responders. With it, the server converges on the incident that already
+     * exists (`onConflictDoNothing` behind a unique index) and the replay is
+     * free. That also makes the confirm step safe to retry, which is why a
+     * failure there can simply leave the entry queued.
+     */
     suspend fun flush(ctx: Context): Int {
         if (!hasData(ctx)) return 0
         val prefs = ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
@@ -257,10 +281,15 @@ object Emergency {
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
             try {
+                // Entries queued by an older build have no reference. Mint one
+                // so at least THIS flush's own retries converge, rather than
+                // dropping back to the duplicate-raising behaviour entirely.
+                val ref = o.optString("ref", "").ifEmpty { SosLadder.newIncidentRef() }
                 val raised = Api.post(
                     "/v1/sos",
                     JSONObject().put("lat", o.getDouble("lat")).put("lng", o.getDouble("lng"))
-                        .put("source", "manual"),
+                        .put("source", "manual")
+                        .put("clientIncidentId", ref),
                 ).getJSONObject("data")
                 Api.post("/v1/sos/${raised.getString("id")}/confirm")
                 sent++

@@ -179,4 +179,60 @@ class SosLadderTest {
             SosLadder.Rung.entries.toList(),
         )
     }
+    /* ── the client reference: the only thing between a replay and a second
+          ambulance ────────────────────────────────────────────────────────── */
+
+    @Test
+    fun `a client reference matches exactly what POST v1 sos accepts`() {
+        // The same expression apps/api/src/routes/emergency.ts validates with.
+        // If one moves, this fails — which is the point of writing it out.
+        val serverPattern = Regex("^RA-[ABCDEFGHJKMNPQRSTVWXYZ23456789]{6}$")
+        repeat(500) {
+            val ref = SosLadder.newIncidentRef()
+            assertTrue("server would reject $ref", serverPattern.matches(ref))
+        }
+    }
+
+    @Test
+    fun `a client reference avoids the glyphs that misread on a cracked screen`() {
+        // This id may be read aloud over a borrowed phone or a police radio.
+        repeat(500) {
+            val body = SosLadder.newIncidentRef().substring(3)
+            assertTrue("0/1/I/L/O/U are misread: $body", !body.any { it in "01ILOU" })
+        }
+    }
+
+    @Test
+    fun `client references carry the entropy their length claims`() {
+        // Two assertions, one property: the keyspace is 30^6 as the reference
+        // length claims, and every letter is equally likely to fill it.
+        //
+        // Uniqueness itself is the server's unique index to guarantee, so this
+        // deliberately does NOT assert zero collisions — at 30^6 that is the
+        // birthday paradox and would fail honestly about 1 run in 60.
+        val alphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
+        val draws = 10000
+        val seen = HashSet<String>()
+        val counts = HashMap<Char, Int>()
+        repeat(draws) {
+            val ref = SosLadder.newIncidentRef()
+            seen.add(ref)
+            for (ch in ref.substring(3)) counts[ch] = (counts[ch] ?: 0) + 1
+        }
+
+        // A broken alphabet or a byte source stuck near zero collides hundreds
+        // of times here, not a dozen. Expected is about 0.07.
+        val collisions = draws - seen.size
+        assertTrue("$collisions collisions in $draws draws — keyspace is not 30^6", collisions <= 12)
+
+        // `byte % 30` would make the first 16 letters 12.5% likelier, far
+        // outside sampling noise over 60,000 characters.
+        val expected = (draws * 6).toDouble() / alphabet.length
+        for (ch in alphabet) {
+            val n = counts[ch] ?: 0
+            val drift = kotlin.math.abs(n - expected) / expected
+            assertTrue("'$ch' appeared $n times, expected about $expected", drift < 0.08)
+        }
+    }
+
 }

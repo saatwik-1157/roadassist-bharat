@@ -166,7 +166,21 @@ const CHECKS = [
   {
     label: "Android runner",
     expect: String(measured.assertions.otherRunners.android),
-    re: /(\d+)\s+Android (?:unit )?tests\b/g,
+    // This was written as `(\d+)\s+Android tests`, a phrasing no document
+    // actually uses, so the check matched nothing and the count sat ungated
+    // exactly like the per-suite numbers did. Both live shapes are anchored to
+    // something Android, because a bare "N unit tests" would also match the
+    // app's own 108 in CLAIMS-AUDIT.md.
+    re: /`android`[^|]*\|[^|]*?(\d+)\s+unit tests|testDebugUnitTest[^(]{0,80}\((\d+)\s*\n?\s*tests?\)/g,
+    group: (m) => m[1] ?? m[2],
+    allow: [],
+  },
+  {
+    label: "AI runner",
+    expect: String(measured.assertions.otherRunners.ai),
+    // CLAUDE.md carried "(12, stdlib only)" against a suite that had grown to
+    // 39 — nothing was watching this one either.
+    re: /unittest discover -s ai\/tests`?[^(\n]{0,20}\((\d+)/g,
     allow: [],
   },
   {
