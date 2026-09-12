@@ -7,8 +7,9 @@
  *   1. A schema module may import only from _shared and modules it declares below.
  *   2. Nothing outside packages/db may import a schema file directly — the
  *      package index is the contract.
- *   3. Every local script a cached page loads must itself be in SHELL_ASSETS,
- *      or Off-Grid Mode ships without it.
+ *   3. Every local script, stylesheet, font sheet, manifest and icon a cached
+ *      page loads must itself be in SHELL_ASSETS, or Off-Grid Mode ships
+ *      without it.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -91,13 +92,25 @@ function checkOfflineShell() {
   for (const page of cachedPages) {
     let html;
     try { html = readFileSync(join(web, page.slice(1)), "utf8"); } catch { continue; }
-    for (const m of html.matchAll(/<script[^>]+src="([^"]+)"/g)) {
-      const src = m[1];
-      if (/^https?:|^\/\//.test(src)) continue;          // external, not ours to cache
-      const abs = src.startsWith("/") ? src : "/" + src;
+    // Scripts AND the boot-critical <link>s. The rule was written for the
+    // missing script that prompted it and checked only <script src>, which
+    // leaves the identical failure open one tag along: a cached page whose
+    // stylesheet is uncached still boots off-grid, simply with no styling, and
+    // nothing logs. Fonts, the manifest and the icons fail the same quiet way.
+    const refs = [
+      ...[...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => ["loads", m[1]]),
+      ...[...html.matchAll(/<link\b[^>]*>/g)]
+        .filter((t) => /rel="(?:stylesheet|manifest|icon|apple-touch-icon)"/.test(t[0]))
+        .map((t) => ["links", t[0].match(/href="([^"]+)"/)?.[1]]),
+    ];
+
+    for (const [verb, src] of refs) {
+      if (!src) continue;
+      if (/^https?:|^\/\/|^data:/.test(src)) continue;   // external, not ours to cache
+      const abs = (src.startsWith("/") ? src : "/" + src).split("?")[0];
       if (!listed.has(abs)) {
         violations.push(
-          `apps/web/sw.js: ${page} loads ${src}, which is not in SHELL_ASSETS — ` +
+          `apps/web/sw.js: ${page} ${verb} ${src}, which is not in SHELL_ASSETS — ` +
           "off-grid users would load the page without it",
         );
       }
