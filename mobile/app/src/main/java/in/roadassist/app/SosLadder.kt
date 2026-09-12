@@ -23,6 +23,45 @@ object SosLadder {
 
     enum class Rung { DATA, SMS, DIALER, QUEUED }
 
+    /**
+     * Crockford base32 minus the glyphs that read as digits on a cracked
+     * screen. The same alphabet the web engine mints from and the same one
+     * `POST /v1/sos` validates against — all three move together or not at all.
+     */
+    private const val REF_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
+    private const val REF_LENGTH = 6
+    private val refRandom = java.security.SecureRandom()
+
+    /**
+     * A client-minted reference for one emergency: `RA-XXXXXX`.
+     *
+     * This is the idempotency key for a queued SOS, and the ONLY thing that
+     * stops a replay becoming a second emergency. A queue entry replayed after
+     * a lost response — the server committed, the answer never arrived — raises
+     * a second incident without it, which alerts the family twice and occupies
+     * a second responder for one breakdown.
+     *
+     * Rejection-sampled rather than `% 30`: 256 is not a multiple of 30, so a
+     * bare modulo makes the first 16 letters 12.5% likelier and quietly shrinks
+     * the keyspace. Uniqueness is still the server's unique index to guarantee;
+     * this only has to supply enough entropy that it never has to.
+     */
+    fun newIncidentRef(): String {
+        val limit = 256 - (256 % REF_ALPHABET.length)   // 240
+        val sb = StringBuilder(REF_LENGTH)
+        val buf = ByteArray(REF_LENGTH)
+        while (sb.length < REF_LENGTH) {
+            refRandom.nextBytes(buf)
+            for (b in buf) {
+                val v = b.toInt() and 0xFF
+                if (v >= limit) continue                // would skew the alphabet
+                sb.append(REF_ALPHABET[v % REF_ALPHABET.length])
+                if (sb.length == REF_LENGTH) break
+            }
+        }
+        return "RA-$sb"
+    }
+
     enum class SmsOutcome {
         /** The platform confirmed the message left the device. */
         SENT,
