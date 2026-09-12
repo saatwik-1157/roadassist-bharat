@@ -74,7 +74,7 @@ const api = spawn(process.execPath, ["--import", "tsx", "src/server.ts"], {
     TELECOM_WEBHOOK_SECRET: SECRET,
     OTP_IP_MAX: "3",
     SMS_PROVIDER: "twilio",
-    SMS_API_KEY: "ACtest:authtok",
+    SMS_API_KEY: "AC000000000000000000000000deadbeef:authtok",
     SMS_SENDER_ID: "+15550000001",
     SMS_BASE_URL: `http://localhost:${STUB_PORT}`,
     PAYMENTS_PROVIDER: "razorpay",
@@ -126,10 +126,10 @@ ok("correctly signed webhook accepted", signed.status === 200 && Boolean(signedJ
 
 // ── Twilio adapter wire format (captured by the stub) ──
 ok("Twilio adapter hit the Messages endpoint",
-   Boolean(lastTwilio) && lastTwilio.url === "/2010-04-01/Accounts/ACtest/Messages.json",
+   Boolean(lastTwilio) && lastTwilio.url === "/2010-04-01/Accounts/AC000000000000000000000000deadbeef/Messages.json",
    lastTwilio?.url ?? "no request captured");
 ok("HTTP Basic auth = base64(SID:token)",
-   lastTwilio?.auth === "Basic " + Buffer.from("ACtest:authtok").toString("base64"));
+   lastTwilio?.auth === "Basic " + Buffer.from("AC000000000000000000000000deadbeef:authtok").toString("base64"));
 const form = new URLSearchParams(lastTwilio?.body ?? "");
 ok("form-encoded From/To/Body present",
    (lastTwilio?.ct ?? "").includes("x-www-form-urlencoded") &&
