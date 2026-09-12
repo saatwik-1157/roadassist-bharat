@@ -272,6 +272,48 @@ export function validateEnv(): void {
     );
   }
 
+  /**
+   * A configured gateway with no credentials boots happily and then throws on
+   * the first OTP — a 500 at the exact moment somebody is trying to sign in,
+   * and nothing in the startup log hints at why. This is the case validateEnv
+   * exists for, and it was missing: `assertProductionSafe` checked it, but only
+   * in production, which is precisely where nobody is experimenting.
+   */
+  if (env.sms.provider !== "console") {
+    if (!env.sms.apiKey) {
+      problems.push(
+        `SMS_PROVIDER="${env.sms.provider}" but SMS_API_KEY is empty. ` +
+        (env.sms.provider === "twilio"
+          ? 'Set SMS_API_KEY="ACCOUNT_SID:AUTH_TOKEN" from the Twilio console.'
+          : "Set SMS_API_KEY to the gateway's auth key.") +
+        ' Or set SMS_PROVIDER=console to sign in with the fixed DEV_OTP instead.',
+      );
+    } else if (env.sms.provider === "twilio" && !/^AC[0-9a-f]{32}:.+/i.test(env.sms.apiKey)) {
+      // Two values in one variable is easy to get wrong, and the failure is a
+      // 401 from Twilio that reads like a bad password rather than a typo.
+      problems.push(
+        'SMS_API_KEY does not look like "ACCOUNT_SID:AUTH_TOKEN" — the SID starts ' +
+        'with AC and is 34 characters, then a colon, then the auth token.',
+      );
+    }
+
+    if (env.sms.provider === "twilio" && !/^\+[1-9]\d{6,14}$/.test(env.sms.senderId)) {
+      // Twilio's From must be a number it has issued you (or an approved
+      // alphanumeric sender, which India does not permit for A2P).
+      problems.push(
+        `SMS_SENDER_ID="${env.sms.senderId}" is not an E.164 number. For Twilio ` +
+        "this must be the number in your console, e.g. +15551234567.",
+      );
+    }
+
+    if (env.sms.provider === "msg91" && !env.sms.dltTemplateId) {
+      problems.push(
+        "MSG91 needs SMS_DLT_TEMPLATE_ID — Indian A2P messages are template-bound " +
+        "under TRAI DLT and a send without one is rejected by the gateway.",
+      );
+    }
+  }
+
   if (!/^postgres(ql)?:\/\//.test(env.databaseUrl)) {
     problems.push(
       `DATABASE_URL does not look like a Postgres URL. ` +
