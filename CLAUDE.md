@@ -41,7 +41,7 @@ cd app
 docker compose up -d db          # PostGIS on 5434 — 5432/5433 are other projects
 npm run demo:reset               # reset + migrate + seed + seed:raksha
 npm start                        # API on :4000, serves the web surfaces too
-npm run verify                   # typecheck · lint · boundaries · claims · unit tests
+npm run verify                   # typecheck · lint · boundaries · claims · citations · unit tests
 ```
 
 **`npm run db:seed` is not idempotent.** It inserts roles that the migration
@@ -182,7 +182,16 @@ for it: `app/docs/CLAIMS-AUDIT.md`. Follow it.
 
 - If you change a number that appears in the docs, **measure it**, then update
   every occurrence — `grep -r` across `*.md`, the deck sources in `ppt/*.py`,
-  and rebuild the deck.
+  and rebuild the deck. `npm run claims` is the gate; it reads
+  `app/docs/measured.json` and checks the total, every individual suite, and the
+  `npm run … # N` comments the command lists are written as.
+- **A `file.ts:123` in the docs is a claim too.** `npm run citations` checks that
+  every one still resolves. `docs/viva/CODE_TO_VIVA_MAP.md` and
+  `FINAL_PROFESSOR_DEFENSE.md` tell the reader to *open* the file rather than
+  describe it, so a rotted line number is discovered in front of an examiner —
+  lifting the auth and emergency routes out of `server.ts` shifted ten of them
+  and pushed two past the end of the file. After any refactor, re-derive them by
+  grepping for the route or the function; never nudge the number.
 - **Dated evidence is not a living document.** `docs/release/` and
   `docs/verification/` record what was true for a given build. If a figure was
   *correct when written* and has since changed, annotate — do not rewrite. If it
