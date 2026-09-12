@@ -102,7 +102,29 @@ schema, not `public`.)
 
 ---
 
-## 5. Remaining wording risk
+## 5. Eight languages — what is and is not verified
+
+The roadmap named eight languages. All eight now ship across the API's SMS and
+OTP messages, the Android UI and the web citizen app's critical paths. The
+claim needs one qualification every time it is made.
+
+| | |
+|---|---|
+| **Verified** | The strings exist in all eight, every key in every locale (asserted by test), every message inside its SMS segment budget (asserted by test), and Android lint fails the build on a missing translation (verified by deleting one). Live SMS checked end to end in Tamil, Telugu, Bengali and Kannada; all eight checked in a real browser. |
+| **NOT verified** | **Translation quality.** Seven of the eight are machine-translated and have not been read by a native speaker. Register and idiom are where that shows. |
+
+**So say it this way:** *"Eight languages, and the mechanism is tested — every
+key present, every SMS inside one segment, the build fails if a translation is
+missing. The translations themselves are not yet native-reviewed, and that is
+the next thing I would fix."*
+
+Do not say *"supports eight languages"* with no qualifier. It invites the one
+question there is no good answer to: *who checked the Tamil?*
+
+---
+
+
+## 6. Remaining wording risk
 
 **Resolved in Phase 9.** The two decks were examined separately:
 

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Telugu. Android selects this automatically when the device locale is te;
+  there is no switcher to find and no setting to change, which is right for a
+  phone whose owner already chose their language once.
+
+  app_name is not here on purpose: it is marked translatable="false" because the
+  brand is what a user looks for on a home screen.
+
+  Written for the screen someone is actually holding — short lines, the outcome
+  first. Machine-translated and NOT yet reviewed by a native speaker; see
+  app/docs/TESTING.md for what that means for the claim.
+-->
+<resources>
+    <string name="sos_sms_sent">RoadAssist-కు SMS ద్వారా SOS పంపాము (%1$s). డేటా అవసరం లేదు — మీ సిమ్‌మే గుర్తింపు.</string>
+    <string name="sos_sms_unconfirmed">SOS SMS ద్వారా పంపాము (ధృవీకరణ లేదు) — డేటా వచ్చాక ఒక బ్యాకప్ కూడా వెళ్తుంది. సిమ్‌మే గుర్తింపు.</string>
+    <string name="sos_dialer">RoadAssist చేరలేకపోయాం — 112 తెరుస్తున్నాం, అది ఏ టవర్‌తోనైనా కలుస్తుంది. మీ SOS సేవ్ అయింది, సిగ్నల్ రాగానే వెళ్తుంది.</string>
+    <string name="sos_queued">సిగ్నల్ అస్సలు లేదు. SOS ఈ ఫోన్‌లో సేవ్ అయింది — కనెక్షన్ రాగానే దానంతట అదే వెళ్తుంది. వీలైతే బహిరంగ ప్రదేశం లేదా హైవే వైపు కదలండి.</string>
+    <string name="report_hazard_short">⚠  ప్రమాదం తెలపండి</string>
+    <string name="report_hazard_title">రోడ్డు ప్రమాదం తెలపండి</string>
+    <string name="report_hazard_sub">మీ లొకేషన్ జతచేయబడుతుంది, తద్వారా అధికారులు కనుగొని ధృవీకరించగలరు.</string>
+    <string name="label_type_prefix">"రకం: "</string>
+    <string name="action_remove">తొలగించు</string>
+    <string name="action_attach_photo">📷  ఫోటో జతచేయి</string>
+    <string name="action_cancel">రద్దు</string>
+    <string name="photo_attached">📷 ఫోటో జతచేయబడింది</string>
+    <string name="cd_attached_photo">జతచేసిన ఫోటో</string>
+    <string name="field_note_optional">గమనిక (ఐచ్ఛికం)</string>
+    <string name="bookings_empty">సహాయం బుక్ చేస్తే ఇక్కడ కనిపిస్తుంది.</string>
+    <string name="action_request_assistance">సహాయం అడగండి</string>
+    <string name="bookings_sub">మీ బుకింగ్ చరిత్ర — కొత్తవి ముందు.</string>
+    <string name="trip_guardian">ట్రిప్ గార్డియన్</string>
+    <string name="trip_guardian_sub">సిగ్నల్ పోయేలోపు మార్గం సిద్ధం చేయండి — వాతావరణం, సిగ్నల్ లేని ప్రాంతాలు, ఆఫ్‌లైన్ మ్యాప్ ఈ ఫోన్‌లోనే.</string>
+    <string name="label_weather">"వాతావరణం  "</string>
+    <string name="label_deadzone_risk">సిగ్నల్ లేని ప్రమాదం</string>
+    <string name="cd_offline_route_map">ఆఫ్‌లైన్ రూట్ మ్యాప్</string>
+    <string name="my_reports">మీ ప్రమాద నివేదికలు</string>
+    <string name="my_reports_sub">ప్రతి నివేదికను అధికారి సమీక్షించే స్థితి చూడండి.</string>
+    <string name="emergency_contacts">అత్యవసర పరిచయాలు</string>
+    <string name="emergency_contacts_sub">మీరు SOS ధృవీకరించినప్పుడు వీరికి మీ లైవ్ లొకేషన్ పంపబడుతుంది.</string>
+    <string name="emergency_contacts_empty">ఇంకా ఎవరూ లేరు — SOS ఎవరికైనా చేరేలా ఒకరిని జోడించండి.</string>
+    <string name="action_add_contact">పరిచయం జోడించు</string>
+    <string name="field_contact_name">పరిచయం పేరు</string>
+    <string name="field_contact_phone">వారి మొబైల్ (+91…)</string>
+    <string name="about">గురించి</string>
+    <string name="about_body">RoadAssist భారత్ — ఒక వేదిక, ప్రతి వాహనం, ప్రతి రహదారి. ఇది విద్యార్థి నమూనా; నిజమైన అత్యవసర సేవ అనుసంధానం కాలేదు.</string>
+    <string name="action_sign_out">సైన్ అవుట్</string>
+    <string name="tagline">ప్రతి వాహనం · ప్రతి రహదారి · ప్రతి ఫోన్</string>
+    <string name="signin_sub">లైవ్ RoadAssist API నుండి నిజమైన OTP. డెవలప్‌మెంట్‌లో సర్వర్ కోడ్ తిరిగి ఇస్తుంది, అది దానంతట నిండుతుంది.</string>
+    <string name="field_api_base_url">API బేస్ URL (10.0.2.2 = ఎమ్యులేటర్ నుండి మీ PC)</string>
+    <string name="field_mobile_number">మొబైల్ నంబర్ (+91…)</string>
+    <string name="field_otp_code">6 అంకెల కోడ్</string>
+    <string name="action_send_otp">OTP పంపు</string>
+    <string name="action_verify_sign_in">ధృవీకరించి సైన్ ఇన్</string>
+    <string name="sos_alert_now">ఇప్పుడే పంపు</string>
+    <string name="sos_5s_to_cancel">రద్దుకు 5 సెకన్లు</string>
+    <string name="vehicle_add_title">మీ వాహనాన్ని జోడించండి</string>
+    <string name="vehicle_yours">మీ వాహనం</string>
+    <string name="field_registration_number">రిజిస్ట్రేషన్ నంబర్</string>
+    <string name="action_add_vehicle">వాహనం జోడించు</string>
+    <string name="action_add_vehicle_first">ముందు వాహనం జోడించండి</string>
+    <string name="hazard_prompt_title">రోడ్డుపై ప్రమాదం కనిపించిందా?</string>
+    <string name="hazard_prompt_sub">గుంత, పాడైన చోటు లేదా అడ్డంకిని తెలపండి. ఇది RAKSHA మ్యాప్‌లోకి, అధికారుల జాబితాలోకి వెళ్తుంది.</string>
+    <string name="hazard_prompt_action">⚠  రోడ్డు ప్రమాదం తెలపండి</string>
+    <string name="dispatch_requesting_near">ఇక్కడ సహాయం అడుగుతున్నాం</string>
+    <string name="action_clear">తీసివేయి</string>
+    <string name="from_map">"  ★ మ్యాప్ నుండి"</string>
+    <string name="action_accept">అంగీకరించు</string>
+    <string name="mechanics_nearby">దగ్గరలోని ధృవీకరించిన మెకానిక్‌లు</string>
+    <string name="mechanics_nearby_sub">దగ్గరలోని ధృవీకరించిన మెకానిక్‌లు, సర్వర్‌లో నిజమైన PostGIS క్వెరీతో క్రమబద్ధం.</string>
+    <string name="action_request">అడుగు</string>
+    <string name="field_what_happened">ఏమి జరిగింది?</string>
+    <string name="action_book_dispatch">బుక్ చేసి పంపు</string>
+    <string name="label_severity">తీవ్రత: %1$s</string>
+    <string name="sos_alerting_in">%1$d లో పంపబడుతుంది…</string>
+    <string name="label_vehicle_type">రకం: %1$s</string>
+    <string name="map_tiles_cached">ఈ ఫోన్‌లో మ్యాప్ టైల్స్: %1$d/%2$d · ఆఫ్‌లైన్‌లో కనిపిస్తాయి · © OpenStreetMap</string>
+</resources>

@@ -110,25 +110,60 @@ Stated here rather than discovered later.
 
 ## Localisation, and exactly how far it goes
 
-English and Hindi. The roadmap names eight languages; six are **not built**, and
-`LOCALES` in `apps/api/src/i18n.ts` is the whole truth about which ship.
+**All eight languages the roadmap names now ship**: English, Hindi, Tamil,
+Telugu, Bengali, Marathi, Kannada and Gujarati. `LOCALES` in
+`apps/api/src/i18n.ts` remains the whole truth about which ones exist, and
+`values-*/` under `mobile/app/src/main/res` is its Android counterpart.
+
+### The caveat that belongs in the same breath
+
+> **These translations have not been reviewed by native speakers.** English and
+> the technical content are sound; the other seven are careful but unreviewed,
+> and register and idiom are where that shows. Saying "eight languages" without
+> saying this would be precisely the sort of claim
+> [CLAIMS-AUDIT.md](CLAIMS-AUDIT.md) exists to catch — the strings exist, the
+> quality is unverified, and those are different statements.
+>
+> What that buys is still real: a reviewer now corrects rather than translates,
+> which is a much smaller job. `docs/raksha/` is the model — one reviewer per
+> language, working from a diff.
 
 What is covered was chosen the way the rest of this product is: the messages
 that reach the people with the worst connections and the cheapest phones, first.
 
 | Surface | Covered | Not covered |
 |---|---|---|
-| API (SMS + OTP) | **Everything the platform sends** — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
-| Android | **The whole UI** — 62 strings in `values-hi/strings.xml`, and zero hardcoded literals left in `MainActivity.kt` | Toast text assembled from server responses, which arrives already localised |
-| Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 31 keys | Long explanatory prose; `I18N.coverage()` reports the real numbers |
+| API (SMS + OTP) | **Everything the platform sends**, in all 8 — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
+| Android | **The whole UI**, in all 8 — 63 strings per locale, zero hardcoded literals left in `MainActivity.kt` | Toast text assembled from server responses, which arrives already localised |
+| Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 30 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 
-A feature phone has no settings screen, so **`LANG HI` over SMS** is the switch —
-and the confirmation comes back in the new language, which is the only proof a
-reader who cannot check a menu will get. The stored preference lives in
-`users.preferred_language`, a column the schema has always had and nothing ever
-read: the seeder wrote eight languages into it while every message went out in
-English.
+That is **108 server strings, 378 Android strings and 180 web strings** for the
+seven non-English locales.
+
+A feature phone has no settings screen, so **`LANG <code>` over SMS** is the
+switch — `LANG TA`, `LANG BN`, and each language's own name is accepted too
+(`LANG தமிழ்`, `LANG বাংলা`). The confirmation comes back in the NEW language,
+which is the only proof a reader who cannot check a menu will get.
+
+The stored preference lives in `users.preferred_language`, a column the schema
+always had and nothing ever read: the seeder picked from these same eight codes
+while every message went out in English. Every one of them now resolves to
+itself, and a test asserts exactly that.
+
+On the web the control **cycles** rather than toggles — with eight languages a
+two-way switch cannot reach six of them — and its label is always the next
+language's own name in its own script, because the person who wants it is the
+one who cannot read the current one.
+
+Android needs no control at all: it picks `values-ta`, `values-bn` and the rest
+from the device locale, which the owner already set once.
+
+**Every script here except English is outside GSM 03.38** — Devanagari, Tamil,
+Telugu, Bengali, Kannada and Gujarati alike — so all seven non-English locales
+are UCS-2 at 70 characters a segment. The copy was written to that ceiling
+rather than translated and then trimmed, and `i18n.test.ts` holds all eight
+languages to the same per-key budget.
 
 **Android translation completeness is enforced by the build.** Every UI string
 lives in `values/strings.xml`, and Android lint's `MissingTranslation` is an
