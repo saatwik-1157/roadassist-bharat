@@ -80,6 +80,12 @@ dependencies {
     // what AGP's testDebugUnitTest task runs without extra wiring, and the tests
     // here need nothing JUnit 5 provides.
     testImplementation("junit:junit:4.13.2")
+    // A REAL org.json for unit tests only. The Android SDK's org.json is a stub
+    // on the JVM classpath — every method throws "not mocked" — so without this
+    // the networking layer cannot be tested off-device at all, which is how a
+    // concurrency bug in token rotation went unnoticed. Test-only, exactly like
+    // JUnit above; the shipped app still uses the platform's own org.json.
+    testImplementation("org.json:json:20240303")
     // WindowCompat — flips the status/navigation-bar icon polarity when the
     // in-app light/dark toggle changes. AndroidX, not a third-party library.
     implementation("androidx.core:core-ktx:1.13.1")
