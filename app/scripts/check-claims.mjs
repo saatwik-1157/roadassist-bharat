@@ -39,16 +39,49 @@ const APP = join(ROOT, "app");
 const measured = JSON.parse(readFileSync(join(APP, "docs", "measured.json"), "utf8"));
 
 /**
+ * The security story is told two ways, and both are true: the security suite on
+ * its own is the attack count, and "across two suites" means it plus the gateway
+ * suite. Derived rather than written down, so growing either suite moves the sum
+ * and a document still quoting the old one fails.
+ */
+const ATTACKS_BOTH_SUITES = String(
+  measured.assertions.suites.securityAudit + measured.assertions.suites.gatewaySecurity,
+);
+
+/**
+ * The size of each suite, keyed by the npm script that runs it. CLAUDE.md and
+ * app/README.md write these as trailing comments on the commands — a shape no
+ * prose regex matches, which is how `npm run test:gateway  # 26` survived the
+ * suite growing to 27 in the same commit that added this checker.
+ */
+const SCRIPT_SIZES = {
+  "test": String(measured.assertions.suites.unit),
+  "test:e2e": String(measured.assertions.suites.e2e),
+  "test:concurrency": String(measured.assertions.suites.concurrency),
+  "test:gateway": String(measured.assertions.suites.gatewaySecurity),
+  "test:security": String(measured.assertions.suites.securityAudit),
+  "test:ui": String(measured.assertions.suites.browser),
+  "test:razorpay": String(measured.assertions.notExecuted.paymentSandbox),
+};
+
+/**
  * Each check is a regex with one capturing group, and the value that group must
- * hold. `allow` lists other values that are legitimately different — the payment
- * suite's 22, which is real and deliberately not executed, is the main one.
+ * hold — either a string, or a function of the match for checks whose expected
+ * value depends on what matched. `allow` lists other values that are
+ * legitimately different — the payment suite's 22, which is real and
+ * deliberately not executed, is the main one.
  */
 const CHECKS = [
   {
     label: "total assertions",
     expect: String(measured.assertions.total),
-    re: /(\d+)\s+assertions(?:\s+(?:executed|,\s*all\s+executed))/g,
-    allow: [],
+    // Was pinned to "N assertions executed", which only ever matched the deck's
+    // own wording. "618 automated assertions across six suites" sat in
+    // ppt/README.md and "578 executed assertions" in the viva pack, both
+    // unnoticed, because neither uses that phrase. Match the noun instead and
+    // name the one figure that is legitimately different.
+    re: /(\d+)\s+(?:automated\s+|executed\s+)?assertions\b/g,
+    allow: [String(measured.assertions.notExecuted.paymentSandbox)],
   },
   {
     label: "unit suite",
@@ -93,6 +126,62 @@ const CHECKS = [
     label: "languages",
     expect: String(measured.i18n.locales),
     re: /(\d+)\s+languages\b/g,
+    allow: [],
+  },
+  // ── the individual suites ────────────────────────────────────────────────
+  // The total was gated from the start; the six numbers that add up to it were
+  // not. DEPLOYMENT.md carried "64 concurrency + 26 gateway" against a 65 and a
+  // 27 while the 626 beside it was correct, which is the worst version of this
+  // failure: a breakdown that does not sum to a total nobody doubts.
+  {
+    label: "e2e suite",
+    expect: String(measured.assertions.suites.e2e),
+    re: /(\d+)\s+(?:e2e|end-to-end)\b/g,
+    allow: [],
+  },
+  {
+    label: "concurrency suite",
+    expect: String(measured.assertions.suites.concurrency),
+    re: /(\d+)\s+concurrency\b/g,
+    allow: [],
+  },
+  {
+    label: "gateway-security suite",
+    expect: String(measured.assertions.suites.gatewaySecurity),
+    re: /(\d+)\s+gateway[ -]security\b/g,
+    allow: [],
+  },
+  {
+    label: "security suite",
+    expect: String(measured.assertions.suites.securityAudit),
+    re: /(\d+)\s+attacks\b/g,
+    allow: [ATTACKS_BOTH_SUITES],
+  },
+  {
+    label: "browser suite",
+    expect: String(measured.assertions.suites.browser),
+    re: /(\d+)\s+browser\b/g,
+    allow: [],
+  },
+  {
+    label: "Android runner",
+    expect: String(measured.assertions.otherRunners.android),
+    re: /(\d+)\s+Android (?:unit )?tests\b/g,
+    allow: [],
+  },
+  {
+    label: "suite size in an `npm run` comment",
+    expect: (m) => SCRIPT_SIZES[m[1]],
+    // Two details this regex got wrong first time round, both worth keeping:
+    //   · [a-z0-9], not [a-z] — "test:e2e" has a digit in it, and a
+    //     letters-only class backtracks to the bare "test" script and compares
+    //     the e2e count against the unit suite's.
+    //   · anchored to a line start — a composite command
+    //     ("npm run verify && npm run test:e2e  # 108 unit + 189 end-to-end")
+    //     pairs the wrong number with the script, so it is left to the prose
+    //     checks above, which read both halves correctly.
+    re: /^\s*npm run (test(?::[a-z0-9]+)?)\b[^\n#]*#\s*(\d+)/gm,
+    group: (m) => m[2],
     allow: [],
   },
 ];
@@ -159,15 +248,16 @@ for (const file of files(ROOT)) {
     let m;
     while ((m = check.re.exec(text)) !== null) {
       const found = check.group ? check.group(m) : m[1];
-      if (found === undefined) continue;
-      if (found === check.expect || check.allow.includes(found)) continue;
+      const want = typeof check.expect === "function" ? check.expect(m) : check.expect;
+      if (found === undefined || want === undefined) continue;
+      if (found === want || check.allow.includes(found)) continue;
       const upto = text.slice(0, m.index);
       const line = upto.split("\n").length;
       // Whole line, so the marker can sit at either end of it.
       const lineText = text.split(/\r?\n/)[line - 1] ?? "";
       if (lineText.includes(IGNORE_MARK)) continue;
       problems.push(
-        `${rel}:${line}  ${check.label}: found ${found}, expected ${check.expect}` +
+        `${rel}:${line}  ${check.label}: found ${found}, expected ${want}` +
         `\n      ${m[0].trim()}`,
       );
     }
@@ -176,7 +266,10 @@ for (const file of files(ROOT)) {
 
 if (process.argv.includes("--list")) {
   console.log("Checked against app/docs/measured.json:\n");
-  for (const c of CHECKS) console.log(`  ${c.label.padEnd(22)} ${c.expect}`);
+  for (const c of CHECKS) {
+    const v = typeof c.expect === "function" ? "(per npm script)" : c.expect;
+    console.log(`  ${c.label.padEnd(34)} ${v}`);
+  }
   console.log(`\nExempt (dated evidence): ${EXEMPT_DIRS.join(", ")}`);
   process.exit(0);
 }

@@ -12,7 +12,7 @@
 
 **SOS:** Creates an incident and reports every escalation rung as fact; off-grid it says *"nothing has been transmitted"* and advises calling 112, because it genuinely cannot reach emergency services without a network.
 
-**SECURITY:** OTP with per-number and per-IP ceilings, refresh rotation with reuse detected as theft, ownership checks on every resource, and 100 attacks across two suites that all fail.
+**SECURITY:** OTP with per-number and per-IP ceilings, refresh rotation with reuse detected as theft, ownership checks on every resource, and 101 attacks across two suites that all fail.
 
 **DATABASE:** PostgreSQL 16 + PostGIS — 56 tables, 62 foreign keys, money in integer paise, and an append-only hash-chained audit log the database itself refuses to let you edit.
 

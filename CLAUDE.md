@@ -41,7 +41,7 @@ cd app
 docker compose up -d db          # PostGIS on 5434 — 5432/5433 are other projects
 npm run demo:reset               # reset + migrate + seed + seed:raksha
 npm start                        # API on :4000, serves the web surfaces too
-npm run verify                   # typecheck · lint · boundaries · unit tests
+npm run verify                   # typecheck · lint · boundaries · claims · unit tests
 ```
 
 **`npm run db:seed` is not idempotent.** It inserts roles that the migration
@@ -65,7 +65,7 @@ Six in `app/`, and the last five need a live server **and** a seeded database:
 npm test                 # 108 unit — no I/O, the only ones that run standalone
 npm run test:e2e         # 189
 npm run test:concurrency # 65
-npm run test:gateway     # 26
+npm run test:gateway     # 27
 npm run test:security    # 74 attacks, every one must be refused
 npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
 ```
@@ -75,7 +75,7 @@ without one. It is **not** part of the 626 and must never be described as
 passing.
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (18
-tests). AI: `python -m unittest discover -s ai/tests` (12, stdlib only).
+tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
 
 ## Toolchain traps
 
@@ -129,6 +129,16 @@ reached 27 documents and a slide deck. The same mistake inflated the primary-key
 and index counts. Separately, `information_schema.check_constraints` emits one
 row per `NOT NULL` column, which is how "433 check constraints" was published  <!-- claims-check:ignore -->
 when there are **5**. See `app/docs/CLAIMS-AUDIT.md` §4.
+
+**That query counts tables, and only tables.** Pointing it at `relkind = 'i'`
+does *not* exclude `spatial_ref_sys_pkey`, because `pg_depend` records extension
+membership for the **table**; an index depends on its table, not on the
+extension, so the filter matches nothing and quietly passes everything through.
+Following the recipe literally gives 138 indexes and 84 unique ones against a  <!-- claims-check:ignore -->
+schema that has 137 and 83 — the failure looks like the documents drifted, so
+the temptation is to "correct" every document to the wrong figure. For indexes,
+filter on `i.indrelid`; the working queries are written out in
+`app/docs/measured.json` under `schema.how`.
 
 ## Architecture rules that fail the build
 

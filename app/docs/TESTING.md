@@ -155,7 +155,7 @@ that reach the people with the worst connections and the cheapest phones, first.
 | Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 30 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 
-That is **108 server strings, 378 Android strings and 180 web strings** for the
+That is **126 server strings, 441 Android strings and 210 web strings** for the
 seven non-English locales.
 
 A feature phone has no settings screen, so **`LANG <code>` over SMS** is the

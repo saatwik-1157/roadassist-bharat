@@ -52,16 +52,39 @@
       "each. information_schema.check_constraints emits one row per NOT NULL",
       "column, which is how '433 check constraints' was published when there are 5.",
       "",
+      "TABLES, PRIMARY KEYS, FOREIGN KEYS, CHECK CONSTRAINTS — filter on the",
+      "TABLE's oid, which is the row pg_depend actually records as extension-owned:",
+      "",
       "SELECT count(*) FROM pg_class c",
       "  JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'",
       "  LEFT JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'e'",
-      " WHERE c.relkind = 'r' AND d.objid IS NULL;"
+      " WHERE c.relkind = 'r' AND d.objid IS NULL;",
+      "",
+      "INDEXES AND UNIQUE INDEXES — the same filter on the INDEX's own oid",
+      "matches nothing and silently leaves spatial_ref_sys_pkey in, giving 138",
+      "and 84. pg_depend records extension membership for the TABLE only; an",
+      "index depends on its table, not on the extension. Filter on indrelid:",
+      "",
+      "SELECT count(*) FROM pg_class c",
+      "  JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'",
+      "  JOIN pg_index i ON i.indexrelid = c.oid",
+      "  LEFT JOIN pg_depend d ON d.objid = i.indrelid",
+      "                       AND d.classid = 'pg_class'::regclass AND d.deptype = 'e'",
+      " WHERE c.relkind = 'i' AND d.objid IS NULL;        -- add i.indisunique for unique"
     ]
   },
 
   "api": {
     "routes": 64,
-    "how": "49 in server.ts + 15 in raksha.ts; grep for app.get/post/patch/put/delete"
+    "how": [
+      "Count app.get/post/patch/put/delete call sites across apps/api/src:",
+      "41 in server.ts + 15 in raksha.ts + 3 in routes/auth.ts",
+      "+ 5 in routes/emergency.ts.",
+      "",
+      "The SPLIT moves whenever a route group is lifted out of server.ts — it was",
+      "'49 in server.ts + 15 in raksha.ts' until auth and emergency came out, and",
+      "the total did not change. Re-derive the split; never assume the old one."
+    ]
   },
 
   "i18n": {

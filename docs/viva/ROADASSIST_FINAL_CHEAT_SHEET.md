@@ -57,7 +57,7 @@ been transmitted"* + advise **112**. **112 is a stub** and the API says so.
 OTP + per-number/per-IP ceilings · JWT + refresh rotation with **theft
 detection** · `bookingAudience()` ownership · RBAC · per-principal rate limits ·
 zod everywhere · hash-chained audit · payment signature recomputed server-side.
-**100 attacks, all refused. No independent pentest.**
+**101 attacks, all refused. No independent pentest.**
 
 ### Payment
 Invoice = labour + **18% GST**, server-computed. Amount **never** from the
