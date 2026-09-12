@@ -22,10 +22,12 @@ import {
 } from "../src/i18n.js";
 
 describe("the catalogue", () => {
-  it("says exactly which languages ship, and it is two", () => {
-    // The roadmap names eight. Six are not built, and this test is what stops
-    // that gap being quietly re-described as done.
-    assert.deepEqual([...LOCALES], ["en", "hi"]);
+  it("says exactly which languages ship, and it is all eight", () => {
+    // This test used to read "and it is two", which was the honest answer
+    // then. The roadmap's eight are now all present — so the assertion moves,
+    // and it stays here for the same reason: whatever LOCALES says is what the
+    // documents are allowed to claim.
+    assert.deepEqual([...LOCALES], ["en", "hi", "ta", "te", "bn", "mr", "kn", "gu"]);
   });
 
   it("every locale defines every key — no silent English fallback in production", () => {
@@ -141,10 +143,17 @@ describe("choosing a language", () => {
     assert.equal(resolveLocale({ stored: null, acceptLanguage: "hi-IN,hi;q=0.9,en;q=0.8" }), "hi");
   });
 
-  it("ignores a stored language we do not actually ship", () => {
-    // The seeder writes eight languages into preferred_language. Six of them
-    // have no catalogue, and a user must not get an empty message because of it.
-    for (const unsupported of ["te", "ta", "mr", "bn", "kn", "gu", "", "xx"]) {
+  it("honours every language the seeder can write into preferred_language", () => {
+    // The seeder picks from these eight, and for a long time six of them had no
+    // catalogue, so those users silently got English. Now each resolves to
+    // itself — which is the whole point of the column existing.
+    for (const code of ["en", "hi", "te", "ta", "mr", "bn", "kn", "gu"]) {
+      assert.equal(resolveLocale({ stored: code }), code, code);
+    }
+  });
+
+  it("still refuses a language we do not ship", () => {
+    for (const unsupported of ["", "xx", "fr", "ur", "or", "pa"]) {
       assert.equal(resolveLocale({ stored: unsupported }), "en", unsupported);
     }
   });
@@ -166,7 +175,13 @@ describe("choosing a language", () => {
     });
 
     it("skips languages we do not ship and takes the next one we do", () => {
-      assert.equal(parseAcceptLanguage("ta;q=1.0,hi;q=0.5"), "hi");
+      assert.equal(parseAcceptLanguage("ur;q=1.0,hi;q=0.5"), "hi");
+    });
+
+    it("matches each of the eight on its own tag", () => {
+      for (const code of LOCALES) {
+        assert.equal(parseAcceptLanguage(`${code}-IN,en;q=0.1`), code, code);
+      }
     });
 
     it("treats q=0 as an explicit refusal", () => {
@@ -200,6 +215,22 @@ describe("the LANG SMS command", () => {
     }
   });
 
+  it("accepts every shipped language by code, English name and native name", () => {
+    const names: Record<string, string[]> = {
+      ta: ["ta", "tamil", "தமிழ்"],
+      te: ["te", "telugu", "తెలుగు"],
+      bn: ["bn", "bengali", "বাংলা"],
+      mr: ["mr", "marathi", "मराठी"],
+      kn: ["kn", "kannada", "ಕನ್ನಡ"],
+      gu: ["gu", "gujarati", "ગુજરાતી"],
+    };
+    for (const [code, words] of Object.entries(names)) {
+      for (const word of words) {
+        assert.equal(parseLangCommand(["lang", word]), code, `${code}/${word}`);
+      }
+    }
+  });
+
   it("accepts the command word itself in Hindi", () => {
     // Somebody switching TO Hindi may well type the whole thing in Hindi.
     assert.equal(parseLangCommand(["भाषा", "हिंदी"]), "hi");
@@ -213,9 +244,8 @@ describe("the LANG SMS command", () => {
 
 describe("isLocale", () => {
   it("accepts only what ships", () => {
-    assert.equal(isLocale("en"), true);
-    assert.equal(isLocale("hi"), true);
-    for (const no of ["ta", "EN", "", null, undefined, 7, {}]) {
+    for (const yes of LOCALES) assert.equal(isLocale(yes), true, yes);
+    for (const no of ["ur", "EN", "HI", "", null, undefined, 7, {}]) {
       assert.equal(isLocale(no), false, String(no));
     }
   });

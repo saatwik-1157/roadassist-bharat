@@ -143,14 +143,24 @@ when there are **5**. See `app/docs/CLAIMS-AUDIT.md` §4.
 
 ## Localisation
 
-English and Hindi. `LOCALES` in `apps/api/src/i18n.ts` is the complete truth —
-the roadmap names eight and six are not built.
+All eight: `en hi ta te bn mr kn gu`. `LOCALES` in `apps/api/src/i18n.ts` is the
+complete truth; `values-*/` is its Android counterpart.
 
-**Devanagari is outside GSM 03.38**, so a Hindi SMS is UCS-2 and one segment
-holds **70** characters, not 160. Every catalogue entry is held to a segment
+**The translations are not native-reviewed.** Say so whenever the count is
+quoted — the strings exist, the quality is unverified, and those are different
+claims.
+
+**Every script but English is outside GSM 03.38**, so all seven are UCS-2 and
+one segment holds **70** characters, not 160. Every catalogue entry is held to a
 budget by `i18n.test.ts`; exceptions are listed there by name with a reason. An
 em dash also forces UCS-2 — that alone made the English command list cost three
-segments. Write Hindi copy *for SMS*, do not translate the English.
+segments. Write copy *for SMS* in each language; do not translate the English
+and then trim.
+
+Adding a language is: a block in `i18n.ts`, a block in `apps/web/i18n.js`, a
+`values-xx/strings.xml`, and the code in `LANG_WORDS`. Android lint fails the
+build if the last one is incomplete, which is the check that keeps the others
+honest.
 
 `reply()` in the telecom endpoint takes a **catalogue key**, not a string. `t()`
 throws on an unknown key rather than texting somebody the key.

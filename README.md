@@ -50,7 +50,7 @@ kept current and which are dated evidence for v1.0.0-RC1 — they age differentl
 
 Ownership across all 18 phases of the plan — **not** a description of what
 ships today. Several things named here are roadmap (React Native, Next.js,
-Android Auto, Kubernetes, Terraform, 8 languages, the 9-subsystem AI suite);
+Android Auto, Kubernetes, Terraform, the 9-subsystem AI suite);
 what actually exists is the list at the top of this file, and the shipped web
 surfaces are plain HTML/CSS/JS served by the API with no build step.
 
@@ -91,8 +91,11 @@ surfaces are plain HTML/CSS/JS served by the API with no build step.
 2. **Offline is a first-class mode, not a fallback.** And we never claim something
    reached the cloud when it did not — the app says "stored on this device", with a
    reference, or it says nothing at all.
-3. **Feature phones are users.** Every core journey completable over SMS — in
-   English or Hindi, switched by texting `LANG HI`. (IVR is not built.)
+3. **Feature phones are users.** Every core journey completable over SMS, in
+   **all eight languages**, switched by texting `LANG TA` (or the language's own
+   name). Translations are not yet native-reviewed — see
+   [TESTING.md](app/docs/TESTING.md#localisation-and-exactly-how-far-it-goes).
+   (IVR is not built.)
 4. **No PII leaves India.** Including logs, backups, and crash reports.
 5. **We never fake it in a demo.** If it's mocked, we say so.
 

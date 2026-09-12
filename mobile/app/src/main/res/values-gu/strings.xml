@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Gujarati. Android selects this automatically when the device locale is gu;
+  there is no switcher to find and no setting to change, which is right for a
+  phone whose owner already chose their language once.
+
+  app_name is not here on purpose: it is marked translatable="false" because the
+  brand is what a user looks for on a home screen.
+
+  Written for the screen someone is actually holding — short lines, the outcome
+  first. Machine-translated and NOT yet reviewed by a native speaker; see
+  app/docs/TESTING.md for what that means for the claim.
+-->
+<resources>
+    <string name="sos_sms_sent">RoadAssist ને SMS થી SOS મોકલ્યો (%1$s). ડેટાની જરૂર નથી — તમારું સિમ જ ઓળખ છે.</string>
+    <string name="sos_sms_unconfirmed">SOS SMS થી મોકલ્યો (ખાતરી નથી) — ડેટા આવતાં એક બેકઅપ પણ જશે. સિમ જ ઓળખ છે.</string>
+    <string name="sos_dialer">RoadAssist સુધી પહોંચી શકાયું નહીં — 112 ખોલીએ છીએ, જે કોઈપણ ટાવર સાથે જોડાય છે. તમારો SOS સાચવેલો છે, સિગ્નલ આવતાં જ જશે.</string>
+    <string name="sos_queued">બિલકુલ સિગ્નલ નથી. SOS આ જ ફોનમાં સચવાયો છે — જોડાણ આવતાં જ આપોઆપ જશે. શક્ય હોય તો ખુલ્લી જગ્યા કે હાઈવે તરફ જાઓ.</string>
+    <string name="report_hazard_short">⚠  જોખમ જણાવો</string>
+    <string name="report_hazard_title">રસ્તાનું જોખમ જણાવો</string>
+    <string name="report_hazard_sub">તમારું લોકેશન જોડાશે, જેથી અધિકારીઓ શોધીને ચકાસી શકે.</string>
+    <string name="label_type_prefix">"પ્રકાર: "</string>
+    <string name="action_remove">દૂર કરો</string>
+    <string name="action_attach_photo">📷  ફોટો જોડો</string>
+    <string name="action_cancel">રદ</string>
+    <string name="photo_attached">📷 ફોટો જોડાયો</string>
+    <string name="cd_attached_photo">જોડેલો ફોટો</string>
+    <string name="field_note_optional">નોંધ (વૈકલ્પિક)</string>
+    <string name="bookings_empty">મદદ બુક કરશો તો અહીં દેખાશે.</string>
+    <string name="action_request_assistance">મદદ માંગો</string>
+    <string name="bookings_sub">તમારો બુકિંગ ઇતિહાસ — નવું પહેલાં.</string>
+    <string name="trip_guardian">ટ્રિપ ગાર્ડિયન</string>
+    <string name="trip_guardian_sub">સિગ્નલ જાય તે પહેલાં રસ્તો તૈયાર કરો — હવામાન, સિગ્નલ વગરના વિસ્તાર અને ઓફલાઈન નકશો આ જ ફોનમાં.</string>
+    <string name="label_weather">"હવામાન  "</string>
+    <string name="label_deadzone_risk">સિગ્નલ વગરનું જોખમ</string>
+    <string name="cd_offline_route_map">ઓફલાઈન રૂટ નકશો</string>
+    <string name="my_reports">તમારા જોખમ અહેવાલ</string>
+    <string name="my_reports_sub">દરેક અહેવાલની અધિકારી પાસેની સ્થિતિ જુઓ.</string>
+    <string name="emergency_contacts">કટોકટી સંપર્કો</string>
+    <string name="emergency_contacts_sub">તમે SOS પાકો કરો ત્યારે આમને તમારું જીવંત લોકેશન મોકલાશે.</string>
+    <string name="emergency_contacts_empty">હજી કોઈ નથી — એક ઉમેરો જેથી SOS કોઈ સુધી પહોંચે.</string>
+    <string name="action_add_contact">સંપર્ક ઉમેરો</string>
+    <string name="field_contact_name">સંપર્કનું નામ</string>
+    <string name="field_contact_phone">તેમનો મોબાઈલ (+91…)</string>
+    <string name="about">પરિચય</string>
+    <string name="about_body">RoadAssist ભારત — એક મંચ, દરેક વાહન, દરેક રસ્તો. આ વિદ્યાર્થી પ્રોટોટાઈપ છે; કોઈ વાસ્તવિક કટોકટી સેવા જોડાયેલી નથી.</string>
+    <string name="action_sign_out">સાઇન આઉટ</string>
+    <string name="tagline">દરેક વાહન · દરેક રસ્તો · દરેક ફોન</string>
+    <string name="signin_sub">જીવંત RoadAssist API માંથી અસલી OTP. ડેવલપમેન્ટમાં સર્વર કોડ પાછો આપે છે અને તે આપોઆપ ભરાય છે.</string>
+    <string name="field_api_base_url">API બેઝ URL (10.0.2.2 = એમ્યુલેટરથી તમારું PC)</string>
+    <string name="field_mobile_number">મોબાઈલ નંબર (+91…)</string>
+    <string name="field_otp_code">૬ અંકનો કોડ</string>
+    <string name="action_send_otp">OTP મોકલો</string>
+    <string name="action_verify_sign_in">ચકાસીને સાઇન ઇન</string>
+    <string name="sos_alert_now">હમણાં જ મોકલો</string>
+    <string name="sos_5s_to_cancel">રદ માટે ૫ સેકન્ડ</string>
+    <string name="vehicle_add_title">તમારું વાહન ઉમેરો</string>
+    <string name="vehicle_yours">તમારું વાહન</string>
+    <string name="field_registration_number">રજિસ્ટ્રેશન નંબર</string>
+    <string name="action_add_vehicle">વાહન ઉમેરો</string>
+    <string name="action_add_vehicle_first">પહેલાં વાહન ઉમેરો</string>
+    <string name="hazard_prompt_title">રસ્તા પર જોખમ દેખાયું?</string>
+    <string name="hazard_prompt_sub">ખાડો, નુકસાન કે અવરોધ જણાવો. તે RAKSHA નકશા અને અધિકારીઓની યાદીમાં જશે.</string>
+    <string name="hazard_prompt_action">⚠  રસ્તાનું જોખમ જણાવો</string>
+    <string name="dispatch_requesting_near">અહીં મદદ માંગીએ છીએ</string>
+    <string name="action_clear">સાફ કરો</string>
+    <string name="from_map">"  ★ નકશામાંથી"</string>
+    <string name="action_accept">સ્વીકારો</string>
+    <string name="mechanics_nearby">નજીકના ચકાસાયેલા મિકેનિક</string>
+    <string name="mechanics_nearby_sub">નજીકના ચકાસાયેલા મિકેનિક, સર્વર પર અસલી PostGIS ક્વેરીથી ક્રમમાં.</string>
+    <string name="action_request">વિનંતી</string>
+    <string name="field_what_happened">શું થયું?</string>
+    <string name="action_book_dispatch">બુક કરીને મોકલો</string>
+    <string name="label_severity">ગંભીરતા: %1$s</string>
+    <string name="sos_alerting_in">%1$d માં મોકલાશે…</string>
+    <string name="label_vehicle_type">પ્રકાર: %1$s</string>
+    <string name="map_tiles_cached">આ ફોનમાં નકશા ટાઈલ્સ: %1$d/%2$d · ઓફલાઈન દેખાશે · © OpenStreetMap</string>
+</resources>
