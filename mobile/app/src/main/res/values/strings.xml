@@ -21,4 +21,68 @@
     <string name="sos_sms_unconfirmed">SOS sent by SMS (delivery unconfirmed) — a backup will also sync when data returns. The SIM is your identity; no data needed.</string>
     <string name="sos_dialer">No RoadAssist channel reachable — opening 112. It connects through any tower. Your SOS is queued and will sync when signal returns.</string>
     <string name="sos_queued">No signal at all. SOS saved on this device — it will send automatically the moment connectivity returns. Move toward open sky or a highway if you can.</string>
+
+    <!-- MainActivity UI. Extracted wholesale rather than a few at a
+         time: lint's MissingTranslation check only protects strings that
+         are IN here, so a partial extraction is the state where a missing
+         Hindi string stops being caught. -->
+    <string name="report_hazard_short">⚠  Report hazard</string>
+    <string name="report_hazard_title">Report a road hazard</string>
+    <string name="report_hazard_sub">Your current location is attached so authorities can find and verify it.</string>
+    <string name="label_type_prefix">"Type: "</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_attach_photo">📷  Attach photo</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="photo_attached">📷 Photo attached</string>
+    <string name="cd_attached_photo">Attached photo</string>
+    <string name="field_note_optional">Note (optional)</string>
+    <string name="bookings_empty">Book assistance and it appears here.</string>
+    <string name="action_request_assistance">Request assistance</string>
+    <string name="bookings_sub">Your booking history — most recent first.</string>
+    <string name="trip_guardian">Trip Guardian</string>
+    <string name="trip_guardian_sub">Prepare a route before you lose signal — weather, dead-zone risk and offline maps saved to this phone.</string>
+    <string name="label_weather">"Weather  "</string>
+    <string name="label_deadzone_risk">Dead-zone risk</string>
+    <string name="cd_offline_route_map">Offline route map</string>
+    <string name="my_reports">Your hazard reports</string>
+    <string name="my_reports_sub">Track each report as an authority reviews it.</string>
+    <string name="emergency_contacts">Emergency contacts</string>
+    <string name="emergency_contacts_sub">These people are alerted with your live location when you confirm an SOS.</string>
+    <string name="emergency_contacts_empty">None yet — add one so SOS can reach someone.</string>
+    <string name="action_add_contact">Add contact</string>
+    <string name="field_contact_name">Contact name</string>
+    <string name="field_contact_phone">Their mobile (+91…)</string>
+    <string name="about">About</string>
+    <string name="about_body">RoadAssist Bharat — one platform, every vehicle, every road. Student prototype; no real emergency dispatch is connected.</string>
+    <string name="action_sign_out">Sign out</string>
+    <string name="tagline">Every vehicle · Every road · Every phone</string>
+    <string name="signin_sub">Real OTP against the live RoadAssist API. In development the code is returned by the server and auto-filled.</string>
+    <string name="field_api_base_url">API base URL (10.0.2.2 = your PC from the emulator)</string>
+    <string name="field_mobile_number">Mobile number (+91…)</string>
+    <string name="field_otp_code">6-digit code</string>
+    <string name="action_send_otp">Send OTP</string>
+    <string name="action_verify_sign_in">Verify &amp; sign in</string>
+    <string name="sos_alert_now">Alert now</string>
+    <string name="sos_5s_to_cancel">5s to cancel</string>
+    <string name="vehicle_add_title">Add your vehicle</string>
+    <string name="vehicle_yours">Your vehicle</string>
+    <string name="field_registration_number">Registration number</string>
+    <string name="action_add_vehicle">Add vehicle</string>
+    <string name="action_add_vehicle_first">Add a vehicle first</string>
+    <string name="hazard_prompt_title">Spot a road hazard?</string>
+    <string name="hazard_prompt_sub">Report a pothole, damage or obstruction. It joins the RAKSHA map and the authority\'s review queue.</string>
+    <string name="hazard_prompt_action">⚠  Report a road hazard</string>
+    <string name="dispatch_requesting_near">Requesting near</string>
+    <string name="action_clear">Clear</string>
+    <string name="from_map">"  ★ from map"</string>
+    <string name="action_accept">Accept</string>
+    <string name="mechanics_nearby">Nearby verified mechanics</string>
+    <string name="mechanics_nearby_sub">Nearest verified mechanics, ranked by a real PostGIS query on the server.</string>
+    <string name="action_request">Request</string>
+    <string name="field_what_happened">What happened?</string>
+    <string name="action_book_dispatch">Book &amp; dispatch</string>
+    <string name="label_severity">Severity: %1$s</string>
+    <string name="sos_alerting_in">Alerting in %1$d…</string>
+    <string name="label_vehicle_type">Type: %1$s</string>
+    <string name="map_tiles_cached">Map tiles on this device: %1$d/%2$d · shows offline · © OpenStreetMap</string>
 </resources>

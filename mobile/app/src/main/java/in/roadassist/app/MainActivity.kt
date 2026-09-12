@@ -69,6 +69,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
@@ -318,7 +319,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                     .align(Alignment.BottomCenter)
                                     .padding(bottom = 22.dp)
                                     .height(46.dp),
-                            ) { Text("⚠  Report hazard", fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                            ) { Text(stringResource(R.string.report_hazard_short), fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
                         }
                     }
                     // Foreground screens paint opaquely over the map when active.
@@ -502,23 +503,23 @@ private fun ReportHazardDialog(
         // otherwise close the dialog and drop the in-progress report.
         properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
         containerColor = Panel,
-        title = { Text("Report a road hazard", color = Cream, fontSize = 18.sp) },
+        title = { Text(stringResource(R.string.report_hazard_title), color = Cream, fontSize = 18.sp) },
         text = {
             Column {
-                Text("Your current location is attached so authorities can find and verify it.",
+                Text(stringResource(R.string.report_hazard_sub),
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp)
                 Box {
                     OutlinedButton(
                         onClick = { typeOpen = true }, shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-                    ) { Text("Type: " + (types.find { it.first == type }?.second ?: type), color = Cream, fontSize = 13.sp) }
+                    ) { Text(stringResource(R.string.label_type_prefix) + (types.find { it.first == type }?.second ?: type), color = Cream, fontSize = 13.sp) }
                     DropdownMenu(expanded = typeOpen, onDismissRequest = { typeOpen = false }) {
                         types.forEach { (code, label) ->
                             DropdownMenuItem(text = { Text(label) }, onClick = { type = code; typeOpen = false })
                         }
                     }
                 }
-                Text("Severity: $severity", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp))
+                Text(stringResource(R.string.label_severity, severity), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp))
                 Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (1..5).forEach { s ->
                         val sel = s == severity
@@ -530,26 +531,26 @@ private fun ReportHazardDialog(
                         ) { Text("$s", color = if (sel) GoldInk else Cream, fontWeight = FontWeight.Bold) }
                     }
                 }
-                Field(note, { note = it }, "Note (optional)")
+                Field(note, { note = it }, stringResource(R.string.field_note_optional))
 
                 // Optional photo — downscaled on-device before upload.
                 Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     val thumb = photoThumb
                     if (thumb != null) {
                         Image(
-                            bitmap = thumb.asImageBitmap(), contentDescription = "Attached photo",
+                            bitmap = thumb.asImageBitmap(), contentDescription = stringResource(R.string.cd_attached_photo),
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(8.dp)),
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text("Remove", color = Alarm, fontSize = 12.sp,
+                        Text(stringResource(R.string.action_remove), color = Alarm, fontSize = 12.sp,
                             modifier = Modifier.clip(RoundedCornerShape(8.dp))
                                 .clickable { onClearPhoto() }.padding(6.dp))
                     } else {
                         OutlinedButton(
                             onClick = onPickPhoto,
                             shape = RoundedCornerShape(999.dp),
-                        ) { Text("📷  Attach photo", color = Gold, fontSize = 12.sp) }
+                        ) { Text(stringResource(R.string.action_attach_photo), color = Gold, fontSize = 12.sp) }
                     }
                 }
             }
@@ -580,7 +581,7 @@ private fun ReportHazardDialog(
                 shape = RoundedCornerShape(999.dp),
             ) { Text(if (busy) "Reporting…" else "Submit report", fontWeight = FontWeight.SemiBold) }
         },
-        dismissButton = { TextButton(onClick = { if (!busy) onClose() }) { Text("Cancel", color = Muted) } },
+        dismissButton = { TextButton(onClick = { if (!busy) onClose() }) { Text(stringResource(R.string.action_cancel), color = Muted) } },
     )
 }
 
@@ -620,13 +621,13 @@ private fun EmptyTrack(onBook: () -> Unit) {
                 Text("◉", fontSize = 48.sp, color = Muted)
                 Text(if (loaded) "No rescues yet" else "Loading…", color = Cream, fontSize = 18.sp,
                     modifier = Modifier.padding(top = 12.dp))
-                Text("Book assistance and it appears here.", color = Muted, fontSize = 13.sp,
+                Text(stringResource(R.string.bookings_empty), color = Muted, fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp))
                 OutlinedButton(onClick = onBook, shape = RoundedCornerShape(999.dp),
-                    modifier = Modifier.padding(top = 18.dp)) { Text("Request assistance", color = Gold) }
+                    modifier = Modifier.padding(top = 18.dp)) { Text(stringResource(R.string.action_request_assistance), color = Gold) }
             }
         } else {
-            Sub("Your booking history — most recent first.")
+            Sub(stringResource(R.string.bookings_sub))
             history.forEach { b ->
                 val status = b.optString("status")
                 Card(
@@ -694,19 +695,19 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         ) {
             Column(Modifier.padding(17.dp)) {
-                Text("Trip Guardian", color = Cream, fontSize = 17.sp)
-                Text("Prepare a route before you lose signal — weather, dead-zone risk and offline maps saved to this phone.",
+                Text(stringResource(R.string.trip_guardian), color = Cream, fontSize = 17.sp)
+                Text(stringResource(R.string.trip_guardian_sub),
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
 
                 summary?.let { s ->
                     s.weatherRisk?.let { risk ->
                         Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Weather  ", color = Muted, fontSize = 12.sp)
+                            Text(stringResource(R.string.label_weather), color = Muted, fontSize = 12.sp)
                             Text(risk, color = riskColor(risk), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                         Text(s.weatherFactors, color = Muted, fontSize = 11.5.sp, lineHeight = 16.sp)
                     }
-                    Text("Dead-zone risk", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
+                    Text(stringResource(R.string.label_deadzone_risk), color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
                     s.segments.forEach { (code, risk, ratio) ->
                         Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("●", color = riskColor(risk), fontSize = 12.sp)
@@ -717,12 +718,12 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                     }
                     mosaic?.let { bmp ->
                         Image(
-                            bitmap = bmp, contentDescription = "Offline route map",
+                            bitmap = bmp, contentDescription = stringResource(R.string.cd_offline_route_map),
                             contentScale = ContentScale.FillWidth,
                             modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                                 .clip(RoundedCornerShape(12.dp)),
                         )
-                        Text("${s.tilesCached}/${s.tilesTotal} map tiles on this device · shows offline · © OpenStreetMap",
+                        Text(stringResource(R.string.map_tiles_cached, s.tilesCached, s.tilesTotal),
                             color = Muted, fontSize = 10.5.sp, modifier = Modifier.padding(top = 6.dp))
                     }
                 }
@@ -756,8 +757,8 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
             ) {
                 Column(Modifier.padding(17.dp)) {
-                    Text("Your hazard reports", color = Cream, fontSize = 17.sp)
-                    Text("Track each report as an authority reviews it.",
+                    Text(stringResource(R.string.my_reports), color = Cream, fontSize = 17.sp)
+                    Text(stringResource(R.string.my_reports_sub),
                         color = Muted, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                     reports.forEach { r ->
                         val st = r.optString("status")
@@ -773,7 +774,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                                         modifier = Modifier.padding(top = 2.dp))
                                 }
                                 if (r.optBoolean("has_photo")) {
-                                    Text("📷 Photo attached", color = Gold, fontSize = 11.sp,
+                                    Text(stringResource(R.string.photo_attached), color = Gold, fontSize = 11.sp,
                                         modifier = Modifier.padding(top = 2.dp))
                                 }
                             }
@@ -792,12 +793,12 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         ) {
             Column(Modifier.padding(17.dp)) {
-                Text("Emergency contacts", color = Cream, fontSize = 17.sp)
-                Text("These people are alerted with your live location when you confirm an SOS.",
+                Text(stringResource(R.string.emergency_contacts), color = Cream, fontSize = 17.sp)
+                Text(stringResource(R.string.emergency_contacts_sub),
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
 
                 if (contacts.isEmpty()) {
-                    Text("None yet — add one so SOS can reach someone.", color = Color(0xFFE3C451),
+                    Text(stringResource(R.string.emergency_contacts_empty), color = Color(0xFFE3C451),
                         fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp))
                 } else contacts.forEach { c ->
                     Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -805,7 +806,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                             Text(c.optString("name"), color = Cream, fontSize = 14.sp)
                             Text(c.optString("msisdn"), color = Muted, fontSize = 12.sp)
                         }
-                        Text("Remove", color = Alarm, fontSize = 12.sp,
+                        Text(stringResource(R.string.action_remove), color = Alarm, fontSize = 12.sp,
                             modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !cBusy) {
                                 cBusy = true
                                 scope.launch {
@@ -817,8 +818,8 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                     }
                 }
 
-                Field(cName, { cName = it }, "Contact name")
-                Field(cPhone, { cPhone = it }, "Their mobile (+91…)")
+                Field(cName, { cName = it }, stringResource(R.string.field_contact_name))
+                Field(cPhone, { cPhone = it }, stringResource(R.string.field_contact_phone))
                 Button(
                     onClick = {
                         cBusy = true
@@ -835,7 +836,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                     shape = RoundedCornerShape(999.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
-                ) { Text("Add contact", fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, fontSize = 12.sp) }
+                ) { Text(stringResource(R.string.action_add_contact), fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, fontSize = 12.sp) }
             }
         }
 
@@ -845,12 +846,12 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         ) {
             Column(Modifier.padding(17.dp)) {
-                Text("About", color = Cream, fontSize = 17.sp)
-                Text("RoadAssist Bharat — one platform, every vehicle, every road. Student prototype; no real emergency dispatch is connected.",
+                Text(stringResource(R.string.about), color = Cream, fontSize = 17.sp)
+                Text(stringResource(R.string.about_body),
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
             }
         }
-        LineButton("Sign out") { onSignOut() }
+        LineButton(stringResource(R.string.action_sign_out)) { onSignOut() }
     }
 }
 
@@ -942,19 +943,19 @@ private fun SignInScreen(
                     fontSize = 30.sp, fontWeight = FontWeight.Medium)
             }
         }
-        Text("Every vehicle · Every road · Every phone",
+        Text(stringResource(R.string.tagline),
             color = Muted, fontSize = 12.sp, letterSpacing = 1.sp,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(34.dp))
         Heading("Sign in with your", "phone.")
-        Sub("Real OTP against the live RoadAssist API. In development the code is returned by the server and auto-filled.")
+        Sub(stringResource(R.string.signin_sub))
 
-        Field(baseUrl, { baseUrl = it }, "API base URL (10.0.2.2 = your PC from the emulator)")
-        Field(msisdn, onMsisdn, "Mobile number (+91…)")
+        Field(baseUrl, { baseUrl = it }, stringResource(R.string.field_api_base_url))
+        Field(msisdn, onMsisdn, stringResource(R.string.field_mobile_number))
 
         if (!otpSent) {
-            GoldButton("Send OTP", enabled = !busy) {
+            GoldButton(stringResource(R.string.action_send_otp), enabled = !busy) {
                 busy = true
                 Api.base = baseUrl.trim()
                 scope.launch {
@@ -969,8 +970,8 @@ private fun SignInScreen(
                 }
             }
         } else {
-            Field(code, { code = it }, "6-digit code")
-            GoldButton("Verify & sign in", enabled = !busy && code.length == 6) {
+            Field(code, { code = it }, stringResource(R.string.field_otp_code))
+            GoldButton(stringResource(R.string.action_verify_sign_in), enabled = !busy && code.length == 6) {
                 busy = true
                 scope.launch {
                     try {
@@ -1093,7 +1094,7 @@ private fun HomeScreen(
                 // choice, never by a stray tap outside the dialog.
                 onDismissRequest = { },
                 containerColor = Panel,
-                title = { Text("Alerting in $sosLeft…", color = Alarm, fontSize = 19.sp) },
+                title = { Text(stringResource(R.string.sos_alerting_in, sosLeft), color = Alarm, fontSize = 19.sp) },
                 text = {
                     Text(
                         "Your emergency contacts and the nearest responder will be alerted with " +
@@ -1106,13 +1107,13 @@ private fun HomeScreen(
                     Button(
                         onClick = { sosArmed = false; fireSos() },
                         colors = ButtonDefaults.buttonColors(containerColor = Alarm, contentColor = Color.White),
-                    ) { Text("Alert now", fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                    ) { Text(stringResource(R.string.sos_alert_now), fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
                 },
                 dismissButton = {
                     TextButton(onClick = {
                         sosArmed = false
                         onToast("SOS cancelled — nothing was sent")
-                    }) { Text("Cancel", color = Muted, fontSize = 13.sp) }
+                    }) { Text(stringResource(R.string.action_cancel), color = Muted, fontSize = 13.sp) }
                 },
             )
         }
@@ -1150,7 +1151,7 @@ private fun HomeScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("SOS", fontSize = 20.sp, letterSpacing = 6.sp, fontWeight = FontWeight.SemiBold)
-                    Text("5s to cancel", fontSize = 9.sp, letterSpacing = 1.sp, color = Muted)
+                    Text(stringResource(R.string.sos_5s_to_cancel), fontSize = 9.sp, letterSpacing = 1.sp, color = Muted)
                 }
             }
         }
@@ -1173,14 +1174,14 @@ private fun HomeScreen(
         ) {
             Column(Modifier.padding(17.dp)) {
                 if (vehicleId == null) {
-                    Text("Add your vehicle", color = Cream, fontSize = 17.sp)
-                    Field(reg, { reg = it.uppercase() }, "Registration number")
+                    Text(stringResource(R.string.vehicle_add_title), color = Cream, fontSize = 17.sp)
+                    Field(reg, { reg = it.uppercase() }, stringResource(R.string.field_registration_number))
                     Box {
                         OutlinedButton(
                             onClick = { classOpen = true },
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                        ) { Text("Type: $vClass", color = Cream, fontSize = 13.sp) }
+                        ) { Text(stringResource(R.string.label_vehicle_type, vClass), color = Cream, fontSize = 13.sp) }
                         DropdownMenu(expanded = classOpen, onDismissRequest = { classOpen = false }) {
                             classes.forEach { c ->
                                 DropdownMenuItem(
@@ -1190,7 +1191,7 @@ private fun HomeScreen(
                             }
                         }
                     }
-                    GoldButton("Add vehicle", enabled = !busy && reg.length >= 4) {
+                    GoldButton(stringResource(R.string.action_add_vehicle), enabled = !busy && reg.length >= 4) {
                         busy = true
                         scope.launch {
                             try {
@@ -1205,9 +1206,9 @@ private fun HomeScreen(
                         }
                     }
                 } else {
-                    Text("Your vehicle", color = Cream, fontSize = 17.sp)
+                    Text(stringResource(R.string.vehicle_yours), color = Cream, fontSize = 17.sp)
                     Text(vehicleLabel ?: "", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
-                    GoldButton("Request assistance") { onBook() }
+                    GoldButton(stringResource(R.string.action_request_assistance)) { onBook() }
                 }
             }
         }
@@ -1219,14 +1220,14 @@ private fun HomeScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         ) {
             Column(Modifier.padding(17.dp)) {
-                Text("Spot a road hazard?", color = Cream, fontSize = 17.sp)
-                Text("Report a pothole, damage or obstruction. It joins the RAKSHA map and the authority's review queue.",
+                Text(stringResource(R.string.hazard_prompt_title), color = Cream, fontSize = 17.sp)
+                Text(stringResource(R.string.hazard_prompt_sub),
                     color = Muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 4.dp))
                 OutlinedButton(
                     onClick = onReport,
                     shape = RoundedCornerShape(999.dp),
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
-                ) { Text("⚠  Report a road hazard", color = Alarm, fontSize = 12.sp, letterSpacing = 1.sp) }
+                ) { Text(stringResource(R.string.hazard_prompt_action), color = Alarm, fontSize = 12.sp, letterSpacing = 1.sp) }
             }
         }
 
@@ -1331,7 +1332,7 @@ private fun BookScreen(
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
         Heading("Request", "assistance.")
-        Sub("Nearest verified mechanics, ranked by a real PostGIS query on the server.")
+        Sub(stringResource(R.string.mechanics_nearby_sub))
 
         // Focused-mechanic banner (from the map or nearby list).
         target?.let { t ->
@@ -1342,10 +1343,10 @@ private fun BookScreen(
             ) {
                 Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Requesting near", color = Muted, fontSize = 11.sp)
+                        Text(stringResource(R.string.dispatch_requesting_near), color = Muted, fontSize = 11.sp)
                         Text(t.optString("name"), color = Gold, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     }
-                    Text("Clear", color = Muted, fontSize = 12.sp,
+                    Text(stringResource(R.string.action_clear), color = Muted, fontSize = 12.sp,
                         modifier = Modifier.clip(RoundedCornerShape(8.dp))
                             .clickable { target = null }.padding(6.dp))
                 }
@@ -1373,9 +1374,9 @@ private fun BookScreen(
                 }
             }
         }
-        Field(symptoms, { symptoms = it }, "What happened?")
+        Field(symptoms, { symptoms = it }, stringResource(R.string.field_what_happened))
 
-        GoldButton("Book & dispatch", enabled = !busy && vehicleId != null && service != null) { bookAndDispatch() }
+        GoldButton(stringResource(R.string.action_book_dispatch), enabled = !busy && vehicleId != null && service != null) { bookAndDispatch() }
 
         // Offers from the dispatch broadcast; the focused mechanic is tagged.
         offers.forEach { o ->
@@ -1393,7 +1394,7 @@ private fun BookScreen(
                     Column(Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(m.getString("displayName"), color = Cream, fontSize = 15.sp)
-                            if (isTarget) Text("  ★ from map", color = Gold, fontSize = 10.sp)
+                            if (isTarget) Text(stringResource(R.string.from_map), color = Gold, fontSize = 10.sp)
                         }
                         Text(
                             "★ ${m.getDouble("rating")} · ${m.getDouble("distanceKm")} km · ETA ${o.getInt("etaMinutes")} min",
@@ -1415,14 +1416,14 @@ private fun BookScreen(
                         enabled = !busy,
                         shape = RoundedCornerShape(999.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
-                    ) { Text("Accept", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                    ) { Text(stringResource(R.string.action_accept), fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                 }
             }
         }
 
         // Nearby verified mechanics — tap "Request" to focus one for this booking.
         if (offers.isEmpty() && nearby.isNotEmpty()) {
-            Text("Nearby verified mechanics", color = Cream, fontSize = 15.sp,
+            Text(stringResource(R.string.mechanics_nearby), color = Cream, fontSize = 15.sp,
                 modifier = Modifier.padding(top = 22.dp))
             nearby.forEach { m ->
                 Card(
@@ -1444,13 +1445,13 @@ private fun BookScreen(
                                 onToast("Focused ${m.optString("display_name")}")
                             },
                             shape = RoundedCornerShape(999.dp),
-                        ) { Text("Request", color = Gold, fontSize = 11.sp) }
+                        ) { Text(stringResource(R.string.action_request), color = Gold, fontSize = 11.sp) }
                     }
                 }
             }
         }
 
-        if (vehicleId == null) LineButton("Add a vehicle first") { onNeedVehicle() }
+        if (vehicleId == null) LineButton(stringResource(R.string.action_add_vehicle_first)) { onNeedVehicle() }
         Spacer(Modifier.height(8.dp))
         if (busy) Loading()
     }
