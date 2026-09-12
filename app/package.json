@@ -9,11 +9,12 @@
     "apps/*"
   ],
   "scripts": {
-    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run claims && npm test",
+    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run claims && npm run citations && npm test",
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",
     "boundaries": "node scripts/check-boundaries.mjs",
     "claims": "node scripts/check-claims.mjs",
+    "citations": "node scripts/check-citations.mjs",
     "test": "node --import tsx --test packages/db/test/*.test.ts apps/api/test/*.test.ts",
     "build": "npm run build -w @roadassist/db && npm run build -w @roadassist/api",
     "infra:up": "docker compose up -d",
