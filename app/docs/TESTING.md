@@ -224,9 +224,20 @@ Measured locally during the Phase 9 remediation: dump 1.2 s / 750 KB, restore
 ## Performance
 
 `npm run perf` measures p50/p95/max per endpoint. Single-user, local database —
-**not** a load test, and it says so on every run. Current figures: ping 14 ms ·
-health 15 ms · diagnose 16 ms · booking detail 31 ms · map 16 ms · **dispatch
-113 ms (the heaviest path)** · off-grid sync 51 ms · SSE first frame 6 ms.
+**not** a load test, and it says so on every run. Current figures: booking
+detail 31 ms · **dispatch ~100 ms (the heaviest path)** · off-grid sync 51 ms.
+
+The tool also probes its own **measurement floor** and marks every row at or
+under it with †. On this machine `/v1/ping` medians ~15 ms while its fastest
+sample is ~1 ms — six of the ten rows sit in that band, so ping, health,
+diagnose, the booking list, map and SSE-first-frame are reported as "under
+15 ms" and never as figures. The floor was found by this audit: the docs had
+been quoting four of them as endpoint latencies.
+
+Rows measured on fewer than 20 samples are marked ‡ and are **not** gated on the
+400 ms ceiling — at n=8 the "p95" is simply the slowest sample, and one run
+reported 675 ms for dispatch where the next three reported 112-130 ms. Dispatch
+now samples 25 times so its p95 is a percentile.
 
 ## CI
 

@@ -90,9 +90,14 @@ backup/restore in which the audit hash chain verified intact.
 
 Single-user, local database — **not** a load test:
 
-ping 14 ms · health 15 ms · diagnose 16 ms · booking detail 31 ms · map 16 ms ·
-**dispatch 113 ms** (the heaviest path) · off-grid sync 51 ms · SSE first frame
-6 ms · live status delivery **65 ms**.
+booking detail 31 ms · **dispatch ~100 ms** (the heaviest path) · off-grid sync
+51 ms · live status delivery **65 ms**.
+
+Ping, health, diagnose, the booking list, map and SSE-first-frame are **under
+15 ms and not quoted as figures**. `npm run perf` probes its own measurement
+floor and marks them: on this machine `/v1/ping` medians ~15 ms while its
+fastest sample is ~1 ms, so a "14 ms" there describes the measurement, not the
+endpoint. Only numbers clear of that floor are stated.
 
 ## What is honestly not done
 

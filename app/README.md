@@ -330,8 +330,8 @@ The gateway suite proves all of this against a stub vendor endpoint.
 
 **Measured, not asserted** (single-user, local database — run `npm run perf`):
 the dispatch candidate query executes in **29 ms**, the whole dispatch endpoint
-in **113 ms** p50 (PostGIS KNN, provider-state exclusions, offer inserts, SSE
-fan-out and audit writes) · emergency escalation **37 ms** median, measured end
+in **~100 ms** p50 (PostGIS KNN, provider-state exclusions, offer inserts, SSE
+fan-out and audit writes; it varies roughly 89-115 ms run to run) · emergency escalation **37 ms** median, measured end
 to end through the API · **189** end-to-end assertions covering illegal transitions,
 idempotent replay, refresh-token theft detection, cross-tenant isolation, the
 full citizen-report loop (submit → photo → authority verify → status), and

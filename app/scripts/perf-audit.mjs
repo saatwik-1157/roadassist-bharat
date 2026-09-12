@@ -58,8 +58,63 @@ async function signIn() {
   return v.data?.accessToken;
 }
 
+/**
+ * How fine a measurement this run can actually make.
+ *
+ * `/v1/ping` touches no database and the server answers it in well under a
+ * millisecond — a minimum of 0.78ms was observed repeatedly. Yet the median
+ * comes back at 15-16ms in a standalone run (200 sequential samples: p50 15.4,
+ * min 0.78, and it does NOT warm down — the last hundred look like the first).
+ * In other contexts the same probe reports ~3ms.
+ *
+ * The mechanism is not established here and is deliberately not guessed at in a
+ * comment. What IS established is the consequence: anything this tool prints in
+ * that band is dominated by measurement overhead rather than by the endpoint,
+ * so "ping 14ms" is not a fact about ping. Four of the figures quoted in the
+ * docs sit in it.
+ *
+ * So each run measures its own floor, in the same process and the same state as
+ * the rows, and marks what sits at it. A number the instrument cannot resolve
+ * is not a measurement, and this project does not publish those unlabelled.
+ */
+async function resolutionFloor(probes = 60) {
+  const t = [];
+  for (let i = 0; i < probes; i++) {
+    const t0 = performance.now();
+    await call("GET", "/v1/ping");
+    t.push(performance.now() - t0);
+  }
+  t.sort((a, b) => a - b);
+  const fastest = t[0];
+  const median = t[Math.floor(t.length / 2)];
+  // The test is mechanism-free on purpose: if the median of a no-op endpoint is
+  // several times its own fastest sample, the median is overhead, whatever is
+  // producing it. Counting a modal bucket does not work — the mass splits
+  // across two adjacent milliseconds (15 and 16) and neither reaches half.
+  const dominated = median >= fastest * 3 && median - fastest > 2;
+  const within = t.filter((v) => Math.abs(v - median) <= 1.5).length / probes;
+  return { floor: dominated ? Math.round(median) : 0, fastest, median, share: within };
+}
+
+/** Below this, a p95 is just the slowest sample wearing a percentile's name. */
+const MIN_N_FOR_P95 = 20;
+
 console.log(`\nRoadAssist — measured latency  (${BASE}, ${SAMPLES} samples each)`);
-console.log("Single-user, local database, one machine. NOT a load test.\n");
+console.log("Single-user, local database, one machine. NOT a load test.");
+
+// Probed here, before anything is timed, so the floor reflects the same process
+// state the rows below are measured in. Taken at the end it reported ~3ms while
+// the rows measured 15ms, which would have marked nothing and told no one.
+const res = await resolutionFloor();
+if (res.floor) {
+  console.log(
+    `Measurement floor for this run: ~${res.floor}ms — /v1/ping medians ` +
+    `${res.median.toFixed(1)}ms while its fastest sample is ${res.fastest.toFixed(2)}ms ` +
+    `(${Math.round(res.share * 100)}% of probes within 1.5ms of the median).\n` +
+    "Rows marked † sit at or under it: that is the measurement, not the endpoint.",
+  );
+}
+console.log("");
 
 const token = await signIn();
 const reg = "TS77PF" + Math.floor(1000 + Math.random() * 8999);
@@ -103,7 +158,12 @@ results.push(await measure("GET  /v1/service-types       (small reference read)"
  */
 const dispatchTimes = [];
 let dispatchFailures = 0;
-for (let i = 0; i < 8; i++) {
+// Enough samples that p95 is a percentile rather than "the slowest of eight".
+// At n=8 a single outlier IS the p95: one run of this tool reported 675ms for
+// dispatch and the next three reported 112-130ms, which is how a threshold
+// gate teaches people to re-run it instead of reading it.
+const DISPATCH_N = Math.max(8, Math.min(SAMPLES, 25));
+for (let i = 0; i < DISPATCH_N; i++) {
   const t = await signIn();
   const v = await call("POST", "/v1/vehicles", {
     token: t, body: { registrationNo: "TS78PF" + Math.floor(1000 + Math.random() * 8999), vehicleClass: "car" },
@@ -162,21 +222,34 @@ const w = Math.max(...results.map((r) => r.label.length));
 console.log(`${"operation".padEnd(w)}   p50      p95      max      n   fail`);
 console.log("─".repeat(w + 40));
 for (const r of results) {
+  const marks =
+    (res.floor && r.p50 <= res.floor + 1 ? " †" : "") +
+    (r.samples < MIN_N_FOR_P95 ? " ‡" : "");
   console.log(
     `${r.label.padEnd(w)}  ${r.p50.toFixed(1).padStart(6)}ms ${r.p95.toFixed(1).padStart(6)}ms ` +
-    `${r.max.toFixed(1).padStart(6)}ms ${String(r.samples).padStart(3)} ${String(r.failures).padStart(5)}`,
+    `${r.max.toFixed(1).padStart(6)}ms ${String(r.samples).padStart(3)} ${String(r.failures).padStart(5)}` +
+    marks,
   );
 }
 
 // Anything past this is worth looking at rather than assuming is fine.
 const SLOW_P95_MS = 400;
-const slow = results.filter((r) => r.p95 > SLOW_P95_MS);
+// Small-n rows are reported but not gated: their "p95" is the slowest sample,
+// so gating on it fails the run on noise rather than on a regression.
+const slow = results.filter((r) => r.p95 > SLOW_P95_MS && r.samples >= MIN_N_FOR_P95);
+const noisy = results.filter((r) => r.p95 > SLOW_P95_MS && r.samples < MIN_N_FOR_P95);
 console.log("\n" + "─".repeat(w + 40));
 if (slow.length) {
   console.log(`  ${slow.length} operation(s) above ${SLOW_P95_MS}ms at p95 — investigate:`);
   for (const r of slow) console.log(`    · ${r.label.trim()}  p95=${r.p95.toFixed(0)}ms`);
 } else {
   console.log(`  No operation exceeds ${SLOW_P95_MS}ms at p95 on this machine.`);
+}
+for (const r of noisy) {
+  console.log(`  ‡ ${r.label.trim()} p95=${r.p95.toFixed(0)}ms on only ${r.samples} samples — the slowest sample, not a percentile.`);
+}
+if (res.floor && results.some((r) => r.p50 <= res.floor + 1)) {
+  console.log(`  † at or under this run's ~${res.floor}ms measurement floor — quote as "under ${res.floor}ms", never as a figure.`);
 }
 console.log("  Reminder: single-user, local database. This is not a load test.");
 console.log("─".repeat(w + 40));
