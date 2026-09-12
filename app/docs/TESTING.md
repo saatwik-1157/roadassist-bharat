@@ -11,7 +11,7 @@ of those has a stub that speaks the vendor's actual wire format.
 # once
 docker compose up -d && npm ci && npm run db:migrate && npm run db:seed && npm run db:seed:raksha
 
-npm run verify            # typecheck · lint · module boundaries · unit tests
+npm run verify            # typecheck · lint · boundaries · claims · citations · unit tests
 npm start                 # in another shell
 npm run test:e2e          # API journey
 npm run test:concurrency  # races, idempotency, real-time
@@ -110,17 +110,22 @@ Stated here rather than discovered later.
 
 ## Fitness functions — the rules that fail the build
 
-Three, all in the `boundaries` CI job, all added because a rule nobody can
+Four, all in the `boundaries` CI job, all added because a rule nobody can
 enforce is a suggestion.
 
 | Check | Guards against |
 |---|---|
 | `check-boundaries.mjs` rules 1–2 | A schema module importing what ADR-0002 forbids, or anything reaching past the `@roadassist/db` index |
 | `check-boundaries.mjs` rule 3 | **A cached page loading a script that is not itself cached.** Off-Grid Mode fails in the quietest possible way — the page boots, one file is missing, the feature is gone. It caught `i18n.js`: `app.html` loaded it, `SHELL_ASSETS` did not list it, and every off-grid user silently fell back to English |
-| `check-claims.mjs` | A number in the documents disagreeing with `docs/measured.json`. The same figure went stale in twenty-odd files three separate times before this existed |
+| `check-claims.mjs` | A number in the documents disagreeing with `docs/measured.json`. The same figure went stale in twenty-odd files three separate times before this existed. It gates the total, each individual suite, and the `npm run … # N` comments the command lists are written as — the per-suite numbers were ungated at first and drifted while the total beside them stayed right |
+| `check-citations.mjs` | A `file.ts:123` in the documents that no longer points at code. The viva packs tell the reader to *open* the file, so a rotted line number is found in front of an examiner — lifting the auth and emergency routes out of `server.ts` shifted ten citations and pushed two past the end of the file |
 
-Both new checks were mutation-tested — the rule was broken on purpose and the
+Every one of them was mutation-tested — the rule was broken on purpose and the
 build failed — because a check that has never failed has not been shown to work.
+For `check-claims.mjs` that meant faking a suite size in `measured.json` and
+confirming it fails on both the prose and the `npm run … # N` forms; for
+`check-citations.mjs`, nudging one citation past the end of its file and another
+onto a blank line.
 
 ---
 
@@ -231,7 +236,7 @@ health 15 ms · diagnose 16 ms · booking detail 31 ms · map 16 ms · **dispatc
 |---|---|
 | `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
 | `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
-| `boundaries` | three fitness functions: module boundaries, the offline-shell completeness check, and the documented-claims check |
+| `boundaries` | four fitness functions: module boundaries, the offline-shell completeness check, the documented-claims check and the code-citation check |
 | `android` | lint, 18 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
 | `ai` | syntax-checks every CV script and runs the pipeline unit tests |
 
