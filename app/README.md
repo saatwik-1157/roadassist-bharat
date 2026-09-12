@@ -359,7 +359,9 @@ app/
 ├── packages/
 │   └── db/                   Drizzle schema (6 modules, 56 tables)
 ├── scripts/
-│   └── check-boundaries.mjs  Architecture fitness function (ADR-0002)
+│   ├── check-boundaries.mjs  Architecture fitness function (ADR-0002)
+│   ├── check-claims.mjs      Documented numbers match docs/measured.json
+│   └── check-citations.mjs   Documented file:line citations still resolve
 ├── .github/workflows/ci.yml  lint · typecheck · test · secret scan · boundaries
 └── docker-compose.yml        PostGIS · Redis · Redpanda
 ```
