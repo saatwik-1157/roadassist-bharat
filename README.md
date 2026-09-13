@@ -5,6 +5,8 @@
 > **AI-powered · cloud-connected · network-resilient.**
 > *"RoadAssist doesn't stop when the network stops."*
 
+**Built by Saatwik Sairaam Vasamsetti** · [github.com/saatwik-1157](https://github.com/saatwik-1157)
+
 An AI-powered, cloud-connected, network-resilient emergency mobility platform for
 India — designed to keep protecting and assisting people when connectivity becomes
 unreliable. It covers cars, two-wheelers, autos, trucks, buses, tractors and EVs,
