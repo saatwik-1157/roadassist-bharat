@@ -39,6 +39,10 @@ def main() -> None:
     ap.add_argument("--name", default="yolo11s-full")
     ap.add_argument("--fallback", default="yolo11n.pt",
                     help="used if the requested model can't be fetched offline")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue <project>/<name>/weights/last.pt instead of starting over. "
+                         "The first real run stopped at epoch 13 of 100 with mAP50 still "
+                         "climbing; without this, re-running throws those epochs away.")
     args = ap.parse_args()
 
     # Pin CPU threads BEFORE importing torch-heavy code so the pools size right.
@@ -48,17 +52,25 @@ def main() -> None:
 
     from ultralytics import YOLO
 
-    try:
-        model = YOLO(args.model)
-    except Exception as e:  # offline / download blocked → honest fallback
-        print(f"[train] could not load {args.model} ({e}); falling back to {args.fallback}")
-        model = YOLO(args.fallback)
+    ckpt = os.path.join(args.project, args.name, "weights", "last.pt")
+    if args.resume:
+        if not os.path.exists(ckpt):
+            raise SystemExit(f"[train] --resume needs {ckpt}, which does not exist")
+        print(f"[train] resuming {ckpt}")
+        model = YOLO(ckpt)
+    else:
+        try:
+            model = YOLO(args.model)
+        except Exception as e:  # offline / download blocked → honest fallback
+            print(f"[train] could not load {args.model} ({e}); falling back to {args.fallback}")
+            model = YOLO(args.fallback)
 
     print(f"[train] device=cpu threads={args.threads} model={args.model} imgsz={args.imgsz} "
           f"epochs≤{args.epochs} cap={args.hours}h data={args.data}")
 
     model.train(
         data=args.data,
+        resume=args.resume,
         device="cpu",
         imgsz=args.imgsz,
         epochs=args.epochs,
