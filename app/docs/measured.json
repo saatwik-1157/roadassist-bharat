@@ -30,7 +30,7 @@
       "why": "needs a Razorpay sandbox account and refuses to run without one; never counted in the total, never described as passing"
     },
     "otherRunners": {
-      "android": 36,
+      "android": 55,
       "ai": 39,
       "why": "separate toolchains with their own runners; not part of the six-suite total"
     }
@@ -91,7 +91,7 @@
     "locales": 8,
     "codes": ["en", "hi", "ta", "te", "bn", "mr", "kn", "gu"],
     "serverKeys": 18,
-    "androidKeys": 63,
+    "androidKeys": 68,
     "webKeys": 30,
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."
