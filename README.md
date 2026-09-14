@@ -5,6 +5,13 @@
 > **AI-powered · cloud-connected · network-resilient.**
 > *"RoadAssist doesn't stop when the network stops."*
 
+**Which half is AI.** RAKSHA road-damage detection is a genuinely trained
+YOLO11n — weights and per-epoch metrics are in `ai/runs/`. The roadside
+*diagnosis* is not: it is a deterministic rule table (ADR-0006) that returns
+`rules-1.0.0` and is labelled as a rules engine on every screen that shows it.
+Saying "AI-powered" without that sentence is marketing, so the sentence is
+here. See `app/docs/CLAIMS-AUDIT.md`, where the claim is recorded as PARTIAL.
+
 **Built by Saatwik Sairaam Vasamsetti** · [github.com/saatwik-1157](https://github.com/saatwik-1157)
 
 An AI-powered, cloud-connected, network-resilient emergency mobility platform for

@@ -165,11 +165,11 @@ app.setErrorHandler((err, req, reply) => {
   });
 });
 
-// The demo client is served from the API so the whole slice is one command.
+// "/" is the landing page; index.html keeps the request console at its URL.
 await app.register(fastifyStatic, {
   root: findUp("apps/web"),
   prefix: "/",
-  index: ["index.html"],
+  index: ["landing.html", "index.html"],
 });
 // Demo media (videos, photos) live in the repo's site/ folder — served here so
 // the showcase page can embed them without duplicating megabytes into app/.

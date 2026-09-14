@@ -2,6 +2,11 @@
 
 > AI-powered · cloud-connected · **network-resilient** roadside assistance for India.
 > *"RoadAssist doesn't stop when the network stops."*
+>
+> "AI-powered" covers RAKSHA's trained YOLO11n road-damage detector (`ai/runs/`),
+> not the roadside diagnosis — that is a deterministic rule table returning
+> `rules-1.0.0`, and is never described as a model. `app/docs/CLAIMS-AUDIT.md`
+> records the claim as PARTIAL for exactly this reason.
 > SWE4004 Cloud Computing and Applications · Review 1
 
 **Current status: the Review 2 vertical slice runs end to end.** One complete
