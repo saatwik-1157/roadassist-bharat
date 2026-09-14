@@ -35,6 +35,7 @@ claims that cannot be demonstrated for a list that can be, live, in five minutes
 
 | Claim | Backed by | Test | Status |
 |---|---|---|---|
+| Android i18n: "zero hardcoded literals left in `MainActivity.kt`" | **WRONG WHEN WRITTEN** — corrected 2026-09-14. The bottom navigation was five English literals (`Tab("Home", ...)`), so every non-English build showed an English nav bar on every screen; four `Heading()` calls, `STATUS`, the `· signed in` suffix and the off-grid paragraph were literals too. Found by running the app under each locale on an emulator, not by reading the code. The nav is now `stringResource` in all 8 locales (63 → 68 keys); the rest is listed in TESTING.md rather than claimed away. | `values-*/strings.xml`, Android lint MissingTranslation | **CORRECTED** |
 | "Offline-first" — the app works with no network | `offline-store.js`, `sw.js`, `connectivity.js` | `ui-journey.mjs` §7b drives the whole scenario | **IMPLEMENTED** |
 | SOS works with no internet | `raiseOffGridSos()` → IndexedDB → `/v1/sos/offline-sync` | `ui-journey.mjs` §7b, `e2e-journey.mjs` §12b | **IMPLEMENTED** |
 | "No duplicate incident" on reconnect | `incidents.client_incident_id` UNIQUE + `onConflictDoNothing` | `concurrency-test.mjs` §4, §5 | **IMPLEMENTED** |

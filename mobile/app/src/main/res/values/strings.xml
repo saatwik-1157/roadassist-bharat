@@ -85,4 +85,13 @@
     <string name="sos_alerting_in">Alerting in %1$d…</string>
     <string name="label_vehicle_type">Type: %1$s</string>
     <string name="map_tiles_cached">Map tiles on this device: %1$d/%2$d · shows offline · © OpenStreetMap</string>
+    <!-- Bottom navigation. These were five hard-coded English literals in
+         MainActivity (Tab("Home", ...)), which is why every non-English build
+         still showed an English nav bar on every screen. Keep them SHORT: five
+         items share one row, and a long word is clipped rather than wrapped. -->
+    <string name="nav_home">Home</string>
+    <string name="nav_assist">Assist</string>
+    <string name="nav_map">Map</string>
+    <string name="nav_track">Track</string>
+    <string name="nav_more">More</string>
 </resources>

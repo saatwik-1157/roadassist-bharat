@@ -25,7 +25,12 @@ import java.net.URL
 class ApiException(message: String) : Exception(message)
 
 object Api {
-    /** 10.0.2.2 is the emulator's alias for the dev machine's localhost. */
+    /**
+     * 10.0.2.2 is the emulator's alias for the dev machine's localhost. It
+     * means nothing on a real handset, so the sign-in screen offers this as an
+     * editable field and MainActivity restores the last value used. See
+     * [normalizeBase] for what a hand-typed address needs before it is a URL.
+     */
     @Volatile var base: String = "http://10.0.2.2:4000"
     @Volatile var token: String? = null
     @Volatile var refreshToken: String? = null
@@ -35,6 +40,31 @@ object Api {
      * threads. See [refresh] for why this is not merely an optimisation.
      */
     private val rotating = Mutex()
+
+    /**
+     * Make a hand-typed API address usable.
+     *
+     * This field is filled in on a phone keyboard, so it arrives with what
+     * that produces: surrounding space, a trailing slash, and above all no
+     * scheme — "192.168.1.8:4000" is what somebody reads off the server's
+     * boot banner and types. `URL()` throws MalformedURLException on a string
+     * with no scheme, and [raw] surfaces that as a bare "Failed" with nothing
+     * the user can act on.
+     *
+     * Pure, so it is tested off-device rather than by retyping addresses into
+     * a running app.
+     */
+    fun normalizeBase(input: String): String {
+        val typed = input.trim()
+        if (typed.isEmpty()) return base
+        val schemed =
+            if (typed.startsWith("http://", ignoreCase = true) ||
+                typed.startsWith("https://", ignoreCase = true)) typed
+            else "http://$typed"
+        val trimmed = schemed.trimEnd('/')
+        // A scheme and nothing else is not an address; keep what already works.
+        return if (trimmed.endsWith(":")) base else trimmed
+    }
 
     /** The access token the WebView bridge should use right now. */
     fun currentToken(): String = token ?: ""

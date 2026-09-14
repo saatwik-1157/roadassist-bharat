@@ -74,7 +74,7 @@ npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
 without one. It is **not** part of the 626 and must never be described as
 passing.
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (36
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (55
 tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
 
 ## Toolchain traps

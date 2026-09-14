@@ -75,4 +75,9 @@
     <string name="sos_alerting_in">%1$d-ல் அனுப்பப்படும்…</string>
     <string name="label_vehicle_type">வகை: %1$s</string>
     <string name="map_tiles_cached">இந்த ஃபோனில் வரைபடத் துண்டுகள்: %1$d/%2$d · ஆஃப்லைனில் தெரியும் · © OpenStreetMap</string>
+    <string name="nav_home">முகப்பு</string>
+    <string name="nav_assist">உதவி</string>
+    <string name="nav_map">வரைபடம்</string>
+    <string name="nav_track">கண்காணி</string>
+    <string name="nav_more">மேலும்</string>
 </resources>

@@ -75,4 +75,9 @@
     <string name="sos_alerting_in">%1$d-এ পাঠানো হবে…</string>
     <string name="label_vehicle_type">ধরন: %1$s</string>
     <string name="map_tiles_cached">এই ফোনে মানচিত্রের টাইল: %1$d/%2$d · অফলাইনে দেখাবে · © OpenStreetMap</string>
+    <string name="nav_home">হোম</string>
+    <string name="nav_assist">সহায়তা</string>
+    <string name="nav_map">মানচিত্র</string>
+    <string name="nav_track">ট্র্যাক</string>
+    <string name="nav_more">আরও</string>
 </resources>
