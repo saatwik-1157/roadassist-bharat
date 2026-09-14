@@ -259,7 +259,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
         if (uri != null) photoScope.launch {
             val r = withContext(Dispatchers.IO) { processReportImage(ctx, uri) }
             if (r != null) { reportPhotoB64 = r.first; reportPhotoThumb = r.second }
-            else toast = "Couldn't read that image"
+            else toast = ctx.getString(R.string.toast_image_unreadable)
         }
     }
 
@@ -662,7 +662,7 @@ private fun EmptyTrack(onBook: () -> Unit) {
 
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
-        Heading("Your", "rescues.")
+        Heading(R.string.head_rescues_plain, R.string.head_rescues_italic)
         if (history.isEmpty()) {
             Column(
                 Modifier.fillMaxWidth().padding(top = 60.dp),
@@ -736,8 +736,8 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
 
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
-        Heading("Account &", "more.")
-        Sub("$msisdn · signed in")
+        Heading(R.string.head_more_plain, R.string.head_more_italic)
+        Sub("$msisdn " + stringResource(R.string.signed_in_suffix))
 
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -915,11 +915,11 @@ private fun ScreenColumn(content: @Composable androidx.compose.foundation.layout
 }
 
 @Composable
-private fun Heading(plain: String, italic: String) {
+private fun Heading(@StringRes plain: Int, @StringRes italic: Int) {
     Row {
-        Text(plain, style = RaType.heading, color = Cream)
+        Text(stringResource(plain), style = RaType.heading, color = Cream)
         Text(
-            " $italic", style = RaType.heading, color = Gold,
+            " " + stringResource(italic), style = RaType.heading, color = Gold,
             fontStyle = FontStyle.Italic,
         )
     }
@@ -1011,7 +1011,7 @@ private fun SignInScreen(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(34.dp))
-        Heading("Sign in with your", "phone.")
+        Heading(R.string.head_signin_plain, R.string.head_signin_italic)
         Sub(stringResource(R.string.signin_sub))
 
         Field(baseUrl, { baseUrl = it }, stringResource(R.string.field_api_base_url))
@@ -1026,7 +1026,7 @@ private fun SignInScreen(
                         val r = Api.post("/v1/auth/otp/request", JSONObject().put("msisdn", msisdn.trim()))
                         val dev = r.optJSONObject("meta")?.optString("devOtp").orEmpty()
                         if (dev.isNotBlank()) { code = dev; onToast("Dev OTP auto-filled ($dev)") }
-                        else onToast("OTP sent by SMS")
+                        else onToast(ctx.getString(R.string.toast_otp_sent))
                         otpSent = true
                     } catch (e: Exception) { onToast(e.message ?: "Failed") }
                     busy = false
@@ -1050,7 +1050,7 @@ private fun SignInScreen(
                             val v = vehicles.getJSONObject(0)
                             onSignedIn(v.getString("id"), v.getString("registrationNo"))
                         } else onSignedIn(null, null)
-                        onToast("Signed in")
+                        onToast(ctx.getString(R.string.toast_signed_in))
                     } catch (e: Exception) { onToast(e.message ?: "Failed") }
                     busy = false
                 }
@@ -1079,8 +1079,8 @@ private fun HomeScreen(
 
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
-        Heading("Namaste,", "traveller.")
-        Sub("$msisdn · signed in")
+        Heading(R.string.head_home_plain, R.string.head_home_italic)
+        Sub("$msisdn " + stringResource(R.string.signed_in_suffix))
 
         // SOS — the fallback ladder: data → SMS → 112 → queue. Works with no net.
         val ctx = LocalContext.current
@@ -1096,7 +1096,7 @@ private fun HomeScreen(
         // Any queued SOS flushes automatically when data returns.
         LaunchedEffect(Unit) {
             val flushed = Emergency.flush(ctx)
-            if (flushed > 0) onToast("$flushed queued SOS synced now that you're online")
+            if (flushed > 0) onToast(ctx.getString(R.string.toast_sos_synced, flushed))
         }
 
         // ── SOS grace window ────────────────────────────────────────────────
@@ -1176,7 +1176,7 @@ private fun HomeScreen(
                 dismissButton = {
                     TextButton(onClick = {
                         sosArmed = false
-                        onToast("SOS cancelled — nothing was sent")
+                        onToast(ctx.getString(R.string.toast_sos_cancelled))
                     }) { Text(stringResource(R.string.action_cancel), color = Muted, style = RaType.label) }
                 },
             )
@@ -1224,8 +1224,7 @@ private fun HomeScreen(
                 modifier = Modifier.align(Alignment.CenterHorizontally))
         }
         Text(
-            "Works with no internet: SOS falls back data → SMS → 112 → offline queue, " +
-                "and syncs the moment signal returns. SMS number is a placeholder until a real code is provisioned.",
+            stringResource(R.string.sos_offline_note),
             color = Muted, style = RaType.meta, lineHeight = 16.sp,
             modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
         )
@@ -1264,7 +1263,7 @@ private fun HomeScreen(
                                     JSONObject().put("registrationNo", reg.trim()).put("vehicleClass", vClass),
                                 ).getJSONObject("data")
                                 onVehicle(v.getString("id"), v.getString("registrationNo"))
-                                onToast("Vehicle added")
+                                onToast(ctx.getString(R.string.toast_vehicle_added))
                             } catch (e: Exception) { onToast(e.message ?: "Failed") }
                             busy = false
                         }
@@ -1310,6 +1309,7 @@ private fun BookScreen(
     onTracked: (String) -> Unit,
     onNeedVehicle: () -> Unit,
 ) {
+    val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var services by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     var service by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -1387,7 +1387,7 @@ private fun BookScreen(
                     JSONObject().put("radiusKm", 30).put("limit", 5)).getJSONObject("data")
                 val arr = d.optJSONArray("offers") ?: JSONArray()
                 offers = (0 until arr.length()).map { arr.getJSONObject(it) }
-                if (offers.isEmpty()) onToast("No mechanic in range — widen the radius")
+                if (offers.isEmpty()) onToast(ctx.getString(R.string.toast_no_mechanic))
             } catch (e: Exception) { onToast(e.message ?: "Failed") }
             busy = false
         }
@@ -1395,7 +1395,7 @@ private fun BookScreen(
 
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
-        Heading("Request", "assistance.")
+        Heading(R.string.head_book_plain, R.string.head_book_italic)
         Sub(stringResource(R.string.mechanics_nearby_sub))
 
         // Focused-mechanic banner (from the map or nearby list).
@@ -1559,7 +1559,7 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
 
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
-        Heading("Your", "rescue.")
+        Heading(R.string.head_track_plain, R.string.head_track_italic)
         Sub("Booking $bookingId")
 
         Card(
@@ -1568,7 +1568,8 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
         ) {
             Column(Modifier.padding(17.dp)) {
-                Text("STATUS", color = Muted, fontSize = 10.sp, letterSpacing = 3.sp)
+                Text(stringResource(R.string.label_status), color = Muted,
+                    fontSize = 10.sp, letterSpacing = 3.sp)
                 Text(status, color = Gold, fontSize = 24.sp, modifier = Modifier.padding(top = 4.dp))
                 invoice?.let {
                     Text(it, color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 8.dp))

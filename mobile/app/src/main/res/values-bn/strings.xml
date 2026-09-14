@@ -80,4 +80,26 @@
     <string name="nav_map">মানচিত্র</string>
     <string name="nav_track">ট্র্যাক</string>
     <string name="nav_more">আরও</string>
+    <string name="head_home_plain">নমস্কার,</string>
+    <string name="head_home_italic">যাত্রী.</string>
+    <string name="head_signin_plain">আপনার</string>
+    <string name="head_signin_italic">ফোন দিয়ে সাইন ইন.</string>
+    <string name="head_rescues_plain">আপনার</string>
+    <string name="head_rescues_italic">উদ্ধার.</string>
+    <string name="head_track_plain">আপনার</string>
+    <string name="head_track_italic">উদ্ধার.</string>
+    <string name="head_more_plain">অ্যাকাউন্ট ও</string>
+    <string name="head_more_italic">আরও.</string>
+    <string name="head_book_plain">সহায়তার</string>
+    <string name="head_book_italic">অনুরোধ.</string>
+    <string name="signed_in_suffix">· সাইন ইন</string>
+    <string name="label_status">অবস্থা</string>
+    <string name="sos_offline_note">ইন্টারনেট ছাড়াও কাজ করে: SOS ডেটা → SMS → 112 → অফলাইন সারি ক্রমে চেষ্টা করে, সিগন্যাল ফিরলেই সিঙ্ক হয়। SMS নম্বরটি অস্থায়ী।</string>
+    <string name="toast_image_unreadable">ছবিটি পড়া গেল না</string>
+    <string name="toast_otp_sent">OTP SMS-এ পাঠানো হয়েছে</string>
+    <string name="toast_signed_in">সাইন ইন হয়েছে</string>
+    <string name="toast_sos_cancelled">SOS বাতিল — কিছুই পাঠানো হয়নি</string>
+    <string name="toast_vehicle_added">যানবাহন যোগ হয়েছে</string>
+    <string name="toast_no_mechanic">এই পরিসরে কোনো মেকানিক নেই — পরিসর বাড়ান</string>
+    <string name="toast_sos_synced">অনলাইনে আসতেই %1$d SOS সিঙ্ক হয়েছে</string>
 </resources>
