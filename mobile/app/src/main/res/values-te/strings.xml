@@ -80,4 +80,26 @@
     <string name="nav_map">మ్యాప్</string>
     <string name="nav_track">ట్రాక్</string>
     <string name="nav_more">మరిన్ని</string>
+    <string name="head_home_plain">నమస్కారం,</string>
+    <string name="head_home_italic">ప్రయాణికుడా.</string>
+    <string name="head_signin_plain">మీ</string>
+    <string name="head_signin_italic">ఫోన్‌తో సైన్ ఇన్.</string>
+    <string name="head_rescues_plain">మీ</string>
+    <string name="head_rescues_italic">సహాయాలు.</string>
+    <string name="head_track_plain">మీ</string>
+    <string name="head_track_italic">సహాయం.</string>
+    <string name="head_more_plain">ఖాతా &amp;</string>
+    <string name="head_more_italic">మరిన్ని.</string>
+    <string name="head_book_plain">సహాయం</string>
+    <string name="head_book_italic">అభ్యర్థించండి.</string>
+    <string name="signed_in_suffix">· సైన్ ఇన్ అయ్యారు</string>
+    <string name="label_status">స్థితి</string>
+    <string name="sos_offline_note">ఇంటర్నెట్ లేకుండా పనిచేస్తుంది: SOS డేటా → SMS → 112 → ఆఫ్‌లైన్ క్యూ వరుసలో ప్రయత్నిస్తుంది, సిగ్నల్ తిరిగి రాగానే సింక్ అవుతుంది. SMS నంబర్ తాత్కాలికం.</string>
+    <string name="toast_image_unreadable">ఆ చిత్రాన్ని చదవలేకపోయాం</string>
+    <string name="toast_otp_sent">OTP SMS ద్వారా పంపబడింది</string>
+    <string name="toast_signed_in">సైన్ ఇన్ అయ్యారు</string>
+    <string name="toast_sos_cancelled">SOS రద్దు — ఏదీ పంపలేదు</string>
+    <string name="toast_vehicle_added">వాహనం జోడించబడింది</string>
+    <string name="toast_no_mechanic">ఈ పరిధిలో మెకానిక్ లేరు — పరిధిని పెంచండి</string>
+    <string name="toast_sos_synced">ఆన్‌లైన్‌కు రాగానే %1$d SOS సింక్ అయ్యాయి</string>
 </resources>

@@ -85,4 +85,26 @@
     <string name="nav_map">नक्शा</string>
     <string name="nav_track">ट्रैक</string>
     <string name="nav_more">और</string>
+    <string name="head_home_plain">नमस्ते,</string>
+    <string name="head_home_italic">यात्री.</string>
+    <string name="head_signin_plain">अपने फ़ोन से</string>
+    <string name="head_signin_italic">साइन इन करें.</string>
+    <string name="head_rescues_plain">आपके</string>
+    <string name="head_rescues_italic">बचाव.</string>
+    <string name="head_track_plain">आपका</string>
+    <string name="head_track_italic">बचाव.</string>
+    <string name="head_more_plain">खाता और</string>
+    <string name="head_more_italic">अधिक.</string>
+    <string name="head_book_plain">सहायता</string>
+    <string name="head_book_italic">अनुरोध करें.</string>
+    <string name="signed_in_suffix">· साइन इन</string>
+    <string name="label_status">स्थिति</string>
+    <string name="sos_offline_note">बिना इंटरनेट भी काम करता है: SOS क्रम से डेटा → SMS → 112 → ऑफ़लाइन क़तार आज़माता है, और सिग्नल लौटते ही सिंक हो जाता है. SMS नंबर अभी अस्थायी है, असली कोड मिलने तक.</string>
+    <string name="toast_image_unreadable">वह तस्वीर पढ़ी नहीं जा सकी</string>
+    <string name="toast_otp_sent">OTP SMS से भेजा गया</string>
+    <string name="toast_signed_in">साइन इन हो गए</string>
+    <string name="toast_sos_cancelled">SOS रद्द — कुछ नहीं भेजा गया</string>
+    <string name="toast_vehicle_added">वाहन जोड़ा गया</string>
+    <string name="toast_no_mechanic">इस दायरे में कोई मैकेनिक नहीं — दायरा बढ़ाएँ</string>
+    <string name="toast_sos_synced">ऑनलाइन होते ही %1$d क़तारबद्ध SOS सिंक हुए</string>
 </resources>

@@ -80,4 +80,26 @@
     <string name="nav_map">வரைபடம்</string>
     <string name="nav_track">கண்காணி</string>
     <string name="nav_more">மேலும்</string>
+    <string name="head_home_plain">வணக்கம்,</string>
+    <string name="head_home_italic">பயணி.</string>
+    <string name="head_signin_plain">உங்கள்</string>
+    <string name="head_signin_italic">போனில் உள்நுழைக.</string>
+    <string name="head_rescues_plain">உங்கள்</string>
+    <string name="head_rescues_italic">மீட்புகள்.</string>
+    <string name="head_track_plain">உங்கள்</string>
+    <string name="head_track_italic">மீட்பு.</string>
+    <string name="head_more_plain">கணக்கு &amp;</string>
+    <string name="head_more_italic">மேலும்.</string>
+    <string name="head_book_plain">உதவி</string>
+    <string name="head_book_italic">கோரிக்கை.</string>
+    <string name="signed_in_suffix">· உள்நுழைந்துள்ளீர்கள்</string>
+    <string name="label_status">நிலை</string>
+    <string name="sos_offline_note">இணையம் இல்லாமலும் இயங்கும்: SOS தரவு → SMS → 112 → ஆஃப்லைன் வரிசை என இறங்கும், சிக்னல் திரும்பியதும் ஒத்திசைக்கும். SMS எண் தற்காலிகமானது.</string>
+    <string name="toast_image_unreadable">அந்தப் படத்தைப் படிக்க முடியவில்லை</string>
+    <string name="toast_otp_sent">OTP SMS வழியாக அனுப்பப்பட்டது</string>
+    <string name="toast_signed_in">உள்நுழைந்துவிட்டீர்கள்</string>
+    <string name="toast_sos_cancelled">SOS ரத்து — எதுவும் அனுப்பப்படவில்லை</string>
+    <string name="toast_vehicle_added">வாகனம் சேர்க்கப்பட்டது</string>
+    <string name="toast_no_mechanic">இந்த வரம்பில் மெக்கானிக் இல்லை — வரம்பை அதிகரிக்கவும்</string>
+    <string name="toast_sos_synced">ஆன்லைனுக்கு வந்ததும் %1$d SOS ஒத்திசைக்கப்பட்டன</string>
 </resources>

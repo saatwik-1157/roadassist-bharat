@@ -80,4 +80,26 @@
     <string name="nav_map">ನಕ್ಷೆ</string>
     <string name="nav_track">ಟ್ರ್ಯಾಕ್</string>
     <string name="nav_more">ಇನ್ನಷ್ಟು</string>
+    <string name="head_home_plain">ನಮಸ್ಕಾರ,</string>
+    <string name="head_home_italic">ಪ್ರಯಾಣಿಕ.</string>
+    <string name="head_signin_plain">ನಿಮ್ಮ</string>
+    <string name="head_signin_italic">ಫೋನ್‌ನಿಂದ ಸೈನ್ ಇನ್.</string>
+    <string name="head_rescues_plain">ನಿಮ್ಮ</string>
+    <string name="head_rescues_italic">ರಕ್ಷಣೆಗಳು.</string>
+    <string name="head_track_plain">ನಿಮ್ಮ</string>
+    <string name="head_track_italic">ರಕ್ಷಣೆ.</string>
+    <string name="head_more_plain">ಖಾತೆ ಮತ್ತು</string>
+    <string name="head_more_italic">ಇನ್ನಷ್ಟು.</string>
+    <string name="head_book_plain">ಸಹಾಯ</string>
+    <string name="head_book_italic">ಕೋರಿಕೆ.</string>
+    <string name="signed_in_suffix">· ಸೈನ್ ಇನ್ ಆಗಿದೆ</string>
+    <string name="label_status">ಸ್ಥಿತಿ</string>
+    <string name="sos_offline_note">ಇಂಟರ್ನೆಟ್ ಇಲ್ಲದೆಯೂ ಕೆಲಸ ಮಾಡುತ್ತದೆ: SOS ಡೇಟಾ → SMS → 112 → ಆಫ್‌ಲೈನ್ ಸರದಿ ಕ್ರಮದಲ್ಲಿ ಪ್ರಯತ್ನಿಸುತ್ತದೆ, ಸಿಗ್ನಲ್ ಮರಳಿದ ಕೂಡಲೆ ಸಿಂಕ್ ಆಗುತ್ತದೆ. SMS ಸಂಖ್ಯೆ ತಾತ್ಕಾಲಿಕ.</string>
+    <string name="toast_image_unreadable">ಆ ಚಿತ್ರವನ್ನು ಓದಲಾಗಲಿಲ್ಲ</string>
+    <string name="toast_otp_sent">OTP SMS ಮೂಲಕ ಕಳುಹಿಸಲಾಗಿದೆ</string>
+    <string name="toast_signed_in">ಸೈನ್ ಇನ್ ಆಗಿದೆ</string>
+    <string name="toast_sos_cancelled">SOS ರದ್ದು — ಏನನ್ನೂ ಕಳುಹಿಸಿಲ್ಲ</string>
+    <string name="toast_vehicle_added">ವಾಹನ ಸೇರಿಸಲಾಗಿದೆ</string>
+    <string name="toast_no_mechanic">ಈ ವ್ಯಾಪ್ತಿಯಲ್ಲಿ ಮೆಕ್ಯಾನಿಕ್ ಇಲ್ಲ — ವ್ಯಾಪ್ತಿ ಹೆಚ್ಚಿಸಿ</string>
+    <string name="toast_sos_synced">ಆನ್‌ಲೈನ್ ಆದ ಕೂಡಲೆ %1$d SOS ಸಿಂಕ್ ಆಗಿವೆ</string>
 </resources>

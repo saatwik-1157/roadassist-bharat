@@ -156,7 +156,7 @@ that reach the people with the worst connections and the cheapest phones, first.
 | Surface | Covered | Not covered |
 |---|---|---|
 | API (SMS + OTP) | **Everything the platform sends**, in all 8 — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
-| Android | **Most of the UI**, in all 8 — 68 strings per locale. Seven English literals remain in `MainActivity.kt`: four `Heading()` calls, the `· signed in` suffix, `STATUS`, and the off-grid explainer paragraph. The brand wordmark and `SOS` are deliberately untranslated | Toast text assembled from server responses, which arrives already localised |
+| Android | **The user-facing UI**, in all 8 — 90 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer and the user-facing toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | Seven literals remain, all of them diagnostics or wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
 | Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 30 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 

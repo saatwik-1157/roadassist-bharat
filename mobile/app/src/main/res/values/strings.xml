@@ -94,4 +94,26 @@
     <string name="nav_map">Map</string>
     <string name="nav_track">Track</string>
     <string name="nav_more">More</string>
+    <string name="head_home_plain">Namaste,</string>
+    <string name="head_home_italic">traveller.</string>
+    <string name="head_signin_plain">Sign in with your</string>
+    <string name="head_signin_italic">phone.</string>
+    <string name="head_rescues_plain">Your</string>
+    <string name="head_rescues_italic">rescues.</string>
+    <string name="head_track_plain">Your</string>
+    <string name="head_track_italic">rescue.</string>
+    <string name="head_more_plain">Account &amp;</string>
+    <string name="head_more_italic">more.</string>
+    <string name="head_book_plain">Request</string>
+    <string name="head_book_italic">assistance.</string>
+    <string name="signed_in_suffix">· signed in</string>
+    <string name="label_status">STATUS</string>
+    <string name="sos_offline_note">Works with no internet: SOS falls back data → SMS → 112 → offline queue, and syncs the moment signal returns. SMS number is a placeholder until a real code is provisioned.</string>
+    <string name="toast_image_unreadable">That image could not be read</string>
+    <string name="toast_otp_sent">OTP sent by SMS</string>
+    <string name="toast_signed_in">Signed in</string>
+    <string name="toast_sos_cancelled">SOS cancelled — nothing was sent</string>
+    <string name="toast_vehicle_added">Vehicle added</string>
+    <string name="toast_no_mechanic">No mechanic in range — widen the radius</string>
+    <string name="toast_sos_synced">%1$d queued SOS synced now that you are online</string>
 </resources>
