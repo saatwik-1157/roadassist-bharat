@@ -77,6 +77,14 @@ a { color: inherit; text-decoration: none; }
   /* radii */
   --r-xs: 8px; --r-sm: 12px; --r-md: 16px; --r-lg: 22px; --r-xl: 30px; --r-full: 999px;
 
+  /* spacing — a 4px base, the only ladder any surface should climb.
+     Every page had been inventing its own padding, which is why a card on
+     raksha.html and the same card on app.html did not line up. Use these
+     rather than a fresh px value; if a gap needs something not on the ladder,
+     the ladder is probably the wrong answer. */
+  --s-1: 4px;  --s-2: 8px;   --s-3: 12px; --s-4: 16px;
+  --s-5: 24px; --s-6: 32px;  --s-7: 48px; --s-8: 64px; --s-9: 80px;
+
   /* motion — one expo-out curve for travel, one spring for press */
   --ease:    cubic-bezier(0.16, 1, 0.30, 1);
   --spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -471,7 +479,7 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; }
 * { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
 *::-webkit-scrollbar { width: 9px; height: 9px; }
 *::-webkit-scrollbar-thumb {
-  background: var(--line-2); border-radius: 99px;
+  background: var(--line-2); border-radius: var(--r-full);
   border: 3px solid transparent; background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover { background: var(--text-3); background-clip: content-box; }

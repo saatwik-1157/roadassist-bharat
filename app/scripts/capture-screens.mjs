@@ -37,6 +37,39 @@ const CHROME = [
 ].find((p) => existsSync(p));
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * The session this run signed in with, and the bookings it must hand back.
+ *
+ * This script accepts a real offer so the tracking shot has a real assignment
+ * on it, and then never completes or cancels that booking. Every run therefore
+ * retired one mechanic from the pool permanently. Three runs in an afternoon
+ * emptied the demo radius, and the next `npm run test:e2e` failed on
+ * "dispatch ran status=NO_SUPPLY / 0 offers" — a failure that looks like a
+ * dispatch bug and is really this script's litter. The concurrency suite has
+ * released its providers since the same thing bit it; this does the same.
+ */
+let sessionToken = "";
+const ACTIVE = ["MATCHING", "ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS",
+                "AWAITING_PARTS", "ESCALATED"];
+
+async function releaseBookings() {
+  if (!sessionToken) return { total: 0, stillHolding: 0 };
+  const auth = { authorization: `Bearer ${sessionToken}` };
+  const list = await fetch(`${BASE}/v1/bookings`, { headers: auth }).then((r) => r.json());
+  const held = (list.data ?? []).filter((b) => ACTIVE.includes(b.status));
+  let stillHolding = 0;
+  for (const b of held) {
+    await fetch(`${BASE}/v1/bookings/${b.id}/transition`, {
+      method: "POST", headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ command: "cancel" }),
+    }).catch(() => {});
+    const after = await fetch(`${BASE}/v1/bookings/${b.id}`, { headers: auth })
+      .then((r) => r.json()).catch(() => ({}));
+    if (ACTIVE.includes(after.data?.status)) stillHolding++;
+  }
+  return { total: held.length, stillHolding };
+}
 const shots = [];
 
 class Page {
@@ -172,6 +205,11 @@ const run = async () => {
       document.getElementById("a-code").value = j.meta.devOtp;
       document.getElementById("a-verify").click(); return true;`);
     await page.waitFor(`document.getElementById("tabs").hidden === false`, 20000);
+    // Captured here rather than at the end: the cleanup below has to work for a
+    // run that dies half way, which is exactly the run that leaves a booking
+    // assigned. app.html keeps the session under this key (see loadSession).
+    sessionToken = await page.eval(
+      `return (JSON.parse(localStorage.getItem("ra.app.session") || "null") || {}).token || "";`);
     await page.shot("02-home", "Home — SOS, emergency readiness, quick actions");
 
     // TS09 AB 1234 — two LETTERS then four digits. base36 could yield a digit
@@ -308,22 +346,53 @@ const run = async () => {
     // from real PostGIS rows, not a static image.
     console.log("\nlive map");
     await page.viewport(430, 900, true);
-    await page.goto(`${BASE}/map.html`);
+    // map.html has no localStorage fallback — it reads the session out of the
+    // URL hash, exactly as app.html hands it over (apps/web/app.html:3475).
+    // Navigated bare it still renders, but every authenticated fetch 401s, so
+    // not one mechanic, responder or detection arrives. The citizen session is
+    // still in storage here: the authority step above keys its own under
+    // ra.raksha.session and leaves ra.app.session alone.
+    const mapToken = sessionToken;
+    await page.goto(
+      `${BASE}/map.html#base=${encodeURIComponent(BASE)}&token=${encodeURIComponent(mapToken)}`);
+    // What counts as "the map has content".
+    //
+    // The "you are here" dot is added straight to the map rather than to the
+    // cluster (apps/web/map.html:251), so it satisfies a bare
+    // .leaflet-marker-icon count entirely on its own. Counting it is how an
+    // unauthenticated map — the sign-in gate and a single blue dot — was
+    // captured and published under a caption promising clustered mechanics,
+    // responders and detections. Assert the content, not the dot.
+    const CONTENT = `document.querySelectorAll(".marker-cluster").length + ` +
+      `[...document.querySelectorAll(".leaflet-marker-icon")]` +
+      `.filter(m => !m.querySelector(".me")).length > 0`;
     try {
-      await page.waitFor(
-        `document.querySelectorAll(".leaflet-marker-icon, .marker-cluster").length > 0`, 25000);
+      await page.waitFor(CONTENT, 25000);
       await sleep(2500);
-      await page.expect(`document.querySelectorAll(".leaflet-marker-icon, .marker-cluster").length > 0`,
-        "live markers drawn on the map");
+      await page.expect(CONTENT, "mechanic, responder or detection markers on the map");
       await page.shot("18-live-map", "RAKSHA live map — clustered mechanics, responders and detections");
     } catch {
-      console.log("  – live map skipped (no markers rendered)");
+      console.log("  – live map skipped (no mechanic/responder/detection markers rendered)");
     }
 
+    // The landing page, which is what "/" serves. This step used to shoot
+    // index.html — the request console — under the caption "Product landing
+    // page", and with no assertion at all: a bare sleep, then the shutter. It
+    // published the console sitting on its red "API unreachable" banner, which
+    // is the console's honest resting state before you press GO ONLINE, and a
+    // poor thing to lead a deck with. Assert the hero before shooting.
     await page.viewport(1280, 860, false);
+    await page.goto(`${BASE}/`);
+    await page.waitFor(`document.querySelector(".hero .display")`, 15000);
+    await sleep(1200);
+    await page.expect(`document.querySelectorAll(".card").length > 8`,
+      "the landing page sections rendered");
+    await page.shot("15-landing", "Product landing page — what RoadAssist does, and what it does not");
+
+    // The console gets its own shot, captioned as what it actually is.
     await page.goto(`${BASE}/index.html`);
     await sleep(2200);
-    await page.shot("15-landing", "Product landing page");
+    await page.shot("23-console", "Request console — every API call the client makes, with the server's reply");
 
     // A manifest so the deck and the docs reference captured files, never
     // hand-picked ones that might not exist.
@@ -335,6 +404,18 @@ const run = async () => {
     console.error("\ncapture failed:", e.message);
     process.exitCode = 1;
   } finally {
+    // Before the browser dies, and on the failure path too — a run that crashed
+    // after accepting is precisely the one holding a mechanic.
+    try {
+      const freed = await releaseBookings();
+      if (freed.total) {
+        console.log(`
+released ${freed.total} booking(s) back to the pool` +
+                    `${freed.stillHolding ? ` (${freed.stillHolding} still held)` : ""}`);
+      }
+    } catch (e) {
+      console.error("could not release bookings:", e.message);
+    }
     cleanup();
   }
 };
