@@ -111,6 +111,21 @@ const CHECKS = [
     allow: [String(measured.schema.gistIndexes), String(measured.schema.uniqueIndexes)],
   },
   {
+    label: "unique indexes",
+    expect: String(measured.schema.uniqueIndexes),
+    // The total above was gated; this one only ever appeared in that check's
+    // allow list, which lets the number PASS and never checks it. So when
+    // payments_invoice_settled_uq took indexes from 137 to 138 and unique
+    // indexes from 83 to 84, the gate caught the first and said nothing about
+    // the second, and three documents kept saying 83.
+    //
+    // "unique indexes" is the only phrasing used, and it cannot collide with
+    // the total: /(\d+)\s+indexes\b/ does not match "83 unique indexes",
+    // because the word sits between the number and the noun.
+    re: /(\d+)\s+unique indexes\b/g,
+    allow: [],
+  },
+  {
     label: "check constraints",
     expect: String(measured.schema.checkConstraints),
     re: /(\d+)\s+check constraints\b/g,
