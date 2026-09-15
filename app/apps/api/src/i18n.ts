@@ -13,13 +13,20 @@
  * a screen. A screen can be pointed at; a text message cannot.
  *
  * ── scope, stated honestly ────────────────────────────────────────────────
- * Two languages ship: English and Hindi. The roadmap names eight. Adding the
- * next one is a column in the table below and nothing else — that is the point
- * of the shape — but six of them are NOT here, and nothing in this file should
- * be read as claiming otherwise. `LOCALES` is the whole truth.
+ * All eight roadmap languages ship: en hi ta te bn mr kn gu. This paragraph
+ * said "two languages ship: English and Hindi" long after the other six had
+ * landed — a file whose own header under-claimed what the table beneath it
+ * does, which is the same defect as over-claiming and is caught the same way.
+ * `LOCALES` is the whole truth, `i18n.test.ts` holds every locale to every key,
+ * and prose in here is only ever a description of that.
  *
- * Hindi copy is written for SMS, not translated word-for-word from the English:
- * a 160-character GSM limit and a stranded reader both reward directness.
+ * What is NOT claimed: the translations are not native-reviewed. The strings
+ * exist and fit their segment budget; the quality is unverified, and those are
+ * different claims. Say so wherever the count is quoted.
+ *
+ * Copy is written FOR SMS in each language rather than translated word-for-word
+ * from the English: a 70-character UCS-2 segment and a stranded reader both
+ * reward directness.
  *
  * ── encoding, which is the trap ───────────────────────────────────────────
  * Devanagari is not in the GSM 03.38 alphabet, so a Hindi SMS is sent as UCS-2
@@ -63,7 +70,7 @@ export function resolveLocale(opts: {
  *
  * Deliberately small. A full negotiator is a dependency and a surface; this
  * handles `hi`, `hi-IN`, `en-GB,en;q=0.9,hi;q=0.8` and the malformed junk that
- * arrives from real clients, which is all we need for two languages.
+ * arrives from real clients, which is all eight of these need.
  */
 export function parseAcceptLanguage(header?: string | null): Locale | null {
   if (!header) return null;
