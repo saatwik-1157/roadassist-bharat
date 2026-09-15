@@ -4,11 +4,16 @@ Render a Markdown document to PDF.
 
     python ppt/md2pdf.py review1-ppt/presentation-script.md review1-ppt/Out.pdf
 
-No new dependency: `markdown` is already installed for this repo's tooling, and
-Chrome is already a hard requirement (scripts/ui-journey.mjs drives it over the
-DevTools protocol). Chrome's own print engine handles fonts, page breaks and the
-Devanagari that appears in the seed data, which is more than a lightweight PDF
-library would manage.
+Needs `markdown` (pip install markdown). This used to say the package was
+"already installed for this repo's tooling" and therefore no new dependency;
+nothing declares it. Neither ppt/ script has a requirements file, so md2pdf.py
+needs `markdown` and make_final.py needs `python-pptx`, and on a machine that
+has never run them both fail at the import.
+
+Chrome genuinely is already a hard requirement (scripts/ui-journey.mjs drives it
+over the DevTools protocol). Its own print engine handles fonts, page breaks and
+the Devanagari that appears in the seed data, which is more than a lightweight
+PDF library would manage.
 
 Exists because a PDF rendered from an out-of-date Markdown file is worse than no
 PDF: the corrected script and the stale export disagreed, and only the export
