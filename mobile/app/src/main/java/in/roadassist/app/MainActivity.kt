@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,6 +72,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -1066,18 +1068,34 @@ private fun SignInScreen(
     val ctx = LocalContext.current
     var code by remember { mutableStateOf("") }
     var otpSent by remember { mutableStateOf(false) }
+    // The server address, hidden until somebody asks for it. See the long-press
+    // on the wordmark below.
+    var showServer by remember { mutableStateOf(false) }
+    var baseUrl by remember { mutableStateOf(Api.base) }
     var busy by remember { mutableStateOf(false) }
 
-    // Signing in is a phone number and a six-digit code, and nothing else. The
-    // address this app talks to is not a thing a person signing in should be
-    // asked about: it is restored from preferences in onCreate (see MainActivity),
-    // so whatever was last used is already in force by the time this composes,
-    // and it is changed from the Server card in More once signed in.
+    // Signing in is a phone number and a six-digit code. The address this app
+    // talks to is not a thing a person signing in should be asked about: it is
+    // restored from preferences in onCreate, so whatever was last used is already
+    // in force by the time this composes, and it is changed from the Server card
+    // in More once signed in.
+    //
+    // But a handset that has NEVER signed in cannot reach that card, and the
+    // built-in default (10.0.2.2) is an emulator alias that means nothing on real
+    // hardware — so without some way in, the app is emulator-only on first run.
+    // Long-pressing the wordmark is that way in. It is deliberately not a button:
+    // the first screen stays a phone number and a code, and the escape hatch is
+    // written down in CLAUDE.md rather than drawn on the screen.
+    fun commitBase() { baseUrl = commitApiBase(ctx, baseUrl) }
 
     ScreenColumn {
         Spacer(Modifier.height(40.dp))
         Row(
-            Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center,
+            Modifier.fillMaxWidth()
+                .pointerInput(Unit) {
+                    detectTapGestures(onLongPress = { showServer = !showServer })
+                },
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BrandMark(40)
@@ -1095,11 +1113,15 @@ private fun SignInScreen(
         Heading(R.string.head_signin_plain, R.string.head_signin_italic)
         Sub(stringResource(R.string.signin_sub))
 
+        if (showServer) {
+            Field(baseUrl, { baseUrl = it }, stringResource(R.string.field_api_base_url))
+        }
         Field(msisdn, onMsisdn, stringResource(R.string.field_mobile_number))
 
         if (!otpSent) {
             GoldButton(stringResource(R.string.action_send_otp), enabled = !busy) {
                 busy = true
+                if (showServer) commitBase()
                 scope.launch {
                     try {
                         val r = Api.post("/v1/auth/otp/request", JSONObject().put("msisdn", msisdn.trim()))
@@ -1115,6 +1137,7 @@ private fun SignInScreen(
             Field(code, { code = it }, stringResource(R.string.field_otp_code))
             GoldButton(stringResource(R.string.action_verify_sign_in), enabled = !busy && code.length == 6) {
                 busy = true
+                if (showServer) commitBase()
                 scope.launch {
                     try {
                         val r = Api.post(

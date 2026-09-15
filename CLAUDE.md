@@ -127,6 +127,22 @@ would resolve to nothing on anybody else's. It is written down here instead.
 `newline=""` and match the file's existing ending, or the diff becomes the whole
 file.
 
+## Reaching the API from the Android client
+
+Sign-in asks for a phone number and a six-digit code. It does **not** ask for
+the server address, on purpose — that is a developer's question on a citizen's
+first screen.
+
+**Long-press the RoadAssist wordmark on the sign-in screen** to show the API
+base URL field, and long-press again to hide it. This is the only way in on a
+handset that has never signed in, because the built-in default `10.0.2.2` is an
+emulator alias that means nothing on real hardware, and the Server card that
+normally changes it lives in **More**, behind sign-in.
+
+It is written here rather than drawn on the screen, which is the whole point —
+so it has to be written here. The field is only committed when it is visible, so
+a stale value cannot overwrite what `MainActivity.onCreate` restored.
+
 ## Migrations
 
 Drizzle. A migration is **two files plus a journal entry**, and all three must
