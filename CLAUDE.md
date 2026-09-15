@@ -95,6 +95,29 @@ test a JDK, pass `-Dorg.gradle.java.home=<path>`. Android Studio's JBR is no
 longer the pointer it was either — Studio updated itself and left `Android
 Studio/jbr` a stub with no `lib/jvm.cfg`, and its replacement is 25.0.3.
 
+**Android Studio picks its Gradle JVM separately, and `org.gradle.java.home`
+does not reach it.** The IDE setting is `gradleJvm` in `mobile/.idea/gradle.xml`
+(Settings › Build Tools › Gradle › Gradle JDK). Left at
+`#GRADLE_LOCAL_JAVA_HOME` it resolves to the `java` on PATH — 25.0.1 here — and
+Studio validates that JVM *before* Gradle ever reads `gradle.properties`, so
+sync dies while `./gradlew` from a terminal builds perfectly. That split is the
+confusing part: the command line is not evidence that the IDE works, and the
+IDE failing is not evidence the toolchain is broken. Point `gradleJvm` at a JDK
+21 entry by name.
+
+Studio's failure is the one worth reading, because it names the range the bare
+`25.0.1` does not:
+
+```
+The project's Gradle version 8.13 is incompatible with the Gradle JVM version
+25 currently selected to run Gradle build. Gradle 8.13 supports Java versions
+between 1.8 and 23.
+```
+
+`.idea/` is gitignored, so that setting cannot be carried in the repository —
+and should not be: it names a JDK entry from one machine's Studio install, which
+would resolve to nothing on anybody else's. It is written down here instead.
+
 **Never pipe gradlew and read the exit code.** `./gradlew … | tail` reports the
 *pipeline's* status, so a failed build looks like it passed. Use
 `${PIPESTATUS[0]}` or redirect to a file.
