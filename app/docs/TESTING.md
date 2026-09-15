@@ -117,15 +117,16 @@ Stated here rather than discovered later.
 
 ## Fitness functions — the rules that fail the build
 
-Four, all in the `boundaries` CI job, all added because a rule nobody can
+Five, all in the `boundaries` CI job, all added because a rule nobody can
 enforce is a suggestion.
 
 | Check | Guards against |
 |---|---|
 | `check-boundaries.mjs` rules 1–2 | A schema module importing what ADR-0002 forbids, or anything reaching past the `@roadassist/db` index |
 | `check-boundaries.mjs` rule 3 | **A cached page loading a script, stylesheet, font sheet, manifest or icon that is not itself cached.** Off-Grid Mode fails in the quietest possible way — the page boots, one file is missing, the feature is gone. It caught `i18n.js`: `app.html` loaded it, `SHELL_ASSETS` did not list it, and every off-grid user silently fell back to English. The rule originally checked only `<script src>`, which left the identical failure open one tag along — an uncached stylesheet boots off-grid with no styling and logs nothing |
+| `check-boundaries.mjs` rule 4 | **The app shell losing the load order it assumes.** `app.html` carries the whole citizen app in one inline IIFE and says so in a comment: *this file is one classic script and stays that way*. That is not style, it is load order — a `<script type="module">` is DEFERRED and runs after every classic script, which is why Off-Grid Mode is reached through a dynamic `import()` rather than a module tag. Convert the block to a module and the app still loads, simply in a different order, and the failure surfaces as Off-Grid Mode being absent rather than as an error. The rule refuses a module tag on any cached page, refuses the shell being unwrapped from its IIFE, and holds each cached page to a recorded line ceiling so growth is a decision rather than a drift |
 | `check-claims.mjs` | A number in the documents disagreeing with `docs/measured.json`. The same figure went stale in twenty-odd files three separate times before this existed. It gates the total, each individual suite, and the `npm run … # N` comments the command lists are written as — the per-suite numbers were ungated at first and drifted while the total beside them stayed right |
-| `check-citations.mjs` | A `file.ts:123` in the documents that no longer points at code. The viva packs tell the reader to *open* the file, so a rotted line number is found in front of an examiner — lifting the auth and emergency routes out of `server.ts` shifted ten citations and pushed two past the end of the file |
+| `check-citations.mjs` | A `file.ts:123` in the documents that no longer points at code. It also refuses the two shapes it used to be blind to — a citation written with no path (`server.ts:1431`), and a shorthand continuation (`audit.ts:83` / `` `:122` ``) — which is where three rotted ones survived while the check stayed green, one of them pointing two viva packs at a star-rating schema when they claimed payment verification. The viva packs tell the reader to *open* the file, so a rotted line number is found in front of an examiner — lifting the auth and emergency routes out of `server.ts` shifted ten citations and pushed two past the end of the file | <!-- citation-check:ignore: the two citations named here are the ROTTED ones, quoted to explain the rule -->
 
 Every one of them was mutation-tested — the rule was broken on purpose and the
 build failed — because a check that has never failed has not been shown to work.
