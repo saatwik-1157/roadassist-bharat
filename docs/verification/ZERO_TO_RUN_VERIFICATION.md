@@ -100,6 +100,14 @@ npm run perf              # measured latency, not a load test
 | Port 4000 in use | An earlier API is still running | Windows: `Get-NetTCPConnection -LocalPort 4000` then `Stop-Process` |
 | Android Gradle fails with a bare `25.0.1` | Java 25 is not supported by Gradle 8.13 | `JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"` (JDK 21) |
 
+> **The last row's fix went stale on 2026-09-14**, after this file was written.
+> Android Studio updated itself and left `Android Studio/jbr` a stub with no
+> `lib/jvm.cfg`, so that `JAVA_HOME` now fails with `could not open ...jvm.cfg`
+> rather than building; the JBR that replaced it is 25.0.3, which Gradle 8.13
+> rejects for the very reason the Cause column gives. The symptom and the cause
+> are unchanged — point at any JDK 21 instead. Left as written, because it was
+> correct for the build this file records.
+
 ## Demo reset
 
 ```bash
