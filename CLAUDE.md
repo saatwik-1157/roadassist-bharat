@@ -64,7 +64,7 @@ Six in `app/`, and the last five need a live server **and** a seeded database:
 ```bash
 npm test                 # 108 unit — no I/O, the only ones that run standalone
 npm run test:e2e         # 189
-npm run test:concurrency # 70
+npm run test:concurrency # 75
 npm run test:gateway     # 27
 npm run test:security    # 74 attacks, every one must be refused
 npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
@@ -168,11 +168,20 @@ when there are **5**. See `app/docs/CLAIMS-AUDIT.md` §4.
 does *not* exclude `spatial_ref_sys_pkey`, because `pg_depend` records extension
 membership for the **table**; an index depends on its table, not on the
 extension, so the filter matches nothing and quietly passes everything through.
-Following the recipe literally gives 138 indexes and 84 unique ones against a  <!-- claims-check:ignore -->
-schema that has 137 and 83 — the failure looks like the documents drifted, so
+Following the recipe literally gives 139 indexes and 85 unique ones against a  <!-- claims-check:ignore -->
+schema that has 138 and 84 — the failure looks like the documents drifted, so
 the temptation is to "correct" every document to the wrong figure. For indexes,
 filter on `i.indrelid`; the working queries are written out in
 `app/docs/measured.json` under `schema.how`.
+
+**138 and 84 are the correct numbers now, and they used to be the wrong ones.**
+This paragraph illustrated the trap with 138/84 against a true 137/83 until
+`payments_invoice_settled_uq` was added and moved both by one. Anybody who
+half-remembers the old warning will “fix” a correct 138 back to 137 and be sure
+they are undoing the PostGIS inflation. What is stable is the SHAPE, not the
+totals: `spatial_ref_sys` contributes exactly one index, and it is unique, so
+the wrong answer is always the right one plus one. Re-measure rather than
+reason from any number written in this file.
 
 ## Architecture rules that fail the build
 

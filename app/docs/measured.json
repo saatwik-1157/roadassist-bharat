@@ -15,12 +15,12 @@
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
 
   "assertions": {
-    "total": 631,
+    "total": 636,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
       "unit": 108,
       "e2e": 189,
-      "concurrency": 70,
+      "concurrency": 75,
       "gatewaySecurity": 27,
       "securityAudit": 74,
       "browser": 163
@@ -50,8 +50,8 @@
     "tables": 56,
     "primaryKeys": 56,
     "foreignKeys": 62,
-    "indexes": 137,
-    "uniqueIndexes": 83,
+    "indexes": 138,
+    "uniqueIndexes": 84,
     "gistIndexes": 5,
     "checkConstraints": 5,
     "migrations": 5,
@@ -71,8 +71,8 @@
       " WHERE c.relkind = 'r' AND d.objid IS NULL;",
       "",
       "INDEXES AND UNIQUE INDEXES — the same filter on the INDEX's own oid",
-      "matches nothing and silently leaves spatial_ref_sys_pkey in, giving 138",
-      "and 84. pg_depend records extension membership for the TABLE only; an",
+      "matches nothing and silently leaves spatial_ref_sys_pkey in, giving 139",
+      "and 85. pg_depend records extension membership for the TABLE only; an",
       "index depends on its table, not on the extension. Filter on indrelid:",
       "",
       "SELECT count(*) FROM pg_class c",

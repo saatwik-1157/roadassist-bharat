@@ -319,7 +319,7 @@ concrete example) · *Code* (where to open it).
 *Code:* ADR-0003
 
 **57. How large is the schema?**
-*Short:* 56 tables, 62 foreign keys, 137 indexes, 5 check constraints, 83 unique indexes.
+*Short:* 56 tables, 62 foreign keys, 138 indexes, 5 check constraints, 84 unique indexes.
 *Code:* `DATABASE_FINAL_VERIFICATION.md`
 
 **58. How does the geospatial query work?**
@@ -593,7 +593,7 @@ concrete example) · *Code* (where to open it).
 > assumed. Off-grid, an SOS becomes a real incident on the device, and a unique
 > key makes a duplicate impossible on sync.
 >
-> **Result.** 631 assertions across six suites, zero failures, including 74
+> **Result.** 636 assertions across six suites, zero failures, including 74
 > attacks that must fail. Every claim on our slides is something I can show you.
 
 ## 3 minutes — architecture
