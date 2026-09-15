@@ -15,12 +15,12 @@
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
 
   "assertions": {
-    "total": 626,
+    "total": 631,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
       "unit": 108,
       "e2e": 189,
-      "concurrency": 65,
+      "concurrency": 70,
       "gatewaySecurity": 27,
       "securityAudit": 74,
       "browser": 163

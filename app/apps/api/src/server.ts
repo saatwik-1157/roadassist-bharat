@@ -1113,24 +1113,40 @@ async function invoiceIsSettled(bookingId: string): Promise<boolean> {
  * the status the transition was computed from, exactly like the generic
  * transition, so two confirmations racing cannot both win.
  */
-async function settleBooking(
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * The compare-and-set half of a settlement, inside a caller's transaction.
+ *
+ * Separated from [settleBooking] so a caller that must write something ELSE in
+ * the same transaction — a payment row, above all — can claim the booking
+ * first and have its own write rolled back when it loses. Duplicating these
+ * ten lines at the call site is how the guard and the money drift apart.
+ */
+async function claimForSettlement(
+  tx: Tx,
   booking: typeof S.bookings.$inferSelect,
   actor: { sub: string; roles: string[] },
 ): Promise<boolean> {
   const { to } = apply(booking.status as Status, "payment.settled");
-  return db.transaction(async (tx) => {
-    const updated = await tx.update(S.bookings)
-      .set({ status: to, updatedAt: new Date(), version: booking.version + 1 })
-      .where(and(eq(S.bookings.id, booking.id), eq(S.bookings.status, booking.status)))
-      .returning({ id: S.bookings.id });
-    if (!updated.length) return false;
+  const updated = await tx.update(S.bookings)
+    .set({ status: to, updatedAt: new Date(), version: booking.version + 1 })
+    .where(and(eq(S.bookings.id, booking.id), eq(S.bookings.status, booking.status)))
+    .returning({ id: S.bookings.id });
+  if (!updated.length) return false;
 
-    await tx.insert(S.bookingEvents).values({
-      bookingId: booking.id, fromStatus: booking.status, toStatus: to,
-      command: "payment.settled", actorId: actor.sub, actorRole: actor.roles[0] ?? "citizen",
-    });
-    return true;
+  await tx.insert(S.bookingEvents).values({
+    bookingId: booking.id, fromStatus: booking.status, toStatus: to,
+    command: "payment.settled", actorId: actor.sub, actorRole: actor.roles[0] ?? "citizen",
   });
+  return true;
+}
+
+async function settleBooking(
+  booking: typeof S.bookings.$inferSelect,
+  actor: { sub: string; roles: string[] },
+): Promise<boolean> {
+  return db.transaction((tx) => claimForSettlement(tx, booking, actor));
 }
 
 /**
@@ -1197,23 +1213,52 @@ app.post("/v1/bookings/:id/pay", { preHandler: [authenticate, limit("payment")] 
     ? { providerRef: `cash_${invoice.number}`, settled: true, checkout: undefined }
     : await payments.createOrder({ amountPaise: invoice.totalPaise, receipt: invoice.number, method });
 
-  const [payment] = await db.insert(S.payments).values({
-    invoiceId: invoice.id,
-    method,
-    amountPaise: invoice.totalPaise,
-    status: order.settled ? "SETTLED" : "PENDING",
-    providerRef: order.providerRef,
-    settledAt: order.settled ? new Date() : null,
-  }).returning();
-
+  // Nothing has settled yet: record the intent and let
+  // POST /v1/payments/:id/confirm finish it against the gateway's own word.
   if (!order.settled) {
+    const [pending] = await db.insert(S.payments).values({
+      invoiceId: invoice.id,
+      method,
+      amountPaise: invoice.totalPaise,
+      status: "PENDING",
+      providerRef: order.providerRef,
+      settledAt: null,
+    }).returning();
+
     return reply.code(202).send(ok(
-      { id, status: booking.status, payment, checkout: order.checkout },
-      { nextCommands: [], confirmWith: `POST /v1/payments/${payment.id}/confirm` },
+      { id, status: booking.status, payment: pending, checkout: order.checkout },
+      { nextCommands: [], confirmWith: `POST /v1/payments/${pending.id}/confirm` },
     ));
   }
 
-  if (!(await settleBooking(booking, caller))) {
+  /**
+   * Settled synchronously. Claim the booking BEFORE writing the money, in one
+   * transaction, so that losing the race writes nothing at all.
+   *
+   * The claim was already correct; its POSITION was not. The payment row used
+   * to be inserted first and the booking claimed after, so two concurrent
+   * settlements of one COMPLETED booking both inserted a SETTLED payment and
+   * only then did one of them lose. That left two settled rows against a
+   * single invoice — a ledger reading twice the invoice total — and handed the
+   * loser a 409 saying "reload and retry", which would have added a third.
+   * Nothing downstream noticed, because invoiceIsSettled asks whether the
+   * settled sum COVERS the total, and twice the money covers it fine.
+   */
+  const settled = await db.transaction(async (tx) => {
+    if (!(await claimForSettlement(tx, booking, caller))) return null;
+
+    const [row] = await tx.insert(S.payments).values({
+      invoiceId: invoice.id,
+      method,
+      amountPaise: invoice.totalPaise,
+      status: "SETTLED",
+      providerRef: order.providerRef,
+      settledAt: new Date(),
+    }).returning();
+    return row;
+  });
+
+  if (!settled) {
     return reply.code(409).send({
       error: {
         code: "conflict",
@@ -1222,7 +1267,7 @@ app.post("/v1/bookings/:id/pay", { preHandler: [authenticate, limit("payment")] 
       },
     });
   }
-  return ok({ id, status: "PAID", payment, invoice }, { nextCommands: allowedFrom("PAID") });
+  return ok({ id, status: "PAID", payment: settled, invoice }, { nextCommands: allowedFrom("PAID") });
 });
 
 /**

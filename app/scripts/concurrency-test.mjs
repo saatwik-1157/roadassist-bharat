@@ -350,6 +350,68 @@ if (race.offers.length) {
      [t1.status, t2.status].join(","));
 }
 
+// ══ 6b. Two settlements of one booking leave one payment ═════════════════
+// The HTTP answers cannot see this one, which is why it survived: before the
+// fix these two calls ALSO came back 200 and 409. The booking's compare-and-set
+// was already right; its POSITION was not. The payment row was written before
+// the booking was claimed, so the caller that lost the race had already
+// recorded a SETTLED payment — two settled rows against one invoice, a ledger
+// reading exactly twice the invoice total, and a 409 telling the loser to
+// "reload and retry", which would have made it three.
+//
+// So this asserts the ROWS, not the responses. invoiceIsSettled only asks
+// whether the settled sum COVERS the total, and twice the money covers it
+// fine, so nothing downstream would have complained.
+section("6b. Two settlements of one booking leave one payment");
+
+const payActor = await makeCustomer();
+const payRace = await freshDispatchedBooking(payActor);
+if (payRace.offers.length) {
+  await call(`POST`, `/v1/offers/${payRace.offers[0].id}/accept`, { token: payActor.token });
+  for (const command of ["mechanic.start_travel", "arrive", "work.start", "work.complete"]) {
+    await call(`POST`, `/v1/bookings/${payRace.booking.id}/transition`,
+               { token: payActor.token, body: { command } });
+  }
+  const ready = await call(`GET`, `/v1/bookings/${payRace.booking.id}`, { token: payActor.token });
+  ok("a completed booking is waiting to be paid", ready.data?.status === "COMPLETED",
+     String(ready.data?.status));
+
+  const [pay1, pay2] = await Promise.all([
+    call(`POST`, `/v1/bookings/${payRace.booking.id}/pay`,
+         { token: payActor.token, body: { method: "upi" } }),
+    call(`POST`, `/v1/bookings/${payRace.booking.id}/pay`,
+         { token: payActor.token, body: { method: "upi" } }),
+  ]);
+  const settled = [pay1, pay2].filter((r) => r.status === 200);
+  ok("only one of two concurrent settlements applies", settled.length === 1,
+     `${settled.length} settled (${pay1.status}, ${pay2.status})`);
+  ok("the loser is a 409, not a 500", [pay1, pay2].some((r) => r.status === 409),
+     [pay1.status, pay2.status].join(","));
+
+  const { default: postgres } = await import("postgres");
+  const ledgerSql = postgres(
+    process.env.DATABASE_URL ?? "postgres://roadassist:devpassword@localhost:5434/roadassist",
+    { max: 1, onnotice: () => {} },
+  );
+  try {
+    const [ledger] = await ledgerSql`
+      SELECT i.total_paise::int AS total,
+             count(p.id)::int   AS rows,
+             COALESCE(SUM(p.amount_paise) FILTER (WHERE p.status = 'SETTLED'), 0)::int AS settled
+        FROM invoices i
+        LEFT JOIN payments p ON p.invoice_id = i.id
+       WHERE i.booking_id = ${payRace.booking.id}
+       GROUP BY i.total_paise`;
+    ok("one payment row against the invoice, not two", ledger?.rows === 1,
+       `${ledger?.rows} row(s)`);
+    ok("the settled total is the invoice total, not a multiple of it",
+       Boolean(ledger) && ledger.settled === ledger.total,
+       `${ledger?.settled} of ${ledger?.total} paise`);
+  } finally {
+    await ledgerSql.end({ timeout: 5 });
+  }
+}
+
 // ══ 7. Rate limiting protects without breaking the emergency path ══════════
 section("7. Rate limits bound abuse and spare the emergency path");
 
