@@ -95,7 +95,7 @@ surfaces are plain HTML/CSS/JS served by the API with no build step.
 ## Non-negotiables
 
 1. **Emergency paths never regress.** Two approvals, dedicated test run, staged
-   rollout — and, since the ladder's decisions moved into `SosLadder.kt`, 18
+   rollout — and, since the ladder's decisions moved into `SosLadder.kt`, 21
    tests that run on every push.
 2. **Offline is a first-class mode, not a fallback.** And we never claim something
    reached the cloud when it did not — the app says "stored on this device", with a

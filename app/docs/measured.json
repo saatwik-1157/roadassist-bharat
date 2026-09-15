@@ -31,8 +31,18 @@
     },
     "otherRunners": {
       "android": 55,
+      "sosLadder": 21,
       "ai": 39,
-      "why": "separate toolchains with their own runners; not part of the six-suite total"
+      "why": "separate toolchains with their own runners; not part of the six-suite total",
+      "howSosLadder": [
+        "grep -c '@Test' mobile/app/src/test/java/in/roadassist/app/SosLadderTest.kt",
+        "",
+        "A subset of the 55, recorded on its own because Non-negotiable #1 quotes",
+        "it separately in README.md and app/docs/TESTING.md. It was published as",
+        "18 and reached 21 without either document noticing — the Android total",
+        "beside it was gated and stayed correct, which is the same failure the",
+        "per-suite numbers had."
+      ]
     }
   },
 
