@@ -75,6 +75,30 @@ function digest(e: AuditEntry, createdAt: string, prevHash: string): string {
 let tail: Promise<unknown> = Promise.resolve();
 
 /**
+ * The last timestamp handed out, so two appends can never share one.
+ *
+ * The chain is read back ordered by `(created_at, id)` — both here, to find the
+ * tip, and in `verifyAuditChain`. `id` is `gen_random_uuid()`, so it carries no
+ * order at all: it is a tie-break that breaks ties ARBITRARILY. Two appends
+ * landing in the same millisecond therefore read back in an order unrelated to
+ * the order they chained in, and the verifier reports a chain that is perfectly
+ * intact as broken — on `/v1/ops/overview` and `/v1/admin/audit`, which exist
+ * precisely to answer whether the trail can be believed.
+ *
+ * A JS `Date` has millisecond resolution and two appends against a local
+ * database are comfortably faster than that, so the collision is ordinary
+ * rather than exotic. Since appends are already serialised through `tail`, the
+ * fix is to make the stamps strictly increasing: never earlier than the clock,
+ * never equal to the one before. The skew is at most a few milliseconds and
+ * only while appends are arriving faster than the clock ticks.
+ *
+ * This holds within a process, which is the same scope constraint 1 already
+ * has. Across instances the chain needs a sequence column rather than a
+ * timestamp, and that is a migration — written down here rather than implied.
+ */
+let lastStamp = 0;
+
+/**
  * Appends one entry and returns its hash. Never throws into the caller's path —
  * an audit write failing must not take down the action being audited, but it is
  * logged loudly, and the gap is visible in the chain because the next entry
@@ -88,7 +112,9 @@ export function audit(entry: AuditEntry): Promise<string | null> {
       .limit(1);
 
     const prevHash = prev?.hash ?? GENESIS;
-    const createdAt = new Date();
+    const now = Date.now();
+    lastStamp = now > lastStamp ? now : lastStamp + 1;
+    const createdAt = new Date(lastStamp);
     const hash = digest(entry, createdAt.toISOString(), prevHash);
 
     await db.insert(S.auditLog).values({
