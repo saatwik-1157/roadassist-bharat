@@ -119,6 +119,78 @@ function checkOfflineShell() {
 }
 checkOfflineShell();
 
+// ── the app shell must stay bootable in the order it assumes ───────────
+//
+// Rule 4: a cached page's inline script is a CLASSIC script, wrapped, and does
+// not grow by accident.
+//
+// app.html carries the whole citizen app in one inline IIFE, and says so in a
+// comment: 'this file is one classic script and stays that way'. That is not
+// style, it is load order. A <script type="module"> is DEFERRED, so it runs
+// after every classic script on the page — which is why Off-Grid Mode is reached
+// through a dynamic import() rather than a module tag. Convert that block to a
+// module, or add a module tag beside it that the block depends on, and the app
+// still loads: it simply boots in a different order, and the failure surfaces
+// as Off-Grid Mode being absent rather than as an error.
+//
+// A comment cannot stop that. This can. Three things are checked, and each one
+// is a rule the code already follows — nothing here asks for a change today.
+function checkAppShell() {
+  const web = join(ROOT, "apps", "web");
+  let sw;
+  try { sw = readFileSync(join(web, "sw.js"), "utf8"); } catch { return; }
+  // Deduped: sw.js names app.html both in SHELL_ASSETS and in its navigation
+  // fallback, and one mistake should be reported once.
+  const cached = [...new Set([...sw.matchAll(/"(\/[^"]+\.html)"/g)].map((m) => m[1]))];
+
+  // Measured, not guessed: the size each cached page is today, plus a little
+  // headroom so ordinary maintenance does not trip it. Raising one is fine and
+  // expected — do it in the same commit that grows the page, so the growth is a
+  // decision somebody made rather than a drift nobody noticed.
+  const CEILING = { "/app.html": 4700, "/mechanic.html": 1200, "/map.html": 500 };
+
+  for (const page of cached) {
+    let html;
+    try { html = readFileSync(join(web, page.slice(1)), "utf8"); } catch { continue; }
+
+    // (a) no deferred script on a page whose inline code runs first.
+    for (const tag of html.match(/<script\b[^>]*>/g) ?? []) {
+      if (/type="module"/.test(tag)) {
+        violations.push(
+          `apps/web${page}: ${tag} — a module script is deferred and runs AFTER the ` +
+          "inline shell it would have to load before. Reach modules through a " +
+          "dynamic import(), the way Off-Grid Mode does.",
+        );
+      }
+    }
+
+    // (b) the shell stays wrapped. An IIFE under 'use strict' is what keeps a
+    // 4,500-line page from publishing 115 names onto window, and it is the
+    // thing a careless extraction would quietly undo.
+    const lines = html.split(/\r?\n/);
+    const wrapped = lines.some((l, i) =>
+      l.trim() === "<script>" &&
+      (lines[i + 1] ?? "").trim().startsWith("(function ()") &&
+      (lines[i + 2] ?? "").includes("use strict"));
+    if (!wrapped && (CEILING[page] ?? 0) > 800) {
+      violations.push(
+        `apps/web${page}: its inline script is no longer an IIFE under 'use strict' — ` +
+        "every name in it is now global.",
+      );
+    }
+
+    // (c) growth is a decision.
+    const cap = CEILING[page];
+    if (cap && lines.length > cap) {
+      violations.push(
+        `apps/web${page}: ${lines.length} lines, over the ${cap} this rule records. ` +
+        "Split it, or raise the ceiling in check-boundaries.mjs and say why.",
+      );
+    }
+  }
+}
+checkAppShell();
+
 if (violations.length) {
   console.error("✗ architecture boundary violations:\n");
   violations.forEach((v) => console.error("  " + v));
