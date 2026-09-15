@@ -97,12 +97,17 @@ Stated here rather than discovered later.
   seconds otherwise, so CI runs the concurrency suite a second time against an
   API booted with `OFFER_TTL_SECONDS=2`.
 
-- **Android TESTS are the SOS ladder and nothing else.** `SosLadderTest` is 18
-  tests over the decisions in `SosLadder.kt` — which rung fires, whether a backup
-  is queued, and the SMS body's contract with the server. The Compose UI, the API
-  client and the local queue are still untested: they need a device or
-  Robolectric, and neither is wired up. (Localisation is a separate axis and is
-  complete — see below.)
+- **Android TESTS are the pure logic and nothing else.** Six classes, every one
+  covering a function that was split out of a Context or a network call so it
+  could be pinned off-device. `SosLadderTest` is 21 tests over the decisions in
+  `SosLadder.kt` — which rung fires, whether a backup is queued, and the SMS
+  body's contract with the server. The rest are `SosQueueTest` (an SOS raised while a
+  flush is in the air), `ApiRefreshTest` (single-flight token rotation),
+  `ApiBaseTest` (the address a person actually types), `TripGuardianTest` (what
+  the app may claim about the map it holds offline) and `RaTypeTest` (the type
+  scale, pinned to the literals it replaced). The Compose UI is still untested:
+  it needs a device or Robolectric, and neither is wired up. (Localisation is a
+  separate axis and is complete — see below.)
 - **No CV inference or training runs in CI.** The `ai` job checks the pipeline
   logic and that every script parses; loading a model and running a frame stays
   a local, GPU-shaped activity. A syntax error in `train.py` used to surface

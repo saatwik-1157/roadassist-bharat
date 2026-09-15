@@ -176,6 +176,19 @@ const CHECKS = [
     allow: [],
   },
   {
+    label: "SOS ladder tests",
+    expect: String(measured.assertions.otherRunners.sosLadder),
+    // The Android TOTAL was gated; the emergency-ladder subset quoted beside it
+    // was not, and it went from 18 to 21 with README.md and TESTING.md still
+    // saying 18 — the same shape of failure as the ungated per-suite numbers.
+    // Anchored to the class or the file rather than to a phrasing, because the
+    // two documents word it differently ("`SosLadderTest` is 21 ... tests" and
+    // "moved into `SosLadder.kt`, 21 ... tests") and both wrap the line between
+    // the number and the word, hence \s+ rather than a space.
+    re: /SosLadder(?:Test|\.kt)`?[^\d\n]{0,30}(\d+)\s+tests\b/g,
+    allow: [],
+  },
+  {
     label: "AI runner",
     expect: String(measured.assertions.otherRunners.ai),
     // CLAUDE.md carried "(12, stdlib only)" against a suite that had grown to
