@@ -97,29 +97,63 @@ export async function emergencyRoutes(app: FastifyInstance) {
     }
 
     const byModel = body.source === "crash_model";
-    const [incident] = await db.insert(S.incidents).values({
-      userId: req.user!.sub, vehicleId: body.vehicleId,
-      clientIncidentId: body.clientIncidentId,
-      occurredAt: new Date(),
-      emergencyType: byModel ? "accident" : "other",
-      // Manual SOS is already a human act; a model signal must wait for confirmation.
-      status: byModel ? "AWAITING_CONFIRMATION" : "CONFIRMED",
-      severity: byModel && (body.modelConfidence ?? 0) > 0.9 ? "CRITICAL" : "HIGH",
-      detectedByModel: byModel,
-      modelConfidence: body.modelConfidence,
-      confirmedBy: byModel ? null : "user",
-      confirmedAt: byModel ? null : new Date(),
-      degradedPath: body.degradedPath ?? false,
-    })
-      // The real idempotency guard. Two taps racing past the lookup above both
-      // arrive here; the index lets exactly one through and the other gets no row
-      // back, which is a duplicate rather than an error.
-      .onConflictDoNothing({ target: S.incidents.clientIncidentId })
-      .returning();
+
+    /**
+     * The incident, its position and its signal are ONE unit of work.
+     *
+     * They used to be three statements in a row, and the gap between the first
+     * and the second is the whole emergency. `incidents.location` is nullable,
+     * so a process death or a dropped connection after the insert left an
+     * incident committed as CONFIRMED, escalating, with no coordinates — and the
+     * idempotency guard above then made that permanent: the client retries with
+     * the same reference, converges on the row that already exists, and is told
+     * the replay was ignored, so nothing ever writes the fix it was still
+     * holding. A responder gets an emergency with no place to go.
+     *
+     * Inside a transaction the row either arrives with its location or does not
+     * arrive at all, which is the only honest pair of outcomes. `raw` is still
+     * needed for the position — PostGIS geometry has no Drizzle column builder
+     * here and ST_MakePoint has to be evaluated by the database.
+     */
+    const incident = await db.transaction(async (tx) => {
+      const [row] = await tx.insert(S.incidents).values({
+        userId: req.user!.sub, vehicleId: body.vehicleId,
+        clientIncidentId: body.clientIncidentId,
+        occurredAt: new Date(),
+        emergencyType: byModel ? "accident" : "other",
+        // Manual SOS is already a human act; a model signal must wait for confirmation.
+        status: byModel ? "AWAITING_CONFIRMATION" : "CONFIRMED",
+        severity: byModel && (body.modelConfidence ?? 0) > 0.9 ? "CRITICAL" : "HIGH",
+        detectedByModel: byModel,
+        modelConfidence: body.modelConfidence,
+        confirmedBy: byModel ? null : "user",
+        confirmedAt: byModel ? null : new Date(),
+        degradedPath: body.degradedPath ?? false,
+      })
+        // The real idempotency guard. Two taps racing past the lookup above both
+        // arrive here; the index lets exactly one through and the other gets no row
+        // back, which is a duplicate rather than an error.
+        .onConflictDoNothing({ target: S.incidents.clientIncidentId })
+        .returning();
+
+      // Lost the race. ON CONFLICT DO NOTHING raises nothing, so the transaction
+      // is still valid and has written nothing — leave it that way and let the
+      // caller read the winner's row outside.
+      if (!row) return null;
+
+      await tx.execute(raw`
+        UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
+        WHERE id = ${row.id}`);
+      await tx.insert(S.incidentSignals).values({
+        incidentId: row.id, kind: body.source,
+        payload: { lat: body.lat, lng: body.lng, confidence: body.modelConfidence },
+      });
+      return row;
+    });
 
     if (!incident) {
-      // Lost the race. Whoever won has committed by now, so read their incident
-      // and answer with it — the caller gets the same reply either way.
+      // Whoever won has committed by now, so read their incident and answer with
+      // it — the caller gets the same reply either way.
       const [winner] = await db.select().from(S.incidents)
         .where(eq(S.incidents.clientIncidentId, body.clientIncidentId!)).limit(1);
       if (winner) return respondDuplicate(winner);
@@ -127,14 +161,6 @@ export async function emergencyRoutes(app: FastifyInstance) {
         code: "reference_taken", title: "That reference is already in use",
         retryable: false, requestId: req.id } });
     }
-
-    await db.execute(raw`
-      UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
-      WHERE id = ${incident.id}`);
-    await db.insert(S.incidentSignals).values({
-      incidentId: incident.id, kind: body.source,
-      payload: { lat: body.lat, lng: body.lng, confidence: body.modelConfidence },
-    });
 
     await audit({
       actorId: req.user!.sub, actorRole: "citizen", action: "sos.created",
@@ -254,6 +280,56 @@ export async function emergencyRoutes(app: FastifyInstance) {
     }
 
     const t0 = Date.now();
+
+    /**
+     * Decide, and commit the decision, BEFORE anything leaves the building.
+     *
+     * This used to sit at the bottom of the handler, after the contacts had
+     * already been texted and both response rows written, and that order cost
+     * two things:
+     *
+     *   · A closed emergency still alerted the family. `applyIncident` refuses
+     *     to escalate a CANCELLED or RESOLVED incident — but by the time it was
+     *     asked, every emergency contact had received "there has been an
+     *     emergency" for an alarm the person had already withdrawn. The 409 the
+     *     caller got back was correct and far too late.
+     *   · A cancel racing a confirm could be undone. The write was an
+     *     unguarded `WHERE id = ?`, so a confirm that read CONFIRMED, then lost
+     *     the race to a cancel, still wrote RESPONDING over CANCELLED. Cancel
+     *     and resolve have both been compare-and-swapped for exactly this
+     *     reason; this one was not, and it is the path that summons help.
+     *
+     * The guard is the set of states the ladder may legally run from, not the
+     * single status read a moment ago — so two confirms arriving together still
+     * both succeed (escalating twice is idempotent, see the state machine),
+     * while a cancel that landed first excludes the row and nothing is sent.
+     */
+    const confirmed = inc.status === "AWAITING_CONFIRMATION" || inc.status === "DETECTED"
+      ? applyIncident(inc.status as IncidentStatus, "confirm").to
+      : (inc.status as IncidentStatus);
+    // ADR-0005 as executable code: `escalate` is reachable only from CONFIRMED,
+    // so a model-detected crash cannot reach RESPONDING without a human first.
+    const { to: respondingTo } = applyIncident(confirmed, "escalate");
+
+    const escalated = await db.update(S.incidents).set({
+      status: respondingTo,
+      confirmedBy: inc.confirmedBy ?? "user",
+      confirmedAt: inc.confirmedAt ?? new Date(),
+      updatedAt: new Date(),
+    }).where(and(
+      eq(S.incidents.id, id),
+      raw`${S.incidents.status} IN ('DETECTED', 'AWAITING_CONFIRMATION', 'CONFIRMED', 'RESPONDING')`,
+    )).returning({ id: S.incidents.id });
+
+    if (!escalated.length) {
+      logOp(req, { op: "sos.escalate", result: "rejected", incidentId: id,
+                   from: inc.status, errorCode: "INVALID_STATE" });
+      return reply.code(409).send({ error: {
+        code: "invalid_state",
+        title: "This emergency was closed while the request was in flight — nothing was alerted.",
+        retryable: false, requestId: req.id } });
+    }
+
     const contacts = await db.select().from(S.emergencyContacts)
       .where(and(eq(S.emergencyContacts.userId, inc.userId!), isNull(S.emergencyContacts.deletedAt)));
 
@@ -287,20 +363,6 @@ export async function emergencyRoutes(app: FastifyInstance) {
       incidentId: id, responderId: responders[0]?.id ?? null,
       step: "responder", latencyMs: Date.now() - t0, acknowledged: false,
     });
-
-    // ADR-0005 as executable code: `escalate` is reachable only from CONFIRMED,
-    // so a model-detected crash cannot reach RESPONDING without a human first.
-    const confirmed = inc.status === "AWAITING_CONFIRMATION" || inc.status === "DETECTED"
-      ? applyIncident(inc.status as IncidentStatus, "confirm").to
-      : (inc.status as IncidentStatus);
-    const { to: respondingTo } = applyIncident(confirmed, "escalate");
-
-    await db.update(S.incidents).set({
-      status: respondingTo,
-      confirmedBy: inc.confirmedBy ?? "user",
-      confirmedAt: inc.confirmedAt ?? new Date(),
-      updatedAt: new Date(),
-    }).where(eq(S.incidents.id, id));
 
     await audit({
       actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
@@ -420,24 +482,77 @@ export async function emergencyRoutes(app: FastifyInstance) {
       const severity = it.emergencyType === "accident" || it.emergencyType === "medical"
         ? "CRITICAL" as const : "HIGH" as const;
 
-      const [inserted] = await db.insert(S.incidents).values({
-        userId: req.user!.sub,
-        vehicleId,
-        clientIncidentId: it.clientIncidentId,
-        occurredAt: it.occurredAt,
-        emergencyType: it.emergencyType,
-        syncedAt: new Date(),
-        // A manual off-grid SOS is a human act at the moment it was raised, so it
-        // arrives confirmed — but confirmed is not escalated (rule 4 above).
-        status: "CONFIRMED",
-        severity,
-        detectedByModel: false,
-        confirmedBy: "user",
-        confirmedAt: it.occurredAt,
-        // This is the degraded path, by definition. Flagged so the emergency
-        // analytics can tell an off-grid rescue from an ordinary one.
-        degradedPath: true,
-      }).onConflictDoNothing({ target: S.incidents.clientIncidentId }).returning();
+      /**
+       * The same unit-of-work rule as POST /v1/sos above, and it matters more
+       * here: this is an emergency that already happened, replayed from a device
+       * whose link just came back and may go again mid-request. The incident,
+       * its position, its evidence signal and its journal entry commit together
+       * or not at all — a partial replay leaves a located-nowhere incident that
+       * the next retry converges on and therefore never repairs.
+       */
+      const inserted = await db.transaction(async (tx) => {
+        const [row] = await tx.insert(S.incidents).values({
+          userId: req.user!.sub,
+          vehicleId,
+          clientIncidentId: it.clientIncidentId,
+          occurredAt: it.occurredAt,
+          emergencyType: it.emergencyType,
+          syncedAt: new Date(),
+          // A manual off-grid SOS is a human act at the moment it was raised, so it
+          // arrives confirmed — but confirmed is not escalated (rule 4 above).
+          status: "CONFIRMED",
+          severity,
+          detectedByModel: false,
+          confirmedBy: "user",
+          confirmedAt: it.occurredAt,
+          // This is the degraded path, by definition. Flagged so the emergency
+          // analytics can tell an off-grid rescue from an ordinary one.
+          degradedPath: true,
+        }).onConflictDoNothing({ target: S.incidents.clientIncidentId }).returning();
+
+        // Already synchronised. Nothing written, transaction still clean.
+        if (!row) return null;
+
+        if (it.lat != null && it.lng != null) {
+          await tx.execute(raw`
+            UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${it.lng}, ${it.lat}), 4326)
+            WHERE id = ${row.id}`);
+        }
+
+        // The signal row is the evidence trail: what the device captured, when, how
+        // accurately, and what its own engine made of it.
+        await tx.insert(S.incidentSignals).values({
+          incidentId: row.id,
+          kind: "offgrid_sos",
+          payload: {
+            clientIncidentId: it.clientIncidentId,
+            opId: it.opId,
+            occurredAt: it.occurredAt.toISOString(),
+            syncedAt: new Date().toISOString(),
+            lat: it.lat ?? null, lng: it.lng ?? null, accuracyM: it.accuracyM ?? null,
+            locationKnown: it.lat != null && it.lng != null,
+            emergencyType: it.emergencyType,
+            note: it.note ?? null,
+            localDiagnosis: it.diagnosis ?? null,
+            deviceIntegrity: it.integrity ?? null,
+            storedOfflineForMs: age,
+          },
+        });
+
+        // The same journal every other offline operation lands in, so "what did this
+        // device replay?" has one answer rather than two. In here with the incident
+        // for exactly that reason — committed separately it could disagree with the
+        // row it describes.
+        await tx.insert(S.syncOperations).values({
+          userId: req.user!.sub, opId: it.opId, entity: "incident",
+          entityId: row.id, operation: "create",
+          payload: { clientIncidentId: it.clientIncidentId, emergencyType: it.emergencyType,
+                     offGrid: true, integrity: it.integrity ?? null },
+          clientUpdatedAt: it.occurredAt, appliedAt: new Date(),
+        }).onConflictDoNothing();
+
+        return row;
+      });
 
       if (!inserted) {
         // Already known. Return the existing incident so a retry converges on the
@@ -456,42 +571,6 @@ export async function emergencyRoutes(app: FastifyInstance) {
         });
         continue;
       }
-
-      if (it.lat != null && it.lng != null) {
-        await db.execute(raw`
-          UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${it.lng}, ${it.lat}), 4326)
-          WHERE id = ${inserted.id}`);
-      }
-
-      // The signal row is the evidence trail: what the device captured, when, how
-      // accurately, and what its own engine made of it.
-      await db.insert(S.incidentSignals).values({
-        incidentId: inserted.id,
-        kind: "offgrid_sos",
-        payload: {
-          clientIncidentId: it.clientIncidentId,
-          opId: it.opId,
-          occurredAt: it.occurredAt.toISOString(),
-          syncedAt: new Date().toISOString(),
-          lat: it.lat ?? null, lng: it.lng ?? null, accuracyM: it.accuracyM ?? null,
-          locationKnown: it.lat != null && it.lng != null,
-          emergencyType: it.emergencyType,
-          note: it.note ?? null,
-          localDiagnosis: it.diagnosis ?? null,
-          deviceIntegrity: it.integrity ?? null,
-          storedOfflineForMs: age,
-        },
-      });
-
-      // The same journal every other offline operation lands in, so "what did this
-      // device replay?" has one answer rather than two.
-      await db.insert(S.syncOperations).values({
-        userId: req.user!.sub, opId: it.opId, entity: "incident",
-        entityId: inserted.id, operation: "create",
-        payload: { clientIncidentId: it.clientIncidentId, emergencyType: it.emergencyType,
-                   offGrid: true, integrity: it.integrity ?? null },
-        clientUpdatedAt: it.occurredAt, appliedAt: new Date(),
-      }).onConflictDoNothing();
 
       // Tamper-evident record that an off-grid emergency entered the platform.
       await audit({
