@@ -287,11 +287,15 @@ jobs:
       - name: Lint
         run: ./gradlew --no-daemon lint
 
-      # Currently a no-op — mobile/app/src has no test/ source set yet. It is wired
-      # up now so that the first test anyone writes is run automatically instead of
-      # waiting for someone to remember to add a CI step. Emergency.kt is the file
-      # that most needs them: it is the SOS path, and non-negotiable #1 says those
-      # never regress.
+      # Wired up while it was still a no-op, so that the first test anyone wrote
+      # would run automatically rather than wait for someone to remember a CI
+      # step. It has not been a no-op for a while: six classes now, and the SOS
+      # path — the one non-negotiable #1 is about — is the best covered of them,
+      # because its decisions were lifted out of Emergency.kt into SosLadder.kt
+      # as pure functions precisely so a JVM test could reach them.
+      #
+      # The counts live in app/docs/measured.json and are gated by
+      # check-claims.mjs, so they are deliberately not repeated here.
       - name: Unit tests
         run: ./gradlew --no-daemon testDebugUnitTest
 
