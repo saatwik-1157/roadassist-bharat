@@ -40,9 +40,12 @@ def main() -> None:
     ap.add_argument("--fallback", default="yolo11n.pt",
                     help="used if the requested model can't be fetched offline")
     ap.add_argument("--resume", action="store_true",
-                    help="continue <project>/<name>/weights/last.pt instead of starting over. "
-                         "The first real run stopped at epoch 13 of 100 with mAP50 still "
-                         "climbing; without this, re-running throws those epochs away.")
+                    help="true resume of <project>/<name>/weights/last.pt: epoch counter, "
+                         "optimizer state and LR schedule all continue. Only possible on a "
+                         "checkpoint from an INTERRUPTED run. Ultralytics strips the optimizer "
+                         "out when a run ENDS, so a finished run cannot be resumed — warm-start "
+                         "from its weights with --model <best.pt> instead, and read the note "
+                         "this flag prints before you rely on that.")
     args = ap.parse_args()
 
     # Pin CPU threads BEFORE importing torch-heavy code so the pools size right.
@@ -56,7 +59,24 @@ def main() -> None:
     if args.resume:
         if not os.path.exists(ckpt):
             raise SystemExit(f"[train] --resume needs {ckpt}, which does not exist")
-        print(f"[train] resuming {ckpt}")
+        # Refuse loudly rather than let ultralytics silently restart.
+        #
+        # Given a checkpoint with no optimizer state it prints one WARNING line
+        # and begins again at epoch 1. That line is trivial to miss in a training
+        # log, and the cost is a whole run: you believe you are continuing while
+        # the LR schedule is actually being re-rolled from scratch.
+        state = torch.load(ckpt, map_location="cpu", weights_only=False)
+        if state.get("optimizer") is None or state.get("epoch", -1) < 0:
+            best = os.path.join(os.path.dirname(ckpt), "best.pt")
+            raise SystemExit("\n".join([
+                f"[train] {ckpt} is a FINISHED checkpoint "
+                f"(epoch={state.get('epoch')}, optimizer stripped) and cannot be resumed.",
+                f"        Warm-start from its weights instead:  --model {best}",
+                "        That restarts the LR schedule. Measured on this project: one warm-start",
+                "        epoch took mAP50 from 0.472 down to 0.364. It needs many epochs to climb",
+                "        back past where it began - give it a real budget, or a GPU.",
+            ]))
+        print(f"[train] resuming {ckpt} from epoch {state.get('epoch')}")
         model = YOLO(ckpt)
     else:
         try:
