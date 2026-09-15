@@ -92,20 +92,48 @@ export async function rotateSession(db: Db, presented: string, meta: { ip?: stri
 
   if (!row) return { ok: false as const, reason: "unknown_token" };
 
+  /** Reuse of a consumed token: burn every live session in the family. */
+  const burnFamily = () => db.update(S.sessions)
+    .set({ revokedAt: new Date(), revokedReason: "reuse_detected", updatedAt: new Date() })
+    .where(and(eq(S.sessions.familyId, row.familyId), isNull(S.sessions.revokedAt)));
+
   if (row.revokedAt) {
-    // Reuse of a revoked token: burn the whole family.
-    await db.update(S.sessions)
-      .set({ revokedAt: new Date(), revokedReason: "reuse_detected", updatedAt: new Date() })
-      .where(and(eq(S.sessions.familyId, row.familyId), isNull(S.sessions.revokedAt)));
+    await burnFamily();
     return { ok: false as const, reason: "reuse_detected", familyId: row.familyId };
   }
 
   if (row.expiresAt.getTime() < Date.now()) return { ok: false as const, reason: "expired" };
 
   const next = newRefreshToken();
-  await db.update(S.sessions)
+
+  /**
+   * Claim the token with the UPDATE, not with the SELECT above.
+   *
+   * The read is a courtesy that produces the friendly answers — unknown,
+   * expired, already-consumed. It cannot be the guard: two requests presenting
+   * the SAME refresh token in the same instant both read `revoked_at IS NULL`,
+   * both passed, and both minted a session. That is the exact scenario refresh
+   * rotation exists to detect — one of those two callers is holding a stolen
+   * token — and it was the one case that slipped through, because the theft
+   * signal is "this token was used twice" and nothing made the two uses
+   * serialise. Reuse a second later was caught; reuse a millisecond later was
+   * rewarded with a valid session.
+   *
+   * `WHERE revoked_at IS NULL … RETURNING` makes Postgres the arbiter: exactly
+   * one caller gets a row back. Whoever gets nothing has presented a token
+   * somebody else just consumed, which is the same fact the branch above acts
+   * on, so it gets the same answer — the family burns and both sides sign in
+   * again.
+   */
+  const claimed = await db.update(S.sessions)
     .set({ revokedAt: new Date(), revokedReason: "rotated", updatedAt: new Date() })
-    .where(eq(S.sessions.id, row.id));
+    .where(and(eq(S.sessions.id, row.id), isNull(S.sessions.revokedAt)))
+    .returning({ id: S.sessions.id });
+
+  if (!claimed.length) {
+    await burnFamily();
+    return { ok: false as const, reason: "reuse_detected", familyId: row.familyId };
+  }
 
   const [created] = await db.insert(S.sessions).values({
     userId: row.userId, familyId: row.familyId, refreshHash: next.hash,
