@@ -42,6 +42,11 @@
     <string name="action_add_contact">পরিচিতি যোগ করুন</string>
     <string name="field_contact_name">পরিচিতির নাম</string>
     <string name="field_contact_phone">তাঁদের মোবাইল (+91…)</string>
+    <string name="server">সার্ভার</string>
+    <string name="server_sub">এই ফোনটি যে ঠিকানায় কথা বলে। বদলালে সাইন আউট হয়ে যাবেন — সেশনটি যে সার্ভার দিয়েছে তারই।</string>
+    <string name="server_queued_warning">এই ফোনে না-পাঠানো জরুরি বার্তা: %1$dটি। এগুলি নতুন সার্ভারে যাবে।</string>
+    <string name="action_use_server">এই সার্ভার ব্যবহার করুন</string>
+    <string name="server_unreachable">ওই ঠিকানায় কোনো RoadAssist API সাড়া দেয়নি। কিছুই বদলায়নি — আপনি এখানেই সাইন ইন আছেন।</string>
     <string name="about">পরিচিতি</string>
     <string name="about_body">RoadAssist ভারত — এক মঞ্চ, সব গাড়ি, সব রাস্তা। এটি ছাত্র প্রোটোটাইপ; কোনো প্রকৃত জরুরি পরিষেবা যুক্ত নেই।</string>
     <string name="action_sign_out">সাইন আউট</string>

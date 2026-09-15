@@ -66,6 +66,59 @@ object Api {
         return if (trimmed.endsWith(":")) base else trimmed
     }
 
+    /**
+     * Does a typed address resolve to the one already in use?
+     *
+     * The settings screen offers a switch that SIGNS THE USER OUT, so it must
+     * not be offered for a no-op. "http://192.168.1.8:4000/" and
+     * "  192.168.1.8:4000  " are the address already in use, typed differently;
+     * treating either as a change ends a session for nothing, and on this app
+     * that can mean ending it while somebody is tracking a rescue.
+     *
+     * Pure, and compares NORMALISED forms rather than raw text, for the same
+     * reason [normalizeBase] exists at all.
+     */
+    fun isCurrentBase(input: String): Boolean = normalizeBase(input) == base
+
+    /**
+     * Does a RoadAssist API answer at this address?
+     *
+     * Switching servers from the settings card signs the user out, and doing
+     * that on an address nobody checked is how a typo costs somebody their
+     * session — possibly while they are tracking a rescue. So the address is
+     * tried FIRST and the switch only happens if something answered.
+     *
+     * /v1/ping is the right probe and the only one that would be: it needs no
+     * token, and it answers even when the platform's database is down, which
+     * is precisely the difference this is asking about — can this phone reach
+     * that address at all.
+     *
+     * Takes the candidate rather than reading [base], because the whole point
+     * is to test an address that has NOT been adopted yet. Everything is
+     * caught: a malformed address throws from the URL constructor rather than
+     * from the connection, and both mean the same thing to the caller.
+     */
+    suspend fun reachable(candidate: String): Boolean = withContext(Dispatchers.IO) {
+        val address = normalizeBase(candidate)
+        try {
+            val conn = URL(address + "/v1/ping").openConnection() as HttpURLConnection
+            try {
+                conn.requestMethod = "GET"
+                // Short, because a person is watching this button. A wrong
+                // address on a LAN usually fails fast; a routable-but-dead one
+                // hits this ceiling.
+                conn.connectTimeout = 4000
+                conn.readTimeout = 4000
+                conn.setRequestProperty("accept", "application/json")
+                conn.responseCode in 200..299
+            } finally {
+                conn.disconnect()
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /** The access token the WebView bridge should use right now. */
     fun currentToken(): String = token ?: ""
 

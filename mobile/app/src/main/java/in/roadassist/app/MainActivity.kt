@@ -720,6 +720,13 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
     var cName by remember { mutableStateOf("") }
     var cPhone by remember { mutableStateOf("+91") }
     var cBusy by remember { mutableStateOf(false) }
+    // The address this phone talks to, editable here as well as at sign-in.
+    // Read once on entry: queueDepth touches disk, and this is a warning line,
+    // not a live counter.
+    var serverUrl by remember { mutableStateOf(Api.base) }
+    val queuedSos = remember { Emergency.queueDepth(ctx) }
+    var serverBusy by remember { mutableStateOf(false) }
+    var serverUnreachable by remember { mutableStateOf(false) }
     suspend fun loadContacts() {
         try {
             val arr = Api.get("/v1/me/emergency-contacts").getJSONArray("data")
@@ -890,6 +897,69 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
             }
         }
 
+        // Server — the same address the sign-in screen offers, reachable once
+        // signed in. Switching servers ends the session on purpose: the tokens
+        // in memory were issued by the server being left, and carrying them to
+        // another one produces 401s that look like a broken app rather than a
+        // deliberate change. Signing out also drops the retained map WebView,
+        // which captured the OLD base when it was built.
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        ) {
+            Column(Modifier.padding(17.dp)) {
+                Text(stringResource(R.string.server), color = Cream, style = RaType.title)
+                Text(stringResource(R.string.server_sub),
+                    color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
+
+                Field(serverUrl, { serverUrl = it; serverUnreachable = false },
+                    stringResource(R.string.field_api_base_url))
+
+                // Unsent emergencies belong to the phone, not to a server, so they
+                // would be replayed to whichever one is set when the link returns.
+                // Said plainly rather than blocking the switch: a wrong address is
+                // exactly why they are still queued, so refusing here would strand
+                // the person who most needs to fix it.
+                if (queuedSos > 0) {
+                    Text(stringResource(R.string.server_queued_warning, queuedSos),
+                        color = Color(0xFFE3C451), style = RaType.caption,
+                        modifier = Modifier.padding(top = 10.dp))
+                }
+
+                // The address is TRIED before it is adopted. Switching signs the
+                // user out, so committing an unchecked address means a typo ends
+                // a session and lands them on a sign-in screen pointed at nothing.
+                // On failure nothing changes at all — still signed in, still on
+                // the old server.
+                if (serverUnreachable) {
+                    Text(stringResource(R.string.server_unreachable), color = Alarm,
+                        style = RaType.caption, modifier = Modifier.padding(top = 10.dp))
+                }
+                if (serverBusy) Loading()
+
+                Button(
+                    onClick = {
+                        serverBusy = true
+                        serverUnreachable = false
+                        scope.launch {
+                            if (Api.reachable(serverUrl)) {
+                                commitApiBase(ctx, serverUrl)
+                                onSignOut()
+                            } else {
+                                serverUnreachable = true
+                                serverBusy = false
+                            }
+                        }
+                    },
+                    enabled = !serverBusy && !Api.isCurrentBase(serverUrl),
+                    shape = RoundedCornerShape(RaRadius.full),
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
+                ) { Text(stringResource(R.string.action_use_server),
+                    fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, style = RaType.caption) }
+            }
+        }
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Panel),
@@ -903,6 +973,26 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
         }
         LineButton(stringResource(R.string.action_sign_out)) { onSignOut() }
     }
+}
+
+/**
+ * Adopt an API address and keep it for the next launch.
+ *
+ * Two screens set this now — sign-in, and the server card in More — and each
+ * has to normalise, assign and persist, in that order, to the same
+ * preferences key that MainActivity.onCreate reads back. Written out twice
+ * they drift; the second copy is how a screen ends up setting Api.base
+ * without saving it, which works until the app is restarted.
+ *
+ * Returns the address actually adopted, so the caller can show the cleaned-up
+ * form in its own field rather than leaving what was typed.
+ */
+private fun commitApiBase(ctx: android.content.Context, input: String): String {
+    val address = Api.normalizeBase(input)
+    Api.base = address
+    ctx.getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE)
+        .edit().putString("apiBase", address).apply()
+    return address
 }
 
 // ── shared pieces ──────────────────────────────────────────────────────────
@@ -974,9 +1064,6 @@ private fun SignInScreen(
 ) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
-    val prefs = remember(ctx) {
-        ctx.getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE)
-    }
     var baseUrl by remember { mutableStateOf(Api.base) }
     var code by remember { mutableStateOf("") }
     var otpSent by remember { mutableStateOf(false) }
@@ -986,12 +1073,7 @@ private fun SignInScreen(
     // "192.168.1.8:4000" reaches the server rather than throwing, and kept for
     // the next launch. Committed on both buttons: an edit made after the OTP
     // was sent is a correction, not something to ignore.
-    fun commitBase() {
-        val address = Api.normalizeBase(baseUrl)
-        Api.base = address
-        baseUrl = address
-        prefs.edit().putString("apiBase", address).apply()
-    }
+    fun commitBase() { baseUrl = commitApiBase(ctx, baseUrl) }
 
     ScreenColumn {
         Spacer(Modifier.height(40.dp))

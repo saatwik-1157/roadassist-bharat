@@ -42,6 +42,11 @@
     <string name="action_add_contact">संपर्क जोडा</string>
     <string name="field_contact_name">संपर्काचे नाव</string>
     <string name="field_contact_phone">त्यांचा मोबाइल (+91…)</string>
+    <string name="server">सर्व्हर</string>
+    <string name="server_sub">हा फोन ज्या पत्त्याशी बोलतो. तो बदलल्यास साइन आउट व्हाल — सत्र ज्या सर्व्हरने दिले त्याचेच आहे.</string>
+    <string name="server_queued_warning">या फोनवर न पाठवलेल्या आपत्कालीन सूचना: %1$d. त्या नवीन सर्व्हरवर जातील.</string>
+    <string name="action_use_server">हाच सर्व्हर वापरा</string>
+    <string name="server_unreachable">त्या पत्त्यावर कोणतेही RoadAssist API मिळाले नाही. काहीही बदलले नाही — तुम्ही इथेच साइन इन आहात.</string>
     <string name="about">परिचय</string>
     <string name="about_body">RoadAssist भारत — एक व्यासपीठ, प्रत्येक वाहन, प्रत्येक रस्ता. हा विद्यार्थी नमुना आहे; कोणतीही खरी आणीबाणी सेवा जोडलेली नाही.</string>
     <string name="action_sign_out">साइन आउट</string>

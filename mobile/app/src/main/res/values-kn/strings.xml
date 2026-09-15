@@ -42,6 +42,11 @@
     <string name="action_add_contact">ಸಂಪರ್ಕ ಸೇರಿಸಿ</string>
     <string name="field_contact_name">ಸಂಪರ್ಕದ ಹೆಸರು</string>
     <string name="field_contact_phone">ಅವರ ಮೊಬೈಲ್ (+91…)</string>
+    <string name="server">ಸರ್ವರ್</string>
+    <string name="server_sub">ಈ ಫೋನ್ ಮಾತನಾಡುವ ವಿಳಾಸ. ಬದಲಾಯಿಸಿದರೆ ಸೈನ್ ಔಟ್ ಆಗುವಿರಿ — ಸೆಶನ್ ಅನ್ನು ನೀಡಿದ ಸರ್ವರ್‌ಗೆ ಸೇರಿದೆ.</string>
+    <string name="server_queued_warning">ಈ ಫೋನ್‌ನಲ್ಲಿ ಕಳುಹಿಸದ ತುರ್ತು ವರದಿಗಳು: %1$d. ಇವು ಹೊಸ ಸರ್ವರ್‌ಗೆ ಹೋಗುತ್ತವೆ.</string>
+    <string name="action_use_server">ಈ ಸರ್ವರ್ ಬಳಸಿ</string>
+    <string name="server_unreachable">ಆ ವಿಳಾಸದಲ್ಲಿ ಯಾವುದೇ RoadAssist API ಉತ್ತರಿಸಲಿಲ್ಲ. ಏನೂ ಬದಲಾಗಿಲ್ಲ — ನೀವು ಇಲ್ಲಿಯೇ ಸೈನ್ ಇನ್ ಆಗಿದ್ದೀರಿ.</string>
     <string name="about">ಪರಿಚಯ</string>
     <string name="about_body">RoadAssist ಭಾರತ್ — ಒಂದು ವೇದಿಕೆ, ಪ್ರತಿ ವಾಹನ, ಪ್ರತಿ ರಸ್ತೆ. ಇದು ವಿದ್ಯಾರ್ಥಿ ಮಾದರಿ; ನಿಜವಾದ ತುರ್ತು ಸೇವೆ ಜೋಡಿಸಿಲ್ಲ.</string>
     <string name="action_sign_out">ಸೈನ್ ಔಟ್</string>

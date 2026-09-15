@@ -42,6 +42,11 @@
     <string name="action_add_contact">સંપર્ક ઉમેરો</string>
     <string name="field_contact_name">સંપર્કનું નામ</string>
     <string name="field_contact_phone">તેમનો મોબાઈલ (+91…)</string>
+    <string name="server">સર્વર</string>
+    <string name="server_sub">આ ફોન જે સરનામે વાત કરે છે. બદલવાથી સાઇન આઉટ થઈ જશો — સેશન જે સર્વરે આપ્યું છે તેનું જ છે.</string>
+    <string name="server_queued_warning">આ ફોન પર ન મોકલેલી કટોકટી જાણ: %1$d. આ નવા સર્વર પર જશે.</string>
+    <string name="action_use_server">આ સર્વર વાપરો</string>
+    <string name="server_unreachable">એ સરનામે કોઈ RoadAssist API જવાબ આપ્યો નહીં. કંઈ બદલાયું નથી — તમે અહીં જ સાઇન ઇન છો.</string>
     <string name="about">પરિચય</string>
     <string name="about_body">RoadAssist ભારત — એક મંચ, દરેક વાહન, દરેક રસ્તો. આ વિદ્યાર્થી પ્રોટોટાઈપ છે; કોઈ વાસ્તવિક કટોકટી સેવા જોડાયેલી નથી.</string>
     <string name="action_sign_out">સાઇન આઉટ</string>

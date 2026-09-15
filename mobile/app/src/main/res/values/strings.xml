@@ -52,6 +52,11 @@
     <string name="action_add_contact">Add contact</string>
     <string name="field_contact_name">Contact name</string>
     <string name="field_contact_phone">Their mobile (+91…)</string>
+    <string name="server">Server</string>
+    <string name="server_sub">The address this phone talks to. Changing it signs you out — the session belongs to the server that issued it.</string>
+    <string name="server_queued_warning">Unsent emergencies on this phone: %1$d. They will be sent to the new server.</string>
+    <string name="action_use_server">Switch to this server</string>
+    <string name="server_unreachable">No RoadAssist API answered at that address. Nothing changed — you are still signed in here.</string>
     <string name="about">About</string>
     <string name="about_body">RoadAssist Bharat — one platform, every vehicle, every road. Student prototype; no real emergency dispatch is connected.</string>
     <string name="action_sign_out">Sign out</string>

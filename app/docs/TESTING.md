@@ -97,15 +97,17 @@ Stated here rather than discovered later.
   seconds otherwise, so CI runs the concurrency suite a second time against an
   API booted with `OFFER_TTL_SECONDS=2`.
 
-- **Android TESTS are the pure logic and nothing else.** Six classes, every one
-  covering a function that was split out of a Context or a network call so it
-  could be pinned off-device. `SosLadderTest` is 21 tests over the decisions in
-  `SosLadder.kt` — which rung fires, whether a backup is queued, and the SMS
+- **Android TESTS are the pure logic and nothing else.** Seven classes, every
+  one covering a function that was split out of a Context or a network call so
+  it could be pinned off-device. `SosLadderTest` is 21 tests over the decisions
+  in `SosLadder.kt` — which rung fires, whether a backup is queued, and the SMS
   body's contract with the server. The rest are `SosQueueTest` (an SOS raised while a
   flush is in the air), `ApiRefreshTest` (single-flight token rotation),
-  `ApiBaseTest` (the address a person actually types), `TripGuardianTest` (what
-  the app may claim about the map it holds offline) and `RaTypeTest` (the type
-  scale, pinned to the literals it replaced). The Compose UI is still untested:
+  `ApiBaseTest` (every address a person can be handed, resolved into the URL the
+  client opens), `ApiReachableTest` (the pre-flight probe that stops a mistyped
+  server from costing a session — a real socket, not a stub),
+  `TripGuardianTest` (what the app may claim about the map it holds offline) and
+  `RaTypeTest` (the type scale, pinned to the literals it replaced). The Compose UI is still untested:
   it needs a device or Robolectric, and neither is wired up. (Localisation is a
   separate axis and is complete — see below.)
 - **No CV inference or training runs in CI.** The `ai` job checks the pipeline
@@ -161,7 +163,7 @@ that reach the people with the worst connections and the cheapest phones, first.
 | Surface | Covered | Not covered |
 |---|---|---|
 | API (SMS + OTP) | **Everything the platform sends**, in all 8 — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
-| Android | **The user-facing UI**, in all 8 — 90 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer and the user-facing toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | Seven literals remain, all of them diagnostics or wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
+| Android | **The user-facing UI**, in all 8 — 95 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer and the user-facing toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | Seven literals remain, all of them diagnostics or wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
 | Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 30 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 
@@ -253,7 +255,7 @@ now samples 25 times so its p95 is a percentile.
 | `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
 | `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
 | `boundaries` | four fitness functions: module boundaries, the offline-shell completeness check, the documented-claims check and the code-citation check |
-| `android` | lint, 55 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
+| `android` | lint, 66 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
 | `ai` | syntax-checks every CV script and runs the pipeline unit tests |
 
 `android` and `ai` were added because `mobile/` and `ai/` ship as real artefacts
