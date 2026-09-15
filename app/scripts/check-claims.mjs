@@ -236,7 +236,12 @@ const IGNORE_MARK = "claims-check:ignore";
 
 function files(dir, out = []) {
   for (const entry of readdirSync(dir)) {
-    if (["node_modules", ".git", "dist", "build", ".idea", "assets"].includes(entry)) continue;
+    // .venv and runs/ are not ours to police: a vendored package README or a
+    // generated results.csv is not a claim this project makes, and scanning
+    // them means a third-party doc that happens to quote one of our numbers
+    // fails the build. ai/.venv alone is 649 MB of other people's markdown.
+    if (["node_modules", ".git", "dist", "build", ".idea", "assets",
+         ".venv", "venv", "__pycache__", "runs"].includes(entry)) continue;
     const p = join(dir, entry);
     if (statSync(p).isDirectory()) files(p, out);
     else if (/\.(md|py)$/.test(entry)) out.push(p);
