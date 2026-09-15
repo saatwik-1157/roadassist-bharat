@@ -197,6 +197,27 @@ const CHECKS = [
     allow: [],
   },
   {
+    label: "Android string keys",
+    expect: String(measured.i18n.androidKeys),
+    // Measured and recorded, but nothing read it back: adding four strings to
+    // res/values-*/ took the real count from 90 to 94 while measured.json and
+    // TESTING.md both still said 90. The Android TEST count beside it was
+    // gated, and was updated in that same change — which is the argument for
+    // this entry rather than against it.
+    //
+    // Anchored to "strings per locale", the one phrasing that states it, and
+    // not to a bare number beside "strings": neighbouring rows of the same
+    // table count the server and web catalogues.
+    //
+    // Counts TRANSLATABLE keys, which is what every locale carries. values/
+    // holds one more, app_name, marked translatable="false" because the brand
+    // is what a user looks for on a home screen. Recount with:
+    //   grep -oE 'name="[^"]+"' \
+    //     mobile/app/src/main/res/values-hi/strings.xml | sort -u | wc -l
+    re: /(\d+)\s+strings per locale/g,
+    allow: [],
+  },
+  {
     label: "suite size in an `npm run` comment",
     expect: (m) => SCRIPT_SIZES[m[1]],
     // Two details this regex got wrong first time round, both worth keeping:
