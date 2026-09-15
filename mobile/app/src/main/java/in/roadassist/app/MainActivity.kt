@@ -1064,16 +1064,15 @@ private fun SignInScreen(
 ) {
     val scope = rememberCoroutineScope()
     val ctx = LocalContext.current
-    var baseUrl by remember { mutableStateOf(Api.base) }
     var code by remember { mutableStateOf("") }
     var otpSent by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
 
-    // Whatever is in the field is the address to use — normalised, so a typed
-    // "192.168.1.8:4000" reaches the server rather than throwing, and kept for
-    // the next launch. Committed on both buttons: an edit made after the OTP
-    // was sent is a correction, not something to ignore.
-    fun commitBase() { baseUrl = commitApiBase(ctx, baseUrl) }
+    // Signing in is a phone number and a six-digit code, and nothing else. The
+    // address this app talks to is not a thing a person signing in should be
+    // asked about: it is restored from preferences in onCreate (see MainActivity),
+    // so whatever was last used is already in force by the time this composes,
+    // and it is changed from the Server card in More once signed in.
 
     ScreenColumn {
         Spacer(Modifier.height(40.dp))
@@ -1096,13 +1095,11 @@ private fun SignInScreen(
         Heading(R.string.head_signin_plain, R.string.head_signin_italic)
         Sub(stringResource(R.string.signin_sub))
 
-        Field(baseUrl, { baseUrl = it }, stringResource(R.string.field_api_base_url))
         Field(msisdn, onMsisdn, stringResource(R.string.field_mobile_number))
 
         if (!otpSent) {
             GoldButton(stringResource(R.string.action_send_otp), enabled = !busy) {
                 busy = true
-                commitBase()
                 scope.launch {
                     try {
                         val r = Api.post("/v1/auth/otp/request", JSONObject().put("msisdn", msisdn.trim()))
@@ -1118,7 +1115,6 @@ private fun SignInScreen(
             Field(code, { code = it }, stringResource(R.string.field_otp_code))
             GoldButton(stringResource(R.string.action_verify_sign_in), enabled = !busy && code.length == 6) {
                 busy = true
-                commitBase()
                 scope.launch {
                     try {
                         val r = Api.post(
