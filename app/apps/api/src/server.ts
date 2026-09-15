@@ -6,23 +6,27 @@ import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import { z } from "zod";
 import { and, asc, desc, eq, isNull, sql as raw } from "drizzle-orm";
-import { createHmac, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import { env, assertProductionSafe, validateEnv } from "./env.js";
 import { db, sql } from "./db.js";
 import * as S from "@roadassist/db";
 import {
-  authenticate, constantTimeEquals, requireRole, sha256, verifyAccessToken,
+  authenticate, requireRole, sha256, verifyAccessToken,
 } from "./auth.js";
 import { apply, allowedFrom, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
 import { shrunkRating } from "./domain/ai-rules.js";
 import {
-  diagnoseWithFallback, email, maps, payments, PAYMENT_METHODS, providerSummary, sms,
+  diagnoseWithFallback, email, maps, providerSummary, sms,
 } from "./providers.js";
 import { ok, msisdnSchema } from "./http.js";
 import { rakshaRoutes } from "./raksha.js";
 import { authRoutes } from "./routes/auth.js";
 import { emergencyRoutes } from "./routes/emergency.js";
+import { telecomRoutes } from "./routes/telecom.js";
+import { mechanicRoutes } from "./routes/mechanic.js";
+import { paymentRoutes, invoiceIsSettled } from "./routes/payments.js";
+import { bookingAudience, notYours } from "./booking-access.js";
 import { audit, verifyAuditChain } from "./audit.js";
 import { limit } from "./ratelimit.js";
 import { ApiError, fail } from "./errors.js";
@@ -34,8 +38,7 @@ import {
   IllegalIncidentTransition, allowedIncidentCommands,
 } from "./domain/incident-machine.js";
 import { describeProviderState } from "./domain/provider-state.js";
-import { parseSmsCoordinates } from "./domain/sms-coordinates.js";
-import { t, resolveLocale, parseLangCommand, DEFAULT_LOCALE } from "./i18n.js";
+import { reference } from "./domain/reference.js";
 import {
   closeAllStreams, MAX_STREAMS_PER_USER, openStream, publish, publishMany,
   realtimeStats, subscribe, type RealtimeEvent,
@@ -634,7 +637,6 @@ app.post("/v1/diagnose", { preHandler: authenticate }, async (req) => {
 });
 
 // ══ bookings ═══════════════════════════════════════════════════════════════
-const reference = () => "RA" + randomUUID().replace(/-/g, "").slice(0, 8).toUpperCase();
 
 app.post("/v1/bookings", { preHandler: [authenticate, limit("booking")] }, async (req, reply) => {
   const body = z.object({
@@ -677,25 +679,41 @@ app.post("/v1/bookings", { preHandler: [authenticate, limit("booking")] }, async
     ?? (await maps.reverseGeocode({ lat: body.lat, lng: body.lng }).catch(() => null))?.label
     ?? undefined;
 
-  const [booking] = await db.insert(S.bookings).values({
-    reference: reference(), userId: req.user!.sub, vehicleId: body.vehicleId,
-    serviceTypeId: svc.id, status: "DRAFT", symptoms: body.symptoms,
-    addressText: address, highwayMarker: body.highwayMarker,
-    quotedPaise: svc.baseFarePaise, createdOffline: body.createdOffline ?? false,
-    clientUpdatedAt: new Date(),
-  }).returning();
-
-  await db.execute(raw`
-    UPDATE bookings SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
-    WHERE id = ${booking.id}`);
-
+  /**
+   * A request is born in four writes, and it is only a request once all four
+   * land: the row, its position, the DRAFT → REQUESTED transition, and the event
+   * that records it. Separately they can stop half-way, and each half-way state
+   * is its own silent failure — a REQUESTED booking with no location is the
+   * worst, because dispatch filters on ST_DWithin against that column and NULL
+   * matches nothing, so it is not "hard to dispatch" but impossible, while
+   * looking perfectly normal in every listing.
+   *
+   * The same reasoning as the SOS path in routes/emergency.ts. `raw` is still
+   * needed for the position: PostGIS geometry has no Drizzle column builder
+   * here, and ST_MakePoint has to be evaluated by the database.
+   */
   const { to } = apply("DRAFT", "submit");
-  await db.update(S.bookings)
-    .set({ status: to, requestedAt: new Date(), updatedAt: new Date(), version: booking.version + 1 })
-    .where(eq(S.bookings.id, booking.id));
-  await db.insert(S.bookingEvents).values({
-    bookingId: booking.id, fromStatus: "DRAFT", toStatus: to,
-    command: "submit", actorId: req.user!.sub, actorRole: "citizen",
+  const booking = await db.transaction(async (tx) => {
+    const [row] = await tx.insert(S.bookings).values({
+      reference: reference(), userId: req.user!.sub, vehicleId: body.vehicleId,
+      serviceTypeId: svc.id, status: "DRAFT", symptoms: body.symptoms,
+      addressText: address, highwayMarker: body.highwayMarker,
+      quotedPaise: svc.baseFarePaise, createdOffline: body.createdOffline ?? false,
+      clientUpdatedAt: new Date(),
+    }).returning();
+
+    await tx.execute(raw`
+      UPDATE bookings SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
+      WHERE id = ${row.id}`);
+
+    await tx.update(S.bookings)
+      .set({ status: to, requestedAt: new Date(), updatedAt: new Date(), version: row.version + 1 })
+      .where(eq(S.bookings.id, row.id));
+    await tx.insert(S.bookingEvents).values({
+      bookingId: row.id, fromStatus: "DRAFT", toStatus: to,
+      command: "submit", actorId: req.user!.sub, actorRole: "citizen",
+    });
+    return row;
   });
 
   const payload = ok({ ...booking, status: to, lat: body.lat, lng: body.lng },
@@ -716,23 +734,6 @@ app.post("/v1/bookings", { preHandler: [authenticate, limit("booking")] }, async
  * drift apart — they have before, and the write path ended up strictly more
  * permissive than the read path.
  */
-async function bookingAudience(
-  booking: { userId: string; mechanicId: string | null },
-  caller: { sub: string; roles: string[] },
-): Promise<{ allowed: boolean; isAssignedMechanic: boolean }> {
-  let isAssignedMechanic = false;
-  if (booking.mechanicId) {
-    const [mech] = await db.select({ userId: S.mechanics.userId }).from(S.mechanics)
-      .where(eq(S.mechanics.id, booking.mechanicId)).limit(1);
-    isAssignedMechanic = mech?.userId === caller.sub;
-  }
-  return {
-    allowed: booking.userId === caller.sub || isAssignedMechanic || caller.roles.includes("admin"),
-    isAssignedMechanic,
-  };
-}
-
-const notYours = { code: "forbidden", title: "That booking is not yours", retryable: false } as const;
 
 /**
  * Push a booking change to everybody it concerns — the customer and, once one
@@ -1088,372 +1089,6 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
   return ok({ id, status: to, cancellationFee, invoice }, { nextCommands: allowedFrom(to) });
 });
 
-// ══ payments ═══════════════════════════════════════════════════════════════
-
-/** Is every paise of this booking's invoice covered by settled payments? */
-async function invoiceIsSettled(bookingId: string): Promise<boolean> {
-  const [invoice] = await db.select({ id: S.invoices.id, total: S.invoices.totalPaise })
-    .from(S.invoices)
-    .where(and(eq(S.invoices.bookingId, bookingId), isNull(S.invoices.deletedAt)))
-    .limit(1);
-  if (!invoice) return false;
-
-  const [tally] = await db.select({ paid: raw<string>`coalesce(sum(${S.payments.amountPaise}), 0)` })
-    .from(S.payments)
-    .where(and(
-      eq(S.payments.invoiceId, invoice.id),
-      eq(S.payments.status, "SETTLED"),
-      isNull(S.payments.deletedAt),
-    ));
-  return Number(tally?.paid ?? 0) >= invoice.total;
-}
-
-/**
- * COMPLETED → PAID, once a payment row actually covers the invoice. Guarded on
- * the status the transition was computed from, exactly like the generic
- * transition, so two confirmations racing cannot both win.
- */
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
-
-/**
- * The compare-and-set half of a settlement, inside a caller's transaction.
- *
- * Separated from [settleBooking] so a caller that must write something ELSE in
- * the same transaction — a payment row, above all — can claim the booking
- * first and have its own write rolled back when it loses. Duplicating these
- * ten lines at the call site is how the guard and the money drift apart.
- */
-async function claimForSettlement(
-  tx: Tx,
-  booking: typeof S.bookings.$inferSelect,
-  actor: { sub: string; roles: string[] },
-): Promise<boolean> {
-  const { to } = apply(booking.status as Status, "payment.settled");
-  const updated = await tx.update(S.bookings)
-    .set({ status: to, updatedAt: new Date(), version: booking.version + 1 })
-    .where(and(eq(S.bookings.id, booking.id), eq(S.bookings.status, booking.status)))
-    .returning({ id: S.bookings.id });
-  if (!updated.length) return false;
-
-  await tx.insert(S.bookingEvents).values({
-    bookingId: booking.id, fromStatus: booking.status, toStatus: to,
-    command: "payment.settled", actorId: actor.sub, actorRole: actor.roles[0] ?? "citizen",
-  });
-  return true;
-}
-
-async function settleBooking(
-  booking: typeof S.bookings.$inferSelect,
-  actor: { sub: string; roles: string[] },
-): Promise<boolean> {
-  return db.transaction((tx) => claimForSettlement(tx, booking, actor));
-}
-
-/**
- * Settle a completed booking's invoice.
- *
- * The amount is never read from the request — it is the invoice total, so a
- * client cannot choose what it owes. Cash is recorded rather than charged, and
- * only by whoever is actually holding the money (the assigned mechanic, or an
- * admin): "the customer paid cash" is not the customer's claim to make.
- *
- * A provider that settles synchronously (the local mock, and cash) advances the
- * booking to PAID in the same call, so a client needs nothing further. A real
- * gateway returns a checkout handle instead and the booking stays COMPLETED
- * until POST /v1/payments/:id/confirm verifies what the gateway hands back.
- */
-app.post("/v1/bookings/:id/pay", { preHandler: [authenticate, limit("payment")] }, async (req, reply) => {
-  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
-  const { method = "upi" } = z.object({
-    method: z.enum(PAYMENT_METHODS).optional(),
-  }).parse(req.body ?? {});
-
-  const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, id)).limit(1);
-  if (!booking) return reply.code(404).send({ error: { code: "not_found", title: "Booking not found", retryable: false } });
-
-  const caller = req.user!;
-  const audience = await bookingAudience(booking, caller);
-  if (!audience.allowed) return reply.code(403).send({ error: notYours });
-
-  if (method === "cash" && !audience.isAssignedMechanic && !caller.roles.includes("admin")) {
-    return reply.code(403).send({
-      error: {
-        code: "forbidden",
-        title: "Only the assigned mechanic can record a cash payment",
-        retryable: false,
-      },
-    });
-  }
-
-  // Already settled: say so rather than charging a second time.
-  if (booking.status === "PAID") {
-    return ok({ id, status: "PAID", alreadySettled: true }, { nextCommands: allowedFrom("PAID") });
-  }
-  if (booking.status !== "COMPLETED") {
-    return reply.code(409).send({
-      error: {
-        code: "not_payable",
-        title: `A booking in ${booking.status} has nothing to pay yet — a job is invoiced when it completes.`,
-        retryable: false,
-      },
-    });
-  }
-
-  const [invoice] = await db.select().from(S.invoices)
-    .where(and(eq(S.invoices.bookingId, id), isNull(S.invoices.deletedAt))).limit(1);
-  if (!invoice) {
-    return reply.code(409).send({
-      error: { code: "no_invoice", title: "This booking has no invoice to settle", retryable: false },
-    });
-  }
-
-  // Cash never reaches a gateway — the money changed hands at the roadside and
-  // only the record of it reaches us.
-  const order = method === "cash"
-    ? { providerRef: `cash_${invoice.number}`, settled: true, checkout: undefined }
-    : await payments.createOrder({ amountPaise: invoice.totalPaise, receipt: invoice.number, method });
-
-  // Nothing has settled yet: record the intent and let
-  // POST /v1/payments/:id/confirm finish it against the gateway's own word.
-  if (!order.settled) {
-    const [pending] = await db.insert(S.payments).values({
-      invoiceId: invoice.id,
-      method,
-      amountPaise: invoice.totalPaise,
-      status: "PENDING",
-      providerRef: order.providerRef,
-      settledAt: null,
-    }).returning();
-
-    return reply.code(202).send(ok(
-      { id, status: booking.status, payment: pending, checkout: order.checkout },
-      { nextCommands: [], confirmWith: `POST /v1/payments/${pending.id}/confirm` },
-    ));
-  }
-
-  /**
-   * Settled synchronously. Claim the booking BEFORE writing the money, in one
-   * transaction, so that losing the race writes nothing at all.
-   *
-   * The claim was already correct; its POSITION was not. The payment row used
-   * to be inserted first and the booking claimed after, so two concurrent
-   * settlements of one COMPLETED booking both inserted a SETTLED payment and
-   * only then did one of them lose. That left two settled rows against a
-   * single invoice — a ledger reading twice the invoice total — and handed the
-   * loser a 409 saying "reload and retry", which would have added a third.
-   * Nothing downstream noticed, because invoiceIsSettled asks whether the
-   * settled sum COVERS the total, and twice the money covers it fine.
-   */
-  const settled = await db.transaction(async (tx) => {
-    if (!(await claimForSettlement(tx, booking, caller))) return null;
-
-    const [row] = await tx.insert(S.payments).values({
-      invoiceId: invoice.id,
-      method,
-      amountPaise: invoice.totalPaise,
-      status: "SETTLED",
-      providerRef: order.providerRef,
-      settledAt: new Date(),
-    }).returning();
-    return row;
-  });
-
-  if (!settled) {
-    return reply.code(409).send({
-      error: {
-        code: "conflict",
-        title: "The booking changed while this request was in flight. Reload and retry.",
-        retryable: true,
-      },
-    });
-  }
-  return ok({ id, status: "PAID", payment: settled, invoice }, { nextCommands: allowedFrom("PAID") });
-});
-
-/**
- * Verify a gateway's completion payload, then settle.
- *
- * The signature is what proves the *gateway* said the money arrived. Without
- * it a client could confirm its own payment, which is the same hole the raw
- * "payment.settled" command used to leave open.
- */
-app.post("/v1/payments/:id/confirm", { preHandler: [authenticate, limit("payment")] }, async (req, reply) => {
-  const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
-  const body = z.object({
-    paymentRef: z.string().min(1).max(80).optional(),
-    signature: z.string().min(1).max(256).optional(),
-  }).parse(req.body ?? {});
-
-  const [payment] = await db.select().from(S.payments).where(eq(S.payments.id, id)).limit(1);
-  if (!payment) return reply.code(404).send({ error: { code: "not_found", title: "Payment not found", retryable: false } });
-
-  const [invoice] = await db.select().from(S.invoices).where(eq(S.invoices.id, payment.invoiceId)).limit(1);
-  const [booking] = invoice
-    ? await db.select().from(S.bookings).where(eq(S.bookings.id, invoice.bookingId)).limit(1)
-    : [];
-  if (!invoice || !booking) {
-    return reply.code(409).send({
-      error: { code: "orphaned_payment", title: "This payment has no booking", retryable: false },
-    });
-  }
-
-  const caller = req.user!;
-  if (!(await bookingAudience(booking, caller)).allowed) return reply.code(403).send({ error: notYours });
-
-  if (payment.status === "SETTLED") {
-    return ok({ id, bookingId: booking.id, status: booking.status, alreadySettled: true },
-              { nextCommands: allowedFrom(booking.status as Status) });
-  }
-
-  const genuine = await payments.verify({
-    providerRef: payment.providerRef ?? "",
-    paymentRef: body.paymentRef,
-    signature: body.signature,
-  });
-  if (!genuine) {
-    // The row stays PENDING on purpose: an unverified attempt is not a failed
-    // payment, and the customer may still finish checkout.
-    return reply.code(402).send({
-      error: {
-        code: "payment_unverified",
-        title: "That confirmation could not be verified against the gateway, so nothing was settled.",
-        retryable: false,
-      },
-    });
-  }
-
-  // provider_ref keeps the *order* reference: it is what the signature is
-  // computed over, so overwriting it with the payment reference would make the
-  // settlement impossible to re-verify during reconciliation.
-  await db.update(S.payments)
-    .set({ status: "SETTLED", settledAt: new Date(), updatedAt: new Date(), version: payment.version + 1 })
-    .where(and(eq(S.payments.id, id), eq(S.payments.status, "PENDING")));
-
-  if (booking.status === "COMPLETED" && !(await settleBooking(booking, caller))) {
-    return reply.code(409).send({
-      error: {
-        code: "conflict",
-        title: "The booking changed while this request was in flight. Reload and retry.",
-        retryable: true,
-      },
-    });
-  }
-  const status = booking.status === "COMPLETED" ? "PAID" : booking.status;
-  return ok({ id, bookingId: booking.id, status, invoice }, { nextCommands: allowedFrom(status as Status) });
-});
-
-/**
- * Razorpay webhook — the settlement path that does not depend on the payer.
- *
- * `POST /v1/payments/:id/confirm` is driven by the browser after checkout, and
- * a browser is not a reliable narrator: the customer can pay and immediately
- * close the tab, drop off the network, or have the page killed. The money has
- * still moved. Razorpay retries this webhook until it gets a 2xx, so this is
- * what actually guarantees the invoice closes.
- *
- * The signature IS the authentication — there is no bearer token, because
- * Razorpay has none to send. It is HMAC-SHA256 of the *raw* body keyed with the
- * webhook secret (a different secret from the API key), which is why the JSON
- * parser keeps rawBody around. Without a configured secret the endpoint refuses
- * outright rather than accepting unsigned settlements: an open money endpoint is
- * worse than no endpoint.
- *
- * Delivery is at-least-once, so every path here is idempotent.
- */
-app.post("/v1/webhooks/razorpay", async (req, reply) => {
-  if (!env.payments.webhookSecret) {
-    return reply.code(503).send({
-      error: {
-        code: "webhook_not_configured",
-        title: "PAYMENTS_WEBHOOK_SECRET is not set, so webhook settlements are refused.",
-        retryable: false,
-      },
-    });
-  }
-
-  const presented = String(req.headers["x-razorpay-signature"] ?? "");
-  const expected = createHmac("sha256", env.payments.webhookSecret)
-    .update((req as { rawBody?: string }).rawBody ?? "")
-    .digest("hex");
-  if (!presented || !constantTimeEquals(presented, expected)) {
-    return reply.code(401).send({
-      error: { code: "webhook_unsigned", title: "Missing or invalid webhook signature", retryable: false },
-    });
-  }
-
-  const body = z.object({
-    event: z.string().max(60),
-    payload: z.object({
-      payment: z.object({
-        entity: z.object({
-          id: z.string().max(80),
-          order_id: z.string().max(80).nullish(),
-          amount: z.number().int().nonnegative().optional(),
-        }).passthrough(),
-      }).optional(),
-    }).passthrough(),
-  }).parse(req.body);
-
-  // Only a captured payment settles anything. Authorized-but-uncaptured money
-  // is not ours yet, and failures must never close an invoice.
-  if (body.event !== "payment.captured") {
-    return ok({ ignored: true, event: body.event },
-      { note: "Only payment.captured settles an invoice." });
-  }
-
-  const entity = body.payload.payment?.entity;
-  const orderId = entity?.order_id ?? "";
-  if (!entity || !orderId) {
-    return ok({ ignored: true }, { note: "No order id on the payment entity." });
-  }
-
-  // provider_ref holds the *order* id — the same value createOrder stored.
-  const [payment] = await db.select().from(S.payments)
-    .where(eq(S.payments.providerRef, orderId)).limit(1);
-  if (!payment) {
-    // A 200 stops Razorpay retrying forever for an order this system never made.
-    return ok({ ignored: true, orderId }, { note: "No local payment for that order." });
-  }
-
-  // The gateway's amount must match what we invoiced. A mismatch means the
-  // order was tampered with or is not ours, and it must not settle.
-  if (entity.amount != null && entity.amount !== payment.amountPaise) {
-    req.log.error({ orderId, expected: payment.amountPaise, got: entity.amount },
-      "razorpay webhook amount mismatch");
-    return reply.code(409).send({
-      error: { code: "amount_mismatch", title: "Captured amount does not match the invoice", retryable: false },
-    });
-  }
-
-  if (payment.status !== "SETTLED") {
-    await db.update(S.payments)
-      .set({ status: "SETTLED", settledAt: new Date(), updatedAt: new Date(),
-             version: payment.version + 1 })
-      .where(and(eq(S.payments.id, payment.id), eq(S.payments.status, "PENDING")));
-  }
-
-  const [invoice] = await db.select().from(S.invoices)
-    .where(eq(S.invoices.id, payment.invoiceId)).limit(1);
-  const [booking] = invoice
-    ? await db.select().from(S.bookings).where(eq(S.bookings.id, invoice.bookingId)).limit(1)
-    : [];
-
-  let settled = false;
-  if (booking && booking.status === "COMPLETED") {
-    // The webhook has no signed-in user, so the actor is the system.
-    settled = await settleBooking(booking, { sub: booking.userId, roles: ["system"] });
-  }
-
-  await audit({
-    actorId: null, actorRole: "system", action: "payment.webhook.captured",
-    entity: "payment", entityId: payment.id,
-    after: { orderId, paymentRef: entity.id, bookingSettled: settled },
-    ip: req.ip,
-  });
-
-  return ok({ orderId, paymentId: payment.id, bookingSettled: settled },
-    { note: settled ? "Booking moved to PAID." : "Payment recorded; booking was not awaiting payment." });
-});
 
 // ══ reviews ════════════════════════════════════════════════════════════════
 /**
@@ -2100,366 +1735,8 @@ app.get("/v1/admin/audit", { preHandler: [authenticate, requireRole("admin")] },
   return ok(rows, { count: rows.length, integrity });
 });
 
-// ══ feature-phone journey: inbound SMS ═════════════════════════════════════
-/**
- * The whole core journey over SMS, for a phone with no app and no data.
- *
- * Authentication is the SIM: the sending MSISDN identifies the user. Because
- * that is weaker than app auth, this path is deliberately limited — request,
- * status, cancel and SOS. No payment, no profile changes (threat #12).
- *
- * In production the telecom vendor calls this with a signed webhook. When
- * TELECOM_WEBHOOK_SECRET is set, every request must carry
- * x-roadassist-signature = HMAC-SHA256(secret, raw body) as hex; production
- * refuses to boot without the secret (assertProductionSafe). With no secret
- * configured the endpoint stays open for development and says so.
- */
-
-const CLASS_WORDS: Record<string, string> = {
-  car: "car", bike: "motorcycle", motorcycle: "motorcycle", scooter: "scooter",
-  auto: "auto_rickshaw", rickshaw: "auto_rickshaw", truck: "truck",
-  bus: "bus", tractor: "tractor", ev: "ev",
-};
-
-app.post("/v1/telecom/sms", async (req, res) => {
-  if (env.telecomWebhookSecret) {
-    const presented = String(req.headers["x-roadassist-signature"] ?? "");
-    const expected = createHmac("sha256", env.telecomWebhookSecret)
-      .update((req as { rawBody?: string }).rawBody ?? "")
-      .digest("hex");
-    if (!presented || !constantTimeEquals(presented, expected)) {
-      return res.code(401).send({
-        error: { code: "webhook_unsigned", title: "Missing or invalid webhook signature", retryable: false },
-      });
-    }
-  }
-
-  // Running without a signature is a development convenience, and the comment
-  // above claimed it was "flagged" — it was not. An operator reading a response
-  // could not tell a signed intake from an open one. Now they can.
-  const unsignedIntake = !env.telecomWebhookSecret;
-
-  const { from, text } = z.object({
-    from: msisdnSchema,
-    text: z.string().max(160),
-  }).parse(req.body);
-
-  const words = text.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const verb = words[0] ?? "";
-
-  /**
-   * Language for this conversation.
-   *
-   * Set below the user lookup, because the SIM is the identity here and the
-   * stored preference belongs to the row. A feature phone sends no
-   * Accept-Language and has no settings screen, so `LANG HI` is the only way
-   * its owner can ever change this — which is why the command exists.
-   */
-  let locale = DEFAULT_LOCALE;
-  const reply = async (key: string, params: Record<string, string | number> = {}) => {
-    const body = t(locale, key, params);
-    await sms.send(from, body);
-    return ok({ reply: body }, {
-      channel: "sms", to: from,
-      // Said out loud on every response, not buried in a code comment. This
-      // endpoint can raise an SOS for any phone number it is handed, so an
-      // operator must be able to see from the wire whether the intake is
-      // authenticated. Production cannot reach this state:
-      // `assertProductionSafe` refuses to boot without the secret.
-      ...(unsignedIntake
-        ? { warning: "UNSIGNED INTAKE — TELECOM_WEBHOOK_SECRET is unset, so this endpoint accepts unauthenticated requests. Development only." }
-        : { signed: true }),
-    });
-  };
-
-  // The SIM is the identity. First contact registers the number.
-  let [user] = await db.select().from(S.users).where(eq(S.users.msisdn, from)).limit(1);
-  if (!user) {
-    [user] = await db.insert(S.users).values({ msisdn: from, isVerified: true }).returning();
-    const [citizen] = await db.select().from(S.roles).where(eq(S.roles.name, "citizen")).limit(1);
-    if (citizen) await db.insert(S.userRoles).values({ userId: user.id, roleId: citizen.id });
-  }
-
-  const activeBooking = async () => {
-    const [b] = await db.select().from(S.bookings)
-      .where(and(eq(S.bookings.userId, user.id), isNull(S.bookings.deletedAt)))
-      .orderBy(desc(S.bookings.createdAt)).limit(1);
-    return b && !["PAID", "CANCELLED"].includes(b.status) ? b : null;
-  };
-
-  locale = resolveLocale({ stored: user.preferredLanguage });
-
-  /**
-   * `LANG` — the only language switch a feature phone has.
-   *
-   * Handled before every other verb so it works even mid-conversation, and
-   * the confirmation is sent in the NEW language: that is the proof it
-   * worked, for a reader who cannot check a settings screen.
-   */
-  const asked = parseLangCommand(words);
-  if (asked !== undefined) {
-    if (asked === null) return reply("lang.options");
-    await db.update(S.users)
-      .set({ preferredLanguage: asked, updatedAt: new Date() })
-      .where(eq(S.users.id, user.id));
-    locale = asked;
-    return reply("lang.set");
-  }
-
-  if (["stop", "unsubscribe"].includes(verb)) {
-    return reply("sms.stopped");
-  }
-
-  if (["sos", "emergency", "112"].includes(verb)) {
-    /**
-     * Read the coordinates the Android client already sends.
-     *
-     * Its SMS body is `SOS <lat> <lng> RoadAssist` (Emergency.smsBody), and
-     * this endpoint used to drop the two numbers on the floor: the raw text was
-     * kept in incident_signals, but incidents.location was never set. So the
-     * one SOS raised precisely BECAUSE there is no data coverage — the most
-     * remote person on the worst road — was the only SOS that reached a
-     * responder with no location, and the reply asked them to describe a
-     * landmark that the phone had already measured to six decimal places.
-     *
-     * A human texting a bare "SOS" from a feature phone is still valid and
-     * still has no location, exactly as before. Anything that is not a pair of
-     * in-range coordinates is ignored rather than guessed at.
-     */
-    const fix = parseSmsCoordinates(words);
-
-    const [incident] = await db.insert(S.incidents).values({
-      userId: user.id, status: "CONFIRMED", severity: "CRITICAL",
-      detectedByModel: false, confirmedBy: "sms", confirmedAt: new Date(),
-      degradedPath: true,   // this path works with the app platform down
-    }).returning();
-    if (fix) {
-      await db.execute(raw`
-        UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${fix.lng}, ${fix.lat}), 4326)
-        WHERE id = ${incident.id}`);
-    }
-    await db.insert(S.incidentSignals).values({
-      incidentId: incident.id, kind: "sms",
-      payload: { text, ...(fix ? { lat: fix.lat, lng: fix.lng } : {}) },
-    });
-    await db.insert(S.incidentResponses).values({ incidentId: incident.id, step: "contacts", latencyMs: 0 });
-    return reply(fix ? "sos.received.located" : "sos.received");
-  }
-
-  if (["status", "s"].includes(verb)) {
-    const b = await activeBooking();
-    if (!b) return reply("sms.noActive");
-    const [mech] = b.mechanicId
-      ? await db.select().from(S.mechanics).where(eq(S.mechanics.id, b.mechanicId)).limit(1)
-      : [];
-    return reply(
-      mech ? "sms.status.assigned" : "sms.status.searching",
-      { reference: b.reference, status: b.status, mechanic: mech?.displayName ?? "" },
-    );
-  }
-
-  if (["cancel", "c"].includes(verb)) {
-    const b = await activeBooking();
-    if (!b) return reply("sms.nothingToCancel");
-    try {
-      const { to, cancellationFee } = apply(b.status as Status, "cancel");
-      await db.update(S.bookings)
-        .set({ status: to, cancelledAt: new Date(), cancelReason: "sms_cancel", updatedAt: new Date() })
-        .where(eq(S.bookings.id, b.id));
-      await db.insert(S.bookingEvents).values({
-        bookingId: b.id, fromStatus: b.status, toStatus: to,
-        command: "cancel", actorId: user.id, actorRole: "citizen",
-      });
-      return reply(cancellationFee ? "sms.cancelled.fee" : "sms.cancelled", { reference: b.reference });
-    } catch {
-      return reply("sms.cancel.tooLate", { reference: b.reference, status: b.status });
-    }
-  }
-
-  if (["help", "madad", "sahaya", "h"].includes(verb)) {
-    const asked = words[1] ? CLASS_WORDS[words[1]] : undefined;
-
-    const [existing] = await db.select({ id: S.vehicles.id, cls: S.vehicles.vehicleClass })
-      .from(S.userVehicles)
-      .innerJoin(S.vehicles, eq(S.vehicles.id, S.userVehicles.vehicleId))
-      .where(and(eq(S.userVehicles.userId, user.id), isNull(S.userVehicles.deletedAt)))
-      .limit(1);
-
-    let vehicleId = existing?.id;
-    if (!vehicleId) {
-      if (!asked) {
-        return reply("sms.whichVehicle");
-      }
-      // A feature-phone user cannot type a registration number reliably, so the
-      // record is created from the vehicle class and completed later.
-      const [v] = await db.insert(S.vehicles).values({
-        registrationNo: "SMS-" + from.slice(-10),
-        vehicleClass: asked as never,
-      }).returning({ id: S.vehicles.id });
-      await db.insert(S.userVehicles).values({ userId: user.id, vehicleId: v.id, isPrimary: true });
-      vehicleId = v.id;
-    }
-
-    const open = await activeBooking();
-    if (open) return reply("sms.alreadyOpen", { reference: open.reference, status: open.status });
-
-    const [svc] = await db.select().from(S.serviceTypes)
-      .where(eq(S.serviceTypes.code, "minor_repair")).limit(1);
-    const [b] = await db.insert(S.bookings).values({
-      reference: reference(), userId: user.id, vehicleId,
-      serviceTypeId: svc?.id, status: "REQUESTED", requestedAt: new Date(),
-      symptoms: text, quotedPaise: svc?.baseFarePaise, createdOffline: false,
-    }).returning();
-    await db.insert(S.bookingEvents).values({
-      bookingId: b.id, fromStatus: "DRAFT", toStatus: "REQUESTED",
-      command: "submit", actorId: user.id, actorRole: "citizen",
-      meta: { channel: "sms" },
-    });
-    return reply("sms.requested", { reference: b.reference });
-  }
-
-  return reply("sms.commands");
-});
 
 
-// ══ mechanic view ══════════════════════════════════════════════════════════
-app.get("/v1/mechanic/offers", { preHandler: [authenticate, requireRole("mechanic", "admin")] }, async (req) => {
-  const [mech] = await db.select().from(S.mechanics).where(eq(S.mechanics.userId, req.user!.sub)).limit(1);
-  if (!mech) return ok([], { note: "This account is not registered as a mechanic" });
-  // Expired offers are filtered out rather than listed. They used to accumulate
-  // in the inbox as cards whose Accept button was guaranteed to fail, which is
-  // a dead button by any other name.
-  const rows = await db.select().from(S.dispatchOffers)
-    .where(and(eq(S.dispatchOffers.mechanicId, mech.id), eq(S.dispatchOffers.status, "SENT"),
-               raw`${S.dispatchOffers.expiresAt} > now()`))
-    .orderBy(desc(S.dispatchOffers.createdAt)).limit(20);
-
-  // The customer is stranded somewhere specific — a mechanic deciding whether to
-  // take a job needs to know what and where before accepting, not after.
-  const enriched = await Promise.all(rows.map(async (o) => {
-    const [ctx] = await db.execute<{
-      reference: string; symptoms: string | null; address_text: string | null;
-      highway_marker: string | null; registration_no: string; vehicle_class: string;
-      service_label: string | null; lat: number | null; lng: number | null;
-    }>(raw`
-      SELECT b.reference, b.symptoms, b.address_text, b.highway_marker,
-             v.registration_no, v.vehicle_class, s.label AS service_label,
-             ST_Y(b.location) AS lat, ST_X(b.location) AS lng
-        FROM bookings b
-        JOIN vehicles v ON v.id = b.vehicle_id
-        LEFT JOIN service_types s ON s.id = b.service_type_id
-       WHERE b.id = ${o.bookingId}`);
-    return {
-      ...o,
-      booking: ctx
-        ? {
-            reference: ctx.reference, symptoms: ctx.symptoms,
-            addressText: ctx.address_text, highwayMarker: ctx.highway_marker,
-            registrationNo: ctx.registration_no, vehicleClass: ctx.vehicle_class,
-            serviceLabel: ctx.service_label, lat: ctx.lat, lng: ctx.lng,
-          }
-        : null,
-    };
-  }));
-  return ok(enriched, { availableNow: mech.isAvailable });
-});
-
-/**
- * The mechanic's own console state: who they are, whether dispatch can reach
- * them, the job they are currently on, and what they have finished.
- *
- * The active job is looked up from the bookings table rather than remembered by
- * the client, so closing the console mid-job and reopening it lands back on the
- * same job instead of an empty screen.
- */
-const MECHANIC_OPEN_STATUSES = ["ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS",
-                                "AWAITING_PARTS", "ESCALATED", "COMPLETED"] as const;
-
-app.get("/v1/mechanic/jobs", { preHandler: [authenticate, requireRole("mechanic", "admin")] }, async (req) => {
-  const [mech] = await db.select().from(S.mechanics).where(eq(S.mechanics.userId, req.user!.sub)).limit(1);
-  if (!mech) return ok({ mechanic: null, active: null, history: [] }, { note: "This account is not registered as a mechanic" });
-
-  const rows = await db.execute<{
-    id: string; reference: string; status: string; created_at: string; completed_at: string | null;
-    symptoms: string | null; registration_no: string; service_label: string | null;
-    total_paise: number | null; rating: number | null;
-  }>(raw`
-    SELECT b.id, b.reference, b.status::text AS status, b.created_at, b.completed_at,
-           b.symptoms, v.registration_no, s.label AS service_label,
-           i.total_paise, r.rating
-      FROM bookings b
-      JOIN vehicles v ON v.id = b.vehicle_id
-      LEFT JOIN service_types s ON s.id = b.service_type_id
-      LEFT JOIN invoices i ON i.booking_id = b.id AND i.deleted_at IS NULL
-      LEFT JOIN reviews  r ON r.booking_id = b.id AND r.deleted_at IS NULL
-     WHERE b.mechanic_id = ${mech.id} AND b.deleted_at IS NULL
-     ORDER BY b.created_at DESC
-     LIMIT 40`);
-
-  const open = new Set<string>(MECHANIC_OPEN_STATUSES);
-  const active = rows.find((r) => open.has(r.status)) ?? null;
-
-  return ok({
-    mechanic: {
-      id: mech.id, displayName: mech.displayName, rating: Number(mech.rating),
-      jobsCompleted: mech.jobsCompleted, isAvailable: mech.isAvailable, verified: mech.verified,
-    },
-    activeBookingId: active?.id ?? null,
-    history: rows.filter((r) => r.id !== active?.id).map((r) => ({
-      id: r.id, reference: r.reference, status: r.status, createdAt: r.created_at,
-      completedAt: r.completed_at, registrationNo: r.registration_no,
-      serviceLabel: r.service_label, symptoms: r.symptoms,
-      totalPaise: r.total_paise == null ? null : Number(r.total_paise),
-      rating: r.rating == null ? null : Number(r.rating),
-    })),
-  }, { count: rows.length });
-});
-
-/**
- * Go on or off duty.
- *
- * `is_available` already gated the dispatch query — nothing could ever set it,
- * so a mechanic was whatever the seed decided, permanently. Going off duty now
- * genuinely removes them from dispatch; the location update is accepted in the
- * same call because a mechanic coming on duty is exactly when their position is
- * worth refreshing.
- */
-app.post("/v1/mechanic/availability", { preHandler: [authenticate, requireRole("mechanic", "admin")] }, async (req, reply) => {
-  const body = z.object({
-    isAvailable: z.boolean(),
-    lat: z.number().min(-90).max(90).optional(),
-    lng: z.number().min(-180).max(180).optional(),
-  }).parse(req.body);
-
-  const [mech] = await db.select().from(S.mechanics).where(eq(S.mechanics.userId, req.user!.sub)).limit(1);
-  if (!mech) {
-    return reply.code(404).send({
-      error: { code: "not_a_mechanic", title: "This account is not registered as a mechanic", retryable: false },
-    });
-  }
-
-  await db.update(S.mechanics)
-    .set({ isAvailable: body.isAvailable, updatedAt: new Date() })
-    .where(eq(S.mechanics.id, mech.id));
-
-  if (body.lat != null && body.lng != null) {
-    await db.execute(raw`
-      UPDATE mechanics
-         SET last_location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326),
-             last_location_at = now()
-       WHERE id = ${mech.id}`);
-  }
-
-  await audit({
-    actorId: req.user!.sub, actorRole: "mechanic",
-    action: body.isAvailable ? "mechanic.on_duty" : "mechanic.off_duty",
-    entity: "mechanic", entityId: mech.id,
-    after: { isAvailable: body.isAvailable }, ip: req.ip,
-  });
-
-  return ok({ id: mech.id, isAvailable: body.isAvailable },
-    { message: body.isAvailable ? "You are on duty — dispatch can reach you." : "Off duty. No new offers will be sent." });
-});
 
 // ══ email notifications ════════════════════════════════════════════════════
 // The platform's email channel (console by default; real delivery when
@@ -2527,6 +1804,9 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
 // ══ RAKSHA — autonomous road monitoring (ADR-0007) ═════════════════════════
 await app.register(authRoutes);
 await app.register(emergencyRoutes);
+await app.register(telecomRoutes);
+await app.register(mechanicRoutes);
+await app.register(paymentRoutes);
 await app.register(rakshaRoutes);
 
 // ══ boot ═══════════════════════════════════════════════════════════════════

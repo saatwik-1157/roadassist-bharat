@@ -21,9 +21,9 @@
 | 3 | Cloud storage | PARTIAL | `offline-store.js` | 10-offgrid-screen | "Three forms — block, file, and encrypted client-side IndexedDB." |
 | 3 | Usage monitoring | PARTIAL | `observability.ts` | `/v1/ops/overview` | "Correlation ids, operation timing, health, live counts — no external APM." |
 | 3 | Resource replication | CONCEPTUAL | `realtime.ts` | — | "Not built. The API is stateless, but three in-process components would break it." |
-| 4 | **Workload distribution** | **IMPLEMENTED** | `dispatch.ts:77` | 05-dispatch | "Dispatch ranks and distributes jobs across the provider pool." |
+| 4 | **Workload distribution** | **IMPLEMENTED** | `apps/api/src/dispatch.ts:77` | 05-dispatch | "Dispatch ranks and distributes jobs across the provider pool." |
 | 4 | **Resource pooling** | **IMPLEMENTED** | `findCandidates()` | 05-dispatch | "Six hundred mechanics; off-duty and busy excluded in SQL before ranking." |
-| 4 | Dynamic scalability | CONCEPTUAL | `server.ts:354` | health 503 | "Only the readiness gate is real — health 503 while ping stays 200." |
+| 4 | Dynamic scalability | CONCEPTUAL | `apps/api/src/server.ts:360` | health 503 | "Only the readiness gate is real — health 503 while ping stays 200." |
 | 4 | Elastic capacity | TARGET | — | — | "Not built." |
 | 4 | Service load balancing | PARTIAL | `dispatch.ts` | 05-dispatch | "No infrastructure balancer; workload distribution across a pool is real." |
 | 4 | Cloud bursting | TARGET | — | — | "Modelled on a slide, labelled modelled." |

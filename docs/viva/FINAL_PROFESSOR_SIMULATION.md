@@ -298,7 +298,7 @@ What follows is what actually loses marks in each round.
 | "Why is this still working?" | "Diagnosis runs on the device from the same rule table, and CI fails the build if the two ever diverge." | `offline-engine.js` |
 | "Can you prove synchronization?" | `await window.__ra.listOffGrid()` → `SYNCED` with a server id. Then sync again — count unchanged. | DevTools |
 | "Show me the audit record." | `/v1/ops/overview` — live counts plus a chain verification. | browser |
-| "Show me payment verification." | `apps/api/src/server.ts:1363` webhook — signature recomputed server-side; forged signature returns 402. | editor |
+| "Show me payment verification." | `apps/api/src/routes/payments.ts:374` webhook — signature recomputed server-side; forged signature returns 402. | editor |
 | "Show me the security implementation." | Run `npm run test:security` — 74 passed, 0 failed, live. | terminal |
 | "Is that real data?" | "Generated seed data — no real customer information. 6,038 bookings, 600 mechanics." | — |
 
