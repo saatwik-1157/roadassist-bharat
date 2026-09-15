@@ -79,10 +79,21 @@ tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
 
 ## Toolchain traps
 
-**Android builds on any JDK 17–25.** Verified on all three. CI pins Temurin 21
-for agreement between machines, not compatibility — do not add a version guard,
-it would reject a JDK that works. Locally, Android Studio's JBR is JDK 21:
-`JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"`.
+**Gradle 8.13 rejects JDK 25**, with the least useful message in this repo: `*
+What went wrong:` followed by the bare version, `25.0.1`, naming nothing. Build
+on JDK 21 — what CI pins (Temurin 21), and the only JDK this is measured on.
+This note used to claim "any JDK 17–25, verified on all three", which JDK 25
+cannot satisfy: it postdates Gradle 8.13, and
+`docs/verification/ZERO_TO_RUN_VERIFICATION.md` had said so all along.
+
+**A green Gradle build does not verify the JDK you set.** `JAVA_HOME` loses to
+`org.gradle.java.home` in `~/.gradle/gradle.properties` — machine-local, so it
+is invisible from inside the repo — and that is how the claim above survived:
+point `JAVA_HOME` at a rejected JDK and the build still goes green, on the
+other one. Read the `Daemon JVM:` line of `./gradlew -version`; to actually
+test a JDK, pass `-Dorg.gradle.java.home=<path>`. Android Studio's JBR is no
+longer the pointer it was either — Studio updated itself and left `Android
+Studio/jbr` a stub with no `lib/jvm.cfg`, and its replacement is 25.0.3.
 
 **Never pipe gradlew and read the exit code.** `./gradlew … | tail` reports the
 *pipeline's* status, so a failed build looks like it passed. Use

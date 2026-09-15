@@ -156,3 +156,40 @@ the Markdown — the Markdown is the corrected source of truth.
 deck. `ppt/part_final.py` and `ppt/RoadAssist-Bharat-FINAL.pptx` carry the
 corrected schema counts from §4; the PDF still shows 57 / 138 / 433. Re-export
 it with the PowerPoint command in `ppt/README.md`, or present from the `.pptx`.
+
+---
+
+## 7. Toolchain claims, re-measured
+
+`CLAUDE.md` carried **“Android builds on any JDK 17–25. Verified on all three”**
+and told the reader not to add a version guard because “it would reject a JDK
+that works”. Re-measured against Gradle 8.13, which is the pinned wrapper:
+
+| Daemon JVM | Result |
+|---|---|
+| JDK 21 (JetBrains Runtime 21.0.9) | `BUILD SUCCESSFUL` |
+| JDK 25 (25.0.1) | `FAILURE` — `* What went wrong:` then the bare string `25.0.1` |
+| JDK 25 (Android Studio JBR 25.0.3) | `FAILURE`, identically |
+
+JDK 25 was never going to work: it postdates Gradle 8.13. The claim was **wrong
+when written** rather than correct-and-drifted, so it is corrected in place. 17
+through 24 were *not* re-measured — no such JDK is installed on this machine —
+so `CLAUDE.md` now quotes no range at all and names only the JDK 21 that CI pins
+and that the build is actually measured on. A narrower claim that is true beats
+a wider one that is convenient.
+
+**How it survived.** `JAVA_HOME` loses to `org.gradle.java.home`, which this
+machine sets in `~/.gradle/gradle.properties` — outside the repository, and so
+invisible to anyone reviewing from inside it. Export `JAVA_HOME` to a rejected
+JDK, run the full `lint testDebugUnitTest assembleRelease`, and it still goes
+green, because the daemon is quietly running on the other JDK. That is a green
+run which verifies nothing about the JDK it appears to test — the same shape as
+the workspace-link trap under “Before you trust a green run”. To test a JDK for
+real, pass `-Dorg.gradle.java.home=<path>` and read the `Daemon JVM:` line that
+`./gradlew -version` prints.
+
+**Dated evidence left standing.** `docs/verification/ZERO_TO_RUN_VERIFICATION.md`
+already gave the correct cause — “Java 25 is not supported by Gradle 8.13” — when
+it was written on 2026-09-06. Only the `JAVA_HOME` it suggests has gone stale,
+after Android Studio updated itself on 2026-09-14 and left that JBR with no
+`lib/jvm.cfg`. It is annotated in place, not rewritten.
