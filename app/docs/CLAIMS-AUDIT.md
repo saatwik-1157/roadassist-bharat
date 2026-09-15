@@ -148,14 +148,23 @@ question there is no good answer to: *who checked the Tamil?*
   A re-scan finds **0 remaining over-claims**. The original is preserved as
   `RoadAssist-Review1-SWE4004.pre-audit.pptx`.
 
-**Still open:** `review1-ppt/RoadAssist-Presentation-Script.pdf` is a stale
-render of the corrected `presentation-script.md`. Re-export it, or present from
-the Markdown — the Markdown is the corrected source of truth.
+**Both closed 2026-09-15.** Each was re-rendered and then checked by pulling the
+text back out of the finished PDF, rather than by looking at it:
 
-**Also open:** `ppt/RoadAssist-Bharat-FINAL.pdf` is now a stale render of the
-deck. `ppt/part_final.py` and `ppt/RoadAssist-Bharat-FINAL.pptx` carry the
-corrected schema counts from §4; the PDF still shows 57 / 138 / 433. Re-export
-it with the PowerPoint command in `ppt/README.md`, or present from the `.pptx`.
+- `review1-ppt/RoadAssist-Presentation-Script.pdf` — re-rendered from
+  `presentation-script.md` with `python ppt/md2pdf.py`. The stale export said
+  “57” once where the Markdown says it nowhere; the new render agrees with the
+  source on every schema figure. `…pre-audit.pdf` is deliberately left beside
+  it as the record of what was corrected.
+- `ppt/RoadAssist-Bharat-FINAL.pdf` — re-exported from the `.pptx` through
+  PowerPoint, as `ppt/README.md` sets out. It carried “57” five times plus 138
+  and 433; it now carries 56 and 137 and none of those three, which is what the
+  deck’s own slide text says. The `.pptx` was opened read-only and hashes
+  identically afterwards, so the deck itself is untouched — only the render was
+  ever wrong.
+
+**Still true:** nothing regenerates either PDF as part of a build, so both can
+go stale again silently. §4 holds the figures to check them against.
 
 ---
 
