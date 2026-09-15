@@ -42,6 +42,11 @@
     <string name="action_add_contact">தொடர்பைச் சேர்</string>
     <string name="field_contact_name">தொடர்பின் பெயர்</string>
     <string name="field_contact_phone">அவர்களின் கைபேசி (+91…)</string>
+    <string name="server">சேவையகம்</string>
+    <string name="server_sub">இந்தத் தொலைபேசி தொடர்பு கொள்ளும் முகவரி. மாற்றினால் வெளியேற்றப்படுவீர்கள் — அமர்வு அதை வழங்கிய சேவையகத்துக்குரியது.</string>
+    <string name="server_queued_warning">இந்தத் தொலைபேசியில் அனுப்பப்படாத அவசரச் செய்திகள்: %1$d. இவை புதிய சேவையகத்துக்கு அனுப்பப்படும்.</string>
+    <string name="action_use_server">இந்தச் சேவையகத்தைப் பயன்படுத்து</string>
+    <string name="server_unreachable">அந்த முகவரியில் RoadAssist API எதுவும் பதிலளிக்கவில்லை. எதுவும் மாறவில்லை — நீங்கள் இங்கேயே உள்நுழைந்திருக்கிறீர்கள்.</string>
     <string name="about">பற்றி</string>
     <string name="about_body">RoadAssist பாரத் — ஒரு தளம், எல்லா வாகனமும், எல்லா சாலையும். இது மாணவர் முன்மாதிரி; உண்மையான அவசர சேவை இணைக்கப்படவில்லை.</string>
     <string name="action_sign_out">வெளியேறு</string>
