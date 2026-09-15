@@ -64,7 +64,7 @@ Six in `app/`, and the last five need a live server **and** a seeded database:
 ```bash
 npm test                 # 108 unit — no I/O, the only ones that run standalone
 npm run test:e2e         # 189
-npm run test:concurrency # 65
+npm run test:concurrency # 70
 npm run test:gateway     # 27
 npm run test:security    # 74 attacks, every one must be refused
 npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)

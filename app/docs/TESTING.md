@@ -1,6 +1,6 @@
 # Testing
 
-Six suites, 626 assertions, all executed against a real PostgreSQL + PostGIS and a
+Six suites, 631 assertions, all executed against a real PostgreSQL + PostGIS and a
 real Chrome, with no failures. A seventh — 22 payment-gateway checks — runs only
 against a Razorpay sandbox account and refuses to run without one. Nothing here is mocked except the third-party vendors, and each
 of those has a stub that speaks the vendor's actual wire format.
