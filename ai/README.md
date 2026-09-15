@@ -38,6 +38,23 @@ is deliberately skipped. Same class mapping and the same verified license basis
 as India (all RDD2022). `fetch_countries.py` pulls only the needed byte ranges
 of each country zip from the one figshare archive — never the full 13 GB.
 
+### What is in this repository, and what is not
+
+The table above is the record. The artefacts behind it are local build output
+and are **gitignored**: `ai/runs/` (per-epoch `results.csv`, PR and F1 curves,
+confusion matrices), the `*.pt` and `*.onnx` weights, and `ai/data/`. A clone
+gets the pipeline, the measured figures and the commands that produced them; it
+does not get the trained model.
+
+That is deliberate — the alternative is hundreds of megabytes of build output in
+git — but it has one consequence worth stating plainly rather than letting a
+reader discover it: **"the weights are in `ai/runs/`" is only true on a machine
+that has already run the training.** Reproduce them with *Setup & reproduce*
+below, or copy the run directory over. Nothing else in the repo depends on the
+artefacts being present, because CI deliberately never loads a model — the `ai`
+job checks the pipeline logic and that every script parses (see the job comment
+in `.github/workflows/ci.yml`).
+
 ## Dataset (verified — docs/raksha/05-dataset-license-verification.md)
 
 RDD2022, Arya et al. — India split: 7,706 annotated train images, 1,959

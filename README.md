@@ -6,7 +6,13 @@
 > *"RoadAssist doesn't stop when the network stops."*
 
 **Which half is AI.** RAKSHA road-damage detection is a genuinely trained
-YOLO11n — weights and per-epoch metrics are in `ai/runs/`. The roadside
+YOLO11n — the measured figures for every model are in
+[ai/README.md](ai/README.md), beside the commands that produced them. The
+weights and the per-epoch `results.csv` themselves are **not in this
+repository**: `ai/runs/`, `ai/data/` and `*.pt`/`*.onnx` are gitignored rather
+than carry hundreds of megabytes of build output in git. So a fresh clone has
+the pipeline and the numbers but not the trained model — retrain with the
+documented command, or copy the run directory across. The roadside
 *diagnosis* is not: it is a deterministic rule table (ADR-0006) that returns
 `rules-1.0.0` and is labelled as a rules engine on every screen that shows it.
 Saying "AI-powered" without that sentence is marketing, so the sentence is
