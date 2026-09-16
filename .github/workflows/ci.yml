@@ -278,7 +278,14 @@ jobs:
       # Installs the SDK, accepts the licences and exports ANDROID_HOME.
       # mobile/local.properties is machine-specific and gitignored, so the SDK
       # path has to come from the environment here.
+      # `packages: ''` because the action's default is "tools platform-tools",
+      # and `tools` was removed from the SDK repository — sdkmanager exits 1 with
+      # "Failed to find package 'tools'" before Gradle is ever invoked. The runner
+      # image already ships platform-tools; this step is here for ANDROID_HOME and
+      # the licences, not for fetching anything.
       - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
 
       # Caches ~/.gradle between runs — the difference between a 4-minute job and
       # a 15-minute one, because Compose pulls a lot of artefacts.
@@ -339,6 +346,14 @@ jobs:
     name: ai · syntax · pipeline tests
     runs-on: ubuntu-latest
     timeout-minutes: 6
+
+    # The workflow-level default is `app`, which is wrong for this job and was
+    # wrong silently: compileall printed "Can't list 'ai/road_damage'" and exited
+    # 0, so the only sign was unittest failing with "Start directory is not
+    # importable". These paths are relative to the repository root.
+    defaults:
+      run:
+        working-directory: .
 
     steps:
       - uses: actions/checkout@v5
