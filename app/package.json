@@ -26,6 +26,7 @@
     "db:seed:raksha": "npm run seed:raksha -w @roadassist/db",
     "db:reset": "npm run reset -w @roadassist/db",
     "demo:reset": "npm run db:reset && npm run db:migrate && npm run db:seed && npm run db:seed:raksha",
+    "demo:raksha": "node scripts/raksha-simulator.mjs --from-json ../ai/cv-live-show.json",
     "dev": "npm run dev -w @roadassist/api",
     "start": "npm run start -w @roadassist/api",
     "share": "node scripts/share.mjs",

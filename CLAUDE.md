@@ -44,6 +44,22 @@ npm start                        # API on :4000, serves the web surfaces too
 npm run verify                   # typecheck · lint · boundaries · claims · citations · unit tests
 ```
 
+**`demo:reset` leaves the RAKSHA dashboard EMPTY.** It seeds the corridor and
+the demo admin, but not a single detection — those arrive over the API from an
+edge device, so they cannot be seeded before the server is up. A reset half an
+hour before a demo therefore produces an authority dashboard with four dashes
+and a blank map, which looks like a broken feature rather than an empty table.
+
+```bash
+npm start          # the simulator posts to :4000, so the API must be running
+npm run demo:raksha   # 65 REAL detections from ai/cv-live-show.json
+```
+
+`demo:raksha` replays genuine `yolo-rdd2022in-best` output through the ingest
+path, twice, to show the replay is idempotent. Their GPS is simulated along the
+corridor and the dashboard says so. `node scripts/raksha-simulator.mjs` with no
+arguments walks a synthetic patrol instead — six events, `sim-rules-0.1.0`.
+
 **`npm run db:seed` is not idempotent.** It inserts roles that the migration
 already created and dies on a unique violation. Always `npm run demo:reset`,
 which resets first.
