@@ -1,5 +1,10 @@
 # D3 — AI & Data Science Lead · Individual Roadmap
 
+> **One author.** This project was designed and built entirely by Saatwik Sairaam
+> Vasamsetti. The D1–D4 roles below are *workstreams* in an 18-phase plan, not
+> people — they were drafted that way to divide the work, and one person did all
+> of it. Nothing here should be read as describing a team.
+
 **Owns:** all 9 AI subsystems, model training and serving, on-device inference, feature store, voice/IVR NLU, analytics pipeline, government forecasting.
 **Backs up:** D1 on the analytics service.
 **Total allocation:** 22 weeks · ~176 ideal days.

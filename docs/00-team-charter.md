@@ -1,5 +1,10 @@
 # RoadAssist Bharat — Team Charter & Engineering Constitution
 
+> **One author.** This project was designed and built entirely by Saatwik Sairaam
+> Vasamsetti. The D1–D4 roles below are *workstreams* in an 18-phase plan, not
+> people — they were drafted that way to divide the work, and one person did all
+> of it. Nothing here should be read as describing a team.
+
 > "One Platform. Every Vehicle. Every Phone. Every Road."
 > Document owner: CTO · Version 1.0 · Status: Baseline (frozen at Sprint 0 exit)
 

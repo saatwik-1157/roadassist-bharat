@@ -1,5 +1,10 @@
 # D2 — Frontend & Mobile Lead · Individual Roadmap
 
+> **One author.** This project was designed and built entirely by Saatwik Sairaam
+> Vasamsetti. The D1–D4 roles below are *workstreams* in an 18-phase plan, not
+> people — they were drafted that way to divide the work, and one person did all
+> of it. Nothing here should be read as describing a team.
+
 **Owns:** React Native app, Next.js portals (Gov / Mechanic / Admin / Fleet), design system, offline client, maps UI, Android Auto prototype, accessibility, localization.
 **Backs up:** D4 on E2E test authoring.
 **Total allocation:** 22 weeks · ~176 ideal days.

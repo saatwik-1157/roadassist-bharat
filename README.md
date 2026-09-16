@@ -2,118 +2,235 @@
 
 > **One Platform. Every Vehicle. Every Phone. Every Road.**
 >
-> **AI-powered · cloud-connected · network-resilient.**
-> *"RoadAssist doesn't stop when the network stops."*
+> An offline-first emergency mobility platform for India — built for the roads
+> where coverage is worst.
 
-**Which half is AI.** RAKSHA road-damage detection is a genuinely trained
-YOLO11n — the measured figures for every model are in
-[ai/README.md](ai/README.md), beside the commands that produced them. The
-weights and the per-epoch `results.csv` themselves are **not in this
-repository**: `ai/runs/`, `ai/data/` and `*.pt`/`*.onnx` are gitignored rather
-than carry hundreds of megabytes of build output in git. So a fresh clone has
-the pipeline and the numbers but not the trained model — retrain with the
-documented command, or copy the run directory across. The roadside
-*diagnosis* is not: it is a deterministic rule table (ADR-0006) that returns
-`rules-1.0.0` and is labelled as a rules engine on every screen that shows it.
-Saying "AI-powered" without that sentence is marketing, so the sentence is
-here. See `app/docs/CLAIMS-AUDIT.md`, where the claim is recorded as PARTIAL.
-
-**Built by Saatwik Sairaam Vasamsetti** · [github.com/saatwik-1157](https://github.com/saatwik-1157)
-
-An AI-powered, cloud-connected, network-resilient emergency mobility platform for
-India — designed to keep protecting and assisting people when connectivity becomes
-unreliable. It covers cars, two-wheelers, autos, trucks, buses, tractors and EVs,
-and is built for the roads where coverage is worst: highways, rural routes, remote areas,
-mountains, disaster zones, monsoon disruption and low-connectivity regions.
-
-**Client surfaces that exist today:** a progressive web app (citizen, mechanic and
-authority consoles), a native Android client, and a feature-phone path over SMS —
-`POST /v1/telecom/sms` supports a complete booking without a smartphone. iOS,
-Android Auto, IVR and USSD are **designed and not built**; they are named in the
-roadmap, not in this release.
-
-**[Off-Grid Mode](app/docs/adr/0009-offgrid-mode.md)** is the architectural answer.
-The client distinguishes `ONLINE`, `LIMITED` and `OFF-GRID`; an SOS with no signal
-becomes a real incident stored on the device with its own reference, GPS fix and
-encrypted sync journal, and it says so plainly rather than pretending it was sent.
-Diagnosis runs on-device against the same rule table the server uses. When
-connectivity returns, the journal forwards itself — idempotently, so a retry never
-becomes a second ambulance.
+**Designed and built entirely by [Saatwik Sairaam Vasamsetti](https://github.com/saatwik-1157).**
+Every line of the API, the Android client, the web surfaces, the CV pipeline,
+the schema, the test suites and the CI is the work of one person. The
+`docs/0X-*-roadmap.md` files are written in the voice of four notional leads
+because that is how the 18-phase plan was drafted; they describe *workstreams*,
+not people. There is no team.
 
 ---
 
-## Documentation
+## Which half is AI
 
-**[docs/README.md](docs/README.md) indexes all 56 documents** and says which are
-kept current and which are dated evidence for v1.0.0-RC1 — they age differently.
-[CLAUDE.md](CLAUDE.md) covers running and changing the repo.
+This is the first thing to say about the project, so it is the first thing in
+this file.
 
-## Planning documents
+**RAKSHA road-damage detection is a genuinely trained YOLO11 model.** Best
+`mAP50` is **0.471** (`mAP50-95` 0.226) on held-out validation, trained on
+RDD2022 across four countries. Weights and per-epoch metrics live in `ai/runs/`,
+which is gitignored — a clone gets the pipeline, the measured figures and the
+commands that produced them, not the artefacts. See [ai/README.md](ai/README.md).
 
-| Document | Contents |
-|----------|----------|
-| [Team Charter](docs/00-team-charter.md) | Team composition, RACI, rituals, sprint calendar, git/PR/commit rules, code review checklist, Definition of Done, documentation standards, quality gates, risk register |
-| [Master Roadmap](docs/01-master-roadmap.md) | All 18 phases with objectives/tasks/dependencies/deliverables/acceptance criteria, target architecture, why each service exists, business model |
-| [D1 — Backend & Data Lead](docs/02-backend-lead-roadmap.md) | Per-phase plan: schema (60 tables planned; 56 shipped) <!-- claims-check:ignore -->, 140 APIs, booking state machine, dispatch, auth/RBAC, sync conflict resolution, emergency engine |
-| [D2 — Frontend & Mobile Lead](docs/03-frontend-lead-roadmap.md) | Per-phase plan: design system, 48 screens, 42 components, offline client, maps, gov portal, accessibility, 8 languages |
-| [D3 — AI & Data Science Lead](docs/04-ai-lead-roadmap.md) | Per-phase plan: 9 AI systems with inputs/outputs/algorithms/training data/metrics/baselines, on-device bundle, analytics |
-| [D4 — DevOps, QA & Security Lead](docs/05-devops-qa-lead-roadmap.md) | Per-phase plan: K8s/Terraform/CI-CD, observability, telecom gateway, load/chaos/security testing, deployment, DR |
+**The roadside diagnosis is not a model.** It is a deterministic rule table
+(ADR-0006) that returns `rules-1.0.0`, and every screen that shows it is
+labelled as a rules engine. `AI_BASE_URL` can point at a model; nothing in this
+repository implements that endpoint.
 
----
-
-## Team
-
-Ownership across all 18 phases of the plan — **not** a description of what
-ships today. Several things named here are roadmap (React Native, Next.js,
-Android Auto, Kubernetes, Terraform, the 9-subsystem AI suite);
-what actually exists is the list at the top of this file, and the shipped web
-surfaces are plain HTML/CSS/JS served by the API with no build step.
-
-| ID | Role | Owns (planned) |
-|----|------|------|
-| D1 | Backend & Data Lead | Services, PostgreSQL/PostGIS, event bus, API contracts, auth, booking/dispatch, emergency, payments |
-| D2 | Frontend & Mobile Lead | React Native app, Next.js portals, design system, offline client, maps UI, Android Auto, a11y, i18n |
-| D3 | AI & Data Science Lead | 9 AI subsystems, model training/serving, on-device inference, feature store, voice/NLU, analytics |
-| D4 | DevOps, QA & Security Lead | Kubernetes, Terraform, CI/CD, observability, all testing, security, telecom gateway, compliance |
+Saying "AI-powered" without those two paragraphs is marketing, which is why they
+are here and not in a footnote. The claim is recorded as **PARTIAL** in
+[app/docs/CLAIMS-AUDIT.md](app/docs/CLAIMS-AUDIT.md).
 
 ---
 
-## Timeline
+## What actually runs
 
-22 weeks · 11 sprints of 2 weeks · 18 phases · 10 milestones
+| Surface | Path | State |
+|---|---|---|
+| Citizen progressive web app | `/app.html` | Ships |
+| Mechanic console | `/mechanic.html` | Ships |
+| RAKSHA authority dashboard | `/raksha.html` | Ships |
+| Live operational map | `/map.html` | Ships |
+| Native Android client | `mobile/` | Ships — Kotlin + Compose |
+| Feature phone over SMS | `POST /v1/telecom/sms` | Ships — a complete booking with no app at all |
+| iOS · Android Auto · IVR · USSD | — | **Designed, not built** |
 
-| Sprint | Weeks | Phases | Milestone |
-|--------|-------|--------|-----------|
-| S0 | 1–2 | Research, Planning | M0 — Baseline frozen |
-| S1 | 3–4 | Architecture, Database | M1 — Skeleton alive |
-| S2 | 5–6 | Auth, Backend APIs (I) | M2 — Login works |
-| S3 | 7–8 | Backend APIs (II), Frontend (I) | M3 — First booking |
-| S4 | 9–10 | Frontend (II), AI (I) | M4 — Vertical slice |
-| S5 | 11–12 | AI (II), Offline Engine | M5 — Works with no internet |
-| S6 | 13–14 | Maps, Vehicle Diagnostics | M6 — Diagnose & route |
-| S7 | 15–16 | Emergency, Gov Dashboard | M7 — Crash to responder |
-| S8 | 17–18 | Analytics, Testing | M8 — Quality bar |
-| S9 | 19–20 | Deployment, Optimization | M9 — Production |
-| S10 | 21–22 | Future Roadmap, GA hardening | M10 — GA + pitch |
+The web surfaces are plain HTML, CSS and JavaScript served by the API itself.
+There is no build step and no second runtime: a bundler would add a deployment
+unit, a network hop and a CORS boundary in exchange for nothing.
+
+---
+
+## The five decisions worth defending
+
+Most of this project is ordinary work. These five are the parts that were
+decided rather than defaulted into, and each one is enforced by something that
+fails the build if it regresses.
+
+### 1 · The build refuses to let the documents lie
+
+`app/docs/measured.json` is the single source of every number, and it records
+*how* each was obtained, not just what it is. Three gates read it:
+
+- **`npm run claims`** fails when any document disagrees with it.
+- **`npm run citations`** checks that every `file.ts:123` reference in the viva
+  packs still points at real code — those documents tell the reader to *open*
+  the file, so a rotted line number is discovered in front of an examiner.
+- **`npm run boundaries`** enforces module boundaries, the offline shell's
+  completeness, and the app shell's load order.
+
+This exists because the same wrong number reached twenty-odd documents three
+separate times, and a human caught it each time. A human catching it is not a
+mechanism.
+
+### 2 · A model is never allowed to dispatch
+
+ADR-0005. A crash signal raises an incident that waits in
+`AWAITING_CONFIRMATION` until a recorded human — or a corroborating second
+signal — moves it on. A false positive that dispatches is worse than a false
+negative that asks.
+
+### 3 · Exactly one channel owns an emergency
+
+The SOS ladder falls back `data → SMS → 112 → offline queue`. The invariant is
+that precisely one of them owns the report: a confirmed SMS must **not** also
+queue an API replay; an unconfirmed one **must**. Getting this wrong sends two
+responders to one accident, or none.
+
+Those decisions live in `mobile/.../SosLadder.kt` as pure functions so they can
+be tested off-device — 21 of the Android tests cover this file alone.
+
+### 4 · Races are settled by Postgres, not by timing
+
+- Two mechanics accepting one job: `SELECT … FOR UPDATE` on the booking row
+  inside the transaction, with offer expiry re-checked under the lock.
+- A duplicate SOS: a unique index on a client-minted reference, with
+  `ON CONFLICT DO NOTHING` — not a check-then-write.
+- Double settlement: a **partial unique index** over settled payments, so
+  "paid once" is true even when two confirmations arrive together.
+- The audit log: hash-chained, with Postgres `RULES` making `UPDATE` and
+  `DELETE` no-ops.
+
+Anything that is only true because two things did not happen at the same instant
+is not true.
+
+### 5 · Off-Grid Mode is the architecture, not a fallback
+
+[ADR-0009](app/docs/adr/0009-offgrid-mode.md). The client distinguishes
+`ONLINE`, `LIMITED` and `OFF-GRID`. An SOS raised with no signal becomes a real
+incident stored on the device with its own reference and GPS fix — and says
+*"stored on this device"* rather than pretending it was sent. Diagnosis runs
+on-device against the same rule table the server uses. When connectivity
+returns the journal replays itself idempotently, so a retry never becomes a
+second ambulance.
+
+---
+
+## Measured, not estimated
+
+Every figure below was obtained by running the thing it describes, against a
+database migrated from empty and seeded.
+
+| | |
+|---|---|
+| **636 assertions**, six suites, zero failures | 108 unit · 189 e2e · 75 concurrency · 74 attacks · 27 gateway security · 163 browser |
+| Android | 66 tests, zero lint errors, release APK under R8 |
+| AI pipeline | 39 tests, standard library only |
+| **Not run** | 22 Razorpay sandbox checks — they need an account, and are never counted or described as passing |
+| Schema | 56 tables · 138 indexes · 5 migrations |
+| API | 64 routes |
+| Localisation | 8 languages — **not native-reviewed** |
+
+The security suite is 74 attacks that must every one be refused: cross-tenant
+reads and writes, role escalation, id manipulation, SQL injection, forged and
+`alg:none` tokens, unsigned webhooks, oversized input, error-body leakage. A
+green run means the attack was attempted and failed, which is a stronger
+statement than "the code looks right".
+
+CI additionally kills PostgreSQL under a running API and asserts the platform is
+honest about it — `/health` returns 503 naming the database while `/v1/ping`
+still returns 200, so a client can tell *"you have no network"* from *"the
+platform is unwell"* — then rehearses a backup and restore and re-verifies the
+audit hash chain on the restored copy.
+
+---
+
+## Running it
+
+```bash
+cd app
+docker compose up -d db      # PostGIS on 5434
+npm run demo:reset           # reset · migrate · seed
+npm start                    # API on :4000, serves every web surface too
+npm run demo:raksha          # second terminal: 65 real detections into RAKSHA
+```
+
+Sign in with `+919876543210` (citizen), `+919999900001` (authority) or
+`+919600000000` (mechanic). The OTP is returned by the server in development and
+auto-fills.
+
+```bash
+npm run verify               # typecheck · lint · boundaries · claims · citations · unit
+```
+
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (66
+tests). Build on **JDK 21** — Gradle 8.13 rejects 25.
+
+[CLAUDE.md](CLAUDE.md) carries everything that cost time to find out: the
+toolchain traps, the migration rules, how to count things in the database
+without the PostGIS extension inflating the answer, and why `demo:reset` leaves
+the authority dashboard empty.
+
+---
+
+## Repository layout
+
+| Path | What | Toolchain |
+|---|---|---|
+| `app/apps/api` | Fastify API — 64 routes, modular monolith (ADR-0001) | Node 20+, TypeScript |
+| `app/apps/web` | Citizen, mechanic, authority and map surfaces | Plain HTML/CSS/JS |
+| `app/packages/db` | Drizzle schema, migrations, seeds | PostgreSQL 16 + PostGIS |
+| `app/scripts` | Six test runners, the claims and citation gates, the RAKSHA simulator | Node |
+| `mobile` | Android client | Kotlin, Compose, Gradle 8.13 |
+| `ai` | RAKSHA CV pipeline — training, ONNX export, serving | Python 3.12 |
+| `docs`, `app/docs` | Plan, ADRs, dated evidence, viva packs | — |
+| `ppt` | The deck. Generated — edit `ppt/part_final.py`, never the `.pptx` | Python |
 
 ---
 
 ## Non-negotiables
 
-1. **Emergency paths never regress.** Two approvals, dedicated test run, staged
-   rollout — and, since the ladder's decisions moved into `SosLadder.kt`, 21
-   tests that run on every push.
-2. **Offline is a first-class mode, not a fallback.** And we never claim something
-   reached the cloud when it did not — the app says "stored on this device", with a
-   reference, or it says nothing at all.
-3. **Feature phones are users.** Every core journey completable over SMS, in
-   **all eight languages**, switched by texting `LANG TA` (or the language's own
-   name). Translations are not yet native-reviewed — see
+1. **Emergency paths never regress.** Two approvals, a dedicated test run, and
+   21 tests over `SosLadder.kt` that run on every push.
+2. **Offline is a first-class mode.** And it is never claimed that something
+   reached the cloud when it did not.
+3. **Feature phones are users.** Every core journey is completable over SMS, in
+   all eight languages, switched by texting `LANG TA`. Translations are not yet
+   native-reviewed — see
    [TESTING.md](app/docs/TESTING.md#localisation-and-exactly-how-far-it-goes).
-   (IVR is not built.)
-4. **No PII leaves India.** Including logs, backups, and crash reports.
-5. **We never fake it in a demo.** If it's mocked, we say so.
+4. **No PII leaves India.** Including logs, backups and crash reports.
+5. **Nothing is faked in a demo.** If it is mocked, it says so on screen.
 
 ---
 
-*Status: the Review-2 vertical slice runs end to end (see [app/](app/)) — 636 assertions executed across six suites with no failures — 108 unit, 189 e2e, 75 concurrency/real-time, 74 security, 27 gateway security, 163 browser. A seventh suite, 22 payment-gateway checks, runs only against a Razorpay sandbox account and is deliberately not run here. **Off-Grid Mode** ships the network-resilient emergency path end to end (ADR-0009); satellite communication, mesh networking and government emergency-network integration are named as future work and are not implemented. The **RAKSHA** autonomous road-monitoring extension (edge devices, offline detection sync, road health, authority map) has its MVP slice live; requirements in [docs/raksha/](docs/raksha/00-requirements.md), decisions in ADR-0007/0008.*
+## Deliberately not built
+
+Said plainly rather than implied otherwise: iOS, Android Auto, IVR, USSD,
+satellite, mesh networking, ERSS-112 handoff (stubbed, and the API says so in
+its own response), Kubernetes, Terraform, autoscaling, and multi-zone anything.
+There is no load test — latency is measured single-user, on one machine.
+
+---
+
+## Documentation
+
+[docs/README.md](docs/README.md) indexes every document and says which are kept
+current and which are dated evidence for a given build — they age differently,
+and conflating the two is how a correct figure gets "fixed" into a wrong one.
+
+| Document | Contents |
+|---|---|
+| [Master Roadmap](docs/01-master-roadmap.md) | All 18 phases: objectives, dependencies, acceptance criteria, target architecture |
+| [Backend workstream](docs/02-backend-lead-roadmap.md) | Schema (60 tables planned; 56 shipped) <!-- claims-check:ignore -->, booking state machine, dispatch, auth, sync conflict resolution |
+| [Frontend workstream](docs/03-frontend-lead-roadmap.md) | Design system, screens, offline client, maps, accessibility, localisation |
+| [AI workstream](docs/04-ai-lead-roadmap.md) | The 9 planned AI systems with inputs, algorithms, metrics and baselines |
+| [DevOps / QA workstream](docs/05-devops-qa-lead-roadmap.md) | CI/CD, observability, telecom gateway, load and chaos testing, DR |
+| [ADRs](app/docs/adr/) | Ten decision records, including the five above |
+| [CLAIMS-AUDIT](app/docs/CLAIMS-AUDIT.md) | Every over-claim found, what it was, and what it actually is |
+
+Those roadmap documents describe the **plan**, in the present tense, including
+things that were never built. The list at the top of this file is the authority
+on what exists today.
