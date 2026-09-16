@@ -33,9 +33,14 @@ jobs:
         with:
           fetch-depth: 0   # gitleaks diffs the pushed commit range — needs full history
 
+      # Node 22, not 20. scripts/ui-journey.mjs drives Chrome over the DevTools
+      # protocol and needs a global WebSocket, which is unflagged only from Node
+      # 22 — on 20 the whole browser suite dies with
+      # "ReferenceError: WebSocket is not defined" before its first assertion.
+      # It passed locally the entire time because development happens on 24.
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
 
@@ -97,7 +102,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
       - name: Install
@@ -226,7 +231,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci --no-audit --no-fund
