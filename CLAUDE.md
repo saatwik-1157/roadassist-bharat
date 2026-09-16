@@ -87,7 +87,7 @@ npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
 ```
 
 `npm run test:razorpay` (22) needs a Razorpay sandbox account and refuses to run
-without one. It is **not** part of the 626 and must never be described as
+without one. It is **not** part of the 636 and must never be described as
 passing.
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (66
