@@ -12,7 +12,9 @@ some of that is true. `DESIGN` means it is architecture and nothing more.
 ## 1. Corrections made to the presentation script
 
 The Review-1 speaker script described the **target** cloud architecture in the
-present tense. These were corrected in `review1-ppt/presentation-script.md`.
+present tense. These were corrected in `review1-ppt/presentation-script.md`,
+which was removed from the working tree on 2026-09-16 and lives in history
+(`git show 90864e2:review1-ppt/presentation-script.md`).
 
 | # | Original claim | Reality | Corrected to |
 |---|---|---|---|
