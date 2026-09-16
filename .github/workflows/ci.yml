@@ -87,6 +87,18 @@ jobs:
     timeout-minutes: 15
     env:
       DATABASE_URL: postgres://roadassist:devpassword@localhost:5432/roadassist_test
+      # The per-IP OTP ceiling defaults to 30 in a 15-minute window, which is a
+      # production protection against one address hammering many numbers. In CI
+      # every suite is one address: e2e, concurrency, security, the browser
+      # journey and then concurrency again all sign in from 127.0.0.1 inside that
+      # window, and the last step arrived at an empty bucket and died on
+      # "Cannot read properties of undefined (reading 'devOtp')" — a 429 body has
+      # no meta.devOtp.
+      #
+      # Raising it here costs no coverage. The limiter is tested properly by the
+      # gateway suite, which spawns its OWN server with its own low ceiling and
+      # asserts the fourth request is refused.
+      OTP_IP_MAX: "2000"
     services:
       db:
         image: postgis/postgis:16-3.4
