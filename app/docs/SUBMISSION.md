@@ -85,5 +85,5 @@ Nothing below is stubbed, guessed or faked — each genuinely needs an account.
 4. Payments verified against a local stub, never a live account.
 5. Diagnosis "AI" is a deterministic rules engine, labelled as such everywhere.
 6. No load test, no external penetration test, no coverage on the HTTP layer.
-7. `review1-ppt/` is the older Review-1 material, corrected during the audit and
+7. `review1-ppt/` WAS the older Review-1 material, corrected during the audit and
    kept for history; `ppt/RoadAssist-Bharat-FINAL.pptx` is the submission deck.

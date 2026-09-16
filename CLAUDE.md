@@ -13,7 +13,7 @@ repo, each with its own toolchain:
 | `app/` | npm workspace — Fastify API, Drizzle schema, static web surfaces | Node 20+, `npm` |
 | `mobile/` | Android client, Kotlin + Compose | Gradle 8.13, AGP 8.13.2 |
 | `ai/` | RAKSHA road-damage CV pipeline | Python 3.12 |
-| `docs/`, `ppt/`, `review1-ppt/` | Planning docs, dated evidence, decks | — |
+| `docs/`, `ppt/` | Planning docs, dated evidence, the deck | — |
 
 `app/` is where nearly all work happens. **Run npm commands from `app/`, not the
 repository root.**
