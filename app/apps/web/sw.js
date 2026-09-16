@@ -12,7 +12,7 @@
  */
 // Bump whenever SHELL_ASSETS changes: the old cache is dropped on activate, so
 // a viewer who already installed v1 does not keep a shell missing the new files.
-const VERSION = "ra-v4";
+const VERSION = "ra-v5";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -27,11 +27,15 @@ const SHELL_ASSETS = [
   "/mechanic.html",
   "/ds.css",
   "/manifest.webmanifest",
-  // Off-Grid Mode (ADR-0009). Without these three cached, the feature that
-  // exists for a dead network would need the network to load.
+  // Off-Grid Mode (ADR-0009). Without these cached, the feature that exists for
+  // a dead network would need the network to load.
   "/offline-engine.js",
   "/offline-store.js",
   "/connectivity.js",
+  // The same argument, and it was missed when the language switch landed: a
+  // reader who needs Hindi or Tamil needs it MOST on the hard shoulder with no
+  // signal. Uncached, every off-grid user silently fell back to English.
+  "/i18n.js",
   "/icon.svg",
   "/icon-maskable.svg",
   "/icon-192.png",

@@ -409,18 +409,20 @@
     <!-- ══ AUTH ══════════════════════════════════════════════════════════ -->
     <section class="screen active" id="scr-auth">
       <div class="stagger">
-        <h1 class="display">Sign in with<br>your <em>phone.</em></h1>
+        <h1 class="display" data-i18n="auth.title">Sign in with<br>your <em>phone.</em></h1>
         <p class="sub" style="margin-top:10px">Real OTP against the live API. In development the server
           returns the code so you can sign in with no SMS gateway configured.</p>
-        <p class="hint" id="auth-restoring" style="margin-top:12px" hidden>Restoring your session…</p>
-        <label class="field"><span>Mobile number</span>
+        <p class="hint" id="auth-restoring" style="margin-top:12px" hidden
+           data-i18n="auth.restoring">Restoring your session…</p>
+        <label class="field"><span data-i18n="auth.msisdn">Mobile number</span>
           <input id="a-msisdn" value="+919876543210" inputmode="tel" autocomplete="tel"></label>
-        <button class="btn" id="a-send" style="margin-top:18px">Send code</button>
+        <button class="btn" id="a-send" style="margin-top:18px" data-i18n="auth.send">Send code</button>
         <div id="a-step2" hidden>
-          <label class="field"><span>6-digit code</span>
+          <label class="field"><span data-i18n="auth.code">6-digit code</span>
             <input id="a-code" maxlength="6" inputmode="numeric" placeholder="000000"
                    autocomplete="one-time-code" style="font-family:var(--mono);font-size:22px;letter-spacing:0.36em;text-align:center"></label>
-          <button class="btn" id="a-verify" style="margin-top:14px">Verify &amp; continue</button>
+          <button class="btn" id="a-verify" style="margin-top:14px"
+                  data-i18n="auth.verify">Verify &amp; continue</button>
         </div>
       </div>
     </section>
@@ -442,13 +444,14 @@
         <div id="home-task" style="margin-top:16px"></div>
 
         <div class="sos-wrap">
-          <button class="sos" id="sos" aria-label="Hold to send an emergency SOS">
+          <button class="sos" id="sos" aria-label="Hold to send an emergency SOS"
+                  data-i18n-attr="aria-label:sos.aria">
             <svg class="sos-ring" viewBox="0 0 168 168" aria-hidden="true">
               <circle class="track" cx="84" cy="84" r="77"/>
               <circle class="prog"  cx="84" cy="84" r="77"/>
             </svg>
             <span class="sos-label">SOS</span>
-            <span class="sos-sub" id="sos-sub">hold 1.5s</span>
+            <span class="sos-sub" id="sos-sub" data-i18n="sos.hold">hold 1.5s</span>
           </button>
         </div>
         <p class="hint center" style="max-width:31ch;margin:8px auto 0">Hold to escalate — a deliberate
@@ -457,7 +460,8 @@
 
         <!-- Emergency readiness, checked before it is needed rather than
              discovered at the worst possible moment. -->
-        <ul class="ready" id="sos-ready" aria-label="Emergency readiness">
+        <ul class="ready" id="sos-ready" aria-label="Emergency readiness"
+            data-i18n-attr="aria-label:sos.ready">
           <li data-ready="location"><span class="ready-k">Location</span><span class="ready-v">Checking…</span></li>
           <li data-ready="network"><span class="ready-k">Network</span><span class="ready-v">Checking…</span></li>
           <li data-ready="contacts"><span class="ready-k">Contacts</span><span class="ready-v">Checking…</span></li>
@@ -943,7 +947,30 @@
 <script>
 (function () {
   "use strict";
-  var API = location.origin;
+  /**
+   * Where the API is.
+   *
+   * Normally this page IS served by the API, so location.origin is exactly
+   * right and nothing below fires. Two ways it is wrong, both of which leave a
+   * page that looks completely fine and cannot fetch anything:
+   *
+   *   · opened as a FILE (double-clicked out of the repo) — origin is 'null',
+   *     and every call fails with 'Failed to fetch' next to empty dials
+   *   · served by some other dev server on another local port
+   *
+   * Both fall back to the port the API actually listens on. This is a
+   * convenience for a person opening the file, not a deployment feature: on a
+   * real origin the first branch returns and the rest never runs. The same
+   * expression is in app.html, mechanic.html, raksha.html and index.html — they
+   * are separate classic scripts with no module system between them.
+   */
+  var API = (function () {
+    var http = location.protocol === "http:" || location.protocol === "https:";
+    if (!http) return "http://localhost:4000";
+    var local = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    if (local && location.port !== "4000") return "http://localhost:4000";
+    return location.origin;
+  })();
   var state = {
     token: null, refresh: null, msisdn: null,
     vehicleId: null, vehicles: [], bookingId: null, diagnosis: null, radiusKm: 25,
@@ -1558,6 +1585,22 @@
     } catch (e) {
       if (!ctrl.signal.aborted) stream.attempts++;
     } finally {
+      // Only tear down the stream this call actually owns.
+      //
+      // The 401 path does `return streamOpen()` from inside this try, and
+      // `return f()` runs the finally IMMEDIATELY — before f settles, not
+      // after. So without this check the outer call's finally nulls the
+      // controller the REOPEN just claimed: a live stream nobody holds a
+      // handle to, plus a scheduled reconnect whose guard now passes, opening
+      // a second one beside it.
+      //
+      // An access token expires every ten minutes, so that is one orphaned
+      // stream every ten minutes, each kept alive by the server's 25s
+      // heartbeat and unabortable because the controller is gone. At
+      // MAX_STREAMS_PER_USER (4) the server starts refusing, and real-time
+      // quietly stops working — the polling fallback hides it, which is
+      // exactly why it would never be reported.
+      if (stream.ctrl !== ctrl) return;
       stream.alive = false;
       stream.ctrl = null;
       startBookingPoll();                      // back to the fast cadence
@@ -3829,10 +3872,33 @@
     opts = opts || {};
     if (ogSyncing || !Store || state.tier === RA_OFFLINE) return null;
 
-    var entries = await Store.dueEntries();
-    if (!entries.length) { renderOffGrid(); return null; }
-
+    // Claim the flag BEFORE the first await, not after.
+    //
+    // It used to be set below the dueEntries() read, which meant the guard
+    // above covered nothing: two calls arriving before that read resolved both
+    // passed it and both ran the whole replay. Reachable on the one event this
+    // screen exists for — boot fires syncOffGrid() WITHOUT awaiting it, while a
+    // tier change fires onConnectionRestored() in the same tick.
+    //
+    // The journal itself survives a double replay (markSynced deletes the entry
+    // and markFailed no-ops on a missing row) and the server dedupes the sends,
+    // so no duplicate incident was ever created. What it cost was the retry
+    // budget: both loops called markFailed on the same entry, so ONE real
+    // attempt consumed TWO of the twelve automatic retries and stepped the
+    // backoff twice. An unsent emergency reached the ceiling — nextAttemptAt
+    // Infinity, no further automatic attempts — in half the attempts it was
+    // designed to get.
     ogSyncing = true;
+
+    var entries;
+    try {
+      entries = await Store.dueEntries();
+    } catch (e) {
+      ogSyncing = false;
+      throw e;
+    }
+    if (!entries.length) { ogSyncing = false; renderOffGrid(); return null; }
+
     setSyncState("syncing");
     ogProgress("<b>Synchronizing emergency information…</b>");
     if (!opts.quiet) toast("Synchronizing emergency information…", "ok");
@@ -4470,6 +4536,28 @@
     }
   })();
 })();
+</script>
+<!-- ══ language ══════════════════════════════════════════════════════
+     A floating switch rather than a settings screen: the audience that
+     most needs it is the one least likely to go looking for a menu, and
+     the label is always written in the language it switches TO, so it is
+     legible to someone who cannot read the current one. -->
+<button id="lang-toggle" type="button"
+        style="position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);
+               z-index:60;border:1px solid var(--line,#d8d8d8);border-radius:999px;
+               background:var(--surface,#fff);color:inherit;font:inherit;font-size:12px;
+               padding:7px 13px;box-shadow:0 2px 10px rgba(0,0,0,.12);cursor:pointer"
+        aria-label="Change language">भाषा: हिंदी</button>
+<script src="i18n.js"></script>
+<script>
+  // Re-apply after any dynamic render: most of this app builds its DOM in
+  // JS, so translations have to be reapplied rather than done once.
+  var langBtn = document.getElementById("lang-toggle");
+  // Always shows the language one more press lands on, in that language.
+  function paintLangButton() { langBtn.textContent = I18N.nextName(); }
+  langBtn.addEventListener("click", function () { I18N.toggle(); });
+  window.addEventListener("ra:locale", function () { I18N.apply(); paintLangButton(); });
+  paintLangButton();
 </script>
 </body>
 </html>

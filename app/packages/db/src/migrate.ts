@@ -75,6 +75,28 @@ async function main() {
   await db.execute(sql`
     CREATE INDEX IF NOT EXISTS payments_provider_ref_idx
       ON payments (provider_ref)`);
+  // An invoice settles AT MOST ONCE, and the database is the one that says so.
+  //
+  // The application already claims the booking before it records the money, so
+  // two synchronous settlements cannot both win. That guard lives in one
+  // handler. This one holds for every path into the table, including the
+  // asynchronous one the guard does not cover: two callers can each create a
+  // gateway order and a PENDING row before either settles, and without this
+  // both confirmations would be accepted and the invoice would read as paid
+  // twice. invoiceIsSettled only asks whether the settled sum COVERS the
+  // total, so twice the money looks exactly like enough money.
+  //
+  // SETTLED only, deliberately. PENDING is a legitimate resting state — an
+  // unverified confirmation leaves the row PENDING on purpose, because the
+  // customer may still finish checkout — so including it here would let one
+  // abandoned attempt block every retry on that invoice for good.
+  //
+  // This forbids instalments by construction. That is what the code already
+  // does: the amount is never read from the request, it is the invoice total.
+  // Splitting a payment would need this index reconsidered, not worked around.
+  await db.execute(sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS payments_invoice_settled_uq
+      ON payments (invoice_id) WHERE status = 'SETTLED' AND deleted_at IS NULL`);
   // Retired: offers_inbox_idx duplicated offers_mechanic_idx's prefix.
   await db.execute(sql`DROP INDEX IF EXISTS offers_inbox_idx`);
 
@@ -119,10 +141,22 @@ async function main() {
     CREATE OR REPLACE RULE audit_log_no_delete AS
       ON DELETE TO audit_log DO INSTEAD NOTHING`);
 
+  // Count OUR tables, not everything that happens to live in `public`.
+  //
+  // `CREATE EXTENSION postgis` installs its own `spatial_ref_sys` table there,
+  // so the obvious information_schema count returned 57 for a schema that
+  // defines 56 — and that inflated number was quoted in six documents before
+  // anyone asked which table was the odd one out. pg_depend knows the
+  // difference: anything an extension owns has a 'e' dependency on it.
+  // (Drizzle's own __drizzle_migrations never appeared here — it lives in the
+  // `drizzle` schema, not this one.)
   const [{ count }] = await db.execute<{ count: string }>(sql`
-    SELECT count(*)::text AS count FROM information_schema.tables
-    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'`);
-  console.log(`✓ migrations complete — ${count} tables in public schema`);
+    SELECT count(*)::text AS count
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+      LEFT JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'e'
+     WHERE c.relkind = 'r' AND d.objid IS NULL`);
+  console.log(`✓ migrations complete — ${count} application tables in public schema`);
 }
 
 main()

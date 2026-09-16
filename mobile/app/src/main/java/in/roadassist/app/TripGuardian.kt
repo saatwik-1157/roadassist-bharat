@@ -38,8 +38,40 @@ object TripGuardian {
 
     private fun tileDir(ctx: Context) = File(ctx.filesDir, "tiles").apply { mkdirs() }
 
+    /**
+     * A filesystem-safe name for a tile URL.
+     *
+     * Separators are replaced, not deleted. Stripping every non-alphanumeric
+     * character — the original behaviour — makes `/tiles/13/102/34.png` and
+     * `/tiles/13/10/234.png` the same file, because removing the slashes leaves
+     * the same digits. z13 over India happens to give x and y four digits each
+     * so this never fired in practice, but it is one zoom level or one other
+     * country away from silently serving the wrong piece of map to somebody
+     * broken down, and it costs a character to close.
+     */
+    internal fun tileName(relUrl: String): String =
+        relUrl.trimStart('/').map { if (it.isLetterOrDigit()) it else '_' }.joinToString("") + ".png"
+
     private fun tileFile(ctx: Context, relUrl: String): File =
-        File(tileDir(ctx), relUrl.filter { it.isLetterOrDigit() } + ".png")
+        File(tileDir(ctx), tileName(relUrl))
+
+    /** The tile URLs a plan lists, in order. */
+    internal fun planTiles(data: JSONObject): List<String> {
+        val arr = data.optJSONArray("tiles") ?: return emptyList()
+        return (0 until arr.length()).map { arr.getString(it) }
+    }
+
+    /**
+     * How much of THIS route is on the device.
+     *
+     * `cachedSummary` used to count every file in the tile directory, which is
+     * every tile ever downloaded for any route. Prepare two trips and the app
+     * reported "240/120 map tiles on this device · shows offline" — a claim
+     * about offline readiness that was not only wrong but unfalsifiable by
+     * looking at it. Count the plan's own tiles, and only those.
+     */
+    internal fun cachedCount(plan: List<String>, exists: (String) -> Boolean): Int =
+        plan.count { exists(tileName(it)) }
 
     /** Fetch the plan, cache it, and pull every tile onto the device. */
     suspend fun prepare(ctx: Context): Summary = withContext(Dispatchers.IO) {
@@ -47,19 +79,27 @@ object TripGuardian {
         ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
             .edit().putString(KEY, data.toString()).apply()
 
-        val tiles = data.optJSONArray("tiles")
+        val plan = planTiles(data)
         var cached = 0
-        if (tiles != null) {
-            for (i in 0 until tiles.length()) {
-                val rel = tiles.getString(i)
-                try {
-                    val bytes = URL(Api.base.trimEnd('/') + rel).openStream().use { it.readBytes() }
-                    tileFile(ctx, rel).writeBytes(bytes)
-                    cached++
-                } catch (_: Exception) { /* skip a tile, keep going */ }
-            }
+        for (rel in plan) {
+            try {
+                // Timeouts, because openStream() has none: a stalled tile server
+                // on the flaky link this feature exists for would hang the whole
+                // prepare indefinitely. Same budget Api.raw uses.
+                val conn = (URL(Api.base.trimEnd('/') + rel).openConnection() as HttpURLConnection)
+                    .apply { connectTimeout = 8000; readTimeout = 15000 }
+                val bytes = try { conn.inputStream.use { it.readBytes() } } finally { conn.disconnect() }
+                tileFile(ctx, rel).writeBytes(bytes)
+                cached++
+            } catch (_: Exception) { /* skip a tile, keep going */ }
         }
-        summarize(ctx, data, cached, tiles?.length() ?: 0)
+
+        // Tiles from a previous route are dead weight, and under the old count
+        // they were counted as if they covered this one.
+        val keep = plan.map { tileName(it) }.toHashSet()
+        tileDir(ctx).listFiles()?.forEach { if (it.name !in keep) it.delete() }
+
+        summarize(ctx, data, cached, plan.size)
     }
 
     /** Build a summary from a cached (or fresh) plan without any network. */
@@ -89,9 +129,9 @@ object TripGuardian {
 
     fun cachedSummary(ctx: Context): Summary? {
         val data = cached(ctx) ?: return null
-        val total = data.optJSONArray("tiles")?.length() ?: 0
-        val onDisk = tileDir(ctx).listFiles()?.size ?: 0
-        return summarize(ctx, data, onDisk, total)
+        val plan = planTiles(data)
+        val names = tileDir(ctx).listFiles()?.map { it.name }?.toHashSet() ?: hashSetOf()
+        return summarize(ctx, data, cachedCount(plan, names::contains), plan.size)
     }
 
     /** A map preview built ONLY from tiles already on the device (works offline). */

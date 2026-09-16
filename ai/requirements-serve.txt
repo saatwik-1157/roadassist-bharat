@@ -1,0 +1,26 @@
+# RAKSHA detection service — the SERVING half, deliberately separate from
+# requirements.txt.
+#
+# Training needs ultralytics, which pulls PyTorch: ~2 GB installed and AGPL-3.0.
+# Serving needs neither. These three run the same best.onnx that train.py
+# exports, in about 50 MB, under licences with no copyleft obligation:
+#
+#   onnxruntime  MIT      (the ONNX Runtime project is Apache-2.0; the wheel is MIT)
+#   numpy        BSD-3
+#   pillow       MIT-CMU
+#
+# That matters beyond disk space. requirements.txt records that "an Apache-2.0
+# alternative must be scored before any commercial deployment"
+# (docs/raksha/05-dataset-license-verification.md §2). This is that alternative,
+# and it is the path that would actually ship — an edge device and a container
+# both run inference, neither trains.
+#
+#   python -m venv .venv
+#   ./.venv/Scripts/pip install -r requirements-serve.txt
+#   python serve.py --weights runs/yolo11s-multi-rich/weights/best.onnx
+#
+# Pinned, for the same reason everything else here is: the licensing argument
+# above is only reproducible if the versions are known.
+onnxruntime==1.30.0
+numpy==2.5.3
+pillow==12.3.0

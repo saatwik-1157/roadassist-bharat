@@ -1,4 +1,124 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">RoadAssist</string>
+    <!-- translatable="false": the brand is what a user looks for on a home
+         screen and in a list of installed apps. It is the same word in every
+         language, and lint should stop asking. -->
+    <string name="app_name" translatable="false">RoadAssist</string>
+
+    <!--
+      The SOS ladder's four outcomes — what a person reads at the worst moment
+      they will ever use this app.
+
+      These are extracted, and translated, ahead of the rest of the UI on
+      purpose: the same reasoning as the server's message catalogue, which
+      localised SMS and OTP before anything on a screen. Someone who cannot read
+      the result of pressing SOS cannot tell whether help is coming.
+
+      The remaining UI strings are still hardcoded English in MainActivity.kt.
+      That is stated in app/docs/TESTING.md rather than left to be discovered.
+    -->
+    <string name="sos_sms_sent">Sent SOS by SMS to RoadAssist (%1$s). No data needed — the SIM is your identity.</string>
+    <string name="sos_sms_unconfirmed">SOS sent by SMS (delivery unconfirmed) — a backup will also sync when data returns. The SIM is your identity; no data needed.</string>
+    <string name="sos_dialer">No RoadAssist channel reachable — opening 112. It connects through any tower. Your SOS is queued and will sync when signal returns.</string>
+    <string name="sos_queued">No signal at all. SOS saved on this device — it will send automatically the moment connectivity returns. Move toward open sky or a highway if you can.</string>
+
+    <!-- MainActivity UI. Extracted wholesale rather than a few at a
+         time: lint's MissingTranslation check only protects strings that
+         are IN here, so a partial extraction is the state where a missing
+         Hindi string stops being caught. -->
+    <string name="report_hazard_short">⚠  Report hazard</string>
+    <string name="report_hazard_title">Report a road hazard</string>
+    <string name="report_hazard_sub">Your current location is attached so authorities can find and verify it.</string>
+    <string name="label_type_prefix">"Type: "</string>
+    <string name="action_remove">Remove</string>
+    <string name="action_attach_photo">📷  Attach photo</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="photo_attached">📷 Photo attached</string>
+    <string name="cd_attached_photo">Attached photo</string>
+    <string name="field_note_optional">Note (optional)</string>
+    <string name="bookings_empty">Book assistance and it appears here.</string>
+    <string name="action_request_assistance">Request assistance</string>
+    <string name="bookings_sub">Your booking history — most recent first.</string>
+    <string name="trip_guardian">Trip Guardian</string>
+    <string name="trip_guardian_sub">Prepare a route before you lose signal — weather, dead-zone risk and offline maps saved to this phone.</string>
+    <string name="label_weather">"Weather  "</string>
+    <string name="label_deadzone_risk">Dead-zone risk</string>
+    <string name="cd_offline_route_map">Offline route map</string>
+    <string name="my_reports">Your hazard reports</string>
+    <string name="my_reports_sub">Track each report as an authority reviews it.</string>
+    <string name="emergency_contacts">Emergency contacts</string>
+    <string name="emergency_contacts_sub">These people are alerted with your live location when you confirm an SOS.</string>
+    <string name="emergency_contacts_empty">None yet — add one so SOS can reach someone.</string>
+    <string name="action_add_contact">Add contact</string>
+    <string name="field_contact_name">Contact name</string>
+    <string name="field_contact_phone">Their mobile (+91…)</string>
+    <string name="server">Server</string>
+    <string name="server_sub">The address this phone talks to. Changing it signs you out — the session belongs to the server that issued it.</string>
+    <string name="server_queued_warning">Unsent emergencies on this phone: %1$d. They will be sent to the new server.</string>
+    <string name="action_use_server">Switch to this server</string>
+    <string name="server_unreachable">No RoadAssist API answered at that address. Nothing changed — you are still signed in here.</string>
+    <string name="about">About</string>
+    <string name="about_body">RoadAssist Bharat — one platform, every vehicle, every road. Student prototype; no real emergency dispatch is connected.</string>
+    <string name="action_sign_out">Sign out</string>
+    <string name="tagline">Every vehicle · Every road · Every phone</string>
+    <string name="signin_sub">Real OTP against the live RoadAssist API. In development the code is returned by the server and auto-filled.</string>
+    <string name="field_api_base_url">API base URL (10.0.2.2 = your PC from the emulator)</string>
+    <string name="field_mobile_number">Mobile number (+91…)</string>
+    <string name="field_otp_code">6-digit code</string>
+    <string name="action_send_otp">Send OTP</string>
+    <string name="action_verify_sign_in">Verify &amp; sign in</string>
+    <string name="sos_alert_now">Alert now</string>
+    <string name="sos_5s_to_cancel">5s to cancel</string>
+    <string name="vehicle_add_title">Add your vehicle</string>
+    <string name="vehicle_yours">Your vehicle</string>
+    <string name="field_registration_number">Registration number</string>
+    <string name="action_add_vehicle">Add vehicle</string>
+    <string name="action_add_vehicle_first">Add a vehicle first</string>
+    <string name="hazard_prompt_title">Spot a road hazard?</string>
+    <string name="hazard_prompt_sub">Report a pothole, damage or obstruction. It joins the RAKSHA map and the authority\'s review queue.</string>
+    <string name="hazard_prompt_action">⚠  Report a road hazard</string>
+    <string name="dispatch_requesting_near">Requesting near</string>
+    <string name="action_clear">Clear</string>
+    <string name="from_map">"  ★ from map"</string>
+    <string name="action_accept">Accept</string>
+    <string name="mechanics_nearby">Nearby verified mechanics</string>
+    <string name="mechanics_nearby_sub">Nearest verified mechanics, ranked by a real PostGIS query on the server.</string>
+    <string name="action_request">Request</string>
+    <string name="field_what_happened">What happened?</string>
+    <string name="action_book_dispatch">Book &amp; dispatch</string>
+    <string name="label_severity">Severity: %1$s</string>
+    <string name="sos_alerting_in">Alerting in %1$d…</string>
+    <string name="label_vehicle_type">Type: %1$s</string>
+    <string name="map_tiles_cached">Map tiles on this device: %1$d/%2$d · shows offline · © OpenStreetMap</string>
+    <!-- Bottom navigation. These were five hard-coded English literals in
+         MainActivity (Tab("Home", ...)), which is why every non-English build
+         still showed an English nav bar on every screen. Keep them SHORT: five
+         items share one row, and a long word is clipped rather than wrapped. -->
+    <string name="nav_home">Home</string>
+    <string name="nav_assist">Assist</string>
+    <string name="nav_map">Map</string>
+    <string name="nav_track">Track</string>
+    <string name="nav_more">More</string>
+    <string name="head_home_plain">Namaste,</string>
+    <string name="head_home_italic">traveller.</string>
+    <string name="head_signin_plain">Sign in with your</string>
+    <string name="head_signin_italic">phone.</string>
+    <string name="head_rescues_plain">Your</string>
+    <string name="head_rescues_italic">rescues.</string>
+    <string name="head_track_plain">Your</string>
+    <string name="head_track_italic">rescue.</string>
+    <string name="head_more_plain">Account &amp;</string>
+    <string name="head_more_italic">more.</string>
+    <string name="head_book_plain">Request</string>
+    <string name="head_book_italic">assistance.</string>
+    <string name="signed_in_suffix">· signed in</string>
+    <string name="label_status">STATUS</string>
+    <string name="sos_offline_note">Works with no internet: SOS falls back data → SMS → 112 → offline queue, and syncs the moment signal returns. SMS number is a placeholder until a real code is provisioned.</string>
+    <string name="toast_image_unreadable">That image could not be read</string>
+    <string name="toast_otp_sent">OTP sent by SMS</string>
+    <string name="toast_signed_in">Signed in</string>
+    <string name="toast_sos_cancelled">SOS cancelled — nothing was sent</string>
+    <string name="toast_vehicle_added">Vehicle added</string>
+    <string name="toast_no_mechanic">No mechanic in range — widen the radius</string>
+    <string name="toast_sos_synced">%1$d queued SOS synced now that you are online</string>
 </resources>

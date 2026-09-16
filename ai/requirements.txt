@@ -1,4 +1,8 @@
-# RAKSHA Phase 5 — road-damage CV toolchain (Python 3.14, venv at ai/.venv)
+# RAKSHA Phase 5 — road-damage CV toolchain. Python 3.12 (what the dev box and
+# CI both run); create the venv at ai/.venv, which is gitignored.
+#
+# Nothing in ai/tests/ needs any of this — those are stdlib-only on purpose, so
+# the pipeline logic is checked on every push without a 2 GB torch install.
 # ultralytics is AGPL-3.0 — acceptable for this public student project; an
 # Apache-2.0 alternative must be scored before any commercial deployment
 # (docs/raksha/05-dataset-license-verification.md §2).

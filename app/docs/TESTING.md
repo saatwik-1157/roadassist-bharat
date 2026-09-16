@@ -1,6 +1,6 @@
 # Testing
 
-Six suites, 578 assertions, all executed against a real PostgreSQL + PostGIS and a
+Six suites, 636 assertions, all executed against a real PostgreSQL + PostGIS and a
 real Chrome, with no failures. A seventh — 22 payment-gateway checks — runs only
 against a Razorpay sandbox account and refuses to run without one. Nothing here is mocked except the third-party vendors, and each
 of those has a stub that speaks the vendor's actual wire format.
@@ -11,7 +11,7 @@ of those has a stub that speaks the vendor's actual wire format.
 # once
 docker compose up -d && npm ci && npm run db:migrate && npm run db:seed && npm run db:seed:raksha
 
-npm run verify            # typecheck · lint · module boundaries · unit tests
+npm run verify            # typecheck · lint · boundaries · claims · citations · unit tests
 npm start                 # in another shell
 npm run test:e2e          # API journey
 npm run test:concurrency  # races, idempotency, real-time
@@ -39,10 +39,10 @@ expected outcome of each, and times it. It fails if any beat fails.
 
 | Suite | Assertions | What it exists for |
 |---|---|---|
-| `npm test` (node:test) | **61** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. |
+| `npm test` (node:test) | **108** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. |
 | `scripts/e2e-journey.mjs` | **189** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. |
 | `scripts/concurrency-test.mjs` | **65** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
-| `scripts/gateway-security-test.mjs` | **26** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |
+| `scripts/gateway-security-test.mjs` | **27** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |
 | `scripts/razorpay-test.mjs` | **22** | Payment negative space: forged signature, replayed delivery, wrong amount, wrong order, unconfigured secret — each must fail closed. |
 | `scripts/security-audit.mjs` | **74** | Application-level penetration checks — every case is an attack that must FAIL: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error-body leakage, rate limits. Three real vulnerabilities were found by this suite and fixed. |
 | `scripts/ui-journey.mjs` | **163** | What only a browser can prove: the app boots without a console error, a session survives a reload, an offline payment is refused rather than queued, live updates arrive without polling, and the complete Off-Grid Mode scenario end to end. |
@@ -97,6 +97,121 @@ Stated here rather than discovered later.
   seconds otherwise, so CI runs the concurrency suite a second time against an
   API booted with `OFFER_TTL_SECONDS=2`.
 
+- **Android TESTS are the pure logic and nothing else.** Seven classes, every
+  one covering a function that was split out of a Context or a network call so
+  it could be pinned off-device. `SosLadderTest` is 21 tests over the decisions
+  in `SosLadder.kt` — which rung fires, whether a backup is queued, and the SMS
+  body's contract with the server. The rest are `SosQueueTest` (an SOS raised while a
+  flush is in the air), `ApiRefreshTest` (single-flight token rotation),
+  `ApiBaseTest` (every address a person can be handed, resolved into the URL the
+  client opens), `ApiReachableTest` (the pre-flight probe that stops a mistyped
+  server from costing a session — a real socket, not a stub),
+  `TripGuardianTest` (what the app may claim about the map it holds offline) and
+  `RaTypeTest` (the type scale, pinned to the literals it replaced). The Compose UI is still untested:
+  it needs a device or Robolectric, and neither is wired up. (Localisation is a
+  separate axis and is complete — see below.)
+- **No CV inference or training runs in CI.** The `ai` job checks the pipeline
+  logic and that every script parses; loading a model and running a frame stays
+  a local, GPU-shaped activity. A syntax error in `train.py` used to surface
+  only when someone started a multi-hour run — that part is now caught.
+
+## Fitness functions — the rules that fail the build
+
+Five, all in the `boundaries` CI job, all added because a rule nobody can
+enforce is a suggestion.
+
+| Check | Guards against |
+|---|---|
+| `check-boundaries.mjs` rules 1–2 | A schema module importing what ADR-0002 forbids, or anything reaching past the `@roadassist/db` index |
+| `check-boundaries.mjs` rule 3 | **A cached page loading a script, stylesheet, font sheet, manifest or icon that is not itself cached.** Off-Grid Mode fails in the quietest possible way — the page boots, one file is missing, the feature is gone. It caught `i18n.js`: `app.html` loaded it, `SHELL_ASSETS` did not list it, and every off-grid user silently fell back to English. The rule originally checked only `<script src>`, which left the identical failure open one tag along — an uncached stylesheet boots off-grid with no styling and logs nothing |
+| `check-boundaries.mjs` rule 4 | **The app shell losing the load order it assumes.** `app.html` carries the whole citizen app in one inline IIFE and says so in a comment: *this file is one classic script and stays that way*. That is not style, it is load order — a `<script type="module">` is DEFERRED and runs after every classic script, which is why Off-Grid Mode is reached through a dynamic `import()` rather than a module tag. Convert the block to a module and the app still loads, simply in a different order, and the failure surfaces as Off-Grid Mode being absent rather than as an error. The rule refuses a module tag on any cached page, refuses the shell being unwrapped from its IIFE, and holds each cached page to a recorded line ceiling so growth is a decision rather than a drift |
+| `check-claims.mjs` | A number in the documents disagreeing with `docs/measured.json`. The same figure went stale in twenty-odd files three separate times before this existed. It gates the total, each individual suite, and the `npm run … # N` comments the command lists are written as — the per-suite numbers were ungated at first and drifted while the total beside them stayed right |
+| `check-citations.mjs` | A `file.ts:123` in the documents that no longer points at code. It also refuses the two shapes it used to be blind to — a citation written with no path (`server.ts:1431`), and a shorthand continuation (`audit.ts:83` / `` `:122` ``) — which is where three rotted ones survived while the check stayed green, one of them pointing two viva packs at a star-rating schema when they claimed payment verification. The viva packs tell the reader to *open* the file, so a rotted line number is found in front of an examiner — lifting the auth and emergency routes out of `server.ts` shifted ten citations and pushed two past the end of the file | <!-- citation-check:ignore: the two citations named here are the ROTTED ones, quoted to explain the rule -->
+
+Every one of them was mutation-tested — the rule was broken on purpose and the
+build failed — because a check that has never failed has not been shown to work.
+For `check-claims.mjs` that meant faking a suite size in `measured.json` and
+confirming it fails on both the prose and the `npm run … # N` forms; for
+`check-citations.mjs`, nudging one citation past the end of its file and another
+onto a blank line.
+
+---
+
+
+## Localisation, and exactly how far it goes
+
+**All eight languages the roadmap names now ship**: English, Hindi, Tamil,
+Telugu, Bengali, Marathi, Kannada and Gujarati. `LOCALES` in
+`apps/api/src/i18n.ts` remains the whole truth about which ones exist, and
+`values-*/` under `mobile/app/src/main/res` is its Android counterpart.
+
+### The caveat that belongs in the same breath
+
+> **These translations have not been reviewed by native speakers.** English and
+> the technical content are sound; the other seven are careful but unreviewed,
+> and register and idiom are where that shows. Saying "eight languages" without
+> saying this would be precisely the sort of claim
+> [CLAIMS-AUDIT.md](CLAIMS-AUDIT.md) exists to catch — the strings exist, the
+> quality is unverified, and those are different statements.
+>
+> What that buys is still real: a reviewer now corrects rather than translates,
+> which is a much smaller job. `docs/raksha/` is the model — one reviewer per
+> language, working from a diff.
+
+What is covered was chosen the way the rest of this product is: the messages
+that reach the people with the worst connections and the cheapest phones, first.
+
+| Surface | Covered | Not covered |
+|---|---|---|
+| API (SMS + OTP) | **Everything the platform sends**, in all 8 — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
+| Android | **The user-facing UI**, in all 8 — 95 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer and the user-facing toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | Seven literals remain, all of them diagnostics or wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
+| Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 30 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
+| Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
+
+That is **126 server strings, 441 Android strings and 210 web strings** for the
+seven non-English locales.
+
+A feature phone has no settings screen, so **`LANG <code>` over SMS** is the
+switch — `LANG TA`, `LANG BN`, and each language's own name is accepted too
+(`LANG தமிழ்`, `LANG বাংলা`). The confirmation comes back in the NEW language,
+which is the only proof a reader who cannot check a menu will get.
+
+The stored preference lives in `users.preferred_language`, a column the schema
+always had and nothing ever read: the seeder picked from these same eight codes
+while every message went out in English. Every one of them now resolves to
+itself, and a test asserts exactly that.
+
+On the web the control **cycles** rather than toggles — with eight languages a
+two-way switch cannot reach six of them — and its label is always the next
+language's own name in its own script, because the person who wants it is the
+one who cannot read the current one.
+
+Android needs no control at all: it picks `values-ta`, `values-bn` and the rest
+from the device locale, which the owner already set once.
+
+**Every script here except English is outside GSM 03.38** — Devanagari, Tamil,
+Telugu, Bengali, Kannada and Gujarati alike — so all seven non-English locales
+are UCS-2 at 70 characters a segment. The copy was written to that ceiling
+rather than translated and then trimmed, and `i18n.test.ts` holds all eight
+languages to the same per-key budget.
+
+**Android translation completeness is enforced by the build.** Every UI string
+lives in `values/strings.xml`, and Android lint's `MissingTranslation` is an
+error — verified by deleting one Hindi string, which failed the build. So a new
+string cannot ship English-only without someone noticing, which is the failure
+mode every half-finished localisation dies of. `app_name` is marked
+`translatable="false"`: it is the brand, and it is what a user looks for on a
+home screen.
+
+**The trap is encoding, and it is tested.** Devanagari is outside GSM 03.38, so a
+Hindi SMS is UCS-2 and one segment holds 70 characters, not 160. `i18n.test.ts`
+holds every catalogue entry to a segment budget; two messages are allowed two
+segments and are named there, because one carries a 60-character URL and the
+others interpolate a mechanic's full name. Everything else is one segment, which
+is why the Hindi is written for SMS rather than translated from the English.
+
+---
+
 ## Chaos and recovery, automated
 
 Two steps that used to be prose are now CI steps:
@@ -117,14 +232,43 @@ Measured locally during the Phase 9 remediation: dump 1.2 s / 750 KB, restore
 ## Performance
 
 `npm run perf` measures p50/p95/max per endpoint. Single-user, local database —
-**not** a load test, and it says so on every run. Current figures: ping 14 ms ·
-health 15 ms · diagnose 16 ms · booking detail 31 ms · map 16 ms · **dispatch
-113 ms (the heaviest path)** · off-grid sync 51 ms · SSE first frame 6 ms.
+**not** a load test, and it says so on every run. Current figures: booking
+detail 31 ms · **dispatch ~100 ms (the heaviest path)** · off-grid sync 51 ms.
+
+The tool also probes its own **measurement floor** and marks every row at or
+under it with †. On this machine `/v1/ping` medians ~15 ms while its fastest
+sample is ~1 ms — six of the ten rows sit in that band, so ping, health,
+diagnose, the booking list, map and SSE-first-frame are reported as "under
+15 ms" and never as figures. The floor was found by this audit: the docs had
+been quoting four of them as endpoint latencies.
+
+Rows measured on fewer than 20 samples are marked ‡ and are **not** gated on the
+400 ms ceiling — at n=8 the "p95" is simply the slowest sample, and one run
+reported 675 ms for dispatch where the next three reported 112-130 ms. Dispatch
+now samples 25 times so its p95 is a percentile.
 
 ## CI
 
-`.github/workflows/ci.yml` runs all of it on every push: install, typecheck,
-lint, unit tests, secret scan, dependency audit, then a full PostGIS container
-with migrate, seed, and every integration suite — including the second
-short-TTL pass, the security audit, the database-loss chaos step and the
-backup/restore rehearsal — plus the module-boundary fitness function.
+`.github/workflows/ci.yml` runs all of it on every push, in five jobs:
+
+| Job | What it does |
+|---|---|
+| `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
+| `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
+| `boundaries` | four fitness functions: module boundaries, the offline-shell completeness check, the documented-claims check and the code-citation check |
+| `android` | lint, 66 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
+| `ai` | syntax-checks every CV script and runs the pipeline unit tests |
+
+`android` and `ai` were added because `mobile/` and `ai/` ship as real artefacts
+and previously had **no automated check at all** — a broken Gradle build or a
+lint regression was found only by building by hand. The first `android` run
+caught one: `SEND_SMS` was declared without a telephony `<uses-feature
+android:required="false">`, so Google Play would have treated a radio as
+mandatory and hidden the app from every tablet — the opposite of what this
+product claims.
+
+The `ai` job deliberately does **not** install `ultralytics`. Pulling torch costs
+minutes and hundreds of megabytes per push and proves nothing about a commit;
+the logic worth protecting — the RDD2022 class mapping and the severity
+heuristic that reaches `raksha_detections` — is pure Python and runs in 0.02s.
+Twelve tests, `python -m unittest discover -s ai/tests`.

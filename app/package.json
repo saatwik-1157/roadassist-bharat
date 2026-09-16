@@ -9,10 +9,12 @@
     "apps/*"
   ],
   "scripts": {
-    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm test",
+    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run claims && npm run citations && npm test",
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",
     "boundaries": "node scripts/check-boundaries.mjs",
+    "claims": "node scripts/check-claims.mjs",
+    "citations": "node scripts/check-citations.mjs",
     "test": "node --import tsx --test packages/db/test/*.test.ts apps/api/test/*.test.ts",
     "build": "npm run build -w @roadassist/db && npm run build -w @roadassist/api",
     "infra:up": "docker compose up -d",
@@ -24,6 +26,7 @@
     "db:seed:raksha": "npm run seed:raksha -w @roadassist/db",
     "db:reset": "npm run reset -w @roadassist/db",
     "demo:reset": "npm run db:reset && npm run db:migrate && npm run db:seed && npm run db:seed:raksha",
+    "demo:raksha": "node scripts/raksha-simulator.mjs --from-json ../ai/cv-live-show.json",
     "dev": "npm run dev -w @roadassist/api",
     "start": "npm run start -w @roadassist/api",
     "share": "node scripts/share.mjs",
@@ -46,6 +49,6 @@
     "typescript-eslint": "^8.18.1"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }

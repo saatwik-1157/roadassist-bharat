@@ -24,6 +24,9 @@ import sys
 from pathlib import Path
 
 from ultralytics import YOLO
+
+# One implementation, shared with serve.py — see severity.py.
+from severity import severity
 from ultralytics.utils import LOGGER
 
 # Class names are read from the model itself (r.names), so this one script works
@@ -31,20 +34,6 @@ from ultralytics.utils import LOGGER
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 
-def severity(cls_name: str, box_frac: float) -> int:
-    if box_frac < 0.01:
-        s = 1
-    elif box_frac < 0.03:
-        s = 2
-    elif box_frac < 0.07:
-        s = 3
-    elif box_frac < 0.15:
-        s = 4
-    else:
-        s = 5
-    if cls_name == "pothole":
-        s = min(5, s + 1)
-    return s
 
 
 def main() -> None:

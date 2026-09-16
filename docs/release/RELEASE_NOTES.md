@@ -25,7 +25,7 @@ suite does not prove.
 | Node / npm | v24.18.0 / 11.16.0 |
 | PostgreSQL | 16.4 + PostGIS 3.4 (`USE_GEOS=1 USE_PROJ=1 USE_STATS=1`) |
 | Migrations | 5 applied, latest `0004_offgrid_incident` |
-| Schema | 57 tables |
+| Schema | 56 tables |
 | Android | `in.roadassist.app` 0.1.0, minSdk 26, targetSdk 35 |
 
 ---

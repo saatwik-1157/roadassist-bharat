@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-09-06T17:46:16.914Z",
+  "capturedAt": "2026-09-14T17:00:49.311Z",
   "base": "http://localhost:4000",
   "shots": [
     {
@@ -64,7 +64,11 @@
     },
     {
       "name": "15-landing",
-      "caption": "Product landing page"
+      "caption": "Product landing page — what RoadAssist does, and what it does not"
+    },
+    {
+      "name": "23-console",
+      "caption": "Request console — every API call the client makes, with the server's reply"
     }
   ]
 }

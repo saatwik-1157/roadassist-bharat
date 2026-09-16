@@ -6,7 +6,7 @@ Ticked only where the artefact exists **and** has been verified in this session.
 
 | | Item | Where | Status |
 |---|---|---|---|
-| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 57-table schema, 64 routes, 6 web surfaces |
+| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 56-table schema, 64 routes, 6 web surfaces |
 | ✅ | Database migrations | `app/packages/db/drizzle/` | 5 migrations, run from an **empty** database in this session |
 | ✅ | Seed data | `app/packages/db/src/seed.ts` | Two modes — full demo, and `--reference-only` for production (0 demo rows, verified) |
 | ✅ | README | `app/README.md`, root `README.md` | |
@@ -85,5 +85,5 @@ Nothing below is stubbed, guessed or faked — each genuinely needs an account.
 4. Payments verified against a local stub, never a live account.
 5. Diagnosis "AI" is a deterministic rules engine, labelled as such everywhere.
 6. No load test, no external penetration test, no coverage on the HTTP layer.
-7. `review1-ppt/` is the older Review-1 material, corrected during the audit and
+7. `review1-ppt/` WAS the older Review-1 material, corrected during the audit and
    kept for history; `ppt/RoadAssist-Bharat-FINAL.pptx` is the submission deck.

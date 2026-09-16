@@ -25,7 +25,7 @@ data residency. **Nothing is deployed.**
 8 implemented · 5 partial · 8 design, of 21 concepts.
 
 ### Database
-57 tables · 62 FKs · 138 indexes (5 GiST) · 433 checks · 84 unique indexes ·
+56 tables · 62 FKs · 138 indexes (5 GiST) · 5 checks · 84 unique indexes ·
 5 migrations. Money in **integer paise**. Audit log **hash-chained and
 append-only** — Postgres RULES make UPDATE/DELETE change nothing.
 
@@ -57,7 +57,7 @@ been transmitted"* + advise **112**. **112 is a stub** and the API says so.
 OTP + per-number/per-IP ceilings · JWT + refresh rotation with **theft
 detection** · `bookingAudience()` ownership · RBAC · per-principal rate limits ·
 zod everywhere · hash-chained audit · payment signature recomputed server-side.
-**100 attacks, all refused. No independent pentest.**
+**101 attacks, all refused. No independent pentest.**
 
 ### Payment
 Invoice = labour + **18% GST**, server-computed. Amount **never** from the
@@ -66,7 +66,7 @@ no double charge. **Sandbox/stub only.**
 
 ### Testing
 Unit **61** · E2E **189** · Gateway **26** · Concurrency **65** · Security **74**
-· Browser **163** = **578 executed, 0 failures**, run twice. Plus a 15-beat
+· Browser **163** = **626 executed, 0 failures**, run twice. Plus a 15-beat
 timed demo rehearsal. A 7th suite (22 payment checks) **needs a Razorpay
 account and is not run — say so.**
 

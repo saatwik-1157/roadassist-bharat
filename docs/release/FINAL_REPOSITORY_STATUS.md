@@ -59,13 +59,19 @@ or 13 fixes. Nothing is committed and no tag exists.
 | Security attacks (`test:security`) | 74 | 74 passed, 0 failed |
 | Browser journey (`test:ui`) | 163 | 163 passed, 0 failed |
 | **Executed total** | **578** | **578 passed, 0 failed** |
+
+> These are the numbers **as of v1.0.0-RC1** and are left as the record of
+> that build. The suites have grown since — 615 at last run, the increase
+> being new unit tests for the SOS ladder, the SMS coordinate parser and the
+> message catalogue. `app/docs/TESTING.md` carries the current figures.
+
 | Demo rehearsal (`test:demo`) | 15 beats | all 15 completed |
 | Payment sandbox (`test:razorpay`) | 22 | **not run** — needs a Razorpay account |
 
 ## Database status — PASS
 
-57 tables · 62 foreign keys · 57 primary keys · 433 check constraints ·
-138 indexes (5 GiST for PostGIS) · 84 unique indexes · 5 migrations applied ·
+56 tables · 62 foreign keys · 56 primary keys · 5 check constraints ·
+137 indexes (5 GiST for PostGIS) · 83 unique indexes · 5 migrations applied ·
 2 append-only rules on `audit_log`.
 
 Current seeded volume: 6,038 bookings, 4,628 users, 600 mechanics,

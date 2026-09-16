@@ -79,15 +79,20 @@ those terms is part of the build check.
 Facts that *are* asserted, all verified against the running system:
 
 - TypeScript · Fastify 5 · Drizzle ORM · Zod · jose
-- PostgreSQL 16 + PostGIS 3.4.3, 61 tables, 58 API routes
+- PostgreSQL 16 + PostGIS 3.4.3, 56 tables, 64 API routes
 - Seven roles: citizen, mechanic, admin, gov_officer, fleet_admin, fleet_driver, support
-- PWA with a service worker caching 19 shell assets; manifest with 4 shortcuts
+- PWA with a service worker caching 23 shell assets; manifest with 5 shortcuts
 - Rules-based AI diagnosis (ADR-0006), with an optional HTTP model provider
 - Razorpay payments: Orders API, HMAC signature verification, and a signed
   webhook — default provider is `mock`; live keys need a KYC-verified account
 - Docker Compose provides PostGIS, Redis and Redpanda locally — **Redis and
   Redpanda are provisioned but not used by application code**, and the deck says so
-- 345 automated assertions: 17 unit · 165 API e2e · 26 gateway security · 115 browser · 22 payment gateway
+- 636 automated assertions across six suites: 108 unit · 189 API e2e · 75 concurrency
+  · 74 security · 27 gateway security · 163 browser. A seventh — 22 payment-gateway
+  checks — needs a Razorpay sandbox account, is **not** counted here and is never
+  described as passing.
+- Eight languages (en hi ta te bn mr kn gu) across SMS, OTP, the Android UI and the
+  web app's critical paths — **machine-translated and not yet native-reviewed**
 
 ## The visuals
 

@@ -56,7 +56,7 @@ concrete example) · *Code* (where to open it).
 **8. How large is the codebase?**
 *Short:* About 7,800 lines of TypeScript plus six web surfaces and an Android client.
 *Detail:* 16 API files (6,261 lines), 13 database files (1,564), 12 test/tooling scripts.
-*RoadAssist:* 64 routes, 57 tables.
+*RoadAssist:* 64 routes, 56 tables.
 *Code:* `FINAL_REPOSITORY_STATUS.md`
 
 **9. What would you do differently?**
@@ -319,7 +319,7 @@ concrete example) · *Code* (where to open it).
 *Code:* ADR-0003
 
 **57. How large is the schema?**
-*Short:* 57 tables, 62 foreign keys, 138 indexes, 433 check constraints, 84 unique indexes.
+*Short:* 56 tables, 62 foreign keys, 138 indexes, 5 check constraints, 84 unique indexes.
 *Code:* `DATABASE_FINAL_VERIFICATION.md`
 
 **58. How does the geospatial query work?**
@@ -593,7 +593,7 @@ concrete example) · *Code* (where to open it).
 > assumed. Off-grid, an SOS becomes a real incident on the device, and a unique
 > key makes a duplicate impossible on sync.
 >
-> **Result.** 578 assertions across six suites, zero failures, including 74
+> **Result.** 636 assertions across six suites, zero failures, including 74
 > attacks that must fail. Every claim on our slides is something I can show you.
 
 ## 3 minutes — architecture
@@ -619,7 +619,7 @@ concrete example) · *Code* (where to open it).
 > already-committed providers in SQL, ranks the rest, and offers in waves of
 > five with a ninety-second timeout that escalates on its own.
 >
-> **Database.** PostgreSQL 16 with PostGIS — 57 tables, 62 foreign keys, 138
+> **Database.** PostgreSQL 16 with PostGIS — 56 tables, 62 foreign keys, 138
 > indexes, and an append-only hash-chained audit log that the database itself
 > refuses to let you edit.
 >

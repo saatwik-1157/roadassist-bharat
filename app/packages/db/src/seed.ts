@@ -479,9 +479,16 @@ async function main() {
     ),
   );
 
+  // Our tables, not PostGIS's. The same information_schema count lived in
+  // migrate.ts and reported 57 for a schema that defines 56 — spatial_ref_sys
+  // is installed into `public` by CREATE EXTENSION. pg_depend knows the
+  // difference; see the note in migrate.ts and CLAIMS-AUDIT.md §4.
   const [{ tables }] = await db.execute<{ tables: string }>(sql`
-    SELECT count(*)::text AS tables FROM information_schema.tables
-     WHERE table_schema='public' AND table_type='BASE TABLE'`);
+    SELECT count(*)::text AS tables
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+      LEFT JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'e'
+     WHERE c.relkind = 'r' AND d.objid IS NULL`);
   const [{ rows: totalRows }] = await db.execute<{ rows: string }>(sql`
     SELECT COALESCE(sum(n_live_tup),0)::text AS rows FROM pg_stat_user_tables`);
 

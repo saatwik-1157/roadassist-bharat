@@ -13,13 +13,13 @@ this project does not have.
 |---|---|
 | Production Docker image builds | ✅ **Verified** — `docker build`, 321 MB, runs as `node` (uid 1000) |
 | Image runs and serves the whole platform | ✅ **Verified** — API, citizen app, mechanic console, authority dashboard, media |
-| Full test suite passes **against the image** | ✅ **Verified** — 189 e2e + 64 concurrency + 26 gateway + 163 browser |
+| Full test suite passes **against the image** | ✅ **Verified** — 189 e2e + 75 concurrency + 27 gateway + 163 browser |
 | Health check reports the database honestly | ✅ **Verified** — 503 with `database: "down"` when Postgres is unreachable |
 | Graceful shutdown | ✅ **Verified** — SIGTERM → exit code 0, no force kill |
 | Production CORS allowlist | ✅ **Verified** — allowed origin reflected, other origins refused |
 | Startup configuration validation | ✅ **Verified** — refuses to boot and names the variable |
 | Reference-only production seed | ✅ **Verified** — 0 demo rows, API boots and signs in against it |
-| Backup and restore | ✅ **Rehearsed and measured** — 8.4 s, audit hash chain intact across 639 entries |
+| Backup and restore | ✅ **Scheduled, verified and measured** — nightly `backup` sidecar that restores each dump before trusting it; rehearsal 8.4 s, audit hash chain intact across 639 entries |
 | **Deployed to a cloud provider** | ❌ **NOT DONE.** No cloud account or credentials are configured in this repository. See [What I need from you](#what-i-need-from-you). |
 | **HTTPS / custom domain** | ❌ **NOT VERIFIED.** Configuration is written and reasoned below; it has never terminated a real certificate. |
 | **Live payment** | ❌ **Deliberately not enabled.** Sandbox verified (22 assertions). Production keys must be a conscious act. |
@@ -123,7 +123,7 @@ docker compose -f docker-compose.prod.yml exec api \
   node packages/db/dist/src/seed.js --reference-only
 ```
 
-**Verified.** Run against a fresh database in this audit: 57 tables, 7 roles,
+**Verified.** Run against a fresh database in this audit: 56 tables, 7 roles,
 8 service types, 10 DTC codes, 12 vehicle models — and **0 users, 0 mechanics,
 0 bookings, 0 incidents**. The API was then started against it, `/health`
 returned 200, the service catalogue served, and a first account signed in and
@@ -225,13 +225,52 @@ proxy. This repository cannot do any of it without an account.
 
 ---
 
-## 5. Backups and recovery — **DOCUMENTED, PARTIALLY VERIFIED**
+## 5. Backups and recovery — **SCHEDULED AND VERIFIED**
 
-The compose file mounts a `pgbackup` volume for this purpose. **No backup
-schedule is configured and no restore has been performed in this project.** The
-procedure below is standard and correct for the schema, and is untested here.
+This section used to say *"no backup schedule is configured"* while the compose
+file mounted a `pgbackup` volume that nothing ever wrote to. The procedure was
+documented and did not run. It runs now.
 
-### Nightly logical backup
+### The `backup` service
+
+`docker-compose.prod.yml` carries a `backup` sidecar running
+[`scripts/backup.sh`](../scripts/backup.sh) beside the database. It takes one
+dump on boot — so a fresh deployment is covered from minute one rather than
+from the first time the clock reaches the scheduled hour — and one nightly
+thereafter.
+
+| Variable | Default | |
+|---|---|---|
+| `BACKUP_AT_HOUR` | `2` | Hour of day, **UTC** |
+| `BACKUP_KEEP_DAYS` | `14` | Dumps older than this are pruned |
+| `BACKUP_VERIFY` | `1` | Restore and check each dump before trusting it |
+
+Three decisions in it are deliberate:
+
+- **Every dump is verified by restoring it.** Into a scratch database, comparing
+  `audit_log` row counts and confirming the append-only rules survived — the
+  same check the CI rehearsal makes. An unrestored dump is a hypothesis, not a
+  backup.
+- **A dump is written to `.partial` and renamed only on success.** A run
+  interrupted by a restart must never leave a file that looks usable.
+- **Retention runs only after a good dump.** A run of failures can therefore
+  never delete the last known-good copy, which is the failure mode that turns a
+  bad week into a lost business.
+
+Failures are loud and the loop continues, so one bad night does not stop the
+next one. Watch it with `docker compose -f docker-compose.prod.yml logs -f backup`.
+
+**Verified on 2026-09-11** against a seeded database: dump 2.7 MB, restored into
+a scratch database, 233 audit rows matched, both append-only rules intact. The
+failure path was exercised too — pointed at a database that does not exist, it
+reported failure, returned non-zero, and left only a `.partial`.
+
+**Still your job:** these dumps live on the same host as the database. Sync the
+`pgbackup` volume somewhere else — a backup that burns with the server is not a
+backup. Nothing in this repository does that, because where it should go is a
+deployment decision.
+
+### Taking one by hand
 
 ```bash
 docker compose -f docker-compose.prod.yml exec -T db \
@@ -265,7 +304,7 @@ the reliable order.
 
 ### Rehearsed in this audit — not a paper procedure
 
-Measured against the development database (57 tables, 666 users, 1,601 bookings,
+Measured against the development database (56 tables, 666 users, 1,601 bookings,
 638 audit entries):
 
 | Step | Result |

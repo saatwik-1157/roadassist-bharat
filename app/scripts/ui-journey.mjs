@@ -219,8 +219,13 @@ const run = async () => {
 
     // ══ 1b. Every surface still loads ═══════════════════════════════════════
     // The citizen app and the mechanic console get driven properly below; these
-    // are the pages that share ds.css and the design tokens, so a change to
-    // either can break them silently.
+    // four only have to load, render and stay quiet in the console.
+    //
+    // map.html, raksha.html and showcase.html share ds.css, so a token change
+    // can break them silently. index.html does NOT — it keeps its own
+    // highway-signage palette on purpose (see the comment at the top of that
+    // file), which is exactly why it needs its own smoke check: nothing else
+    // here would notice if that separate stylesheet broke.
     section("1b. All surfaces load");
     for (const surface of ["index.html", "map.html", "raksha.html", "showcase.html"]) {
       page.errors.length = 0;
@@ -917,7 +922,7 @@ const run = async () => {
 
     if (assignedMechanic) await page.setValue("#m-msisdn", assignedMechanic);
     await page.click("#m-signin");
-    await page.waitFor(`document.getElementById("scr-work").hidden === false`, 20000);
+    await page.waitFor(`document.getElementById("scr-work").hidden === false`, 45000);
     ok("mechanic signs in", assignedMechanic ? `as ${assignedMechanic}` : "");
 
     // The first fetch has to land before the record is real — over a tunnel
@@ -972,7 +977,7 @@ const run = async () => {
 
     // Mechanic session persistence.
     await page.goto(`${BASE}/mechanic.html`);
-    await page.waitFor(`document.getElementById("scr-work").hidden === false`, 20000);
+    await page.waitFor(`document.getElementById("scr-work").hidden === false`, 45000);
     ok("the mechanic console survives a reload too");
 
     // A dispatch offer lives 90 seconds. Waiting up to 8 of those for the next

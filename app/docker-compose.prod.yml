@@ -46,6 +46,41 @@ services:
         limits:
           memory: 1g
 
+  # The thing that actually writes to the pgbackup volume.
+  #
+  # DEPLOYMENT.md has carried the pg_dump command for a while alongside the
+  # sentence "no backup schedule is configured" — so the volume existed, the
+  # procedure was written down, and nothing ran. This closes that.
+  #
+  # It verifies every dump by restoring it into a scratch database and comparing
+  # audit-log row counts, which is the same check the CI rehearsal makes. An
+  # unverified dump is a hypothesis.
+  backup:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      BACKUP_AT_HOUR: ${BACKUP_AT_HOUR:-2}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_VERIFY: ${BACKUP_VERIFY:-1}
+    volumes:
+      - pgbackup:/backups
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup.sh"]
+    # Dumps are the one thing that must survive the host, so this is the
+    # service to point an off-site sync at — see DEPLOYMENT.md.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   # Migrations run as their own unit, once, before the API starts. Baking them
   # into the API's startup would mean every replica racing to migrate the same
   # database on every deploy.

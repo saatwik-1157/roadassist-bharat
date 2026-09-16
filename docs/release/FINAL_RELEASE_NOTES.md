@@ -16,7 +16,7 @@ in this phase.
 | Base commit | `f771df5` (`main`) |
 | Recommended tag | `v1.0.0-RC1` — **not created** |
 | Node / npm | v24.18.0 / 11.16.0 |
-| Database | PostgreSQL 16.4 + PostGIS 3.4, 5 migrations, 57 tables |
+| Database | PostgreSQL 16.4 + PostGIS 3.4, 5 migrations, 56 tables |
 
 ## Verified features
 
@@ -51,6 +51,12 @@ Each was executed in this phase, not inferred.
 | Security attacks | 74 | 74 passed, 0 failed |
 | Browser journey | 163 | 163 passed, 0 failed |
 | **Total executed** | **578** | **578 passed, 0 failed** |
+
+> These are the numbers **as of v1.0.0-RC1** and are left as the record of
+> that build. The suites have grown since — 615 at last run, the increase
+> being new unit tests for the SOS ladder, the SMS coordinate parser and the
+> message catalogue. `app/docs/TESTING.md` carries the current figures.
+
 | Demo rehearsal | 15 beats | all completed, 9 consecutive clean runs |
 | Payment sandbox | 22 | **not run** — needs a Razorpay account |
 

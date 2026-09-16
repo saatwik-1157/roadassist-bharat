@@ -193,7 +193,14 @@
 </div>
 
 <script type="module">
-const API = location.origin;
+const API = (function () {
+  // Same fallback as app.html - see the comment there.
+  const http = location.protocol === "http:" || location.protocol === "https:";
+  if (!http) return "http://localhost:4000";
+  const local = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+  if (local && location.port !== "4000") return "http://localhost:4000";
+  return location.origin;
+})();
 const $ = (id) => document.getElementById(id);
 const log = $("log");
 

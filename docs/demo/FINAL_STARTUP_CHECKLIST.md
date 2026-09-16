@@ -12,7 +12,7 @@ npm run infra:up
 
 # 4–5. Migrate and seed — one command does reset, migrate, seed and the demo admin
 npm run demo:reset
-#    → "migrations complete — 57 tables"
+#    → "migrations complete — 56 application tables"
 #    → "4076 invoices · 1789 settled payments"
 #    → "seeded in ~55s"
 #    → "RAKSHA seed complete — demo admin ready"

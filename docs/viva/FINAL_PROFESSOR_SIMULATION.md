@@ -1,5 +1,7 @@
-> Written after inspecting the actual repository on 2026-09-06 — 16 API files,
-> 57 tables, 64 routes, 578 executed assertions. Nothing here is assumed.
+> Written after inspecting the actual repository on 2026-09-06 and re-measured
+> against it on 2026-09-12 — 56 tables, 64 routes, 636 executed assertions.
+> Nothing here is assumed. This is prep to be spoken aloud, not a dated record:
+> when the code moves, the numbers here move with it.
 >
 > **Scope note, stated rather than hidden:** the *content* answers for
 > architecture, AI, offline, security, database, dispatch and payment already
@@ -276,7 +278,7 @@ What follows is what actually loses marks in each round.
 | 46 | Circuit breaker? | Stop calling a failing dependency; fail fast. |
 | 47 | Backoff with jitter? | Retry after growing, randomised delays to avoid thundering herds. |
 | 48 | Our AI model version? | `rules-1.0.0`. |
-| 49 | Our test total? | 578 executed, 0 failures, six suites. |
+| 49 | Our test total? | 626 executed, 0 failures, six suites. |
 | 50 | Our biggest limitation? | Single instance — three in-process components. |
 
 ---
@@ -287,7 +289,7 @@ What follows is what actually loses marks in each round.
 |---|---|---|
 | "Stop. Explain this screen." | Name the screen, the endpoint behind it, and the one guarantee it demonstrates. | any |
 | "Where is the cloud?" | "Consumed, not operated — nothing is deployed. What is built is containerisation, a stateless API and a readiness gate." | slide 9 |
-| "Show me the database." | `docker exec ra-db psql -U roadassist -d roadassist_rc -c "\dt"` → 57 tables. | terminal |
+| "Show me the database." | `docker exec ra-db psql -U roadassist -d roadassist_rc -c "\dt"` → 56 tables. | terminal |
 | "Show me the API." | `apps/api/src/server.ts` — point at a route and its zod schema. | editor |
 | "Why did *this* mechanic get selected?" | "Nearest available after excluding off-duty and busy — proximity 60%, rating 34%, newcomer bonus. The card shows the distance the ranking used." | dispatch screen |
 | "What if this mechanic rejects?" | "The offer closes and the ladder escalates to the next wave on the sweeper's interval — that is the timeout-driven re-scheduling." | `dispatch.ts` |
@@ -296,7 +298,7 @@ What follows is what actually loses marks in each round.
 | "Why is this still working?" | "Diagnosis runs on the device from the same rule table, and CI fails the build if the two ever diverge." | `offline-engine.js` |
 | "Can you prove synchronization?" | `await window.__ra.listOffGrid()` → `SYNCED` with a server id. Then sync again — count unchanged. | DevTools |
 | "Show me the audit record." | `/v1/ops/overview` — live counts plus a chain verification. | browser |
-| "Show me payment verification." | `server.ts:1431` webhook — signature recomputed server-side; forged signature returns 402. | editor |
+| "Show me payment verification." | `apps/api/src/routes/payments.ts:374` webhook — signature recomputed server-side; forged signature returns 402. | editor |
 | "Show me the security implementation." | Run `npm run test:security` — 74 passed, 0 failed, live. | terminal |
 | "Is that real data?" | "Generated seed data — no real customer information. 6,038 bookings, 600 mechanics." | — |
 
@@ -315,11 +317,11 @@ Not inflated. This is my estimate as an examiner, given the evidence that exists
 | Project idea | 8 | **7–8** | Genuine, specific problem; clear differentiator | Sounds like an aggregator if pitched badly | Lead with the connectivity failure, not the marketplace |
 | Architecture | 10 | **8–9** | Modular monolith, CI-enforced boundaries, ADRs | Monolith read as unambitious | Say "enforced, not agreed" and run the check |
 | Cloud concepts | 15 | **10–12** | 8 implemented, 5 partial, 8 design | **Highest risk** — 8 are design | Lead with pooling + distribution + scheduling; name blockers precisely |
-| Implementation | 15 | **13–14** | 578 assertions, 6 real bugs found and fixed | Little | Show the row lock |
+| Implementation | 15 | **13–14** | 636 assertions, 6 real bugs found and fixed | Little | Show the row lock |
 | AI | 10 | **6–7** | Rules engine, labelled; trained YOLO11n separate | "Not real AI" | Agree instantly, pivot to asymmetry + CI guard |
-| Database | 10 | **9** | 57 tables, hash-chained audit, PostGIS | Little | Show the append-only RULES |
-| Security | 10 | **8–9** | 100 attacks refused; real CVE fixed | No pentest | Volunteer that before asked |
-| Testing | 8 | **8** | 578 executed, twice, plus timed rehearsal | Little | Run a suite live |
+| Database | 10 | **9** | 56 tables, hash-chained audit, PostGIS | Little | Show the append-only RULES |
+| Security | 10 | **8–9** | 101 attacks refused; real CVE fixed | No pentest | Volunteer that before asked |
+| Testing | 8 | **8** | 626 executed, twice, plus timed rehearsal | Little | Run a suite live |
 | UI/UX | 5 | **4** | Real screenshots, phone-first | Sparse on a projector | Demo at 430 px |
 | Offline resilience | 10 | **9–10** | The strongest area; unanswerable demo | Overclaiming offline reach | Give the three-way split unprompted |
 | Demo | 5 | **4–5** | Rehearsed, timed, 9 clean runs | Live failure | Backups ready |
@@ -351,7 +353,7 @@ authority dashboard — plain HTML and ES modules served by one process, so
 there's no build step and no second deployment unit. Behind them a Fastify API,
 64 routes, zod validation at every boundary, a uniform envelope. Five modules in
 one deployable, and the boundaries are enforced mechanically: a cross-module
-import fails the build. Underneath, PostgreSQL 16 with PostGIS — 57 tables, and
+import fails the build. Underneath, PostgreSQL 16 with PostGIS — 56 tables, and
 an append-only hash-chained audit log the database itself won't let you edit."
 
 **1:45 — Cloud.** "We're a SaaS provider to three user classes and a consumer
@@ -387,7 +389,7 @@ CVE class in this release. Payment: the client never decides money arrived. The
 amount is the invoice total, the signature is recomputed server-side, and a
 booking can't be marked paid without a settled payment."
 
-**4:30 — Testing.** "578 assertions across six suites, zero failures, run twice
+**4:30 — Testing.** "636 assertions across six suites, zero failures, run twice
 — once on a fresh database and again after a full reset. Plus a timed demo
 rehearsal that walks all fifteen beats in two browser windows. Six real bugs
 were found by tooling we wrote to attack our own project, including two
@@ -449,7 +451,7 @@ a deployment. AI is 7 for the same reason: correctly labelled, genuinely modest.
 **Strongest areas**
 1. Offline / off-grid resilience — the tab-close demo is unanswerable.
 2. Concurrency and data integrity — row lock, idempotency, hash-chained audit.
-3. Testing honesty — 578 assertions and six self-found bugs.
+3. Testing honesty — 636 assertions and six self-found bugs.
 
 **Weakest areas**
 1. Nothing deployed — eight cloud concepts remain design.
@@ -468,7 +470,7 @@ a deployment. AI is 7 for the same reason: correctly labelled, genuinely modest.
 2. Dispatch score: proximity 60% / rating 34% / newcomer bonus; wave 5; 90 s TTL.
 3. `SELECT … FOR UPDATE` on the booking row, expiry checked inside the transaction.
 4. The offline three-way split: works / queued / needs network.
-5. 578 assertions, six suites, zero failures — and that a seventh needs an account.
+5. 636 assertions, six suites, zero failures — and that a seventh needs an account.
 
 **Must show in the demo**
 1. The `rules-1.0.0` badge.

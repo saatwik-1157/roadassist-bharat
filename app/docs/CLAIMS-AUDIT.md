@@ -12,7 +12,9 @@ some of that is true. `DESIGN` means it is architecture and nothing more.
 ## 1. Corrections made to the presentation script
 
 The Review-1 speaker script described the **target** cloud architecture in the
-present tense. These were corrected in `review1-ppt/presentation-script.md`.
+present tense. These were corrected in `review1-ppt/presentation-script.md`,
+which was removed from the working tree on 2026-09-16 and lives in history
+(`git show 90864e2:review1-ppt/presentation-script.md`).
 
 | # | Original claim | Reality | Corrected to |
 |---|---|---|---|
@@ -20,7 +22,7 @@ present tense. These were corrected in `review1-ppt/presentation-script.md`.
 | 2 | *"Two more architectures, **both running**."* (Slide 16, **LIVE**) | Neither load balancing nor redundant storage is deployed. | "Both are designed; neither is deployed." |
 | 3 | *"cloud bursting on a **real evening**… we autoscale to twenty-two"* | A worked scenario, not telemetry. | "a **modelled** evening — a worked scenario, not telemetry from a running system… I will not present them as measurements." |
 | 4 | *"Cloud infrastructure provisioned — virtual network, subnets, security groups and the Kubernetes cluster"* listed under **"five things are complete"** | None of it exists. | Split into "Running, and I can demonstrate every one of these" and "Not provisioned, and I will not claim it". |
-| 5 | *"The database deployed and seeded — **sixty tables, multi-zone**, a hundred thousand rows"* | 57 tables, single node, ~13.7k rows at the seed volume used. | "57 tables on PostgreSQL with PostGIS, migrated from empty and seeded, on Docker." |
+| 5 | *"The database deployed and seeded — **sixty tables, multi-zone**, a hundred thousand rows"* | 56 tables, single node, ~13.7k rows at the seed volume used. | "56 tables on PostgreSQL with PostGIS, migrated from empty and seeded, on Docker." |
 | 6 | *"the handoff to ERSS 112 over mutual TLS with a signed payload"* (Slide 26, **LIVE**) | Stubbed. The API's own response says so. | "The handoff to ERSS 112 is **not built**… our own API says so in the response." |
 | 7 | *"through the **isolated** emergency service… runs even if the main platform is down"* | ADR-0005 designs isolation; today it is a module in the same process. | "Today it is a module in the same process. The rule it exists to protect — that a model can never dispatch — is enforced regardless." |
 | 8 | *"A service that must never fail — answered by multi-zone replication and redundant storage"* | Neither exists. | Re-pointed at what *is* built: "the answer we actually built is not in the cloud at all: it is on the device." |
@@ -35,11 +37,12 @@ claims that cannot be demonstrated for a list that can be, live, in five minutes
 
 | Claim | Backed by | Test | Status |
 |---|---|---|---|
+| Android i18n: "zero hardcoded literals left in `MainActivity.kt`" | **WRONG WHEN WRITTEN** — corrected 2026-09-14. The bottom navigation was five English literals (`Tab("Home", ...)`), so every non-English build showed an English nav bar on every screen; four `Heading()` calls, `STATUS`, the `· signed in` suffix and the off-grid paragraph were literals too. Found by running the app under each locale on an emulator, not by reading the code. The nav is now `stringResource` in all 8 locales (63 → 68 keys); the rest is listed in TESTING.md rather than claimed away. | `values-*/strings.xml`, Android lint MissingTranslation | **CORRECTED** |
 | "Offline-first" — the app works with no network | `offline-store.js`, `sw.js`, `connectivity.js` | `ui-journey.mjs` §7b drives the whole scenario | **IMPLEMENTED** |
 | SOS works with no internet | `raiseOffGridSos()` → IndexedDB → `/v1/sos/offline-sync` | `ui-journey.mjs` §7b, `e2e-journey.mjs` §12b | **IMPLEMENTED** |
 | "No duplicate incident" on reconnect | `incidents.client_incident_id` UNIQUE + `onConflictDoNothing` | `concurrency-test.mjs` §4, §5 | **IMPLEMENTED** |
 | AI diagnosis works offline | `offline-engine.js`, mirrors the server rule table | `offline-engine.test.ts` divergence guard | **IMPLEMENTED** |
-| "AI-powered" | Deterministic rules engine (ADR-0006) + a trained YOLO11n for road damage in `ai/` | 61 unit tests | **PARTIAL** — the diagnosis "AI" is a rules engine, labelled as such in the UI. A remote model is an env change away and none is configured. |
+| "AI-powered" | Deterministic rules engine (ADR-0006) + a trained YOLO11n for road damage in `ai/` | 108 unit tests | **PARTIAL** — the diagnosis "AI" is a rules engine, labelled as such in the UI. A remote model is an env change away and none is configured. |
 | Two mechanics can't take one job | `SELECT … FOR UPDATE` on the booking row | `concurrency-test.mjs` §1, §2 | **IMPLEMENTED** |
 | Real-time status without refresh | SSE `/v1/events` | `concurrency-test.mjs` §8, `ui-journey.mjs` §7c — measured 65 ms | **IMPLEMENTED** |
 | Payments are gateway-verified | HMAC signature check, webhook, amount match | `razorpay-test.mjs` (22) | **IMPLEMENTED** against a local stub of Razorpay's API. Never run against a real account. |
@@ -73,7 +76,67 @@ Recorded because an audit that only lists faults is not an audit.
 
 ---
 
-## 4. Remaining wording risk
+## 4. Schema counts, re-measured
+
+Every schema number the project quotes was re-measured against a database
+migrated from empty. Five of the seven were wrong, all in our favour, and all
+from the same two mistakes.
+
+| Claim | Was | Is | Why it was wrong |
+|---|---|---|---|
+| Tables | 57 | **56** | `CREATE EXTENSION postgis` installs its own `spatial_ref_sys` into `public`, and the count in `migrate.ts` asked `information_schema` for every base table in the schema rather than for ours. |
+| Primary keys | 57 | **56** | The same table, counted again. |
+| Indexes | 138 | **137** | And again — its index. |
+| Unique indexes | 84 | **83** | And again — its unique index. |
+| CHECK constraints | 433 | **5** | A different and worse mistake: `information_schema.check_constraints` emits one row per `NOT NULL` column. 938 of the rows counted were `NOT NULL`. The domain CHECKs we actually wrote are the five in `migrate.ts`: severity 1–5, confidence 0–1, road-health 0–100, rating 1–5, invoice total non-negative. |
+| Foreign keys | 62 | 62 | Correct. |
+| GiST indexes | 5 | 5 | Correct. |
+
+> **Annotated 2026-09-15, not rewritten.** The two index rows above are a
+> record of what was *published* against what was true **then**, and they stay
+> that way. The schema has since gained one index — the partial unique
+> `payments_invoice_settled_uq` that makes an invoice settle at most once — so
+> it now genuinely has **138 indexes and 84 unique ones**, which are the
+> figures in `measured.json` today. Read the 138/84 in the *Was* column as the
+> 2026-09-12 miscount it was, not as today's total; the two agreeing by
+> coincidence is exactly the confusion this note exists to prevent.
+
+**Why this mattered.** The table count is the kind of claim that gets tested
+directly — "name the 57th" has no good answer when the honest reply is "it
+belongs to PostGIS". The CHECK-constraint figure was the more exposed of the
+two: 433 invites "show me one", and the five that exist are worth showing.
+
+**Fixed at the source,** not just in the prose. `migrate.ts` now counts through
+`pg_depend` and excludes anything an extension owns, so it reports 56 and the
+number in the documents is the number the tool prints. (Drizzle's own
+`__drizzle_migrations` was never in the count — it lives in the `drizzle`
+schema, not `public`.)
+
+---
+
+## 5. Eight languages — what is and is not verified
+
+The roadmap named eight languages. All eight now ship across the API's SMS and
+OTP messages, the Android UI and the web citizen app's critical paths. The
+claim needs one qualification every time it is made.
+
+| | |
+|---|---|
+| **Verified** | The strings exist in all eight, every key in every locale (asserted by test), every message inside its SMS segment budget (asserted by test), and Android lint fails the build on a missing translation (verified by deleting one). Live SMS checked end to end in Tamil, Telugu, Bengali and Kannada; all eight checked in a real browser. |
+| **NOT verified** | **Translation quality.** Seven of the eight are machine-translated and have not been read by a native speaker. Register and idiom are where that shows. |
+
+**So say it this way:** *"Eight languages, and the mechanism is tested — every
+key present, every SMS inside one segment, the build fails if a translation is
+missing. The translations themselves are not yet native-reviewed, and that is
+the next thing I would fix."*
+
+Do not say *"supports eight languages"* with no qualifier. It invites the one
+question there is no good answer to: *who checked the Tamil?*
+
+---
+
+
+## 6. Remaining wording risk
 
 **Resolved in Phase 9.** The two decks were examined separately:
 
@@ -96,6 +159,57 @@ Recorded because an audit that only lists faults is not an audit.
   A re-scan finds **0 remaining over-claims**. The original is preserved as
   `RoadAssist-Review1-SWE4004.pre-audit.pptx`.
 
-**Still open:** `review1-ppt/RoadAssist-Presentation-Script.pdf` is a stale
-render of the corrected `presentation-script.md`. Re-export it, or present from
-the Markdown — the Markdown is the corrected source of truth.
+**Both closed 2026-09-15.** Each was re-rendered and then checked by pulling the
+text back out of the finished PDF, rather than by looking at it:
+
+- `review1-ppt/RoadAssist-Presentation-Script.pdf` — re-rendered from
+  `presentation-script.md` with `python ppt/md2pdf.py`. The stale export said
+  “57” once where the Markdown says it nowhere; the new render agrees with the
+  source on every schema figure. `…pre-audit.pdf` is deliberately left beside
+  it as the record of what was corrected.
+- `ppt/RoadAssist-Bharat-FINAL.pdf` — re-exported from the `.pptx` through
+  PowerPoint, as `ppt/README.md` sets out. It carried “57” five times plus 138
+  and 433; it now carries 56 and 137 and none of those three, which is what the
+  deck’s own slide text says. The `.pptx` was opened read-only and hashes
+  identically afterwards, so the deck itself is untouched — only the render was
+  ever wrong.
+
+**Still true:** nothing regenerates either PDF as part of a build, so both can
+go stale again silently. §4 holds the figures to check them against.
+
+---
+
+## 7. Toolchain claims, re-measured
+
+`CLAUDE.md` carried **“Android builds on any JDK 17–25. Verified on all three”**
+and told the reader not to add a version guard because “it would reject a JDK
+that works”. Re-measured against Gradle 8.13, which is the pinned wrapper:
+
+| Daemon JVM | Result |
+|---|---|
+| JDK 21 (JetBrains Runtime 21.0.9) | `BUILD SUCCESSFUL` |
+| JDK 25 (25.0.1) | `FAILURE` — `* What went wrong:` then the bare string `25.0.1` |
+| JDK 25 (Android Studio JBR 25.0.3) | `FAILURE`, identically |
+
+JDK 25 was never going to work: it postdates Gradle 8.13. The claim was **wrong
+when written** rather than correct-and-drifted, so it is corrected in place. 17
+through 24 were *not* re-measured — no such JDK is installed on this machine —
+so `CLAUDE.md` now quotes no range at all and names only the JDK 21 that CI pins
+and that the build is actually measured on. A narrower claim that is true beats
+a wider one that is convenient.
+
+**How it survived.** `JAVA_HOME` loses to `org.gradle.java.home`, which this
+machine sets in `~/.gradle/gradle.properties` — outside the repository, and so
+invisible to anyone reviewing from inside it. Export `JAVA_HOME` to a rejected
+JDK, run the full `lint testDebugUnitTest assembleRelease`, and it still goes
+green, because the daemon is quietly running on the other JDK. That is a green
+run which verifies nothing about the JDK it appears to test — the same shape as
+the workspace-link trap under “Before you trust a green run”. To test a JDK for
+real, pass `-Dorg.gradle.java.home=<path>` and read the `Daemon JVM:` line that
+`./gradlew -version` prints.
+
+**Dated evidence left standing.** `docs/verification/ZERO_TO_RUN_VERIFICATION.md`
+already gave the correct cause — “Java 25 is not supported by Gradle 8.13” — when
+it was written on 2026-09-06. Only the `JAVA_HOME` it suggests has gone stale,
+after Android Studio updated itself on 2026-09-14 and left that JBR with no
+`lib/jvm.cfg`. It is annotated in place, not rewritten.

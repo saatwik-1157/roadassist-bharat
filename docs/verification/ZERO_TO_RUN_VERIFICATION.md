@@ -24,7 +24,7 @@ Every command below was run; none is transcribed from memory.
 cd app
 npm run infra:up          # docker compose up -d  (postgis, redis, redpanda)
 npm ci                    # clean install from the lockfile
-npm run db:migrate        # → "migrations complete — 57 tables in public schema"
+npm run db:migrate        # → "migrations complete — 56 application tables in public schema"
 npm run db:seed           # → "seeded in ~50s", ~37,000 rows
 npm run db:seed:raksha    # → demo admin + NH-48 corridor
 npm start                 # → http://localhost:4000
@@ -78,7 +78,7 @@ npm run perf              # measured latency, not a load test
 ### Expected output
 
 ```
-✓ migrations complete — 57 tables in public schema
+✓ migrations complete — 56 application tables in public schema
   4076 invoices · 1789 settled payments
 ✓ seeded in 54.6s
 ✓ RAKSHA seed complete — demo admin ready, 4 segment(s) created
@@ -99,6 +99,14 @@ npm run perf              # measured latency, not a load test
 | `TRUST_PROXY=2` refuses to boot | Hop counts removed as a CVE | Use the proxy's address: `TRUST_PROXY="127.0.0.1,::1"` |
 | Port 4000 in use | An earlier API is still running | Windows: `Get-NetTCPConnection -LocalPort 4000` then `Stop-Process` |
 | Android Gradle fails with a bare `25.0.1` | Java 25 is not supported by Gradle 8.13 | `JAVA_HOME="C:/Program Files/Android/Android Studio/jbr"` (JDK 21) |
+
+> **The last row's fix went stale on 2026-09-14**, after this file was written.
+> Android Studio updated itself and left `Android Studio/jbr` a stub with no
+> `lib/jvm.cfg`, so that `JAVA_HOME` now fails with `could not open ...jvm.cfg`
+> rather than building; the JBR that replaced it is 25.0.3, which Gradle 8.13
+> rejects for the very reason the Cause column gives. The symptom and the cause
+> are unchanged — point at any JDK 21 instead. Left as written, because it was
+> correct for the build this file records.
 
 ## Demo reset
 

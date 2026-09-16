@@ -210,17 +210,25 @@ export async function rakshaRoutes(app: FastifyInstance) {
     // 32-byte secret, shown exactly once; only its hash is stored (ADR-0008).
     const secret = randomBytes(32).toString("base64url");
 
-    const [device] = await db.insert(S.edgeDevices).values({
-      name: body.name,
-      hardwareRef: body.hardwareRef ?? "SIMULATED",
-      credentialHash: sha256(secret),
-      zoneId: body.zoneId,
-      registeredBy: req.user!.sub,
-      simulated: body.simulated ?? true,
-    }).returning();
-    await db.execute(raw`
-      UPDATE edge_devices SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
-      WHERE id = ${device.id}`);
+    // Registered and placed together. A device committed without its position
+    // is invisible to every authority map query, which all filter on location,
+    // and the secret above is shown exactly once — so the operator believes the
+    // device is registered while nothing can see it, and cannot re-register it
+    // without a new credential.
+    const device = await db.transaction(async (tx) => {
+      const [row] = await tx.insert(S.edgeDevices).values({
+        name: body.name,
+        hardwareRef: body.hardwareRef ?? "SIMULATED",
+        credentialHash: sha256(secret),
+        zoneId: body.zoneId,
+        registeredBy: req.user!.sub,
+        simulated: body.simulated ?? true,
+      }).returning();
+      await tx.execute(raw`
+        UPDATE edge_devices SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
+        WHERE id = ${row.id}`);
+      return row;
+    });
 
     return reply.code(201).send(ok(
       { id: device.id, name: device.name, status: device.status, simulated: device.simulated, deviceSecret: secret },

@@ -1,0 +1,111 @@
+{
+  "_": [
+    "The numbers the documents are allowed to quote, and how each was obtained.",
+    "",
+    "This exists because the same mistake happened three times: a figure was",
+    "measured, written into twenty documents and a slide deck, and then the code",
+    "moved without them. 'how' is the important column — a number nobody can",
+    "reproduce is an assertion, not a measurement.",
+    "",
+    "scripts/check-claims.mjs fails the build when a document disagrees with this",
+    "file. docs/release/ and docs/verification/ are exempt: they record what was",
+    "true for a past build, and correcting them would falsify the record."
+  ],
+  "measuredOn": "2026-09-12",
+  "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
+
+  "assertions": {
+    "total": 636,
+    "how": "sum of the six suites below; each printed by its own runner",
+    "suites": {
+      "unit": 108,
+      "e2e": 189,
+      "concurrency": 75,
+      "gatewaySecurity": 27,
+      "securityAudit": 74,
+      "browser": 163
+    },
+    "notExecuted": {
+      "paymentSandbox": 22,
+      "why": "needs a Razorpay sandbox account and refuses to run without one; never counted in the total, never described as passing"
+    },
+    "otherRunners": {
+      "android": 66,
+      "sosLadder": 21,
+      "ai": 39,
+      "why": "separate toolchains with their own runners; not part of the six-suite total",
+      "howSosLadder": [
+        "grep -c '@Test' mobile/app/src/test/java/in/roadassist/app/SosLadderTest.kt",
+        "",
+        "A subset of the 55, recorded on its own because Non-negotiable #1 quotes",
+        "it separately in README.md and app/docs/TESTING.md. It was published as",
+        "18 and reached 21 without either document noticing — the Android total",
+        "beside it was gated and stayed correct, which is the same failure the",
+        "per-suite numbers had."
+      ]
+    }
+  },
+
+  "schema": {
+    "tables": 56,
+    "primaryKeys": 56,
+    "foreignKeys": 62,
+    "indexes": 138,
+    "uniqueIndexes": 84,
+    "gistIndexes": 5,
+    "checkConstraints": 5,
+    "migrations": 5,
+    "how": [
+      "Count through pg_depend, NEVER bare information_schema.",
+      "CREATE EXTENSION postgis installs spatial_ref_sys into public, which",
+      "inflated tables, primary keys, indexes and unique indexes by exactly one",
+      "each. information_schema.check_constraints emits one row per NOT NULL",
+      "column, which is how '433 check constraints' was published when there are 5.",
+      "",
+      "TABLES, PRIMARY KEYS, FOREIGN KEYS, CHECK CONSTRAINTS — filter on the",
+      "TABLE's oid, which is the row pg_depend actually records as extension-owned:",
+      "",
+      "SELECT count(*) FROM pg_class c",
+      "  JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'",
+      "  LEFT JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'e'",
+      " WHERE c.relkind = 'r' AND d.objid IS NULL;",
+      "",
+      "INDEXES AND UNIQUE INDEXES — the same filter on the INDEX's own oid",
+      "matches nothing and silently leaves spatial_ref_sys_pkey in, giving 139",
+      "and 85. pg_depend records extension membership for the TABLE only; an",
+      "index depends on its table, not on the extension. Filter on indrelid:",
+      "",
+      "SELECT count(*) FROM pg_class c",
+      "  JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'",
+      "  JOIN pg_index i ON i.indexrelid = c.oid",
+      "  LEFT JOIN pg_depend d ON d.objid = i.indrelid",
+      "                       AND d.classid = 'pg_class'::regclass AND d.deptype = 'e'",
+      " WHERE c.relkind = 'i' AND d.objid IS NULL;        -- add i.indisunique for unique"
+    ]
+  },
+
+  "api": {
+    "routes": 64,
+    "how": [
+      "Count app.get/post/patch/put/delete call sites across apps/api/src:",
+      "41 in server.ts + 15 in raksha.ts + 3 in routes/auth.ts",
+      "+ 5 in routes/emergency.ts.",
+      "",
+      "The SPLIT moves whenever a route group is lifted out of server.ts — it was",
+      "'49 in server.ts + 15 in raksha.ts' until auth and emergency came out, and",
+      "the total did not change. Re-derive the split; never assume the old one."
+    ]
+  },
+
+  "i18n": {
+    "locales": 8,
+    "codes": ["en", "hi", "ta", "te", "bn", "mr", "kn", "gu"],
+    "serverKeys": 18,
+    "androidKeys": 95,
+    "webKeys": 30,
+    "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
+    "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."
+  },
+
+  "adrs": 10
+}

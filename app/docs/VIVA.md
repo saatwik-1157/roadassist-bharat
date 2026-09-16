@@ -172,7 +172,7 @@ and the offer sweeper are all in-process.
 **Short.** Adding and removing capacity automatically in response to load.
 
 **In RoadAssist.** Designed as an HPA on queue depth rather than CPU, because
-our workload is I/O-bound — we measured it: dispatch spends its 113 ms in
+our workload is I/O-bound — we measured it: dispatch spends its ~100 ms in
 PostGIS, not in Node. One component is built: the **readiness gate**. `/health`
 returns **503** when the database is unreachable, so an orchestrator removes the
 instance rather than sending traffic to a server that cannot serve. Verified.
@@ -461,7 +461,7 @@ claimed a running autoscaler. It was corrected — see `CLAIMS-AUDIT.md`.)*
 labels it as such. The road-damage model is a genuinely trained YOLO11n with
 measured metrics. I will not call the first one AI.
 
-**"Did you actually test it, or does it just look right?"** — 578 assertions
+**"Did you actually test it, or does it just look right?"** — 636 assertions
 across six suites, all executed with no failures, including 74 attacks that must
 fail and a concurrency suite that fires ten simultaneous accepts. A seventh
 suite of 22 payment-gateway checks needs a Razorpay sandbox account, so it is

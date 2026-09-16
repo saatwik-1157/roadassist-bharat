@@ -15,8 +15,12 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── 1. dependencies ──────────────────────────────────────────────────────────
-# Pinned to a digest-stable minor. Alpine keeps the runtime small; the build
-# stage needs nothing native, so no toolchain is installed anywhere.
+# `node:20-alpine` is a FLOATING tag — it moves as 20.x patches land, so two
+# builds of the same commit can differ. That is a deliberate trade for a
+# student project that wants security patches without a dependency bot; pin it
+# to a digest (node:20-alpine@sha256:…) before anyone depends on a build being
+# byte-reproducible. Alpine keeps the runtime small; the build stage needs
+# nothing native, so no toolchain is installed anywhere.
 FROM node:20-alpine AS deps
 WORKDIR /repo/app
 # Only the manifests, so this layer is cached until a dependency actually

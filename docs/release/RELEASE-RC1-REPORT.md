@@ -10,7 +10,7 @@ Where something was not run, this report says **NOT RUN** rather than assuming.
 | Working tree | **41 modified, 59 untracked — uncommitted.** Everything below was executed in this state; `f771df5` alone contains none of it |
 | Build date | 2026-09-06T14:30:57Z |
 | Environment | Windows 11, Node v24.18.0, npm 11.16.0, Docker (postgis/postgis:16-3.4) |
-| Database | PostgreSQL 16.4 + PostGIS 3.4, migration `0004_offgrid_incident` (5 applied), 57 tables |
+| Database | PostgreSQL 16.4 + PostGIS 3.4, migration `0004_offgrid_incident` (5 applied), 56 tables |
 
 ---
 
@@ -20,7 +20,7 @@ Where something was not run, this report says **NOT RUN** rather than assuming.
 |---|---|---|
 | BUILD | **PASS** | `typecheck` 0 errors (after wiping `.tsbuildinfo`), `lint` 0 problems, boundaries clean, `npm run build` clean |
 | FRESH INSTALL | **PASS** | `node_modules` deleted, `npm ci` from lockfile, exit 0 |
-| DATABASE | **PASS** | Database created empty → 5 migrations → 57 tables → seed 37,753 rows; 0 impossible states across 6 integrity checks |
+| DATABASE | **PASS** | Database created empty → 5 migrations → 56 tables → seed 37,753 rows; 0 impossible states across 6 integrity checks |
 | CUSTOMER | **PASS** | e2e §1–9, ui §3/§9/§15 |
 | MECHANIC | **PASS** | e2e §8 state machine, ui §14/§15 (mechanic drives, customer pays and rates) |
 | DISPATCH | **PASS** | e2e §7, concurrency §1–3 |
@@ -52,6 +52,12 @@ Where something was not run, this report says **NOT RUN** rather than assuming.
 | Security attacks | 74 | 74 | 0 | 0 |
 | Browser journey (real Chrome) | 163 | 163 | 0 | 0 |
 | **Executed total** | **578** | **578** | **0** | — |
+
+> These are the numbers **as of v1.0.0-RC1** and are left as the record of
+> that build. The suites have grown since — 615 at last run, the increase
+> being new unit tests for the SOS ladder, the SMS coordinate parser and the
+> message catalogue. `app/docs/TESTING.md` carries the current figures.
+
 | Payment (live sandbox) | 22 | — | — | **22 not run** |
 
 Every suite was run twice: once on the freshly migrated and seeded database, and
@@ -247,7 +253,7 @@ mobile/.../MainActivity.kt                 toast timer → LaunchedEffect; brush
 
 Qualified precisely: the application installs from a clean checkout, migrates
 and seeds an empty database, starts without a single error-level log line,
-and passes 578 assertions across six suites twice — including after a full
+and passes 626 assertions across six suites twice — including after a full
 `demo:reset`. Runtime dependencies carry no known vulnerabilities.
 
 It is **not** ready for production, and does not claim to be: nothing is

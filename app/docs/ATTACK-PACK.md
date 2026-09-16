@@ -35,7 +35,7 @@ repository; nothing is aspirational.
 > storage, and it says plainly that nothing has been transmitted. On reconnect
 > it forwards itself, and a unique key makes a duplicate impossible.
 >
-> **Result.** 578 assertions executed across six suites, no failures, including 74
+> **Result.** 636 assertions executed across six suites, no failures, including 74
 > attacks that must fail. A seventh suite — 22 payment-gateway checks — needs a
 > Razorpay sandbox account and is not run; the same settlement path is covered
 > against a signature-exact stub. Every claim on our slides is something I can show you.
@@ -64,7 +64,7 @@ repository; nothing is aspirational.
 > forwards idempotently. **Payment** never trusts the client: the amount is the
 > invoice total and settlement needs a signature the server recomputes.
 >
-> All of it on **PostgreSQL 16 + PostGIS** — 57 tables, 62 foreign keys, and an
+> All of it on **PostgreSQL 16 + PostGIS** — 56 tables, 62 foreign keys, and an
 > append-only hash-chained audit log.
 
 ## 30 seconds: "How does it work without internet?"

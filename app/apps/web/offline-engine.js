@@ -221,6 +221,8 @@ export function classifyConnectivity(signal) {
 
 /** Crockford base32 minus the letters that read as digits on a cracked screen. */
 const ID_ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
+/** Characters after the `RA-` prefix. The server's pattern hard-codes the same. */
+const ID_LENGTH = 6;
 
 function randomBytes(n) {
   const out = new Uint8Array(n);
@@ -239,9 +241,23 @@ function randomBytes(n) {
  * uniqueness constraint is what actually guarantees no collision.
  */
 export function newIncidentId() {
-  const b = randomBytes(6);
+  // Rejection sampling rather than a bare `% 30`.
+  //
+  // 256 is not a multiple of 30: a plain modulo maps 16 of the 30 letters to
+  // nine byte values each and the other 14 to eight, making the first half of
+  // the alphabet 12.5% likelier. That is a biased identifier, and the bias eats
+  // the keyspace the paragraph above rests on. Discarding the 16 byte values
+  // above the last whole multiple costs a few extra draws and makes every
+  // letter exactly equally likely.
+  const LIMIT = 256 - (256 % ID_ALPHABET.length);   // 240
   let s = "";
-  for (let i = 0; i < 6; i++) s += ID_ALPHABET[b[i] % ID_ALPHABET.length];
+  while (s.length < ID_LENGTH) {
+    for (const b of randomBytes(ID_LENGTH)) {
+      if (b >= LIMIT) continue;                     // would skew the alphabet
+      s += ID_ALPHABET[b % ID_ALPHABET.length];
+      if (s.length === ID_LENGTH) break;
+    }
+  }
   return "RA-" + s;
 }
 

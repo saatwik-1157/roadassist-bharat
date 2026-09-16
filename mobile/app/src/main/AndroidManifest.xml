@@ -9,6 +9,17 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
+    <!-- SEND_SMS and the location permissions make Google Play assume telephony
+         and GPS hardware are REQUIRED, which would hide the app from tablets and
+         ChromeOS. The SMS ladder is a fallback, not a precondition: a device with
+         no radio still books over data, and one with no GPS still raises an SOS
+         with a typed location. Declaring them optional keeps the install base as
+         wide as the product claims — and the runtime code already treats every
+         one of these as "may be absent". -->
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+
     <!-- Android 11+ package visibility: needed to hand off to the dialer. -->
     <queries>
         <intent>

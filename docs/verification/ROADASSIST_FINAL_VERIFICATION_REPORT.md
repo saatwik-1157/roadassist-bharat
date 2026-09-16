@@ -43,7 +43,7 @@ deployment unit. Real-time is SSE, not WebSocket (ADR-0010). Every external
 vendor sits behind an adapter with a local implementation, which is why the
 platform runs on zero paid accounts.
 
-**64 routes, 61 under `/v1`. 57 tables, 62 foreign keys, 138 indexes, 5 GiST.**
+**64 routes, 61 under `/v1`. 56 tables, 62 foreign keys, 137 indexes, 5 GiST.**
 
 ## 4. Customer workflow → `CUSTOMER_FINAL_TEST_REPORT.md`
 19 steps, all PASS.
@@ -86,7 +86,7 @@ your Razorpay account and was not run; no credentials were invented.
 project does not pretend otherwise.
 
 ## 13. Database → `DATABASE_FINAL_VERIFICATION.md`
-57 tables, 62 FKs, 433 check constraints, 84 unique indexes, hash-chained
+56 tables, 62 FKs, 5 check constraints, 83 unique indexes, hash-chained
 append-only audit log with Postgres RULES blocking UPDATE/DELETE. Ten
 consistency queries all return 0 — one of them returned 1,789 when this phase
 started.
@@ -97,7 +97,7 @@ professor" pointer for every topic. Eight implemented, five partial, eight
 design and not provisioned.
 
 ## 16. Testing
-578 assertions across six suites, 0 failures, executed twice — once on the
+626 assertions across six suites, 0 failures, executed twice — once on the
 fresh database and again after `demo:reset` rebuilt it. Plus a 15-beat timed
 demo rehearsal, nine consecutive clean runs.
 

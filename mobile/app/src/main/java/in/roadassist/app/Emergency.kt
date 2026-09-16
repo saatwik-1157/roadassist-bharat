@@ -50,9 +50,12 @@ object Emergency {
     const val NATIONAL_EMERGENCY = "112"
     private const val QUEUE_KEY = "ra.sos.queue"
 
-    enum class Rung { DATA, SMS, DIALER, QUEUED }
+    /** Guards the read-modify-write of [QUEUE_KEY]. Never held across I/O. */
+    private val queueLock = Any()
 
-    data class Result(val rung: Rung, val detail: String)
+    /** The ladder's vocabulary and its decisions live in [SosLadder], which is
+     *  pure Kotlin and therefore testable without a device. */
+    data class Result(val rung: SosLadder.Rung, val detail: String)
 
     fun hasData(ctx: Context): Boolean {
         val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -77,64 +80,65 @@ object Emergency {
         lng: Double,
         apiSos: suspend () -> String,
     ): Result {
-        // Rung 1 — data path (only attempted when the OS reports validated internet)
+        // Rung 1 — data path (only attempted when the OS reports validated
+        // internet). "Has internet" and "the API answered" are separate facts: a
+        // captive portal — a highway dhaba's wifi — satisfies the first and not
+        // the second, and stopping at rung 1 on that basis is a silent emergency.
+        var apiSummary: String? = null
         if (hasData(ctx)) {
-            try {
-                return Result(Rung.DATA, apiSos())
-            } catch (_: Exception) {
-                // API unreachable despite "data" — fall through the ladder
-            }
+            apiSummary = try { apiSos() } catch (_: Exception) { null }
         }
-
-        val smsBody = "SOS $lat $lng RoadAssist"
+        if (SosLadder.dataSettledIt(hasData = true, apiSucceeded = apiSummary != null)) {
+            return Result(SosLadder.Rung.DATA, apiSummary!!)
+        }
 
         // Rung 2 — SMS (no data, no login needed; the SIM is the identity).
-        // Confirmed delivery: exactly one channel owns the report, so we never
-        // create two incidents for one emergency.
-        if (canSendSms(ctx)) {
-            when (sendSosSms(ctx, smsBody)) {
-                SmsOutcome.SENT ->
-                    // The SMS reaches the RoadAssist telecom webhook, which
-                    // raises the incident — so we do NOT also queue an API replay.
-                    return Result(Rung.SMS, "Sent SOS by SMS to RoadAssist ($RA_SMS_NUMBER). No data needed — the SIM is your identity.")
-                SmsOutcome.UNCONFIRMED -> {
-                    // Send didn't fail, but the platform never confirmed it. For an
-                    // emergency, better a rare duplicate than a missed alert: queue
-                    // an API backup that flushes when data returns.
-                    queue(ctx, lat, lng)
-                    return Result(Rung.SMS, "SOS sent by SMS (delivery unconfirmed) — a backup will also sync when data returns. The SIM is your identity; no data needed.")
-                }
-                SmsOutcome.FAILED -> { /* radio rejected it — descend the ladder */ }
+        // Whether this rung settles the report, and whether a backup is also
+        // queued, is SosLadder.afterSms — see the duplicate-versus-silence
+        // argument there.
+        if (SosLadder.shouldTrySms(dataSettledIt = false, hasSmsPermission = canSendSms(ctx))) {
+            val verdict = SosLadder.afterSms(sendSosSms(ctx, SosLadder.smsBody(lat, lng)))
+            if (verdict.queueBackup) queue(ctx, lat, lng)
+            if (verdict.settles) {
+                return Result(
+                    SosLadder.Rung.SMS,
+                    if (verdict.queueBackup) {
+                        ctx.getString(R.string.sos_sms_unconfirmed)
+                    } else {
+                        ctx.getString(R.string.sos_sms_sent, RA_SMS_NUMBER)
+                    },
+                )
             }
+            // FAILED — the radio rejected it, so this rung owns nothing. Descend.
         }
 
-        // Rung 3 — hand off to 112 (works through any carrier's tower). The
-        // structured SOS didn't reach RoadAssist, so queue an API backup too.
+        // Rungs 3 and 4 — hand off to 112, which connects through any carrier's
+        // tower. Reaching here means no RoadAssist channel carried the report, so
+        // the local copy is the only record that exists: queue BEFORE the handoff,
+        // because startActivity can throw and the queue is the last resort.
         queue(ctx, lat, lng)
         val dial = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$NATIONAL_EMERGENCY"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        return try {
-            ctx.startActivity(dial)
-            Result(Rung.DIALER, "No RoadAssist channel reachable — opening 112. It connects through any tower. Your SOS is queued and will sync when signal returns.")
-        } catch (_: Exception) {
-            // Rung 4 — truly nothing available; the queue is the last resort
-            Result(Rung.QUEUED, "No signal at all. SOS saved on this device — it will send automatically the moment connectivity returns. Move toward open sky or a highway if you can.")
+        val opened = try { ctx.startActivity(dial); true } catch (_: Exception) { false }
+        return if (SosLadder.afterDialer(opened) == SosLadder.Rung.DIALER) {
+            Result(SosLadder.Rung.DIALER, ctx.getString(R.string.sos_dialer))
+        } else {
+            Result(SosLadder.Rung.QUEUED, ctx.getString(R.string.sos_queued))
         }
     }
 
-    private enum class SmsOutcome { SENT, FAILED, UNCONFIRMED }
 
     /** Sends the SOS SMS and waits (briefly) for the platform's sent-result
      *  broadcast, so the ladder can distinguish delivered from failed. */
-    private suspend fun sendSosSms(ctx: Context, body: String): SmsOutcome {
+    private suspend fun sendSosSms(ctx: Context, body: String): SosLadder.SmsOutcome {
         val action = "in.roadassist.SMS_SENT." + System.nanoTime()
         val outcome = withTimeoutOrNull(12_000L) {
-            suspendCancellableCoroutine<SmsOutcome> { cont ->
+            suspendCancellableCoroutine<SosLadder.SmsOutcome> { cont ->
                 val receiver = object : BroadcastReceiver() {
                     override fun onReceive(c: Context?, i: Intent?) {
                         try { ctx.unregisterReceiver(this) } catch (_: Exception) {}
                         if (cont.isActive) cont.resume(
-                            if (resultCode == Activity.RESULT_OK) SmsOutcome.SENT else SmsOutcome.FAILED,
+                            if (resultCode == Activity.RESULT_OK) SosLadder.SmsOutcome.SENT else SosLadder.SmsOutcome.FAILED,
                         )
                     }
                 }
@@ -156,11 +160,11 @@ object Emergency {
                     sms.sendTextMessage(RA_SMS_NUMBER, null, body, pi, null)
                 } catch (_: Exception) {
                     try { ctx.unregisterReceiver(receiver) } catch (_: Exception) {}
-                    if (cont.isActive) cont.resume(SmsOutcome.FAILED)
+                    if (cont.isActive) cont.resume(SosLadder.SmsOutcome.FAILED)
                 }
             }
         }
-        return outcome ?: SmsOutcome.UNCONFIRMED
+        return outcome ?: SosLadder.SmsOutcome.UNCONFIRMED
     }
 
     /**
@@ -235,41 +239,86 @@ object Emergency {
     }
 
     // ── local queue: survives no-signal and replays when data returns ──────
+    /**
+     * A queued SOS carries a client reference minted HERE, not at replay time.
+     *
+     * The reference is what makes the replay idempotent, so it has to be the
+     * same on every attempt: minting it in [flush] would produce a fresh one
+     * per try and defeat the whole point. See [SosLadder.newIncidentRef].
+     */
     fun queue(ctx: Context, lat: Double, lng: Double) {
-        val prefs = ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
-        val arr = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
-        arr.put(JSONObject().put("lat", lat).put("lng", lng).put("at", System.currentTimeMillis()))
-        prefs.edit().putString(QUEUE_KEY, arr.toString()).apply()
+        val entry = JSONObject()
+            .put("lat", lat).put("lng", lng)
+            .put("ref", SosLadder.newIncidentRef())
+            .put("at", System.currentTimeMillis())
+        // Read-modify-write on one preferences key, so it has to be atomic
+        // against a concurrent flush rewriting the same key. Nothing slow
+        // happens inside the lock.
+        synchronized(queueLock) {
+            val prefs = prefs(ctx)
+            val current = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
+            prefs.edit().putString(QUEUE_KEY, SosQueue.append(current, entry).toString()).apply()
+        }
     }
+
+    private fun prefs(ctx: Context) =
+        ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
 
     fun queueDepth(ctx: Context): Int {
         val prefs = ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
         return JSONArray(prefs.getString(QUEUE_KEY, "[]")).length()
     }
 
-    /** Replay queued SOS through the API once data is back; clears on success. */
+    /**
+     * Replay queued SOS through the API once data is back; clears on success.
+     *
+     * Every post carries the entry's `clientIncidentId`, which is the only
+     * thing standing between a retry and a second ambulance. Without it, an
+     * attempt that the server COMMITTED but whose response was lost looks
+     * identical to one that never arrived: the entry stays queued, the next
+     * flush posts it again, and one breakdown becomes two incidents and two
+     * responders. With it, the server converges on the incident that already
+     * exists (`onConflictDoNothing` behind a unique index) and the replay is
+     * free. That also makes the confirm step safe to retry, which is why a
+     * failure there can simply leave the entry queued.
+     */
     suspend fun flush(ctx: Context): Int {
         if (!hasData(ctx)) return 0
-        val prefs = ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
-        val arr = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
-        var sent = 0
-        for (i in 0 until arr.length()) {
-            val o = arr.getJSONObject(i)
+        val snapshot = synchronized(queueLock) {
+            JSONArray(prefs(ctx).getString(QUEUE_KEY, "[]"))
+        }
+        // Keys, not indices. The queue is rewritten at the END against whatever
+        // it holds THEN, so an SOS raised while this flush is in the air is not
+        // erased by it — see SosQueue for the bug that argument comes from.
+        val sentKeys = LinkedHashSet<String>()
+        for (i in 0 until snapshot.length()) {
+            val o = snapshot.getJSONObject(i)
             try {
+                // Entries queued by an older build have no reference. Mint one
+                // so at least THIS flush's own retries converge, rather than
+                // dropping back to the duplicate-raising behaviour entirely.
+                val ref = o.optString("ref", "").ifEmpty { SosLadder.newIncidentRef() }
                 val raised = Api.post(
                     "/v1/sos",
                     JSONObject().put("lat", o.getDouble("lat")).put("lng", o.getDouble("lng"))
-                        .put("source", "manual"),
+                        .put("source", "manual")
+                        .put("clientIncidentId", ref),
                 ).getJSONObject("data")
                 Api.post("/v1/sos/${raised.getString("id")}/confirm")
-                sent++
+                sentKeys.add(SosQueue.keyOf(o))
             } catch (_: Exception) { break }   // still flaky — keep the rest queued
         }
-        if (sent > 0) {
-            val remaining = JSONArray()
-            for (i in sent until arr.length()) remaining.put(arr.getJSONObject(i))
-            prefs.edit().putString(QUEUE_KEY, remaining.toString()).apply()
+        if (sentKeys.isNotEmpty()) {
+            synchronized(queueLock) {
+                val prefs = prefs(ctx)
+                // Re-read: the queue now may hold an SOS raised while the posts
+                // above were in flight, and that one has not been sent.
+                val current = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
+                prefs.edit()
+                    .putString(QUEUE_KEY, SosQueue.remaining(current, sentKeys).toString())
+                    .apply()
+            }
         }
-        return sent
+        return sentKeys.size
     }
 }

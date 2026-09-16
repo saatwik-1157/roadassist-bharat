@@ -1,9 +1,14 @@
 # D4 — DevOps, QA & Security Lead · Individual Roadmap
 
+> **One author.** This project was designed and built entirely by Saatwik Sairaam
+> Vasamsetti. The D1–D4 roles below are *workstreams* in an 18-phase plan, not
+> people — they were drafted that way to divide the work, and one person did all
+> of it. Nothing here should be read as describing a team.
+
 > **These are planning targets written before implementation, not
 > measurements.** No availability figure in this document has been
 > observed. For what was actually measured, see
-> [`PERFORMANCE_FINAL_REPORT.md`](../PERFORMANCE_FINAL_REPORT.md).
+> [`PERFORMANCE_FINAL_REPORT.md`](verification/PERFORMANCE_FINAL_REPORT.md).
 
 **Owns:** Kubernetes, Terraform, CI/CD, observability, all testing disciplines, security, load and chaos engineering, SMS/IVR/USSD gateway operations, compliance evidence.
 **Backs up:** D2 on portal builds.

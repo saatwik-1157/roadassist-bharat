@@ -23,27 +23,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Phase 3 onward will run integration tests against these.
-    services:
-      db:
-        image: postgis/postgis:16-3.4
-        env:
-          POSTGRES_USER: roadassist
-          POSTGRES_PASSWORD: devpassword
-          POSTGRES_DB: roadassist_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U roadassist"
-          --health-interval 5s --health-timeout 5s --health-retries 20
+    # No database service here. This job is typecheck, lint and the unit tests,
+    # none of which open a connection — the integration job below brings up its
+    # own PostGIS. The one that used to sit here was left over from Phase 3 and
+    # cost every run the container pull for nothing.
 
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0   # gitleaks diffs the pushed commit range — needs full history
 
+      # Node 22, not 20. scripts/ui-journey.mjs drives Chrome over the DevTools
+      # protocol and needs a global WebSocket, which is unflagged only from Node
+      # 22 — on 20 the whole browser suite dies with
+      # "ReferenceError: WebSocket is not defined" before its first assertion.
+      # It passed locally the entire time because development happens on 24.
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
 
@@ -79,13 +76,29 @@ jobs:
         continue-on-error: false
 
   # The whole vertical slice against a real PostGIS: migrate, seed, boot the
-  # API, then the 165-assertion journey and the gateway security suite.
+  # API, then the end-to-end journey and the gateway security suite.
+  #
+  # Step names carry no assertion counts: they were hardcoded, drifted from
+  # both the scripts and the README, and each suite already prints its own
+  # total. One place to read the number, and it is the one that ran.
   integration:
     name: e2e journey · gateway security
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       DATABASE_URL: postgres://roadassist:devpassword@localhost:5432/roadassist_test
+      # The per-IP OTP ceiling defaults to 30 in a 15-minute window, which is a
+      # production protection against one address hammering many numbers. In CI
+      # every suite is one address: e2e, concurrency, security, the browser
+      # journey and then concurrency again all sign in from 127.0.0.1 inside that
+      # window, and the last step arrived at an empty bucket and died on
+      # "Cannot read properties of undefined (reading 'devOtp')" — a 429 body has
+      # no meta.devOtp.
+      #
+      # Raising it here costs no coverage. The limiter is tested properly by the
+      # gateway suite, which spawns its OWN server with its own low ceiling and
+      # asserts the fourth request is refused.
+      OTP_IP_MAX: "2000"
     services:
       db:
         image: postgis/postgis:16-3.4
@@ -101,7 +114,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
       - name: Install
@@ -122,21 +135,21 @@ jobs:
             sleep 1
           done
           curl -sf http://localhost:4000/health
-      - name: End-to-end journey (183 assertions)
+      - name: End-to-end journey
         run: node scripts/e2e-journey.mjs
       - name: Gateway security suite
         run: node scripts/gateway-security-test.mjs
       # Races, idempotency and the live event stream. These are the checks a
       # sequential suite structurally cannot make: two mechanics accepting the
       # same job, three SOS taps arriving together, ten simultaneous accepts.
-      - name: Concurrency, idempotency and real-time (64 assertions)
+      - name: Concurrency, idempotency and real-time
         run: node scripts/concurrency-test.mjs
       # Application-level penetration checks. Every case is an attack that must
       # fail: cross-tenant reads and writes, role escalation, id manipulation,
       # SQL injection, forged and alg:none tokens, unsigned webhooks, oversized
       # input, error-body leakage. A green run means we tried and could not get
       # in — a stronger statement than "the code looks right".
-      - name: Security audit (74 attacks, all must be refused)
+      - name: Security audit (every case must be refused)
         run: node scripts/security-audit.mjs
 
       # Chaos: kill the database under a running API and assert the platform is
@@ -199,7 +212,7 @@ jobs:
       # the whole Off-Grid Mode scenario (ADR-0009) works end to end: network
       # lost, SOS stored locally with a reference and a GPS fix, local
       # diagnosis, network restored, automatic sync, no duplicate incident.
-      - name: Browser journey (163 assertions)
+      - name: Browser journey
         run: node scripts/ui-journey.mjs
 
       # Last, because it replaces the running API. A dispatch offer lives 90
@@ -230,9 +243,153 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci --no-audit --no-fund
       - name: No cross-module imports outside the contract
         run: node scripts/check-boundaries.mjs
+
+      # The documents must agree with the code. This project's whole argument is
+      # that every claim is demonstrable, and the same number has now gone stale
+      # in twenty-odd files three separate times — each caught by a human reading
+      # carefully, which is not a mechanism.
+      - name: Documented claims match app/docs/measured.json
+        run: node scripts/check-claims.mjs
+
+      # The same argument, for the line numbers. The viva packs tell the reader to
+      # OPEN the file rather than describe it, so a citation that has rotted is
+      # found in front of an examiner. Lifting the auth and emergency routes out
+      # of server.ts shifted ten of them and pushed two past the end of the file.
+      - name: Code citations still point at code
+        run: node scripts/check-citations.mjs
+
+  # ── the Android client ──────────────────────────────────────────────────────
+  # `mobile/` ships as a real artefact and had no automated check at all: a broken
+  # Gradle build or a lint regression was only ever found by building it by hand.
+  #
+  # JDK 21 is pinned rather than inherited. The build was verified to work on 17,
+  # 21 and 25 alike, so this is not a workaround for an incompatibility — it is so
+  # that CI and the team's machines agree on one JVM instead of drifting apart.
+  android:
+    name: android · lint · unit · assemble
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Installs the SDK, accepts the licences and exports ANDROID_HOME.
+      # mobile/local.properties is machine-specific and gitignored, so the SDK
+      # path has to come from the environment here.
+      # `packages: ''` because the action's default is "tools platform-tools",
+      # and `tools` was removed from the SDK repository — sdkmanager exits 1 with
+      # "Failed to find package 'tools'" before Gradle is ever invoked. The runner
+      # image already ships platform-tools; this step is here for ANDROID_HOME and
+      # the licences, not for fetching anything.
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+
+      # Caches ~/.gradle between runs — the difference between a 4-minute job and
+      # a 15-minute one, because Compose pulls a lot of artefacts.
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Lint first: it is the cheapest of the three and catches the manifest and
+      # resource problems that a successful compile says nothing about. An error
+      # fails the build (see the lint block in app/build.gradle.kts); the
+      # version-availability checks are disabled there because they compare
+      # against whatever is newest today, not against this commit.
+      - name: Lint
+        run: ./gradlew --no-daemon lint
+
+      # Wired up while it was still a no-op, so that the first test anyone wrote
+      # would run automatically rather than wait for someone to remember a CI
+      # step. It has not been a no-op for a while: six classes now, and the SOS
+      # path — the one non-negotiable #1 is about — is the best covered of them,
+      # because its decisions were lifted out of Emergency.kt into SosLadder.kt
+      # as pure functions precisely so a JVM test could reach them.
+      #
+      # The counts live in app/docs/measured.json and are gated by
+      # check-claims.mjs, so they are deliberately not repeated here.
+      - name: Unit tests
+        run: ./gradlew --no-daemon testDebugUnitTest
+
+      - name: Debug APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      # The release path is a different build: R8 in optimising mode, resource
+      # shrinking and the ProGuard rules. It breaks in ways the debug build cannot,
+      # and it is the one the demo device actually installs — so it is built here
+      # rather than assumed.
+      - name: Release APK (R8 minification + resource shrinking)
+        run: ./gradlew --no-daemon assembleRelease
+
+      # Uploaded on failure too: the lint HTML report is the thing you actually
+      # want when a run goes red, and it is otherwise trapped on the runner.
+      - name: Reports and APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build
+          path: |
+            mobile/app/build/reports/
+            mobile/app/build/outputs/apk/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ── the RAKSHA CV pipeline ──────────────────────────────────────────────────
+  # Deliberately does NOT install ultralytics. Pulling torch costs minutes and
+  # hundreds of megabytes on every push, and buys nothing here: the logic that
+  # decides what the model is TAUGHT (the RDD2022 class mapping) and what the
+  # platform is TOLD (the severity heuristic that reaches raksha_detections) is
+  # pure Python. Checking it cheaply is what makes it get checked at all.
+  #
+  # Training and inference stay a local, GPU-shaped activity; see ai/README.md.
+  ai:
+    name: ai · syntax · pipeline tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+
+    # The workflow-level default is `app`, which is wrong for this job and was
+    # wrong silently: compileall printed "Can't list 'ai/road_damage'" and exited
+    # 0, so the only sign was unittest failing with "Start directory is not
+    # importable". These paths are relative to the repository root.
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Every script, including the two that need torch to RUN. A syntax error in
+      # train.py currently surfaces only when someone starts a multi-hour training
+      # run, which is the worst possible moment to find out.
+      - name: Syntax-check every script
+        run: python -m compileall -q ai/road_damage ai/tests ai/serve.py
+
+      - name: Pipeline unit tests
+        run: python -m unittest discover -s ai/tests -v
+
+      # The dataset licensing argument in docs/raksha/05-dataset-license-verification.md
+      # rests on knowing exactly which versions were used. An unpinned requirement
+      # makes that argument unreproducible, so it fails the build.
+      - name: Every requirement is pinned
+        run: |
+          bad=$(cat ai/requirements.txt ai/requirements-serve.txt | grep -vE '^\s*(#|$)' | grep -v '==' || true)
+          if [ -n "$bad" ]; then
+            echo "unpinned requirement(s) — use ==:"; echo "$bad"; exit 1
+          fi
+          echo "all requirements pinned"

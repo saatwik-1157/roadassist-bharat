@@ -74,7 +74,7 @@ const api = spawn(process.execPath, ["--import", "tsx", "src/server.ts"], {
     TELECOM_WEBHOOK_SECRET: SECRET,
     OTP_IP_MAX: "3",
     SMS_PROVIDER: "twilio",
-    SMS_API_KEY: "ACtest:authtok",
+    SMS_API_KEY: "AC000000000000000000000000deadbeef:authtok",
     SMS_SENDER_ID: "+15550000001",
     SMS_BASE_URL: `http://localhost:${STUB_PORT}`,
     PAYMENTS_PROVIDER: "razorpay",
@@ -126,10 +126,10 @@ ok("correctly signed webhook accepted", signed.status === 200 && Boolean(signedJ
 
 // ── Twilio adapter wire format (captured by the stub) ──
 ok("Twilio adapter hit the Messages endpoint",
-   Boolean(lastTwilio) && lastTwilio.url === "/2010-04-01/Accounts/ACtest/Messages.json",
+   Boolean(lastTwilio) && lastTwilio.url === "/2010-04-01/Accounts/AC000000000000000000000000deadbeef/Messages.json",
    lastTwilio?.url ?? "no request captured");
 ok("HTTP Basic auth = base64(SID:token)",
-   lastTwilio?.auth === "Basic " + Buffer.from("ACtest:authtok").toString("base64"));
+   lastTwilio?.auth === "Basic " + Buffer.from("AC000000000000000000000000deadbeef:authtok").toString("base64"));
 const form = new URLSearchParams(lastTwilio?.body ?? "");
 ok("form-encoded From/To/Body present",
    (lastTwilio?.ct ?? "").includes("x-www-form-urlencoded") &&
@@ -148,9 +148,33 @@ const api1 = async (method, path, { token, body } = {}) => {
   return { status: r.status, ...(await r.json().catch(() => ({}))) };
 };
 
+/**
+ * Read the OTP out of the SMS the stub captured.
+ *
+ * This instance runs with SMS_PROVIDER=twilio so the adapter's wire format can
+ * be checked, and that means the code is random and is NOT returned in the API
+ * response — `otpPolicy` refuses to publish a credential that reached a
+ * handset. So the suite does what a real user does: reads it off the message.
+ *
+ * It used to take `meta.devOtp`, which only worked because a fixed code was
+ * being echoed even with a gateway configured. Going through the SMS makes
+ * every sign-in below an end-to-end test of real OTP delivery.
+ */
+const otpFromSms = () => {
+  const body = lastTwilio?.body ?? "";
+  const text = new URLSearchParams(body).get("Body") ?? "";
+  const code = /\b(\d{6})\b/.exec(text)?.[1];
+  if (!code) throw new Error(`no OTP in the captured SMS: ${text || "(nothing captured)"}`);
+  return code;
+};
+
 const payer = "+91" + (7000000000 + Math.floor(Math.random() * 8e8));
 const challenge = await api1("POST", "/v1/auth/otp/request", { body: { msisdn: payer } });
-const session = await api1("POST", "/v1/auth/otp/verify", { body: { msisdn: payer, code: challenge.meta?.devOtp } });
+// The response carries no code — only that one was sent, and by what.
+ok("a configured gateway means the code is never echoed over HTTP",
+   challenge.meta?.devOtp === undefined && challenge.data?.channel === "twilio",
+   `channel=${challenge.data?.channel} devOtp=${challenge.meta?.devOtp}`);
+const session = await api1("POST", "/v1/auth/otp/verify", { body: { msisdn: payer, code: otpFromSms() } });
 const payToken = session.data?.accessToken;
 
 const vehicle = await api1("POST", "/v1/vehicles", {
@@ -229,9 +253,9 @@ ok("replaying the confirmation does not charge twice",
 // administrator with database access would.
 await api1("PUT", "/v1/me/medical", { token: payToken, body: { bloodGroup: "B+" } });
 
-const adminReq = await api1("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } });
+await api1("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } });
 const adminVer = await api1("POST", "/v1/auth/otp/verify", {
-  body: { msisdn: "+919999900001", code: adminReq.meta?.devOtp },
+  body: { msisdn: "+919999900001", code: otpFromSms() },
 });
 const adminTok = adminVer.data?.accessToken;
 
@@ -310,6 +334,14 @@ for (let i = 0; i < 4; i++) {
 ok("three OTP requests from one IP pass", codes[0] === 200 && codes[1] === 200 && codes[2] === 200,
    codes.slice(0, 3).join(","));
 ok("fourth request from the same IP is throttled (429 otp_ip_limited)", codes[3] === 429, `got ${codes[3]}`);
+
+// Put the limiter back. The ceiling is per IP over a 15-minute window, and in
+// CI every suite runs from the same address against the same server: this test
+// deliberately exhausts a bucket that the browser journey needs several minutes
+// later to sign a mechanic in. Locally the suites are run one at a time with a
+// reset in between, so the debt was never visible — and the browser suite had
+// never once reached CI to collect it.
+await clearOtpAttempts();
 
 await sql.end();
 api.kill();

@@ -2,6 +2,11 @@
 
 > AI-powered · cloud-connected · **network-resilient** roadside assistance for India.
 > *"RoadAssist doesn't stop when the network stops."*
+>
+> "AI-powered" covers RAKSHA's trained YOLO11n road-damage detector (`ai/runs/`),
+> not the roadside diagnosis — that is a deterministic rule table returning
+> `rules-1.0.0`, and is never described as a model. `app/docs/CLAIMS-AUDIT.md`
+> records the claim as PARTIAL for exactly this reason.
 > SWE4004 Cloud Computing and Applications · Review 1
 
 **Current status: the Review 2 vertical slice runs end to end.** One complete
@@ -13,9 +18,9 @@ npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Deskt
 npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run share                                               # → public HTTPS url, for real phones
-npm run verify && npm run test:e2e                          # 61 unit + 189 end-to-end
-npm run test:gateway                                        # 26 gateway-security checks
-npm run test:concurrency                                    # 65 race / idempotency / real-time
+npm run verify && npm run test:e2e                          # 108 unit + 189 end-to-end
+npm run test:gateway                                        # 27 gateway-security checks
+npm run test:concurrency                                    # 75 race / idempotency / real-time
 npm run test:security                                       # 74 attacks, all must be refused
 npm run test:ui                                             # 163 browser-journey checks
 npm run test:razorpay                                       # 22 payment-gateway checks
@@ -108,7 +113,7 @@ against a fresh PostGIS container on every push.
 | 0 · Research | Problem validation, integration feasibility, constraints | ✅ [`../docs/`](../docs/) |
 | 1 · Planning | Backlog, repo scaffold, CI pipeline, quality gates | ✅ |
 | 2 · Architecture | C4 diagrams, 10 ADRs, event catalogue, API style guide, failure matrix, threat model | ✅ [`docs/`](docs/) |
-| 3 · Database | 57 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
+| 3 · Database | 56 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
 | 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS, gateway-verified payments | ◐ slice complete, full surface pending |
 | 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web only; no React Native app |
@@ -330,8 +335,8 @@ The gateway suite proves all of this against a stub vendor endpoint.
 
 **Measured, not asserted** (single-user, local database — run `npm run perf`):
 the dispatch candidate query executes in **29 ms**, the whole dispatch endpoint
-in **113 ms** p50 (PostGIS KNN, provider-state exclusions, offer inserts, SSE
-fan-out and audit writes) · emergency escalation **37 ms** median, measured end
+in **~100 ms** p50 (PostGIS KNN, provider-state exclusions, offer inserts, SSE
+fan-out and audit writes; it varies roughly 89-115 ms run to run) · emergency escalation **37 ms** median, measured end
 to end through the API · **189** end-to-end assertions covering illegal transitions,
 idempotent replay, refresh-token theft detection, cross-tenant isolation, the
 full citizen-report loop (submit → photo → authority verify → status), and
@@ -357,9 +362,11 @@ app/
 │       ├── connectivity.js     ONLINE · LIMITED · OFF-GRID manager
 │       └── sw.js               service worker (app shell + map tiles)
 ├── packages/
-│   └── db/                   Drizzle schema (6 modules, 57 tables)
+│   └── db/                   Drizzle schema (6 modules, 56 tables)
 ├── scripts/
-│   └── check-boundaries.mjs  Architecture fitness function (ADR-0002)
+│   ├── check-boundaries.mjs  Architecture fitness function (ADR-0002)
+│   ├── check-claims.mjs      Documented numbers match docs/measured.json
+│   └── check-citations.mjs   Documented file:line citations still resolve
 ├── .github/workflows/ci.yml  lint · typecheck · test · secret scan · boundaries
 └── docker-compose.yml        PostGIS · Redis · Redpanda
 ```
