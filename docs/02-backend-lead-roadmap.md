@@ -1,5 +1,10 @@
 # D1 — Backend & Data Lead · Individual Roadmap
 
+> **One author.** This project was designed and built entirely by Saatwik Sairaam
+> Vasamsetti. The D1–D4 roles below are *workstreams* in an 18-phase plan, not
+> people — they were drafted that way to divide the work, and one person did all
+> of it. Nothing here should be read as describing a team.
+
 **Owns:** all backend services, PostgreSQL/PostGIS schema, event bus, API contracts, auth, booking/dispatch, emergency core, payments.
 **Backs up:** D3 on the AI gateway and analytics service.
 **Total allocation:** 22 weeks · ~176 ideal days.
