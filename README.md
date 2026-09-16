@@ -180,7 +180,7 @@ the authority dashboard empty.
 
 | Path | What | Toolchain |
 |---|---|---|
-| `app/apps/api` | Fastify API — 64 routes, modular monolith (ADR-0001) | Node 20+, TypeScript |
+| `app/apps/api` | Fastify API — 64 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
 | `app/apps/web` | Citizen, mechanic, authority and map surfaces | Plain HTML/CSS/JS |
 | `app/packages/db` | Drizzle schema, migrations, seeds | PostgreSQL 16 + PostGIS |
 | `app/scripts` | Six test runners, the claims and citation gates, the RAKSHA simulator | Node |

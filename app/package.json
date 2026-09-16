@@ -49,6 +49,6 @@
     "typescript-eslint": "^8.18.1"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }
