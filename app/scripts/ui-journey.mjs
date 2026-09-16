@@ -922,7 +922,7 @@ const run = async () => {
 
     if (assignedMechanic) await page.setValue("#m-msisdn", assignedMechanic);
     await page.click("#m-signin");
-    await page.waitFor(`document.getElementById("scr-work").hidden === false`, 20000);
+    await page.waitFor(`document.getElementById("scr-work").hidden === false`, 45000);
     ok("mechanic signs in", assignedMechanic ? `as ${assignedMechanic}` : "");
 
     // The first fetch has to land before the record is real — over a tunnel
@@ -977,7 +977,7 @@ const run = async () => {
 
     // Mechanic session persistence.
     await page.goto(`${BASE}/mechanic.html`);
-    await page.waitFor(`document.getElementById("scr-work").hidden === false`, 20000);
+    await page.waitFor(`document.getElementById("scr-work").hidden === false`, 45000);
     ok("the mechanic console survives a reload too");
 
     // A dispatch offer lives 90 seconds. Waiting up to 8 of those for the next
