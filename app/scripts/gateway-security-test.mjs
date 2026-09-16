@@ -335,6 +335,14 @@ ok("three OTP requests from one IP pass", codes[0] === 200 && codes[1] === 200 &
    codes.slice(0, 3).join(","));
 ok("fourth request from the same IP is throttled (429 otp_ip_limited)", codes[3] === 429, `got ${codes[3]}`);
 
+// Put the limiter back. The ceiling is per IP over a 15-minute window, and in
+// CI every suite runs from the same address against the same server: this test
+// deliberately exhausts a bucket that the browser journey needs several minutes
+// later to sign a mechanic in. Locally the suites are run one at a time with a
+// reset in between, so the debt was never visible — and the browser suite had
+// never once reached CI to collect it.
+await clearOtpAttempts();
+
 await sql.end();
 api.kill();
 stub.close();
