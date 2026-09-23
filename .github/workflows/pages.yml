@@ -41,6 +41,10 @@ jobs:
         run: |
           mkdir -p _site/shots _site/media _site/visuals
           cp pages/index.html _site/
+          # The custom domain. GitHub Pages reads this from the published
+          # artefact, so without it every deploy resets the domain back to
+          # github.io and the certificate has to be reissued.
+          cp pages/CNAME _site/
           cp app/docs/screenshots/*.png _site/shots/
           # Only the two the page actually embeds. The rest are large and
           # nothing links to them, and an unreferenced 29 MB of video is a
