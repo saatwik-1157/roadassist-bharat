@@ -16,6 +16,7 @@ on:
       - "pages/**"
       - "app/docs/screenshots/**"
       - "site/*.mp4"
+      - "ppt/assets/vis_*.png"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -38,7 +39,7 @@ jobs:
 
       - name: Assemble the site
         run: |
-          mkdir -p _site/shots _site/media
+          mkdir -p _site/shots _site/media _site/visuals
           cp pages/index.html _site/
           cp app/docs/screenshots/*.png _site/shots/
           # Only the two the page actually embeds. The rest are large and
@@ -46,6 +47,10 @@ jobs:
           # slower page for no reason.
           cp site/roadassist-app-demo.mp4 _site/media/
           cp site/raksha-full-demo.mp4    _site/media/
+          # The generated 3D visuals. render_visuals.py builds them from the
+          # real screenshots above and refuses a landscape capture in a phone
+          # frame, which is how the hero silently rendered as overlap once.
+          cp ppt/assets/vis_hero.png ppt/assets/vis_products.png ppt/assets/vis_datacenter.png _site/visuals/
           # Jekyll would otherwise try to process this and skip _-prefixed files.
           touch _site/.nojekyll
 

@@ -177,7 +177,7 @@ def hero():
     bg.alpha_composite(phone, (px, py))
 
     # Secondary device, further back, showing the other side of the product.
-    mech = drop(tilt(device_frame(SHOTS / "13-mechanic-login.png", screen_w=520),
+    mech = drop(tilt(device_frame(SHOTS / "05-dispatch.png", screen_w=520),
                      lean=0.13), blur=26, alpha=120)
     mh = int(H * 0.64)
     mech = mech.resize((int(mech.width * mh / mech.height), mh), Image.LANCZOS)
@@ -297,7 +297,7 @@ def product_strip():
     W, H = 1900, 900
     bg = glow((W, H), [(W * 0.5, H * 0.5, W * 0.44, (18, 52, 122), 0.40)]).convert("RGBA")
     picks = [("02-home.png", 0.055, 0.86), ("06-tracking.png", 0.375, 0.96),
-             ("13-mechanic-login.png", 0.70, 0.86)]
+             ("05-dispatch.png", 0.70, 0.86)]
     for name, x_t, scale_t in picks:
         dev = drop(tilt(device_frame(SHOTS / name, screen_w=520), lean=0.12),
                    blur=26, alpha=130)
@@ -308,11 +308,34 @@ def product_strip():
     print("  vis_products.png")
 
 
-if __name__ == "__main__":
-    missing = [p for p in ("02-home.png", "06-tracking.png", "13-mechanic-login.png")
-               if not (SHOTS / p).exists()]
+# The product visuals set each screenshot into a PHONE frame, so a landscape
+# desktop capture cannot be used: device_frame stretches it across the frame and
+# the result overlaps whatever is behind it. That happened once, silently — the
+# render succeeded and produced a picture nobody could use — so the shape is
+# checked rather than assumed.
+PHONE_SHOTS = ("02-home.png", "06-tracking.png", "05-dispatch.png")
+MAX_PHONE_RATIO = 0.75
+
+
+def check_shots() -> None:
+    missing = [p for p in PHONE_SHOTS if not (SHOTS / p).exists()]
     if missing:
         raise SystemExit(f"Screenshots missing from {SHOTS}: {missing}")
+    wrong = []
+    for name in PHONE_SHOTS:
+        with Image.open(SHOTS / name) as im:
+            ratio = im.width / im.height
+        if ratio > MAX_PHONE_RATIO:
+            wrong.append(f"{name} is {ratio:.2f} wide-to-tall")
+    if wrong:
+        raise SystemExit(
+            "These go into a phone frame and are not phone-shaped: "
+            + "; ".join(wrong)
+            + f". Pick a portrait capture (ratio under {MAX_PHONE_RATIO}).")
+
+
+if __name__ == "__main__":
+    check_shots()
     print("rendering:")
     hero()
     datacenter()
