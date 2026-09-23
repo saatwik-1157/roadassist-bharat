@@ -84,14 +84,18 @@ services:
       - key: EXPOSE_DEV_OTP
         value: "true"
 
+      # Hazard-report photos land here. On the free plan this is EPHEMERAL:
+      # Render's persistent disks need a paid instance type, so an upload does
+      # not survive a restart or a redeploy. ADR-0006 keeps only a reference in
+      # the database, so the row outlives the file and the photo endpoint 404s
+      # rather than corrupting anything - but say "photos are not durable on
+      # this tier" rather than letting someone assume they are.
+      #
+      # To make them durable: move to a paid instance type and restore the
+      # disk block that used to sit here -
+      #   disk: { name: uploads, mountPath: /repo/app/var, sizeGB: 1 }
       - key: UPLOAD_DIR
         value: /repo/app/var/uploads
-
-    # Hazard photos are files, and a web service's disk is ephemeral.
-    disk:
-      name: uploads
-      mountPath: /repo/app/var
-      sizeGB: 1
 
 databases:
   - name: roadassist-db

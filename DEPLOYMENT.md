@@ -49,6 +49,12 @@ to India).
 The service migrates on boot — `migrate.ts` is idempotent — so there is no
 separate migration step for the first deploy.
 
+**Hazard photos are not durable on the free plan.** Render's persistent disks
+need a paid instance type, so `UPLOAD_DIR` is ephemeral: an upload does not
+survive a restart or redeploy. ADR-0006 keeps only a reference in the database,
+so the row outlives the file and the photo endpoint 404s rather than corrupting
+anything — but say that out loud rather than letting anyone assume otherwise.
+
 **The free plan sleeps after 15 minutes idle and takes about a minute to wake.**
 That is fine for a demo. It is *not* fine for the emergency response times this
 platform describes, so say so if anyone asks rather than letting a sleeping free
