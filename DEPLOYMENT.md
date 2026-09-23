@@ -162,6 +162,26 @@ surfaced on a first deploy, against an empty database — the worst moment.
    uses 22. `npm ci` did not object because engine-strict is off, so the
    deployed artefact ran on a runtime the project says it does not support.
 
+## Checking a deployment
+
+The suites prove the code. This proves the thing on the internet, which is a
+different claim — a deployment can serve a perfect application over a broken
+certificate, or reintroduce the `/media` privacy leak, or quietly expose an OTP
+that lets anyone sign in as the authority:
+
+```bash
+cd app
+npm run verify:deployment https://roadassist.dpdns.org
+```
+
+It fails on: unreachable or suspended, a database the app cannot see, any
+surface not answering 200, `/media/*.html` being served again, a third-party
+subresource in any served page (read from the live HTML, not from the
+repository), and plain http. It warns — without failing — on a cold start, a
+missing HSTS or CSP header, and an exposed dev OTP, because those are facts
+about the tier and the configuration rather than defects, and they are exactly
+the ones that get forgotten.
+
 ## Rolling back
 
 Images are tagged by commit SHA, so a bad deploy rolls back to a known artefact
