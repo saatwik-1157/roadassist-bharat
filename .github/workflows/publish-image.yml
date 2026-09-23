@@ -1,0 +1,158 @@
+# Build the production image and publish it to GitHub Container Registry.
+#
+# CI already proves the SOURCE is green. This proves the ARTEFACT is: the image
+# is built from the repository root (site/ lives outside the npm workspace and
+# is served at /media), booted against a real PostGIS, and the end-to-end and
+# security suites are run against the running container rather than against a
+# dev server. An image that boots but cannot take a booking is not a passing
+# build, and only running the suites against it can tell the difference.
+#
+# The registry token is GitHub's own, scoped to this repository for the life of
+# the job. No long-lived secret is stored anywhere.
+name: publish image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ${{ github.repository }}
+
+jobs:
+  image:
+    name: build · smoke · publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image (not pushed yet — it has to earn that)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: app/Dockerfile
+          load: true
+          tags: roadassist:candidate
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # A real PostGIS, because the schema pins SRIDs, builds GiST indexes and
+      # dispatches with ST_DWithin. Plain postgres:16 would fail the migration.
+      - name: Start PostGIS
+        run: |
+          docker network create ra-net
+          docker run -d --name ra-db --network ra-net \
+            -e POSTGRES_USER=roadassist \
+            -e POSTGRES_PASSWORD=ci-only-not-a-secret \
+            -e POSTGRES_DB=roadassist \
+            postgis/postgis:16-3.4
+          for i in $(seq 1 60); do
+            docker exec ra-db pg_isready -U roadassist && break
+            sleep 2
+          done
+
+      # The production image ships production dependencies only, so it can
+      # migrate but CANNOT seed: @faker-js/faker is a devDependency and stays
+      # out. That is the right shape - a production artefact has no business
+      # being able to fabricate four thousand users - so the demo data comes
+      # from the build stage instead.
+      - name: Seeder image (build stage, carries devDependencies)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: app/Dockerfile
+          target: build
+          load: true
+          tags: roadassist:seeder
+          cache-from: type=gha
+
+      - name: Migrate, then seed
+        run: |
+          docker run --rm --network ra-net \
+            -e DATABASE_URL="postgres://roadassist:ci-only-not-a-secret@ra-db:5432/roadassist" \
+            roadassist:candidate node packages/db/dist/src/migrate.js
+          docker run --rm --network ra-net \
+            -e DATABASE_URL="postgres://roadassist:ci-only-not-a-secret@ra-db:5432/roadassist" \
+            roadassist:seeder npm run seed -w @roadassist/db
+          docker run --rm --network ra-net \
+            -e DATABASE_URL="postgres://roadassist:ci-only-not-a-secret@ra-db:5432/roadassist" \
+            roadassist:seeder npm run seed:raksha -w @roadassist/db
+
+      - name: Boot the container
+        run: |
+          docker run -d --name ra-api --network ra-net -p 8099:8080 \
+            -e NODE_ENV=ci \
+            -e PORT=8080 \
+            -e JWT_SECRET="ci-only-not-a-secret-$GITHUB_RUN_ID" \
+            -e DATABASE_URL="postgres://roadassist:ci-only-not-a-secret@ra-db:5432/roadassist" \
+            roadassist:candidate
+          for i in $(seq 1 60); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8099/v1/ping)" = "200" ]; then
+              echo "up after ${i}s"; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::the image never became ready"; docker logs ra-api; exit 1
+
+      - name: The artefact must serve every surface it claims to
+        run: |
+          fail=0
+          for p in /app.html /mechanic.html /raksha.html /map.html /health /v1/ping; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8099$p")
+            echo "  $p -> $code"
+            [ "$code" = "200" ] || fail=1
+          done
+          # The other half of non-negotiable #4: site/ is mounted at /media for
+          # video, and mounting it whole once published prototype pages that
+          # pulled webfonts from Google. A 200 here is a privacy regression.
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8099/media/app.html)
+          echo "  /media/app.html -> $code (must NOT be 200)"
+          [ "$code" = "200" ] && fail=1
+          exit $fail
+
+      - name: Suites, against the container
+        working-directory: app
+        run: |
+          npm ci --no-audit --no-fund
+          API=http://localhost:8099 npm run test:e2e
+          API=http://localhost:8099 npm run test:security
+
+      - name: Container logs (on failure)
+        if: failure()
+        run: docker logs ra-api || true
+
+      - name: Log in to the registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push
+        uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: app/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha

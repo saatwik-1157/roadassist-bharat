@@ -4,7 +4,41 @@
  */
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { sql } from "drizzle-orm";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createClient } from "./client.js";
+
+
+/**
+ * Find the migration folder from wherever this module happens to be.
+ *
+ * `migrationsFolder: "./drizzle"` resolved against the PROCESS working
+ * directory, which is only correct when npm runs the script from
+ * packages/db. The compiled image starts at /repo/app and the path resolved to
+ * nothing, so a container could serve traffic but could never initialise its
+ * own database - the failure only appears on a first deployment, against an
+ * empty database, which is the worst moment to find it.
+ *
+ * server.ts already carries this lesson for its static roots: a path written
+ * relative to src/ is wrong once the file is at dist/src/. Walking up for a
+ * known directory is correct from either, and from a third if the layout moves.
+ */
+function migrationsFolder(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 8; i++) {
+    const candidate = resolve(dir, "drizzle");
+    if (existsSync(resolve(candidate, "meta/_journal.json"))) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error(
+    "Cannot find the drizzle migration folder (no drizzle/meta/_journal.json above " +
+    dirname(fileURLToPath(import.meta.url)) + "). A migration is two files plus a " +
+    "journal entry; the journal is the one that is easy to leave behind.",
+  );
+}
 
 const { sql: raw, db } = createClient();
 
@@ -17,7 +51,7 @@ async function main() {
   });
 
   console.log("→ applying migrations");
-  await migrate(db, { migrationsFolder: "./drizzle" });
+  await migrate(db, { migrationsFolder: migrationsFolder() });
 
   console.log("→ pinning SRID on geospatial columns");
   // drizzle-kit emits `geometry(point)` without an SRID, which would let a row

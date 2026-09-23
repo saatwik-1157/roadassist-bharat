@@ -15,13 +15,13 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── 1. dependencies ──────────────────────────────────────────────────────────
-# `node:20-alpine` is a FLOATING tag — it moves as 20.x patches land, so two
+# `node:22-alpine` is a FLOATING tag — it moves as 22.x patches land, so two
 # builds of the same commit can differ. That is a deliberate trade for a
 # student project that wants security patches without a dependency bot; pin it
-# to a digest (node:20-alpine@sha256:…) before anyone depends on a build being
+# to a digest (node:22-alpine@sha256:…) before anyone depends on a build being
 # byte-reproducible. Alpine keeps the runtime small; the build stage needs
 # nothing native, so no toolchain is installed anywhere.
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /repo/app
 # Only the manifests, so this layer is cached until a dependency actually
 # changes — the difference between a 5-second rebuild and a 90-second one.
@@ -42,7 +42,7 @@ RUN npm run build
 # ── 3. production dependencies only ──────────────────────────────────────────
 # devDependencies carry the compiler, the linter and drizzle-kit — none of which
 # should exist in a running container, and each of which is attack surface.
-FROM node:20-alpine AS prod-deps
+FROM node:22-alpine AS prod-deps
 WORKDIR /repo/app
 COPY app/package.json app/package-lock.json ./
 COPY app/packages/db/package.json ./packages/db/
@@ -50,7 +50,7 @@ COPY app/apps/api/package.json ./apps/api/
 RUN npm ci --omit=dev --no-audit --no-fund
 
 # ── 4. runtime ───────────────────────────────────────────────────────────────
-FROM node:20-alpine AS runtime
+FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
 # Fastify binds 0.0.0.0 by default here; the port is overridable but declared.
 ENV PORT=4000

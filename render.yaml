@@ -1,0 +1,102 @@
+# Render blueprint — one web service, one PostGIS database.
+#
+# Why Render rather than the obvious alternatives: this schema needs PostGIS,
+# not plain Postgres. `migrate.ts` runs CREATE EXTENSION postgis, the incidents
+# and mechanics tables carry SRID-pinned geometry, and dispatch ranks providers
+# with ST_DWithin. A managed Postgres that will not install the extension fails
+# on the first migration, which rules out several free tiers that otherwise
+# look equivalent.
+#
+# The API and every web surface ship in ONE container (ADR-0001): the citizen
+# app, the mechanic console, the authority dashboard and the map are plain
+# files served by Fastify itself, so there is no second service, no CORS
+# boundary and no static host to keep in sync.
+#
+#   Deploy: Render dashboard -> New -> Blueprint -> point it at this repo.
+#
+# The free web-service plan sleeps after 15 minutes idle and takes roughly a
+# minute to wake. That is fine for a demo and NOT fine for the emergency
+# claims this platform makes — say so if anyone asks; do not let a sleeping
+# free tier be mistaken for the architecture.
+services:
+  - type: web
+    name: roadassist
+    runtime: docker
+    plan: free
+    region: singapore          # closest Render region to India
+    dockerfilePath: ./app/Dockerfile
+    dockerContext: .           # site/ is outside the npm workspace, served at /media
+    healthCheckPath: /health   # answers 503 when the database is unreachable
+    autoDeployTrigger: commit
+
+    # Migrate on boot. migrate.ts is idempotent by design - it applies the
+    # journal, pins SRIDs, rebuilds the GiST indexes and re-asserts the
+    # append-only audit RULES, all of which are safe to repeat - so a restart
+    # costs a second and a first deploy needs no separate step. It does NOT
+    # seed: seeding needs @faker-js/faker, which is a devDependency and is
+    # deliberately absent here. See DEPLOYMENT.md for seeding the demo once.
+    dockerCommand: sh -c "node packages/db/dist/src/migrate.js && node apps/api/dist/src/server.js"
+
+    envVars:
+      # NOT "production". The production guard in env.ts refuses to boot
+      # without a real payment gateway, a real SMS provider and webhook
+      # secrets — which is correct, and which a demo cannot satisfy. Running
+      # as "demo" keeps that guard meaningful instead of weakening it.
+      - key: NODE_ENV
+        value: demo
+      - key: PORT
+        value: 8080
+      - key: HOST
+        value: 0.0.0.0
+
+      - key: DATABASE_URL
+        fromDatabase:
+          name: roadassist-db
+          property: connectionString
+
+      # Generated once by Render and then fixed. Never commit one.
+      - key: JWT_SECRET
+        generateValue: true
+
+      # Render terminates TLS at its own proxy, so without this every request
+      # appears to come from the proxy — and the per-IP OTP limiter would
+      # throttle every user in the world as if they were one client.
+      - key: TRUST_PROXY
+        value: "true"
+
+      # Same-origin: the surfaces are served by this very process. Listed
+      # explicitly anyway, because an unset value reflects any Origin.
+      - key: CORS_ORIGINS
+        value: https://roadassist.dpdns.org
+
+      # A demo has no SMS route and no payment gateway, and the platform says
+      # so on screen rather than pretending (non-negotiable #5).
+      - key: SMS_PROVIDER
+        value: console
+      - key: PAYMENTS_PROVIDER
+        value: mock
+
+      # DELIBERATE, and the one setting to think about before sharing the URL:
+      # with no SMS provider, this returns the OTP in the response so anyone
+      # can sign in — including as the seeded authority account. That is what
+      # makes the demo usable and it is also an open door. Set it to false and
+      # the deployment becomes unusable without a real SMS provider.
+      - key: EXPOSE_DEV_OTP
+        value: "true"
+
+      - key: UPLOAD_DIR
+        value: /repo/app/var/uploads
+
+    # Hazard photos are files, and a web service's disk is ephemeral.
+    disk:
+      name: uploads
+      mountPath: /repo/app/var
+      sizeGB: 1
+
+databases:
+  - name: roadassist-db
+    databaseName: roadassist
+    user: roadassist
+    plan: free
+    region: singapore
+    postgresMajorVersion: "16"
