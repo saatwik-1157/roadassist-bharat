@@ -283,6 +283,14 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   .vids{grid-template-columns:1fr}
   .foot{grid-template-columns:1fr 1fr}
 }
+@media (max-width:820px){
+  /* A four-column table cannot shrink past its content, so below this width it
+     scrolls inside itself rather than pushing the whole page sideways. Eight
+     pixels of horizontal overflow is still horizontal overflow. */
+  .tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;
+       border-radius:12px;max-width:100%}
+  .tbl th,.tbl td{padding:9px 11px;font-size:.87rem}
+}
 @media (max-width:720px){
   section{padding:58px 0}
   .nav-links{
