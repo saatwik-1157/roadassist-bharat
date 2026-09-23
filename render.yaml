@@ -49,10 +49,18 @@ services:
       - key: HOST
         value: 0.0.0.0
 
+      # Set in the Render dashboard, not here: Render allows exactly one free
+      # PostgreSQL per account and this account's is already in use by another
+      # project, so the database lives on Neon instead. Neon's free tier does
+      # support PostGIS, which this schema requires - run
+      # `CREATE EXTENSION postgis;` there once before the first deploy, because
+      # migrate.ts needs rights the pooled role may not have.
+      #
+      # Use Neon's DIRECT connection string, not the pooled one: the pooler
+      # does not keep session state, and migrations and the SSE streams both
+      # want a real session.
       - key: DATABASE_URL
-        fromDatabase:
-          name: roadassist-db
-          property: connectionString
+        sync: false
 
       # Generated once by Render and then fixed. Never commit one.
       - key: JWT_SECRET
@@ -96,11 +104,3 @@ services:
       #   disk: { name: uploads, mountPath: /repo/app/var, sizeGB: 1 }
       - key: UPLOAD_DIR
         value: /repo/app/var/uploads
-
-databases:
-  - name: roadassist-db
-    databaseName: roadassist
-    user: roadassist
-    plan: free
-    region: singapore
-    postgresMajorVersion: "16"
