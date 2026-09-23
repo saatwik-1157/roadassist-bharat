@@ -14,6 +14,7 @@ Two kinds, and the distinction is deliberate:
     python ppt/render_visuals.py
 """
 import math
+import os
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
@@ -22,10 +23,11 @@ HERE = Path(__file__).resolve().parent
 ASSETS = HERE / "assets"
 ASSETS.mkdir(parents=True, exist_ok=True)
 
-SHOTS = Path(
-    "C:/Users/Asus/AppData/Local/Temp/claude/C--Users-Asus/"
-    "2d8c77c9-d1fd-4972-8893-bc5ed2c93c61/scratchpad/tour"
-)
+# The real screenshots the deck is built from. They live in the repository, so
+# this script runs from a clean clone; RENDER_SHOTS overrides the location if a
+# fresher capture is being rendered from somewhere else.
+SHOTS = Path(os.environ.get(
+    "RENDER_SHOTS", HERE.parent / "app" / "docs" / "screenshots"))
 
 BLUE = (46, 125, 255)
 CYAN = (34, 211, 238)
@@ -168,14 +170,14 @@ def hero():
     ], CYAN, 46)
     bg.alpha_composite(fx)
 
-    phone = drop(tilt(device_frame(SHOTS / "2-home.png", screen_w=690), lean=0.15))
+    phone = drop(tilt(device_frame(SHOTS / "02-home.png", screen_w=690), lean=0.15))
     ph = int(H * 0.96)
     phone = phone.resize((int(phone.width * ph / phone.height), ph), Image.LANCZOS)
     px, py = int(W * 0.26), int(H * 0.02)
     bg.alpha_composite(phone, (px, py))
 
     # Secondary device, further back, showing the other side of the product.
-    mech = drop(tilt(device_frame(SHOTS / "9-mechanic-dashboard.png", screen_w=520),
+    mech = drop(tilt(device_frame(SHOTS / "13-mechanic-login.png", screen_w=520),
                      lean=0.13), blur=26, alpha=120)
     mh = int(H * 0.64)
     mech = mech.resize((int(mech.width * mh / mech.height), mh), Image.LANCZOS)
@@ -282,7 +284,7 @@ def closing():
               BLUE, 44)
     bg.alpha_composite(fx.filter(ImageFilter.GaussianBlur(1)))
 
-    phone = drop(tilt(device_frame(SHOTS / "7-tracking.png", screen_w=660), lean=0.14))
+    phone = drop(tilt(device_frame(SHOTS / "06-tracking.png", screen_w=660), lean=0.14))
     ph = int(H * 0.99)
     phone = phone.resize((int(phone.width * ph / phone.height), ph), Image.LANCZOS)
     bg.alpha_composite(phone, (int(W * 0.05), int(H * 0.005)))
@@ -294,8 +296,8 @@ def closing():
 def product_strip():
     W, H = 1900, 900
     bg = glow((W, H), [(W * 0.5, H * 0.5, W * 0.44, (18, 52, 122), 0.40)]).convert("RGBA")
-    picks = [("2-home.png", 0.055, 0.86), ("7-tracking.png", 0.375, 0.96),
-             ("9-mechanic-dashboard.png", 0.70, 0.86)]
+    picks = [("02-home.png", 0.055, 0.86), ("06-tracking.png", 0.375, 0.96),
+             ("13-mechanic-login.png", 0.70, 0.86)]
     for name, x_t, scale_t in picks:
         dev = drop(tilt(device_frame(SHOTS / name, screen_w=520), lean=0.12),
                    blur=26, alpha=130)
@@ -307,7 +309,7 @@ def product_strip():
 
 
 if __name__ == "__main__":
-    missing = [p for p in ("2-home.png", "7-tracking.png", "9-mechanic-dashboard.png")
+    missing = [p for p in ("02-home.png", "06-tracking.png", "13-mechanic-login.png")
                if not (SHOTS / p).exists()]
     if missing:
         raise SystemExit(f"Screenshots missing from {SHOTS}: {missing}")

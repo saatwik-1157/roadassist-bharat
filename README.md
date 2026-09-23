@@ -30,8 +30,14 @@ commands that produced them, not the artefacts. See [ai/README.md](ai/README.md)
 labelled as a rules engine. `AI_BASE_URL` can point at a model; nothing in this
 repository implements that endpoint.
 
-Saying "AI-powered" without those two paragraphs is marketing, which is why they
-are here and not in a footnote. The claim is recorded as **PARTIAL** in
+**No language model is involved anywhere.** There is no LLM or GPT dependency
+in any manifest and no chat endpoint called from any source file — not in the
+API, the Android client, the web surfaces or the CV pipeline. That is an
+architectural property rather than a promise, so `npm run no-llm` enforces it
+and CI fails if one ever appears.
+
+Saying "AI-powered" without those three paragraphs is marketing, which is why
+they are here and not in a footnote. The claim is recorded as **PARTIAL** in
 [app/docs/CLAIMS-AUDIT.md](app/docs/CLAIMS-AUDIT.md).
 
 ---
@@ -63,7 +69,7 @@ fails the build if it regresses.
 ### 1 · The build refuses to let the documents lie
 
 `app/docs/measured.json` is the single source of every number, and it records
-*how* each was obtained, not just what it is. Three gates read it:
+*how* each was obtained, not just what it is. Four gates guard the claims:
 
 - **`npm run claims`** fails when any document disagrees with it.
 - **`npm run citations`** checks that every `file.ts:123` reference in the viva
@@ -71,6 +77,9 @@ fails the build if it regresses.
   the file, so a rotted line number is discovered in front of an examiner.
 - **`npm run boundaries`** enforces module boundaries, the offline shell's
   completeness, and the app shell's load order.
+- **`npm run no-llm`** refuses to let a language model into the system, so
+  "the AI here is a trained detector and a rule table" stays true by
+  construction rather than by memory.
 
 This exists because the same wrong number reached twenty-odd documents three
 separate times, and a human caught it each time. A human catching it is not a
@@ -163,13 +172,13 @@ Sign in with `+919876543210` (citizen), `+919999900001` (authority) or
 auto-fills.
 
 ```bash
-npm run verify               # typecheck · lint · boundaries · claims · citations · unit
+npm run verify               # typecheck · lint · boundaries · claims · citations · no-llm · unit
 ```
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (66
 tests). Build on **JDK 21** — Gradle 8.13 rejects 25.
 
-[CLAUDE.md](CLAUDE.md) carries everything that cost time to find out: the
+[ENGINEERING-NOTES.md](ENGINEERING-NOTES.md) carries everything that cost time to find out: the
 toolchain traps, the migration rules, how to count things in the database
 without the PostGIS extension inflating the answer, and why `demo:reset` leaves
 the authority dashboard empty.

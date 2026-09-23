@@ -57,3 +57,6 @@ __pycache__/
 # diff; not something the submission needs.
 review1-ppt/*.pre-audit.pptx
 review1-ppt/*.pre-audit.pdf
+
+# Local assistant/editor state - never part of the project
+.claude/

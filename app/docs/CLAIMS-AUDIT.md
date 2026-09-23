@@ -181,7 +181,7 @@ go stale again silently. §4 holds the figures to check them against.
 
 ## 7. Toolchain claims, re-measured
 
-`CLAUDE.md` carried **“Android builds on any JDK 17–25. Verified on all three”**
+`ENGINEERING-NOTES.md` carried **“Android builds on any JDK 17–25. Verified on all three”**
 and told the reader not to add a version guard because “it would reject a JDK
 that works”. Re-measured against Gradle 8.13, which is the pinned wrapper:
 
@@ -194,7 +194,7 @@ that works”. Re-measured against Gradle 8.13, which is the pinned wrapper:
 JDK 25 was never going to work: it postdates Gradle 8.13. The claim was **wrong
 when written** rather than correct-and-drifted, so it is corrected in place. 17
 through 24 were *not* re-measured — no such JDK is installed on this machine —
-so `CLAUDE.md` now quotes no range at all and names only the JDK 21 that CI pins
+so `ENGINEERING-NOTES.md` now quotes no range at all and names only the JDK 21 that CI pins
 and that the build is actually measured on. A narrower claim that is true beats
 a wider one that is convenient.
 

@@ -11,7 +11,7 @@ of those has a stub that speaks the vendor's actual wire format.
 # once
 docker compose up -d && npm ci && npm run db:migrate && npm run db:seed && npm run db:seed:raksha
 
-npm run verify            # typecheck · lint · boundaries · claims · citations · unit tests
+npm run verify            # typecheck · lint · boundaries · claims · citations · no-llm · unit tests
 npm start                 # in another shell
 npm run test:e2e          # API journey
 npm run test:concurrency  # races, idempotency, real-time

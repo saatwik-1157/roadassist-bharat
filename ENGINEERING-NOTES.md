@@ -1,4 +1,4 @@
-# CLAUDE.md
+# Engineering notes
 
 Working notes for this repository. Everything here is something that cost
 somebody time to find out, or that the code cannot tell you on its own.
@@ -41,7 +41,7 @@ cd app
 docker compose up -d db          # PostGIS on 5434 — 5432/5433 are other projects
 npm run demo:reset               # reset + migrate + seed + seed:raksha
 npm start                        # API on :4000, serves the web surfaces too
-npm run verify                   # typecheck · lint · boundaries · claims · citations · unit tests
+npm run verify                   # typecheck · lint · boundaries · claims · citations · no-llm · unit tests
 ```
 
 **`demo:reset` leaves the RAKSHA dashboard EMPTY.** It seeds the corridor and

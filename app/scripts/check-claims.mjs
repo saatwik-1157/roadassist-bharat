@@ -49,7 +49,7 @@ const ATTACKS_BOTH_SUITES = String(
 );
 
 /**
- * The size of each suite, keyed by the npm script that runs it. CLAUDE.md and
+ * The size of each suite, keyed by the npm script that runs it. ENGINEERING-NOTES.md and
  * app/README.md write these as trailing comments on the commands — a shape no
  * prose regex matches, which is how `npm run test:gateway  # 26` survived the
  * suite growing to 27 in the same commit that added this checker.
@@ -206,7 +206,7 @@ const CHECKS = [
   {
     label: "AI runner",
     expect: String(measured.assertions.otherRunners.ai),
-    // CLAUDE.md carried "(12, stdlib only)" against a suite that had grown to
+    // ENGINEERING-NOTES.md carried "(12, stdlib only)" against a suite that had grown to
     // 39 — nothing was watching this one either.
     re: /unittest discover -s ai\/tests`?[^(\n]{0,20}\((\d+)/g,
     allow: [],
@@ -276,7 +276,7 @@ const EXEMPT_PATTERNS = [
  * A line may opt out with `claims-check:ignore`.
  *
  * Needed because prose sometimes has to quote a WRONG number on purpose —
- * CLAUDE.md explains that '57 tables' and '433 check constraints' were the
+ * ENGINEERING-NOTES.md explains that '57 tables' and '433 check constraints' were the
  * published mistakes, and a checker that cannot be told so would force the
  * explanation to be deleted. An escape hatch that must be written down beats a
  * check nobody can satisfy.

@@ -1085,7 +1085,7 @@ private fun SignInScreen(
     // hardware — so without some way in, the app is emulator-only on first run.
     // Long-pressing the wordmark is that way in. It is deliberately not a button:
     // the first screen stays a phone number and a code, and the escape hatch is
-    // written down in CLAUDE.md rather than drawn on the screen.
+    // written down in ENGINEERING-NOTES.md rather than drawn on the screen.
     fun commitBase() { baseUrl = commitApiBase(ctx, baseUrl) }
 
     ScreenColumn {

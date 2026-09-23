@@ -79,7 +79,7 @@ function resolve(cited) {
 /**
  * Every source basename in the repository, and where it lives.
  *
- * Used only to tell a citation from an illustration. CLAUDE.md and
+ * Used only to tell a citation from an illustration. ENGINEERING-NOTES.md and
  * TESTING.md both explain the rule with a literal `file.ts:123`, which must
  * not fail the build — and does not, because no file.ts exists. A bare name
  * is only refused when a real file could have been meant.
