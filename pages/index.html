@@ -1184,6 +1184,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   "use strict";
   var GH = "https://github.com/saatwik-1157/roadassist-bharat/blob/main/";
   var INDEX = [
+    {id:"surfaces",q:"Where are the dashboards?",k:"dashboard dashboards mechanic authority raksha admin map where find open url path surface screen console",a:"<p>All four are served by the same process once the platform is running: <code>/app.html</code> (citizen), <code>/mechanic.html</code> (mechanic console), <code>/raksha.html</code> (RAKSHA authority) and <code>/map.html</code> (live operational map). Start the stack and they are at <code>http://localhost:4000</code> &mdash; there is no separate deployment for any of them.</p><p>A fifth surface has no screen: <code>POST /v1/telecom/sms</code> completes a booking from a feature phone.</p>",src:"app/apps/api/src/server.ts"},
     {id:"llm",q:"Does it use an LLM or ChatGPT?",k:"no llm gpt chatgpt language model ai generated openai anthropic claude gemini wrapper bot",a:"<p><strong>No.</strong> There is no LLM or GPT dependency in any manifest and no chat endpoint called from any source file &mdash; not in the API, the Android client, the web surfaces or the CV pipeline.</p><p>That is enforced rather than promised: <code>npm run no-llm</code> fails the build on an LLM package in any manifest or a chat endpoint in any source file, and it runs in CI on every push. Even this answer panel is a lookup over a fixed index, not a model.</p>",src:"app/scripts/check-no-llm.mjs"},
     {id:"ai-what",q:"What is the AI in this project, then?",k:"ai artificial intelligence model yolo raksha detection kind machine learning vision",a:"<p>Two things, and neither is a language model. <strong>RAKSHA road-damage detection is a YOLO11 model trained in this repository</strong> on RDD2022 across four countries. <strong>The roadside diagnosis is a deterministic rule table</strong> (ADR-0006) returning <code>rules-1.0.0</code>, and every screen showing it says it is a rules engine.</p>",src:"app/docs/adr/0006-ai-rules-first.md"},
     {id:"map",q:"How accurate is the model?",k:"accuracy accurate map map50 metrics precision recall performance good benchmark",a:"<p><strong>mAP50 0.471 and mAP50-95 0.226</strong> on held-out validation, for <code>yolo11s-multi-rich</code> &mdash; four classes, 3.2k images across four countries, 13 epochs. Per-class mAP50: pothole 0.242, road damage 0.431.</p><p>Those are validation figures from the training run, not production accuracy. The model has never run against live Indian road imagery at scale, and the project does not claim it has.</p>",src:"ai/README.md"},
@@ -1245,7 +1246,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   var chips = document.getElementById("askChips");
   if (!form) return;
 
-  ["Does it use an LLM?", "How many tests?", "What happens with no network?",
+  ["Where are the dashboards?", "Does it use an LLM?", "What happens with no network?",
    "How accurate is the model?", "Is it deployed?", "What is not built?"].forEach(function (q) {
     var b = document.createElement("button");
     b.type = "button"; b.className = "chip-q"; b.textContent = q;
