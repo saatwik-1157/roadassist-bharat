@@ -276,6 +276,22 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .related{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
 .ask-meta{font-size:.8rem;color:var(--ink-3);margin-top:12px}
 
+/* ── surfaces ───────────────────────────────────────────────── */
+.surf{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:24px}
+.surf article{background:var(--surface);border:1px solid var(--line-soft);
+              border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
+.surf .frame{background:var(--bg);border-bottom:1px solid var(--line-soft);
+             aspect-ratio:16/10;overflow:hidden;display:flex;align-items:flex-start;justify-content:center}
+.surf .frame img{width:100%;height:100%;object-fit:cover;object-position:center top}
+.surf .frame.tall img{object-position:center top}
+.surf .body{padding:20px 22px}
+.surf h3{font-size:1.06rem;margin-bottom:5px}
+.surf p{font-size:.9rem;margin-bottom:0}
+.surf .path{display:inline-block;font-family:var(--mono);font-size:.78rem;color:var(--accent);
+            background:var(--accent-dim);border:1px solid rgba(240,180,41,.22);
+            padding:3px 10px;border-radius:999px;margin-bottom:10px}
+@media (max-width:820px){.surf{grid-template-columns:1fr}}
+
 /* ── reveal ─────────────────────────────────────────────────── */
 /* Scoped to .js, set by an inline script before first paint. Without it a
    reader with JavaScript disabled or blocked would get a page whose every
@@ -337,6 +353,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navLinks">Menu</button>
     <div class="nav-links" id="navLinks">
       <a href="#product">Product</a>
+      <a href="#surfaces">Dashboards</a>
       <a href="#how">How it works</a>
       <a href="#raksha">RAKSHA</a>
       <a href="#run">Run it</a>
@@ -456,6 +473,70 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       <a href="#run">One command runs the whole thing locally</a>, and it is the same image
       published from this repository.</p>
     </div>
+  </div>
+</section>
+
+<!-- ═══ SURFACES ═══ -->
+<section id="surfaces" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">The surfaces</p>
+    <h2>Four dashboards, one process</h2>
+    <p class="lead">
+      Each role gets its own surface, and all four are served by the same Fastify process
+      (ADR-0001). The paths below are exactly where they live once the platform is running.
+    </p>
+
+    <div class="surf">
+      <article>
+        <div class="frame"><img src="shots/02-home.png" width="780" height="1688" loading="lazy"
+             alt="Citizen app home screen with the hold-to-escalate SOS control"></div>
+        <div class="body">
+          <span class="path">/app.html</span>
+          <h3>Citizen app</h3>
+          <p>Request assistance, hold to raise an SOS, track the job, pay and review. Works
+             off-grid: an SOS with no signal becomes a real incident on the device.</p>
+        </div>
+      </article>
+
+      <article>
+        <div class="frame"><img src="shots/13-mechanic-login.png" width="2560" height="1720" loading="lazy"
+             alt="Mechanic console sign-in screen"></div>
+        <div class="body">
+          <span class="path">/mechanic.html</span>
+          <h3>Mechanic console</h3>
+          <p>Availability toggle, rating and job history, the active job, and a dispatch inbox
+             of ranked offers with distance and ETA that expire if not accepted. Shown here at
+             sign-in; the console itself is in the recording below.</p>
+        </div>
+      </article>
+
+      <article>
+        <div class="frame"><img src="shots/14-authority.png" width="2560" height="1720" loading="lazy"
+             alt="RAKSHA authority dashboard with live map, road health scoring and detections"></div>
+        <div class="body">
+          <span class="path">/raksha.html</span>
+          <h3>RAKSHA authority dashboard</h3>
+          <p>Detection triage, road-health scoring per segment, edge-device status, and the
+             confirmation queue where a model-raised incident waits for a person (ADR-0005).</p>
+        </div>
+      </article>
+
+      <article>
+        <div class="frame"><img src="shots/18-live-map.png" width="860" height="1800" loading="lazy"
+             alt="Live operational map with clustered mechanics, responders and detections"></div>
+        <div class="body">
+          <span class="path">/map.html</span>
+          <h3>Live operational map</h3>
+          <p>Clustered mechanics, responders and detections over PostGIS geometry, with basemap
+             tiles proxied and cached server-side so no visitor address reaches the tile host.</p>
+        </div>
+      </article>
+    </div>
+
+    <p class="sub" style="margin-top:18px">
+      A fifth surface has no screen at all: <code>POST /v1/telecom/sms</code> completes a booking
+      from a feature phone with no app, in any of the eight languages.
+    </p>
   </div>
 </section>
 
