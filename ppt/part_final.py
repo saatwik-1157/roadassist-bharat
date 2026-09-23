@@ -71,6 +71,15 @@ panel(s, 0.85, 4.35, 5.2, 0.62, fill=INK_2, line_col=RED, line_w=1.25)
 txt(s, 1.1, 4.5, 4.8, 0.35, "“RoadAssist doesn't stop when the network stops.”",
     size=12.5, color=WHITE, bold=True, font=SANS_SEMI)
 
+# Real screenshots of the running app set into device frames by
+# ppt/render_visuals.py - not a mockup, and not stock artwork.
+#
+# vis_products and NOT vis_hero: the hero is near-square (1.02) and this slot is
+# 1.96, so fit_crop takes a thin band out of the middle and cuts the tops and
+# bottoms off the phones. vis_products is 2.11 and loses almost nothing. Match
+# the visual to the slot's shape; do not make the slot fit a square.
+visual(s, 7.05, 1.35, 5.4, 2.75, str(ASSETS / "vis_products.png"), "final_hero")
+
 bullet_rows(s, 7.05, 4.32, [
     ("Team", "V. Saatwik Sairaam · P. Nirisha Chowdary"),
     ("", "T. V. S. Jignesh · G. Parthavi"),
