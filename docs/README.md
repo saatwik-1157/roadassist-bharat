@@ -26,7 +26,7 @@ worked example.
 | [`../README.md`](../README.md) | What the platform is, what exists today, what is roadmap |
 | [`../ENGINEERING-NOTES.md`](../ENGINEERING-NOTES.md) | How to run and change this repo — toolchain traps, migration rules, the honesty rules |
 | [`../app/docs/PROJECT_OVERVIEW.md`](../app/docs/PROJECT_OVERVIEW.md) | The system in one read |
-| [`../app/docs/adr/`](../app/docs/adr/) | Ten ADRs. Every non-obvious decision, with the alternative that was rejected |
+| [`../app/docs/adr/`](../app/docs/adr/) | Eleven ADRs. Every non-obvious decision, with the alternative that was rejected |
 
 ## Reference — kept current
 

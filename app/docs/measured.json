@@ -13,12 +13,11 @@
   ],
   "measuredOn": "2026-09-12",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
-
   "assertions": {
-    "total": 636,
+    "total": 650,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 108,
+      "unit": 122,
       "e2e": 189,
       "concurrency": 75,
       "gatewaySecurity": 27,
@@ -45,7 +44,6 @@
       ]
     }
   },
-
   "schema": {
     "tables": 56,
     "primaryKeys": 56,
@@ -83,29 +81,38 @@
       " WHERE c.relkind = 'i' AND d.objid IS NULL;        -- add i.indisunique for unique"
     ]
   },
-
   "api": {
-    "routes": 64,
+    "routes": 65,
     "how": [
       "Count app.get/post/patch/put/delete call sites across apps/api/src:",
-      "41 in server.ts + 15 in raksha.ts + 3 in routes/auth.ts",
-      "+ 5 in routes/emergency.ts.",
+      "34 in server.ts + 16 in raksha.ts + 3 in routes/auth.ts",
+      "+ 5 in routes/emergency.ts + 1 in routes/telecom.ts",
+      "+ 3 in routes/mechanic.ts + 3 in routes/payments.ts.",
       "",
       "The SPLIT moves whenever a route group is lifted out of server.ts — it was",
-      "'49 in server.ts + 15 in raksha.ts' until auth and emergency came out, and",
-      "the total did not change. Re-derive the split; never assume the old one."
+      "'49 in server.ts + 15 in raksha.ts' until auth and emergency came out, then",
+      "'41 + 15 + 3 + 5' until telecom, mechanic and payments came out too. Each",
+      "time the total was unchanged and only the split moved, so a stale split can",
+      "sit behind a correct total for months. Re-derive it; never assume it."
     ]
   },
-
   "i18n": {
     "locales": 8,
-    "codes": ["en", "hi", "ta", "te", "bn", "mr", "kn", "gu"],
+    "codes": [
+      "en",
+      "hi",
+      "ta",
+      "te",
+      "bn",
+      "mr",
+      "kn",
+      "gu"
+    ],
     "serverKeys": 18,
     "androidKeys": 95,
     "webKeys": 30,
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."
   },
-
   "adrs": 10
 }

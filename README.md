@@ -69,7 +69,7 @@ fails the build if it regresses.
 ### 1 · The build refuses to let the documents lie
 
 `app/docs/measured.json` is the single source of every number, and it records
-*how* each was obtained, not just what it is. Four gates guard the claims:
+*how* each was obtained, not just what it is. Five gates guard the claims:
 
 - **`npm run claims`** fails when any document disagrees with it.
 - **`npm run citations`** checks that every `file.ts:123` reference in the viva
@@ -80,6 +80,11 @@ fails the build if it regresses.
 - **`npm run no-llm`** refuses to let a language model into the system, so
   "the AI here is a trained detector and a rule table" stays true by
   construction rather than by memory.
+- **`npm run residency`** refuses to let personal data leave India. It found a
+  live leak the day it was written: half a dozen dead prototype pages under
+  `site/` were reachable at `/media/*.html`, and every one pulled webfonts from
+  Google, so a visitor's IP address left the country to render a page nothing
+  linked to.
 
 This exists because the same wrong number reached twenty-odd documents three
 separate times, and a human caught it each time. A human catching it is not a
@@ -135,12 +140,12 @@ database migrated from empty and seeded.
 
 | | |
 |---|---|
-| **636 assertions**, six suites, zero failures | 108 unit · 189 e2e · 75 concurrency · 74 attacks · 27 gateway security · 163 browser |
+| **650 assertions**, six suites, zero failures | 108 unit · 189 e2e · 75 concurrency · 74 attacks · 27 gateway security · 163 browser |
 | Android | 66 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not run** | 22 Razorpay sandbox checks — they need an account, and are never counted or described as passing |
 | Schema | 56 tables · 138 indexes · 5 migrations |
-| API | 64 routes |
+| API | 65 routes |
 | Localisation | 8 languages — **not native-reviewed** |
 
 The security suite is 74 attacks that must every one be refused: cross-tenant
@@ -172,7 +177,7 @@ Sign in with `+919876543210` (citizen), `+919999900001` (authority) or
 auto-fills.
 
 ```bash
-npm run verify               # typecheck · lint · boundaries · claims · citations · no-llm · unit
+npm run verify               # typecheck · lint · boundaries · claims · citations · no-llm · residency · unit
 ```
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (66
@@ -189,7 +194,7 @@ the authority dashboard empty.
 
 | Path | What | Toolchain |
 |---|---|---|
-| `app/apps/api` | Fastify API — 64 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
+| `app/apps/api` | Fastify API — 65 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
 | `app/apps/web` | Citizen, mechanic, authority and map surfaces | Plain HTML/CSS/JS |
 | `app/packages/db` | Drizzle schema, migrations, seeds | PostgreSQL 16 + PostGIS |
 | `app/scripts` | Six test runners, the claims and citation gates, the RAKSHA simulator | Node |
@@ -237,7 +242,7 @@ and conflating the two is how a correct figure gets "fixed" into a wrong one.
 | [Frontend workstream](docs/03-frontend-lead-roadmap.md) | Design system, screens, offline client, maps, accessibility, localisation |
 | [AI workstream](docs/04-ai-lead-roadmap.md) | The 9 planned AI systems with inputs, algorithms, metrics and baselines |
 | [DevOps / QA workstream](docs/05-devops-qa-lead-roadmap.md) | CI/CD, observability, telecom gateway, load and chaos testing, DR |
-| [ADRs](app/docs/adr/) | Ten decision records, including the five above |
+| [ADRs](app/docs/adr/) | Eleven decision records, including the five above |
 | [CLAIMS-AUDIT](app/docs/CLAIMS-AUDIT.md) | Every over-claim found, what it was, and what it actually is |
 
 Those roadmap documents describe the **plan**, in the present tense, including

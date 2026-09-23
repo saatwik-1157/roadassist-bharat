@@ -272,6 +272,14 @@ jobs:
       - name: No language model in the system
         run: node scripts/check-no-llm.mjs
 
+      # Non-negotiable #4 is "No PII leaves India". It was asserted in three
+      # documents and enforced by nobody, which is how half a dozen prototype
+      # pages ended up served at /media/*.html pulling webfonts from Google -
+      # a visitor's IP address left the country to render a page nothing linked
+      # to, and nothing noticed for weeks.
+      - name: No personal data leaves India
+        run: node scripts/check-data-residency.mjs
+
   # ── the Android client ──────────────────────────────────────────────────────
   # `mobile/` ships as a real artefact and had no automated check at all: a broken
   # Gradle build or a lint regression was only ever found by building it by hand.

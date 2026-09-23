@@ -40,7 +40,7 @@ document itself — never left to be inferred.
 
 ## Decision records
 
-Ten ADRs in [`adr/`](adr/). The four that matter most:
+Eleven ADRs in [`adr/`](adr/). The four that matter most:
 
 - [ADR-0004](adr/0004-offline-conflict-rules.md) — offline conflict rules,
   decided before any sync code was written

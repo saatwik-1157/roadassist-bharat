@@ -1,6 +1,6 @@
 # Testing
 
-Six suites, 636 assertions, all executed against a real PostgreSQL + PostGIS and a
+Six suites, 650 assertions, all executed against a real PostgreSQL + PostGIS and a
 real Chrome, with no failures. A seventh — 22 payment-gateway checks — runs only
 against a Razorpay sandbox account and refuses to run without one. Nothing here is mocked except the third-party vendors, and each
 of those has a stub that speaks the vendor's actual wire format.
@@ -11,7 +11,7 @@ of those has a stub that speaks the vendor's actual wire format.
 # once
 docker compose up -d && npm ci && npm run db:migrate && npm run db:seed && npm run db:seed:raksha
 
-npm run verify            # typecheck · lint · boundaries · claims · citations · no-llm · unit tests
+npm run verify            # typecheck · lint · boundaries · claims · citations · no-llm · residency · unit tests
 npm start                 # in another shell
 npm run test:e2e          # API journey
 npm run test:concurrency  # races, idempotency, real-time

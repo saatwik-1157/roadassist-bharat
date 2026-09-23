@@ -19,7 +19,7 @@ Ranked by how much they cost if answered badly.
 | 13 | **HIGH** | "Have you had a penetration test?" | "No. 100 self-written attacks is not the same thing." | — | That it is independently audited |
 | 14 | **MEDIUM** | "How is the mechanic selected?" | "PostGIS KNN, off-duty and busy excluded in SQL, then proximity 60% / rating 34% / newcomer bonus." | `apps/api/src/dispatch.ts:77` | That severity is in the ranking score |
 | 15 | **MEDIUM** | "Why is that dynamic scheduling?" | "Run time, from a pool, by live state, with timeout-driven re-scheduling. Four properties, four matches." | `dispatch.ts` | — |
-| 16 | **MEDIUM** | "How do you prevent duplicate payments?" | "Settlement is recorded, never asserted; replaying the confirmation does not charge twice." | `apps/api/src/server.ts:1026` | Live gateway experience |
+| 16 | **MEDIUM** | "How do you prevent duplicate payments?" | "Settlement is recorded, never asserted; replaying the confirmation does not charge twice." | `apps/api/src/server.ts:1036` | Live gateway experience |
 | 17 | **MEDIUM** | "What if the database crashes?" | "`/health` 503 naming the database, `/v1/ping` 200, automatic recovery. Twenty seconds to show you." | `apps/api/src/server.ts:360` | Failover to a replica |
 | 18 | **MEDIUM** | "What if GPS fails?" | "An approximate position, labelled as approximate. Never fabricated silently." | `locate()` | Precise positioning |
 | 19 | **MEDIUM** | "Is this production ready?" | "No, and no document claims it is. It is demo and submission ready." | slide 27 | Production readiness |

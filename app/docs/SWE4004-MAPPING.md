@@ -22,7 +22,7 @@ Terminology follows the project's existing decks (Modules 1–6).
 | 6 | **Virtualization** | **IMPLEMENTED (container-level)** | OS-level virtualization: `Dockerfile` (multi-stage, non-root, tini PID 1), five service containers. Hardware virtualization is the layer beneath, which we consume rather than operate. |
 | 7 | **Multitenancy** | **IMPLEMENTED** | Row-level tenancy on a shared schema. Every read is scoped by `user_id`; `gov_jurisdictions`/`gov_officers` scope the authority tenant. **Proven, not asserted:** `security-audit.mjs` §1 runs 12 cross-tenant attacks, all refused. |
 | 8 | **Web technology** | **IMPLEMENTED** | REST over HTTP with a uniform `{data, meta}` / `{error}` envelope; **SSE** for real-time (not WebSocket — reasoned in ADR-0010); a PWA with a service worker and manifest. |
-| 9 | **Service technology** | **IMPLEMENTED** | Versioned `/v1` contract, 64 routes (61 under `/v1`), schema validation at every boundary (zod), stable error codes (`errors.ts`), idempotency keys on every replayable operation. |
+| 9 | **Service technology** | **IMPLEMENTED** | Versioned `/v1` contract, 65 routes (61 under `/v1`), schema validation at every boundary (zod), stable error codes (`errors.ts`), idempotency keys on every replayable operation. |
 | 10 | **Cloud storage** | **PARTIAL** | Block storage for the database (Docker volume), file storage for hazard photos (`UPLOAD_DIR`, ADR-0006 keeps only the reference in the DB), and **client-side storage** — IndexedDB with AES-GCM at rest, which is the genuinely novel part. Object storage is `DESIGN`. |
 | 11 | **Cloud monitoring** | **PARTIAL** | Real: structured JSON logs with a per-request correlation id, operation-level logging with duration/result (`observability.ts`), `/health` (application vs database), `/v1/ping`, `/v1/ops/overview` with live counts and a live audit-chain verification. No external APM. |
 | 12 | **Resource replication** | **DESIGN** | Stateless API by design (session state is in the JWT, not in memory), which is the precondition for replication. Nothing is replicated today, and the three things that would break — the in-process SSE registry, the in-process rate limiter and the in-process offer sweeper — are documented at their definitions. |
@@ -129,7 +129,7 @@ Browser / PWA / Android WebView / feature phone (SMS)
         ▼
 ┌──────────────────────────────────────────────┐
 │ ONE container — roadassist:local             │
-│  Fastify API (64 endpoints, /v1)             │
+│  Fastify API (65 endpoints, /v1)             │
 │  ├─ auth · booking · dispatch · SOS          │
 │  ├─ SSE /v1/events (in-process registry)     │
 │  ├─ offer sweeper (in-process timer)         │

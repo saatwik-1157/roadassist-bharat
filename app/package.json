@@ -9,13 +9,14 @@
     "apps/*"
   ],
   "scripts": {
-    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run claims && npm run citations && npm run no-llm && npm test",
+    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run claims && npm run citations && npm run no-llm && npm run residency && npm test",
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",
     "boundaries": "node scripts/check-boundaries.mjs",
     "claims": "node scripts/check-claims.mjs",
     "citations": "node scripts/check-citations.mjs",
     "no-llm": "node scripts/check-no-llm.mjs",
+    "residency": "node scripts/check-data-residency.mjs",
     "test": "node --import tsx --test packages/db/test/*.test.ts apps/api/test/*.test.ts",
     "build": "npm run build -w @roadassist/db && npm run build -w @roadassist/api",
     "infra:up": "docker compose up -d",

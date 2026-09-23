@@ -176,10 +176,20 @@ await app.register(fastifyStatic, {
 });
 // Demo media (videos, photos) live in the repo's site/ folder — served here so
 // the showcase page can embed them without duplicating megabytes into app/.
+//
+// MEDIA ONLY, and the filter is the point. site/ also holds half a dozen old
+// prototype pages, and mounting the directory whole published them: they were
+// reachable at /media/app.html and each one pulled webfonts from Google, so
+// every visitor's IP address left India to render a page nothing links to.
+// That breaks non-negotiable #4, and it broke it silently, which is why
+// check-data-residency.mjs now fails the build on it rather than trusting
+// this comment.
+const MEDIA_TYPES = /\.(mp4|webm|mov|m4v|jpe?g|png|webp|avif|gif|svg|vtt)$/i;
 await app.register(fastifyStatic, {
   root: findUp("../site"),
   prefix: "/media/",
   decorateReply: false,
+  allowedPath: (pathname) => MEDIA_TYPES.test(pathname),
 });
 
 

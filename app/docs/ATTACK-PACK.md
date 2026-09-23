@@ -35,7 +35,7 @@ repository; nothing is aspirational.
 > storage, and it says plainly that nothing has been transmitted. On reconnect
 > it forwards itself, and a unique key makes a duplicate impossible.
 >
-> **Result.** 636 assertions executed across six suites, no failures, including 74
+> **Result.** 650 assertions executed across six suites, no failures, including 74
 > attacks that must fail. A seventh suite — 22 payment-gateway checks — needs a
 > Razorpay sandbox account and is not run; the same settlement path is covered
 > against a signature-exact stub. Every claim on our slides is something I can show you.
@@ -46,7 +46,7 @@ repository; nothing is aspirational.
 > plain HTML and ES modules served by the same process, so there is no build
 > step and no second deployment unit.
 >
-> They talk to a **Fastify API**: 64 routes, 61 of them under `/v1`, zod validation at
+> They talk to a **Fastify API**: 65 routes, 61 of them under `/v1`, zod validation at
 > every boundary, a uniform envelope, and stable error codes.
 >
 > Behind it, five modules in one deployable — identity, fleet, service, ops and

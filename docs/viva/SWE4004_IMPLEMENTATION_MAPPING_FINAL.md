@@ -36,7 +36,7 @@ Four labels, used strictly:
 | Virtualization | **IMPLEMENTED (OS-level)** | `app/Dockerfile`: four stages, non-root uid 1000, `tini` as PID 1, a real `HEALTHCHECK`. Hardware virtualization is the layer beneath, which we consume. |
 | Web technology | **IMPLEMENTED** | REST with a uniform `{data, meta}` / `{error}` envelope; **SSE** for real-time — not WebSocket, and ADR-0010 says why; a PWA with `sw.js` and `manifest.webmanifest`. |
 | Multitenancy | **IMPLEMENTED** | Row-level tenancy on a shared schema, every read scoped by `user_id`. **Proven, not asserted:** `scripts/security-audit.mjs` runs 12 cross-tenant attacks and all are refused. Run it in front of them. |
-| Service technology | **IMPLEMENTED** | Versioned `/v1` contract — 64 routes, 61 under `/v1` — zod validation at every boundary, stable error codes in `errors.ts`, idempotency keys on every replayable operation. |
+| Service technology | **IMPLEMENTED** | Versioned `/v1` contract — 65 routes, 61 under `/v1` — zod validation at every boundary, stable error codes in `errors.ts`, idempotency keys on every replayable operation. |
 
 ---
 

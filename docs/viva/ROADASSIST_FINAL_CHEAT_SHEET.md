@@ -8,7 +8,7 @@ India whose emergency path keeps working when the network does not.
 ---
 
 ### Architecture
-PWA / Android / feature-phone SMS → **Fastify API** (64 routes, 61 under `/v1`,
+PWA / Android / feature-phone SMS → **Fastify API** (65 routes, 61 under `/v1`,
 zod at every boundary) → five modules (identity, fleet, service, ops, RAKSHA)
 with **CI-enforced** boundaries → **PostgreSQL 16 + PostGIS 3.4**. Every vendor
 behind an adapter with a local implementation → runs on **zero paid accounts**.

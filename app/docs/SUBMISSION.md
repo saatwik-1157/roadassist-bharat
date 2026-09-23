@@ -6,7 +6,7 @@ Ticked only where the artefact exists **and** has been verified in this session.
 
 | | Item | Where | Status |
 |---|---|---|---|
-| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 56-table schema, 64 routes, 6 web surfaces |
+| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 56-table schema, 65 routes, 6 web surfaces |
 | ✅ | Database migrations | `app/packages/db/drizzle/` | 5 migrations, run from an **empty** database in this session |
 | ✅ | Seed data | `app/packages/db/src/seed.ts` | Two modes — full demo, and `--reference-only` for production (0 demo rows, verified) |
 | ✅ | README | `app/README.md`, root `README.md` | |

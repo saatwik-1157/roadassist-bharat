@@ -62,14 +62,14 @@ One container serving three web surfaces plus the API, and one PostGIS database.
 
 - **56 tables**, 62 foreign keys, 138 indexes, 5 GiST spatial indexes,
   5 migrations
-- **64 routes**, 61 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
+- **65 routes**, 61 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
 - **6 web surfaces**: citizen app, mechanic console, authority dashboard, live
   map, landing, showcase
 - **10 ADRs**, an enforced module-boundary check, and a 20-row failure matrix
 
 ## Verification
 
-**636 assertions executed across six suites, no failures** (a seventh, 22 payment-gateway checks, needs a Razorpay sandbox account), against a real
+**650 assertions executed across six suites, no failures** (a seventh, 22 payment-gateway checks, needs a Razorpay sandbox account), against a real
 PostgreSQL + PostGIS and a real Chrome:
 
 | Suite | Assertions |

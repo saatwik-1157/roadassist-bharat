@@ -19,6 +19,10 @@ import { env } from "./env.js";
 import { db } from "./db.js";
 import * as S from "@roadassist/db";
 import { authenticate, constantTimeEquals, issueAccessToken, requireRole, sha256 } from "./auth.js";
+import {
+  REVIEW_SLA_MINUTES, assessReview, compareReviewUrgency,
+  type IncidentSeverity,
+} from "./domain/incident-review.js";
 
 const ok = <T>(data: T, meta: Record<string, unknown> = {}) => ({ data, meta });
 
@@ -638,6 +642,71 @@ export async function rakshaRoutes(app: FastifyInstance) {
        LIMIT ${q.limit ?? 50}`);
     return ok(rows, { count: rows.length });
   });
+
+  // ── the confirmation queue (ADR-0011) ───────────────────────────────────
+  // ADR-0005 stops a model dispatching anyone, so a RAKSHA signal waits in
+  // AWAITING_CONFIRMATION for a human. The mirror failure is that nobody ever
+  // comes: the state machine offers only `confirm` and `cancel`, both of which
+  // need a person, so an unattended signal waited indefinitely and nothing
+  // surfaced it. This is what surfaces it. It reads; it never moves anything.
+  app.get("/v1/raksha/incidents/review-queue",
+    { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req) => {
+      const q = z.object({
+        overdueOnly: z.coerce.boolean().optional(),
+        limit: z.coerce.number().min(1).max(200).optional(),
+      }).parse(req.query);
+
+      const rows = await db.execute<{
+        id: string; status: string; severity: IncidentSeverity; created_at: string | Date;
+        detected_by_model: boolean; model_confidence: string | null;
+        lat: number | null; lng: number | null; signals: number;
+      }>(raw`
+        SELECT i.id, i.status, i.severity, i.created_at, i.detected_by_model, i.model_confidence,
+               ST_Y(i.location) AS lat, ST_X(i.location) AS lng,
+               (SELECT count(*)::int FROM incident_signals s WHERE s.incident_id = i.id) AS signals
+          FROM incidents i
+         WHERE i.deleted_at IS NULL
+           AND i.status = 'AWAITING_CONFIRMATION'
+         ORDER BY i.created_at ASC
+         LIMIT ${q.limit ?? 100}`);
+
+      // The clock is read once, so every row in one response is judged against
+      // the same instant — two rows a millisecond apart must not straddle a
+      // deadline and sort inconsistently.
+      const now = new Date();
+      const assessed = rows
+        .map((row) => ({
+          row,
+          severity: row.severity,
+          assessment: assessReview(row.status, new Date(row.created_at), row.severity, now),
+        }))
+        .sort(compareReviewUrgency);
+
+      const visible = q.overdueOnly ? assessed.filter((a) => a.assessment.state === "OVERDUE") : assessed;
+      const overdue = assessed.filter((a) => a.assessment.state === "OVERDUE").length;
+
+      return ok(visible.map(({ row, assessment }) => ({
+        id: row.id,
+        status: row.status,
+        severity: row.severity,
+        detectedByModel: row.detected_by_model,
+        modelConfidence: row.model_confidence === null ? null : Number(row.model_confidence),
+        lat: row.lat, lng: row.lng,
+        signals: row.signals,
+        raisedAt: new Date(row.created_at).toISOString(),
+        waitedMinutes: assessment.waitedMinutes,
+        slaMinutes: assessment.slaMinutes,
+        reviewDeadline: assessment.deadline?.toISOString() ?? null,
+        minutesToDeadline: assessment.minutesToDeadline,
+        overdue: assessment.state === "OVERDUE",
+      })), {
+        count: visible.length,
+        awaitingReview: assessed.length,
+        overdue,
+        slaMinutes: REVIEW_SLA_MINUTES,
+        note: "A queue, not a dispatch. ADR-0005: only a human moves an incident out of AWAITING_CONFIRMATION.",
+      });
+    });
 
   app.get("/v1/raksha/segments", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async () => {
     const rows = await db.execute<Record<string, unknown>>(raw`

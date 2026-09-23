@@ -13,7 +13,7 @@
 |---|---|---|---|---|
 | Users authenticate with OTP and rotating tokens | 189 e2e assertions incl. refresh-reuse theft detection | `apps/api/src/auth.ts:131` `authenticate()` | Sign-in, 0:45 | M1 SaaS |
 | A user can only reach their own data | 12 cross-tenant attacks refused | `apps/api/src/booking-access.ts:17` `bookingAudience()` | — (run the suite) | **M2 multitenancy** |
-| Diagnosis is a labelled rules engine, not a model | Response carries `rules-1.0.0` | `apps/api/src/server.ts:605` → `domain/ai-rules.ts` | Diagnosis, 2:15 | M1 service boundary |
+| Diagnosis is a labelled rules engine, not a model | Response carries `rules-1.0.0` | `apps/api/src/server.ts:615` → `domain/ai-rules.ts` | Diagnosis, 2:15 | M1 service boundary |
 | A remote model may make a verdict stricter, never laxer | `driveable: rules.driveable === false ? false : …` | `apps/api/src/providers.ts:196` | Diagnosis badge | M1 risk control |
 | Device and cloud rule tables cannot diverge | CI test fails the build | `apps/api/test/offline-engine.test.ts` | — | M2 service tech |
 | Dispatch excludes off-duty and busy providers **in SQL** | Ranked offers with real distances | `apps/api/src/dispatch.ts:77` `findCandidates()` | Dispatch, 3:15 | **M4 resource pooling** |
@@ -25,13 +25,13 @@
 | Nothing is transmitted off-grid, and it says so | UI string; no satellite/mesh/SMS bypass exists | `apps/web/app.html` `raiseOffGridSos` | Offline, 7:15 | M1 cloud risk |
 | Sync is idempotent | Re-sync creates nothing | `apps/api/src/routes/emergency.ts:363` + unique `client_incident_id` | Sync, 8:00 | M4 migration |
 | The client never decides money arrived | Amount is the invoice total; signature recomputed | `apps/api/src/routes/payments.ts:125` (pay), `:374` (webhook) | Payment, 5:30 | M2 service tech |
-| A booking cannot be PAID without a settled payment | 409 `payment_required` | `apps/api/src/server.ts:1026` | Payment, 5:30 | M2 service tech |
+| A booking cannot be PAID without a settled payment | 409 `payment_required` | `apps/api/src/server.ts:1036` | Payment, 5:30 | M2 service tech |
 | History cannot be edited | Postgres RULES make UPDATE/DELETE no-ops | `apps/api/src/audit.ts:107` `audit()`, `:148` `verifyAuditChain()` | `/v1/ops/overview` | M3 monitoring |
 | Readiness is real | DB down → `/health` 503, `/v1/ping` 200, auto-recovery | `apps/api/src/server.ts:360` | Chaos, optional | **M4 dynamic scalability** |
 | Production refuses unsafe config | Boots refused on 8 settings | `apps/api/src/env.ts:347` `assertProductionSafe()` | Terminal | M1 boundaries |
 | Module boundaries are enforced, not agreed | Cross-module import fails CI | `app/scripts/check-boundaries.mjs` | Terminal | M1 roles/boundaries |
 | Virtualization is real | Suite passes **against the image** | `app/Dockerfile` | Terminal | **M2 virtualization** |
-| 636 assertions, 0 failures | Six suites, executed twice | `FINAL_REPOSITORY_STATUS.md` | Terminal | — |
+| 650 assertions, 0 failures | Six suites, executed twice | `FINAL_REPOSITORY_STATUS.md` | Terminal | — |
 
 ## The three files to have open before you walk in
 

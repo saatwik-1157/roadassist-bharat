@@ -41,7 +41,7 @@ cd app
 docker compose up -d db          # PostGIS on 5434 — 5432/5433 are other projects
 npm run demo:reset               # reset + migrate + seed + seed:raksha
 npm start                        # API on :4000, serves the web surfaces too
-npm run verify                   # typecheck · lint · boundaries · claims · citations · no-llm · unit tests
+npm run verify                   # typecheck · lint · boundaries · claims · citations · no-llm · residency · unit tests
 ```
 
 **`demo:reset` leaves the RAKSHA dashboard EMPTY.** It seeds the corridor and
@@ -78,7 +78,7 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 108 unit — no I/O, the only ones that run standalone
+npm test                 # 122 unit — no I/O, the only ones that run standalone
 npm run test:e2e         # 189
 npm run test:concurrency # 75
 npm run test:gateway     # 27
