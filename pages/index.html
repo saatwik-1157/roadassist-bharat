@@ -154,7 +154,8 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
 .stage .i{font-family:var(--mono);font-size:.74rem;opacity:.75}
 .panel{display:grid;grid-template-columns:.92fr 1.08fr;gap:28px;align-items:center;
        background:var(--bg-2);border:1px solid var(--line-soft);border-radius:var(--r);padding:24px}
-.panel img{border:1px solid var(--line-soft);border-radius:10px;width:100%}
+.panel img{border:1px solid var(--line-soft);border-radius:10px;width:auto;
+           max-width:100%;max-height:440px;margin:0 auto}
 .panel h3{font-size:1.15rem}
 
 /* ── tables / test dashboard ────────────────────────────────── */
@@ -193,7 +194,16 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
       overflow:hidden;cursor:zoom-in;padding:0;font-family:inherit;text-align:left;
       transition:border-color .18s,transform .18s}
 .shot:hover{border-color:var(--accent);transform:translateY(-3px)}
-.shot img{width:100%;aspect-ratio:4/5;object-fit:cover;object-position:top}
+/* Two tile shapes, because the captures are two shapes: the phone surfaces
+   are 780x1688 and the console surfaces are 2560x1720. Forcing both into one
+   ratio crops something important out of one of them. */
+.shot img{width:100%;object-fit:cover;object-position:top;background:var(--bg)}
+.shots-phone .shot img{aspect-ratio:78/169}
+.shots-wide  .shot img{aspect-ratio:16/10;object-position:center top}
+.shots-phone{grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+.shots-wide{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.shots-label{font-size:.73rem;letter-spacing:.1em;text-transform:uppercase;
+             color:var(--ink-3);font-weight:700;margin:26px 0 12px}
 .shot .cap{padding:10px 12px;font-size:.8rem;color:var(--ink-2)}
 dialog.lb{border:0;padding:0;background:transparent;max-width:min(94vw,1100px);max-height:94vh}
 dialog.lb::backdrop{background:rgba(4,6,10,.9)}
@@ -232,6 +242,31 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .foot .team{color:var(--ink-2);font-size:.9rem;margin:0 0 5px}
 .legal{margin-top:34px;padding-top:20px;border-top:1px solid var(--line-soft);
        color:var(--ink-3);font-size:.83rem}
+
+/* ── ask panel ──────────────────────────────────────────────── */
+.ask{background:linear-gradient(180deg,var(--bg-2),var(--surface));
+     border:1px solid var(--line);border-radius:18px;padding:26px}
+.ask-bar{display:flex;gap:10px;margin:16px 0 14px}
+.ask-bar input{
+  flex:1;background:var(--bg);border:1px solid var(--line);color:var(--ink);
+  border-radius:11px;padding:13px 16px;font-size:.98rem;font-family:inherit;
+}
+.ask-bar input::placeholder{color:var(--ink-3)}
+.ask-bar input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+.chips-q{display:flex;flex-wrap:wrap;gap:7px}
+.chip-q{background:var(--surface-2);border:1px solid var(--line-soft);color:var(--ink-2);
+        border-radius:999px;padding:6px 13px;font-size:.83rem;cursor:pointer;font-family:inherit;
+        transition:all .15s}
+.chip-q:hover{border-color:var(--accent);color:var(--ink)}
+.answer{margin-top:18px;background:var(--bg);border:1px solid var(--line-soft);
+        border-radius:13px;padding:20px 22px}
+.answer h3{color:var(--ink);font-size:1.05rem;margin-bottom:8px}
+.answer p{margin-bottom:10px;font-size:.95rem}
+.answer p:last-child{margin-bottom:0}
+.answer .src{font-size:.83rem;color:var(--ink-3);margin-top:12px;
+             padding-top:12px;border-top:1px solid var(--line-soft)}
+.related{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.ask-meta{font-size:.8rem;color:var(--ink-3);margin-top:12px}
 
 /* ── reveal ─────────────────────────────────────────────────── */
 /* Scoped to .js, set by an inline script before first paint. Without it a
@@ -340,6 +375,34 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       Every figure on this page was produced by running the thing it describes against a
       database migrated from empty and seeded. Nothing here is estimated.
     </p>
+  </div>
+</section>
+
+<!-- ═══ ASK ═══ -->
+<section id="ask" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">Ask about this project</p>
+    <h2>Answers, looked up — not generated</h2>
+    <p class="lead" style="margin-bottom:0">
+      Type a question about the architecture, the testing, the AI, or the scope. The answer comes
+      from a fixed index of facts taken from this repository, scored against your words. There is
+      no language model here, no API key and no request leaving this page.
+    </p>
+
+    <div class="ask" style="margin-top:22px">
+      <form class="ask-bar" id="askForm" role="search">
+        <label class="visually-hidden" for="askInput" style="position:absolute;left:-9999px">Ask a question about the project</label>
+        <input id="askInput" type="search" autocomplete="off"
+               placeholder="e.g. does it use an LLM?  how many tests?  what happens offline?">
+        <button class="btn btn-primary" type="submit">Answer</button>
+      </form>
+      <div class="chips-q" id="askChips"></div>
+      <div id="askOut" aria-live="polite"></div>
+      <p class="ask-meta">
+        Deterministic: the same question always returns the same answer, and every answer names
+        where in the repository it comes from.
+      </p>
+    </div>
   </div>
 </section>
 
@@ -675,7 +738,8 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       about ninety seconds, so they cannot quietly drift from what the product does.
       Select any image to enlarge.
     </p>
-    <div class="shots" id="gallery">
+    <p class="shots-label">On the phone &mdash; citizen surfaces</p>
+    <div class="shots shots-phone">
       <button class="shot" data-src="shots/01-login.png"            data-cap="OTP sign-in — real API, development code returned in the response"><img src="shots/01-login.png" alt="OTP sign-in screen" loading="lazy"><span class="cap">Sign in</span></button>
       <button class="shot" data-src="shots/02-home.png"             data-cap="Home — SOS, emergency readiness, quick actions"><img src="shots/02-home.png" alt="Citizen home screen" loading="lazy"><span class="cap">Home &amp; SOS</span></button>
       <button class="shot" data-src="shots/04-ai-diagnosis.png"     data-cap="Diagnosis — cause, confidence, severity and safety action, labelled a rules engine"><img src="shots/04-ai-diagnosis.png" alt="Diagnosis screen" loading="lazy"><span class="cap">Diagnosis</span></button>
@@ -686,9 +750,13 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       <button class="shot" data-src="shots/09-offgrid-sos.png"      data-cap="Off-grid SOS created — &ldquo;nothing has been transmitted&rdquo;"><img src="shots/09-offgrid-sos.png" alt="Off-grid SOS created" loading="lazy"><span class="cap">Off-grid SOS</span></button>
       <button class="shot" data-src="shots/11-sync-complete.png"    data-cap="SOS synchronised — journal empty, platform reference returned"><img src="shots/11-sync-complete.png" alt="Sync complete" loading="lazy"><span class="cap">Idempotent sync</span></button>
       <button class="shot" data-src="shots/16-payment.png"          data-cap="Payment — settlement recorded against the booking, never decided by the client"><img src="shots/16-payment.png" alt="Payment screen" loading="lazy"><span class="cap">Payment</span></button>
+      <button class="shot" data-src="shots/18-live-map.png"         data-cap="RAKSHA live map — clustered mechanics, responders and detections"><img src="shots/18-live-map.png" alt="RAKSHA live map" loading="lazy"><span class="cap">Live map</span></button>
+    </div>
+
+    <p class="shots-label">On a desktop &mdash; mechanic, authority and operations</p>
+    <div class="shots shots-wide">
       <button class="shot" data-src="shots/13-mechanic-login.png"   data-cap="Mechanic console — dispatch inbox, live badge, job lifecycle"><img src="shots/13-mechanic-login.png" alt="Mechanic console" loading="lazy"><span class="cap">Mechanic console</span></button>
       <button class="shot" data-src="shots/14-authority.png"        data-cap="RAKSHA authority — live map, road health, detection triage"><img src="shots/14-authority.png" alt="RAKSHA authority dashboard" loading="lazy"><span class="cap">RAKSHA authority</span></button>
-      <button class="shot" data-src="shots/18-live-map.png"         data-cap="RAKSHA live map — clustered mechanics, responders and detections"><img src="shots/18-live-map.png" alt="RAKSHA live map" loading="lazy"><span class="cap">Live map</span></button>
       <button class="shot" data-src="shots/20-database-schema.png"  data-cap="The schema — 56 tables, counted through pg_depend so PostGIS does not inflate it"><img src="shots/20-database-schema.png" alt="Database schema" loading="lazy"><span class="cap">Schema</span></button>
       <button class="shot" data-src="shots/21-test-security.png"    data-cap="The security suite — 74 attacks, every one refused"><img src="shots/21-test-security.png" alt="Security suite output" loading="lazy"><span class="cap">Security suite</span></button>
       <button class="shot" data-src="shots/23-console.png"          data-cap="Request console — every API call the client makes, with its response"><img src="shots/23-console.png" alt="Request console" loading="lazy"><span class="cap">Request console</span></button>
@@ -1001,6 +1069,132 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       host.appendChild(d);
     }
   }, true);
+})();
+</script>
+<script>
+/* Deterministic answer panel.
+
+   A fixed index of facts taken from this repository, scored against the words in
+   the question. No model, no API key, and no request leaves this page - which is
+   the same claim the project makes about its own decision pipeline, so it would
+   be odd to break it here. The same question always returns the same answer, and
+   every answer names the file it came from.
+
+   When nothing scores well enough it says so rather than guessing. A guess
+   dressed as an answer is worse than no answer, and this project is built around
+   exactly that distinction. */
+(function () {
+  "use strict";
+  var GH = "https://github.com/saatwik-1157/roadassist-bharat/blob/main/";
+  var INDEX = [
+    {id:"llm",q:"Does it use an LLM or ChatGPT?",k:"no llm gpt chatgpt language model ai generated openai anthropic claude gemini wrapper bot",a:"<p><strong>No.</strong> There is no LLM or GPT dependency in any manifest and no chat endpoint called from any source file &mdash; not in the API, the Android client, the web surfaces or the CV pipeline.</p><p>That is enforced rather than promised: <code>npm run no-llm</code> fails the build on an LLM package in any manifest or a chat endpoint in any source file, and it runs in CI on every push. Even this answer panel is a lookup over a fixed index, not a model.</p>",src:"app/scripts/check-no-llm.mjs"},
+    {id:"ai-what",q:"What is the AI in this project, then?",k:"ai artificial intelligence model yolo raksha detection kind machine learning vision",a:"<p>Two things, and neither is a language model. <strong>RAKSHA road-damage detection is a YOLO11 model trained in this repository</strong> on RDD2022 across four countries. <strong>The roadside diagnosis is a deterministic rule table</strong> (ADR-0006) returning <code>rules-1.0.0</code>, and every screen showing it says it is a rules engine.</p>",src:"app/docs/adr/0006-ai-rules-first.md"},
+    {id:"map",q:"How accurate is the model?",k:"accuracy accurate map map50 metrics precision recall performance good benchmark",a:"<p><strong>mAP50 0.471 and mAP50-95 0.226</strong> on held-out validation, for <code>yolo11s-multi-rich</code> &mdash; four classes, 3.2k images across four countries, 13 epochs. Per-class mAP50: pothole 0.242, road damage 0.431.</p><p>Those are validation figures from the training run, not production accuracy. The model has never run against live Indian road imagery at scale, and the project does not claim it has.</p>",src:"ai/README.md"},
+    {id:"tests",q:"How many tests are there?",k:"tests test testing assertions suites coverage many proof evidence verified",a:"<p><strong>650 assertions across six suites, zero failures:</strong> 122 unit, 189 end-to-end, 75 concurrency, 74 security, 27 gateway security, 163 browser. Android adds 66 tests with zero lint errors; the CV pipeline adds 39.</p><p>22 Razorpay sandbox checks need a payment account, have never run, and are not counted in that total.</p>",src:"app/docs/measured.json"},
+    {id:"security",q:"What does the security testing actually do?",k:"security attacks penetration vulnerabilities auth injection jwt refused hacking safe",a:"<p>74 attacks that must every one be refused: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and <code>alg:none</code> tokens, unsigned webhooks, oversized input and error-body leakage.</p><p>A green run means the attack was attempted and failed, which is a stronger statement than &ldquo;the code looks right&rdquo;.</p>",src:"app/scripts/security-audit.mjs"},
+    {id:"offline",q:"What happens with no network?",k:"offline off-grid network signal connectivity sos emergency disconnected airplane coverage",a:"<p>Off-Grid Mode is the architecture, not a fallback (ADR-0009). An SOS raised with no signal becomes a real incident stored on the device with its own reference and GPS fix &mdash; and the screen says <em>stored on this device</em> rather than pretending it was sent.</p><p>Diagnosis runs on-device against the same rule table the server uses. When connectivity returns the journal replays idempotently, so a retry never becomes a second ambulance.</p>",src:"app/docs/adr/0009-offgrid-mode.md"},
+    {id:"dispatch",q:"How does dispatch choose a mechanic?",k:"dispatch mechanic offers ranking nearest matching assign scheduling allocate choose",a:"<p>Dynamic scheduling: work is assigned at run time from a live pool by a score computed from distance, ETA and rating, using PostGIS <code>ST_DWithin</code> over a GiST index.</p><p>Two mechanics accepting one job is settled by <code>SELECT &hellip; FOR UPDATE</code> on the booking row, with offer expiry re-checked under the lock &mdash; not by timing.</p>",src:"app/apps/api/src/dispatch.ts"},
+    {id:"model-dispatch",q:"Can the AI dispatch an ambulance by itself?",k:"model dispatch ambulance automatic human confirmation autonomous decide responder",a:"<p><strong>No, and that is structural.</strong> A model-detected crash lands in <code>AWAITING_CONFIRMATION</code> and there is no transition out of it that does not pass through a human (ADR-0005). A false positive that dispatches is worse than a false negative that asks.</p><p>ADR-0011 bounds the mirror failure &mdash; nobody arriving &mdash; with a review deadline per severity that escalates <em>attention</em>, never responders.</p>",src:"app/docs/adr/0011-unconfirmed-incident-review.md"},
+    {id:"db",q:"What database does it use?",k:"database postgres postgresql postgis schema tables indexes sql storage data",a:"<p>PostgreSQL 16 with PostGIS &mdash; required, not optional. <strong>56 tables, 138 indexes</strong> (84 unique, 5 GiST), 62 foreign keys, 5 check constraints and 5 migrations.</p><p>The audit log is hash-chained and append-only: Postgres <code>RULES</code> make <code>UPDATE</code> and <code>DELETE</code> on it no-ops.</p>",src:"app/docs/adr/0003-postgres-postgis.md"},
+    {id:"arch",q:"What is the architecture?",k:"architecture design monolith microservices structure stack backend built system",a:"<p>A modular monolith (ADR-0001). The Fastify API and every web surface ship in one process, because the surfaces are plain HTML, CSS and JavaScript with no build step &mdash; a second deployment unit would add a network hop and a CORS boundary in exchange for nothing.</p><p>65 routes under a versioned <code>/v1</code> contract, Zod validation at every boundary, JWT with role-based access, and server-sent events for real time.</p>",src:"app/docs/adr/0001-modular-monolith.md"},
+    {id:"realtime",q:"How does real-time work?",k:"realtime websocket sse live updates streaming push events tracking",a:"<p>Server-sent events, not WebSocket &mdash; reasoned in ADR-0010. The stream is never the source of truth, so a dropped connection loses nothing: the client re-reads state from the API.</p>",src:"app/docs/adr/0010-realtime-and-concurrency.md"},
+    {id:"sms",q:"Does it work on a feature phone?",k:"sms feature phone telecom ussd basic keypad text message without app dumbphone",a:"<p>Yes. <code>POST /v1/telecom/sms</code> is a complete booking path with no app at all, in all eight languages, switched by texting <code>LANG TA</code>.</p><p>Every script but English is outside GSM 03.38, so those seven are UCS-2 and one segment holds 70 characters rather than 160 &mdash; the message catalogue is held to that budget by a test.</p>",src:"app/apps/api/src/routes/telecom.ts"},
+    {id:"lang",q:"How many languages does it support?",k:"languages language localisation localization i18n translation hindi tamil multilingual",a:"<p>Eight: English, Hindi, Tamil, Telugu, Bengali, Marathi, Kannada and Gujarati.</p><p><strong>Seven of the eight are machine-translated and have not been reviewed by native speakers.</strong> The strings exist; the quality is unverified, and those are different claims.</p>",src:"app/apps/api/src/i18n.ts"},
+    {id:"android",q:"Is there a mobile app?",k:"android mobile app kotlin compose native apk ios phone application",a:"<p>A native Android client in Kotlin and Compose &mdash; 66 tests, zero lint errors, and a release APK built under R8. 21 of those tests cover <code>SosLadder.kt</code> alone, because the SOS decisions live there as pure functions so they can be tested off-device.</p><p>iOS is not built, and the project says so rather than implying otherwise.</p>",src:"mobile/"},
+    {id:"payments",q:"How are payments handled?",k:"payment payments razorpay money invoice settlement paid billing charge upi",a:"<p>The client never decides that money arrived. A payment is recorded only against a settlement the server verified, and a <strong>partial unique index</strong> over settled payments makes &ldquo;paid once&rdquo; true even when two confirmations arrive together.</p><p>The 22 Razorpay sandbox checks need a KYC-verified account, have never run, and are never described as passing.</p>",src:"app/apps/api/src/routes/payments.ts"},
+    {id:"run",q:"How do I run it?",k:"run install setup start docker local try demo clone command launch",a:"<p>One command, nothing to install but Docker:</p><p><code>docker compose -f docker-compose.demo.yml up</code></p><p>It pulls the published image, brings up PostGIS, migrates, seeds and serves every surface on <code>http://localhost:4000</code>. Running it twice is a no-op rather than an error.</p>",src:"DEPLOYMENT.md"},
+    {id:"deployed",q:"Is it deployed anywhere?",k:"deployed deployment live hosted production url server cloud render online",a:"<p>The container image is built and published to GitHub Container Registry, and CI boots it against a real PostGIS and runs the end-to-end and security suites <em>against the running container</em> before publishing.</p><p>There is no public hosted instance: that additionally needs a managed PostGIS database wired to it. This site deliberately does not link to a URL that does not answer.</p>",src:".github/workflows/publish-image.yml"},
+    {id:"gates",q:"What stops the documentation going stale?",k:"gates claims citations honesty documentation drift stale verify build checks ci",a:"<p>Five gates run on every push. <code>claims</code> fails when any document disagrees with <code>measured.json</code>; <code>citations</code> checks every <code>file.ts:123</code> reference still points at real code; <code>boundaries</code> enforces module boundaries; <code>no-llm</code> refuses a language model; <code>residency</code> refuses personal data leaving India.</p><p>They exist because the same wrong number reached twenty-odd documents three separate times, and a human caught it each time &mdash; which is not a mechanism.</p>",src:"app/docs/CLAIMS-AUDIT.md"},
+    {id:"privacy",q:"What about data privacy?",k:"privacy pii data residency india gdpr dpdp personal information tracking cookies",a:"<p>&ldquo;No PII leaves India&rdquo; is a non-negotiable, and it is now a build gate rather than a promise. <code>npm run residency</code> fails on a third-party subresource in any served page, an undeclared outbound host in any source file, a telemetry SDK, or personal data in a URL.</p><p>It found a live leak the day it was written: dead prototype pages were reachable and pulled webfonts from Google, so every visitor IP address left the country.</p>",src:"app/scripts/check-data-residency.mjs"},
+    {id:"scope",q:"What is not built?",k:"not built scope limitations missing future roadmap incomplete kubernetes todo",a:"<p>Named rather than implied: iOS, Android Auto, IVR, USSD, satellite, mesh networking, ERSS-112 handoff (stubbed, and the API says so in its own response), Kubernetes, Terraform, autoscaling and multi-zone anything.</p><p>There is no load test &mdash; latency is measured single-user, on one machine.</p>",src:"README.md"},
+    {id:"team",q:"Who built it?",k:"team built authors students members people contributors made who",a:"<p>A four-person team for SWE4004 &mdash; Cloud Computing and Applications: V. Saatwik Sairaam (backend, APIs, database), P. Nirisha Chowdary (auth, security, real-time), T. V. S. Jignesh (frontend, customer app) and G. Parthavi (mechanic and admin surfaces, cloud DevOps).</p>",src:"docs/00-team-charter.md"},
+    {id:"adr",q:"Where are the design decisions written down?",k:"adr decision records design rationale documentation decisions reasoning",a:"<p>Eleven architecture decision records in <code>app/docs/adr/</code>, each with the alternative that was rejected and the consequences accepted &mdash; from the modular monolith through emergency isolation, off-grid mode and the review deadline on unconfirmed incidents.</p>",src:"app/docs/adr/"},
+    {id:"raksha",q:"What is RAKSHA?",k:"raksha authority dashboard government road health detections edge device safety",a:"<p>The road-safety half. Edge devices post road-damage detections; the platform scores road health per segment and raises an incident when severity and confidence both clear a threshold &mdash; and then waits for a human.</p><p>ADR-0006 keeps a hash of each detection event and never the frame itself, so an audit trail exists without retaining imagery.</p>",src:"app/docs/adr/0007-raksha-module.md"},
+    {id:"concurrency",q:"How do you handle two people acting at once?",k:"concurrency race condition locking transaction simultaneous double booking atomic",a:"<p>Postgres settles it, never timing. Row locks with <code>SELECT &hellip; FOR UPDATE</code> for competing accepts; <code>ON CONFLICT DO NOTHING</code> on a client-minted reference for duplicate SOS; a partial unique index for double settlement.</p><p>75 concurrency assertions exercise exactly these paths. Anything that is only true because two things did not happen at the same instant is not true.</p>",src:"app/scripts/concurrency-test.mjs"}
+  ];
+
+  var STOP = {the:1,a:1,an:1,is:1,are:1,do:1,does:1,did:1,it:1,this:1,that:1,of:1,to:1,in:1,on:1,
+              for:1,and:1,or:1,with:1,what:1,how:1,why:1,when:1,where:1,you:1,your:1,i:1,me:1,
+              can:1,any:1,there:1,have:1,has:1,about:1,project:1,they:1,its:1,my:1,we:1};
+
+  function tokens(s) {
+    return String(s).toLowerCase().split(/[^a-z0-9]+/).filter(function (t) {
+      return t.length > 1 && !STOP[t];
+    });
+  }
+
+  INDEX.forEach(function (e) {
+    e._bag = Object.create(null);
+    tokens(e.q + " " + e.k).forEach(function (t) { e._bag[t] = (e._bag[t] || 0) + 1; });
+    e._words = Object.keys(e._bag);
+  });
+
+  function score(qt, e) {
+    var n = 0;
+    for (var i = 0; i < qt.length; i++) {
+      var t = qt[i];
+      if (e._bag[t]) { n += 2 + e._bag[t]; continue; }
+      for (var j = 0; j < e._words.length; j++) {
+        var w = e._words[j];
+        if (w.indexOf(t) === 0 || t.indexOf(w) === 0) { n += 1; break; }
+      }
+    }
+    return n;
+  }
+
+  var form  = document.getElementById("askForm");
+  var input = document.getElementById("askInput");
+  var out   = document.getElementById("askOut");
+  var chips = document.getElementById("askChips");
+  if (!form) return;
+
+  ["Does it use an LLM?", "How many tests?", "What happens with no network?",
+   "How accurate is the model?", "Is it deployed?", "What is not built?"].forEach(function (q) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "chip-q"; b.textContent = q;
+    b.addEventListener("click", function () { input.value = q; answer(q); });
+    chips.appendChild(b);
+  });
+
+  function render(hit, related) {
+    var html = '<div class="answer"><h3>' + hit.q + "</h3>" + hit.a +
+               '<p class="src">Source: <a href="' + GH + hit.src + '"><code>' +
+               hit.src + "</code></a></p></div>";
+    if (related.length) {
+      html += '<div class="related">' + related.map(function (r) {
+        return '<button type="button" class="chip-q" data-id="' + r.id + '">' + r.q + "</button>";
+      }).join("") + "</div>";
+    }
+    out.innerHTML = html;
+    Array.prototype.forEach.call(out.querySelectorAll("[data-id]"), function (b) {
+      b.addEventListener("click", function () {
+        var next = INDEX.filter(function (x) { return x.id === b.getAttribute("data-id"); })[0];
+        input.value = next.q;
+        answer(next.q);
+        out.scrollIntoView({ block: "nearest" });
+      });
+    });
+  }
+
+  function answer(q) {
+    var qt = tokens(q);
+    if (!qt.length) { out.innerHTML = ""; return; }
+    var ranked = INDEX.map(function (e) { return { e: e, s: score(qt, e) }; })
+                      .sort(function (a, b) { return b.s - a.s; });
+    if (!ranked.length || ranked[0].s < 2) {
+      out.innerHTML = '<div class="answer"><h3>Not in the index</h3>' +
+        "<p>This panel answers only from a fixed set of facts about the project, and nothing in it " +
+        "matched your question. It will not guess.</p>" +
+        '<p>Try one of the suggestions above, or read the ' +
+        '<a href="https://github.com/saatwik-1157/roadassist-bharat">source</a> directly.</p></div>';
+      return;
+    }
+    render(ranked[0].e, ranked.slice(1, 4)
+      .filter(function (r) { return r.s >= 3; })
+      .map(function (r) { return r.e; }));
+  }
+
+  form.addEventListener("submit", function (e) { e.preventDefault(); answer(input.value); });
 })();
 </script>
 </body>
