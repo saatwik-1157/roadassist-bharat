@@ -41,10 +41,12 @@ jobs:
         run: |
           mkdir -p _site/shots _site/media _site/visuals
           cp pages/index.html _site/
-          # The custom domain. GitHub Pages reads this from the published
-          # artefact, so without it every deploy resets the domain back to
-          # github.io and the certificate has to be reissued.
-          cp pages/CNAME _site/
+          # A custom domain would go here as pages/CNAME, copied into the
+          # artefact. It is deliberately absent: setting one BEFORE the
+          # domain's DNS points at GitHub makes the working github.io URL
+          # 301 to a domain that is still parked, which takes the site down
+          # rather than moving it. Point the DNS first, then add the file.
+          [ -f pages/CNAME ] && cp pages/CNAME _site/ || true
           cp app/docs/screenshots/*.png _site/shots/
           # Only the two the page actually embeds. The rest are large and
           # nothing links to them, and an unreferenced 29 MB of video is a
