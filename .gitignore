@@ -60,3 +60,6 @@ review1-ppt/*.pre-audit.pdf
 
 # Local assistant/editor state - never part of the project
 .claude/
+
+# Assistant skill state, same category as .claude/ — not part of the project
+skills-lock.json
