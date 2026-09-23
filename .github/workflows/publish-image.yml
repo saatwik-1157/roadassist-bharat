@@ -50,7 +50,7 @@ jobs:
       - name: Start PostGIS
         run: |
           docker network create ra-net
-          docker run -d --name ra-db --network ra-net \
+          docker run -d --name ra-db --network ra-net -p 5432:5432 \
             -e POSTGRES_USER=roadassist \
             -e POSTGRES_PASSWORD=ci-only-not-a-secret \
             -e POSTGRES_DB=roadassist \
@@ -119,12 +119,20 @@ jobs:
           [ "$code" = "200" ] && fail=1
           exit $fail
 
+      # DATABASE_URL is here because one e2e section ("booking read/write
+      # audience parity") connects to Postgres directly from the RUNNER to
+      # compare what each role may read against what the schema allows. It is
+      # the only part of the suite that does not go through the API, so it is
+      # the only part that needs the port published above.
       - name: Suites, against the container
         working-directory: app
+        env:
+          API: http://localhost:8099
+          DATABASE_URL: postgres://roadassist:ci-only-not-a-secret@localhost:5432/roadassist
         run: |
           npm ci --no-audit --no-fund
-          API=http://localhost:8099 npm run test:e2e
-          API=http://localhost:8099 npm run test:security
+          npm run test:e2e
+          npm run test:security
 
       - name: Container logs (on failure)
         if: failure()
