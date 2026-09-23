@@ -175,6 +175,20 @@ audit hash chain on the restored copy.
 
 ## Running it
 
+**One command, nothing to install but Docker:**
+
+```bash
+docker compose -f docker-compose.demo.yml up
+```
+
+That pulls the published image, brings up PostGIS, migrates, seeds and serves
+every surface on <http://localhost:4000>. Running it twice is a no-op rather
+than an error. Every server-side suite passes against that stack — end-to-end,
+security, concurrency, gateway and browser — and it is the same image the
+registry holds, not a rebuild of it.
+
+Or from source:
+
 ```bash
 cd app
 docker compose up -d db      # PostGIS on 5434

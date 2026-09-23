@@ -36,6 +36,9 @@ WORKDIR /repo/app
 COPY app/tsconfig.json ./
 COPY app/packages ./packages
 COPY app/apps/api ./apps/api
+# The runners and one-shot tools. Build stage only: they carry devDependencies
+# and never reach the runtime image.
+COPY app/scripts ./scripts
 # Compiles packages/db then apps/api via project references.
 RUN npm run build
 

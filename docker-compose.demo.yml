@@ -1,0 +1,148 @@
+# The whole platform, one command, no cloud account and no secrets.
+#
+#   docker compose -f docker-compose.demo.yml up
+#
+# Then open http://localhost:4000 — the citizen app, mechanic console, authority
+# dashboard and live map are all served by the same process (ADR-0001).
+#
+# This exists because a demo should not depend on a free tier waking up, a
+# network that might not be there, or anybody's credentials. It pulls the
+# published image, brings up a real PostGIS, migrates, seeds, and waits until
+# the API is genuinely answering before it says so.
+#
+# Sign in with any of these; the OTP is returned by the API and auto-fills:
+#   +919876543210  citizen      +919999900001  authority      +919600000000  mechanic
+#
+# To fill the RAKSHA dashboard with the 65 real detections (it is empty by
+# design until an edge device posts them), run this once the stack is up:
+#   docker compose -f docker-compose.demo.yml run --rm seed-raksha-live
+#
+# To run against local changes instead of the published image, set
+#   IMAGE=roadassist:local
+# after building: docker build -f app/Dockerfile -t roadassist:local .
+
+name: roadassist-demo
+
+services:
+  db:
+    # PostGIS, not plain Postgres: the schema pins SRIDs, builds GiST indexes
+    # and dispatch ranks providers with ST_DWithin. postgres:16 fails migration.
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: roadassist
+      POSTGRES_PASSWORD: demopassword
+      POSTGRES_DB: roadassist
+    # Published on 5434 — the port this project documents everywhere — so the
+    # suites can be pointed at the demo stack too. One e2e section compares what
+    # each role may READ against what the schema allows, which it can only do by
+    # connecting to Postgres directly. 5434 rather than 5432 so it does not
+    # collide with a Postgres already running on the machine.
+    ports:
+      - "5434:5432"
+    healthcheck:
+      # -h 127.0.0.1 forces a TCP check. Without it pg_isready answers over the
+      # unix socket, which the TEMPORARY server postgres runs during initdb also
+      # accepts — so the container reports healthy while the real listener is
+      # not up yet, and the next service fails with ECONNREFUSED. That race is
+      # exactly what this file exists to remove.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U roadassist -d roadassist"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+    volumes:
+      - demo-db:/var/lib/postgresql/data
+
+  # Migrations run as their own unit rather than inside the API, so a failure
+  # here is a failed migration and not a mysteriously unhealthy server.
+  migrate:
+    image: ${IMAGE:-ghcr.io/saatwik-1157/roadassist-bharat:latest}
+    command: ["node", "packages/db/dist/src/migrate.js"]
+    environment:
+      DATABASE_URL: postgres://roadassist:demopassword@db:5432/roadassist
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # The demo data, seeded only into an empty database. `npm run seed` is not
+  # idempotent - it inserts roles the migration already created - so a second
+  # `docker compose up` would fail on a perfectly healthy stack. The guard makes
+  # the second run a no-op instead of an error.
+  #
+  # This builds from source because seeding needs @faker-js/faker, a
+  # devDependency deliberately absent from the production image: a production
+  # artefact has no business being able to fabricate four thousand users.
+  seed:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+      target: build
+    command: ["node", "scripts/seed-if-empty.mjs"]
+    environment:
+      DATABASE_URL: postgres://roadassist:demopassword@db:5432/roadassist
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    image: ${IMAGE:-ghcr.io/saatwik-1157/roadassist-bharat:latest}
+    ports:
+      - "4000:4000"
+    environment:
+      # NOT "production": the guard in env.ts rightly refuses to boot without a
+      # real payment gateway and SMS provider. Running as "demo" keeps that
+      # guard meaningful rather than weakening it, and every mocked thing says
+      # so on screen (non-negotiable #5).
+      NODE_ENV: demo
+      PORT: "4000"
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://roadassist:demopassword@db:5432/roadassist
+      JWT_SECRET: demo-only-secret-not-used-anywhere-real
+      SMS_PROVIDER: console
+      PAYMENTS_PROVIDER: mock
+      # Local only. On anything reachable from the internet this lets a stranger
+      # sign in as the authority — see DEPLOYMENT.md.
+      EXPOSE_DEV_OTP: "true"
+      UPLOAD_DIR: /repo/app/var/uploads
+      # The per-IP OTP limiter is a real control and it defaults to 30 per 15
+      # minutes. Every suite signs in as many users from one address, so running
+      # them back to back against this stack exhausts it and the next suite dies
+      # on an undefined OTP rather than on anything it was testing. CI raises it
+      # for the same reason. This is a LOCAL demo value: a deployment must leave
+      # the default alone, and render.yaml does.
+      OTP_IP_MAX: "2000"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      # /health answers 503 while the database is unreachable, so this is
+      # readiness rather than "the process exists".
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:4000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      start_period: 20s
+      retries: 10
+    volumes:
+      - demo-uploads:/repo/app/var
+
+  # Optional, run by hand: replays 65 REAL yolo-rdd2022in-best detections into
+  # RAKSHA through the ingest path, twice, to show the replay is idempotent.
+  # The API must already be up, which is why this is not in the default set.
+  seed-raksha-live:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+      target: build
+    command: ["node", "scripts/raksha-simulator.mjs", "--from-json", "../ai/cv-live-show.json"]
+    environment:
+      API: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles: ["tools"]
+
+volumes:
+  demo-db:
+  demo-uploads:
