@@ -61,16 +61,22 @@ jobs:
           touch _site/.nojekyll
 
       # The same promise the application makes, checked for the public page:
-      # a webfont or a script from someone else's CDN sends every visitor's IP
-      # address abroad, which is what non-negotiable #4 forbids.
+      # a webfont or a script from somebody else's CDN sends every visitor's
+      # IP address abroad, which is what non-negotiable #4 forbids.
+      #
+      # Two things are NOT third parties and must not fail this: this site's own
+      # canonical and og: URLs, which are metadata a browser never fetches, and
+      # links to the repository on github.com.
       - name: No third-party subresource on the public page
         run: |
-          if grep -nEo '(src|href)="https?://[^"]+' _site/index.html \
-             | grep -v 'github\.com'; then
+          offenders=$(grep -nEo '(src|href)="https?://[^"]+' _site/index.html \
+            | grep -viE 'github\.com|roadassistbharat\.online' || true)
+          if [ -n "$offenders" ]; then
+            echo "$offenders"
             echo "::error::the showcase page loads something from another origin"
             exit 1
           fi
-          echo "  clean — every asset is served from this origin"
+          echo "  clean - every asset is served from this origin"
 
       - name: Every referenced asset must exist
         run: |
