@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoadAssist Bharat — offline-first emergency mobility for India</title>
+<meta name="description" content="An offline-first roadside assistance and emergency mobility platform for India. Fastify, PostGIS, Kotlin, and a trained YOLO11 road-damage detector.">
+<!--
+  Everything here is inline and local, deliberately. Non-negotiable #4 is "No
+  PII leaves India", and a webfont from a CDN sends every visitor's IP address
+  abroad to render a page. check-data-residency.mjs fails the build on exactly
+  that, and this page is inside its scope.
+-->
+<style>
+  :root {
+    --ink:#0d1117; --paper:#ffffff; --muted:#57606a; --rule:#d8dee4;
+    --blue:#0b4ea8; --green:#136c3a; --amber:#8a5a00; --band:#f6f8fa;
+    --mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink:#e6edf3; --paper:#0d1117; --muted:#9198a1; --rule:#30363d;
+            --blue:#79b8ff; --green:#56d364; --amber:#e3b341; --band:#161b22; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans);
+         line-height:1.6; -webkit-text-size-adjust:100%; }
+  .wrap { max-width:880px; margin:0 auto; padding:0 20px; }
+  header { border-bottom:1px solid var(--rule); padding:56px 0 40px; }
+  h1 { font-size:2.4rem; line-height:1.15; margin:0 0 6px; letter-spacing:-.02em; }
+  .tagline { font-size:1.05rem; color:var(--muted); margin:0 0 20px; }
+  .lede { font-size:1.08rem; max-width:62ch; }
+  h2 { font-size:1.3rem; margin:44px 0 12px; letter-spacing:-.01em; }
+  h3 { font-size:1rem; margin:26px 0 6px; }
+  p { max-width:68ch; }
+  a { color:var(--blue); }
+  code, kbd { font-family:var(--mono); font-size:.9em; background:var(--band);
+              padding:.12em .35em; border-radius:4px; }
+  pre { background:var(--band); border-left:3px solid var(--blue); padding:14px 16px;
+        overflow-x:auto; border-radius:0 6px 6px 0; }
+  pre code { background:none; padding:0; font-size:.86rem; line-height:1.5; }
+  .notice { border:1px solid var(--rule); border-left:3px solid var(--amber);
+            background:var(--band); padding:14px 16px; border-radius:0 6px 6px 0; margin:22px 0; }
+  .notice strong { color:var(--amber); }
+  table { border-collapse:collapse; width:100%; margin:14px 0; font-size:.94rem; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { background:var(--band); font-weight:600; }
+  .num { font-variant-numeric:tabular-nums; }
+  .ok { color:var(--green); font-weight:600; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; margin:18px 0; }
+  .card { border:1px solid var(--rule); border-radius:8px; padding:14px 16px; background:var(--band); }
+  .card .big { font-size:1.6rem; font-weight:700; letter-spacing:-.02em; }
+  .card .cap { color:var(--muted); font-size:.85rem; }
+  .shots { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:18px 0; }
+  figure { margin:0; }
+  figure img { width:100%; border:1px solid var(--rule); border-radius:8px; display:block; background:var(--band); }
+  figcaption { color:var(--muted); font-size:.83rem; margin-top:6px; }
+  video { width:100%; border:1px solid var(--rule); border-radius:8px; background:#000; }
+  footer { border-top:1px solid var(--rule); margin-top:56px; padding:24px 0 48px;
+           color:var(--muted); font-size:.9rem; }
+  ul { max-width:68ch; }
+  li { margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>RoadAssist Bharat</h1>
+  <p class="tagline">One platform. Every vehicle. Every phone. Every road.</p>
+  <p class="lede">
+    An offline-first roadside assistance and emergency mobility platform for
+    India — built for the roads where coverage is worst, where an emergency has
+    to work with no network at all.
+  </p>
+  <p class="tagline" style="margin-top:14px">
+    SWE4004 · Cloud Computing and Applications ·
+    <a href="https://github.com/saatwik-1157/roadassist-bharat">source on GitHub</a>
+  </p>
+</header>
+
+<div class="notice">
+  <strong>What this page is.</strong> A showcase: screenshots and recordings of
+  the running system, plus the measured numbers behind it. It is not the live
+  application — GitHub Pages serves static files, and this platform needs a
+  long-lived process for its live event streams, its offer-expiry sweeper and a
+  PostGIS database. To run the real thing, see
+  <a href="#run">one command</a> below.
+</div>
+
+<h2>The AI question, answered first</h2>
+<p>
+  &ldquo;AI-powered&rdquo; is the claim most worth distrusting, so here is the
+  whole of it. Two components, and neither is a language model:
+</p>
+<table>
+  <tr><th>Component</th><th>What it actually is</th><th>Evidence</th></tr>
+  <tr>
+    <td>RAKSHA road-damage detection</td>
+    <td>A YOLO11 model trained in this repository on RDD2022 across four countries</td>
+    <td class="num">mAP50 <strong>0.471</strong>, mAP50-95 0.226 on held-out validation</td>
+  </tr>
+  <tr>
+    <td>Roadside diagnosis</td>
+    <td>A deterministic rule table (ADR-0006) returning <code>rules-1.0.0</code></td>
+    <td>Labelled as a rules engine on every screen that shows it</td>
+  </tr>
+</table>
+<p>
+  <strong>No language model is involved anywhere</strong> — no LLM dependency in
+  any manifest, no chat endpoint called from any source file. That is enforced
+  rather than promised: <code>npm run no-llm</code> fails the build if one ever
+  appears, and it runs in CI.
+</p>
+
+<h2>Measured, not estimated</h2>
+<p>Every figure below was produced by running the thing it describes, against a database migrated from empty and seeded.</p>
+<div class="grid">
+  <div class="card"><div class="big num">650</div><div class="cap">assertions across six suites, zero failures</div></div>
+  <div class="card"><div class="big num">74</div><div class="cap">attacks that must every one be refused</div></div>
+  <div class="card"><div class="big num">56</div><div class="cap">tables · 138 indexes · 65 routes</div></div>
+  <div class="card"><div class="big num">8</div><div class="cap">languages, SMS included — not native-reviewed</div></div>
+</div>
+<table>
+  <tr><th>Suite</th><th>Scope</th><th class="num">Assertions</th><th>Result</th></tr>
+  <tr><td>Unit</td><td>No I/O; runs standalone</td><td class="num">122</td><td class="ok">pass</td></tr>
+  <tr><td>End-to-end</td><td>Full citizen and mechanic journeys</td><td class="num">189</td><td class="ok">pass</td></tr>
+  <tr><td>Concurrency</td><td>Races settled by Postgres, not by timing</td><td class="num">75</td><td class="ok">pass</td></tr>
+  <tr><td>Security</td><td>Attacks that must every one be refused</td><td class="num">74</td><td class="ok">pass</td></tr>
+  <tr><td>Gateway security</td><td>Telecom path, audit hash chain, OTP limits</td><td class="num">27</td><td class="ok">pass</td></tr>
+  <tr><td>Browser</td><td>Real Chrome driven over CDP</td><td class="num">163</td><td class="ok">pass</td></tr>
+</table>
+<p class="tagline">
+  Android adds 66 tests with zero lint errors; the CV pipeline adds 39. Twenty-two
+  Razorpay sandbox checks need a payment account, have never run, and are not
+  counted in any total on this page.
+</p>
+
+<h2>The decisions worth defending</h2>
+<h3>A model is never allowed to dispatch</h3>
+<p>
+  ADR-0005. A crash signal raises an incident that waits in
+  <code>AWAITING_CONFIRMATION</code> until a person moves it. A false positive
+  that dispatches is worse than a false negative that asks. ADR-0011 then bounds
+  the mirror failure — nobody arriving — with a review deadline per severity that
+  escalates <em>attention</em>, never responders.
+</p>
+<h3>Exactly one channel owns an emergency</h3>
+<p>
+  The SOS ladder falls back <code>data → SMS → 112 → offline queue</code>. A
+  confirmed SMS must not also queue an API replay; an unconfirmed one must.
+  Getting this wrong sends two responders to one accident, or none.
+</p>
+<h3>Races are settled by Postgres, not by timing</h3>
+<p>
+  Row locks with <code>SELECT … FOR UPDATE</code>, a partial unique index so
+  &ldquo;paid once&rdquo; holds when two confirmations arrive together, and a
+  hash-chained audit log that Postgres <code>RULES</code> make append-only.
+</p>
+<h3>The build refuses to let the documents lie</h3>
+<p>
+  Five gates run on every push: documented claims must match the measured file,
+  every <code>file.ts:123</code> citation must still point at real code, module
+  boundaries hold, no language model enters the system, and no personal data
+  leaves India. That last one found a live leak the day it was written.
+</p>
+
+<h2 id="shots">The running system</h2>
+<div class="shots">
+  <figure><img src="shots/02-home.png" alt="Citizen home screen with SOS and emergency readiness" loading="lazy">
+    <figcaption>Home — SOS, emergency readiness, quick actions</figcaption></figure>
+  <figure><img src="shots/04-ai-diagnosis.png" alt="Diagnosis screen showing cause, confidence and safety action" loading="lazy">
+    <figcaption>Diagnosis — cause, confidence, severity, labelled a rules engine</figcaption></figure>
+  <figure><img src="shots/05-dispatch.png" alt="Dispatch screen with ranked mechanic offers" loading="lazy">
+    <figcaption>Dispatch — ranked offers with distance, ETA and score</figcaption></figure>
+  <figure><img src="shots/09-offgrid-sos.png" alt="Off-grid SOS created, stating nothing has been transmitted" loading="lazy">
+    <figcaption>Off-grid SOS — it says &ldquo;nothing has been transmitted&rdquo;</figcaption></figure>
+  <figure><img src="shots/11-sync-complete.png" alt="SOS synchronised after connectivity returned" loading="lazy">
+    <figcaption>Sync complete — the journal replays idempotently</figcaption></figure>
+  <figure><img src="shots/14-authority.png" alt="RAKSHA authority dashboard with live map and road health" loading="lazy">
+    <figcaption>RAKSHA authority dashboard — live map, road health, detections</figcaption></figure>
+</div>
+
+<h2>Recordings</h2>
+<video controls preload="metadata" poster="shots/15-landing.png">
+  <source src="media/roadassist-app-demo.mp4" type="video/mp4">
+  Your browser cannot play this video.
+</video>
+<p class="tagline">The citizen journey, recorded against the running system.</p>
+<video controls preload="metadata" poster="shots/14-authority.png">
+  <source src="media/raksha-full-demo.mp4" type="video/mp4">
+  Your browser cannot play this video.
+</video>
+<p class="tagline">RAKSHA — real detections replayed through the ingest path.</p>
+
+<h2 id="run">Run the real thing, one command</h2>
+<p>Nothing to install but Docker. This is the whole platform, not a mock:</p>
+<pre><code>git clone https://github.com/saatwik-1157/roadassist-bharat
+cd roadassist-bharat
+docker compose -f docker-compose.demo.yml up</code></pre>
+<p>
+  Then open <code>http://localhost:4000</code>. It pulls the published image,
+  brings up PostGIS, migrates, seeds, and serves the citizen app, mechanic
+  console, authority dashboard and live map from one process. Running it twice
+  is a no-op rather than an error.
+</p>
+<p>
+  Sign in with <code>+917000000000</code> (citizen),
+  <code>+919999900001</code> (authority) or <code>+919600000000</code>
+  (mechanic). The one-time code is returned by the API in demo mode and fills
+  itself in.
+</p>
+
+<h2>Deliberately not built</h2>
+<p>
+  Said plainly rather than implied otherwise: iOS, Android Auto, IVR, USSD,
+  satellite, mesh networking, ERSS-112 handoff (stubbed, and the API says so in
+  its own response), Kubernetes, Terraform, autoscaling and multi-zone anything.
+  There is no load test — latency is measured single-user, on one machine.
+</p>
+
+<footer>
+  <p>
+    Built by V. Saatwik Sairaam, P. Nirisha Chowdary, T. V. S. Jignesh and
+    G. Parthavi for SWE4004 — Cloud Computing and Applications.
+  </p>
+  <p>
+    <a href="https://github.com/saatwik-1157/roadassist-bharat">Source</a> ·
+    <a href="https://github.com/saatwik-1157/roadassist-bharat/blob/main/DEPLOYMENT.md">Deployment notes</a> ·
+    <a href="https://github.com/saatwik-1157/roadassist-bharat/tree/main/app/docs/adr">Decision records</a>
+  </p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -110,7 +110,7 @@ const SKIP_DIRS = new Set([
  * `checkMediaMountIsFiltered` below asserts it still exists - without it the
  * prototypes return, and each one pulls webfonts from Google.
  */
-const CLIENT_ROOTS = ["app/apps/web"];
+const CLIENT_ROOTS = ["app/apps/web", "pages"];   // pages/ is the public GitHub Pages showcase
 /** What we run ourselves. */
 const SERVER_ROOTS = ["app/apps/api/src", "app/packages", "app/scripts", "mobile/app/src/main", "ai"];
 

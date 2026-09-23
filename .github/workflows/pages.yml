@@ -1,0 +1,84 @@
+# Publish the project showcase to GitHub Pages.
+#
+# Pages serves static files, so this is NOT the application: the API needs a
+# long-lived process for its SSE streams and its offer-expiry sweeper, and a
+# PostGIS database. The page says so in its own first paragraph rather than
+# letting a reader assume otherwise.
+#
+# What it is: screenshots and recordings of the running system, the measured
+# numbers, and the one command that brings the real platform up locally.
+name: pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "pages/**"
+      - "app/docs/screenshots/**"
+      - "site/*.mp4"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; never cancel one in flight, because a half-applied
+# Pages deployment is a broken public URL rather than a delayed one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site/shots _site/media
+          cp pages/index.html _site/
+          cp app/docs/screenshots/*.png _site/shots/
+          # Only the two the page actually embeds. The rest are large and
+          # nothing links to them, and an unreferenced 29 MB of video is a
+          # slower page for no reason.
+          cp site/roadassist-app-demo.mp4 _site/media/
+          cp site/raksha-full-demo.mp4    _site/media/
+          # Jekyll would otherwise try to process this and skip _-prefixed files.
+          touch _site/.nojekyll
+
+      # The same promise the application makes, checked for the public page:
+      # a webfont or a script from someone else's CDN sends every visitor's IP
+      # address abroad, which is what non-negotiable #4 forbids.
+      - name: No third-party subresource on the public page
+        run: |
+          if grep -nEo '(src|href)="https?://[^"]+' _site/index.html \
+             | grep -v 'github\.com'; then
+            echo "::error::the showcase page loads something from another origin"
+            exit 1
+          fi
+          echo "  clean — every asset is served from this origin"
+
+      - name: Every referenced asset must exist
+        run: |
+          fail=0
+          for ref in $(grep -oE '(src|poster)="[^"h][^"]*"' _site/index.html | cut -d'"' -f2 | sort -u); do
+            if [ -f "_site/$ref" ]; then echo "  ok   $ref"; else echo "  MISS $ref"; fail=1; fi
+          done
+          exit $fail
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
