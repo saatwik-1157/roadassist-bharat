@@ -76,6 +76,10 @@ COPY --chown=node:node app/packages/db/package.json ./packages/db/
 COPY --chown=node:node app/packages/db/drizzle ./packages/db/drizzle
 COPY --chown=node:node app/apps/api/package.json ./apps/api/
 COPY --chown=node:node app/package.json ./
+# Migrate-then-serve as a single token, because not every host shell-splits
+# the command it is given (Render does not).
+COPY --chown=node:node app/docker-start.sh ./docker-start.sh
+RUN chmod +x ./docker-start.sh
 # Served straight from disk by @fastify/static — no bundler, no build artefacts.
 COPY --chown=node:node app/apps/web ./apps/web
 # Demo media, served at /media. Outside the workspace, hence the root context.

@@ -35,7 +35,7 @@ services:
     # costs a second and a first deploy needs no separate step. It does NOT
     # seed: seeding needs @faker-js/faker, which is a devDependency and is
     # deliberately absent here. See DEPLOYMENT.md for seeding the demo once.
-    dockerCommand: sh -c "node packages/db/dist/src/migrate.js && node apps/api/dist/src/server.js"
+    dockerCommand: ./docker-start.sh
 
     envVars:
       # NOT "production". The production guard in env.ts refuses to boot
