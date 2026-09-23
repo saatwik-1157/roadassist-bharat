@@ -179,6 +179,11 @@ function check(full, rel, client, vendored) {
 
       if (client) {
         if (!SUBRESOURCE.test(line)) continue;          // a link, not a load
+        // rel="canonical" and rel="alternate" are METADATA. They name a URL for
+        // a search engine; the browser never fetches them, so they disclose
+        // nothing. Without this a page cannot state its own canonical URL
+        // without tripping a check about third-party loads.
+        if (/rel\s*=\s*["']?(canonical|alternate)/i.test(line)) continue;
         if (host in DECLARED_CLIENT_EGRESS) { seenDeclared.add(host); continue; }
         // A vendored library is reviewed once, when it is vendored, and then it
         // is a fixed artefact. Minified bundles carry their own homepage in an

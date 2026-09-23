@@ -3,257 +3,1005 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RoadAssist Bharat — offline-first emergency mobility for India</title>
-<meta name="description" content="An offline-first roadside assistance and emergency mobility platform for India. Fastify, PostGIS, Kotlin, and a trained YOLO11 road-damage detector.">
+<title>RoadAssist Bharat — Offline-First Roadside Assistance &amp; Road-Safety Platform</title>
+<meta name="description" content="An offline-first roadside assistance and emergency mobility platform for India. Fastify and PostGIS, a Kotlin client, feature-phone SMS, and a YOLO11 road-damage detector — with the measured evidence behind every claim.">
+<link rel="canonical" href="https://roadassistbharat.online/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://roadassistbharat.online/">
+<meta property="og:title" content="RoadAssist Bharat — Offline-First Roadside Assistance">
+<meta property="og:description" content="Roadside assistance for the roads where coverage is worst. 650 assertions, 74 refused attacks, and a trained YOLO11 detector — every number measured, not estimated.">
+<meta property="og:image" content="https://roadassistbharat.online/visuals/vis_products.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0a0c10">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230a0c10'/><path d='M16 5l9 4v7c0 5.6-3.8 10.4-9 11.7C10.8 26.4 7 21.6 7 16V9z' fill='none' stroke='%234da3ff' stroke-width='2'/><path d='M16 11v6M16 20v.8' stroke='%234da3ff' stroke-width='2.2' stroke-linecap='round'/></svg>">
 <!--
-  Everything here is inline and local, deliberately. Non-negotiable #4 is "No
-  PII leaves India", and a webfont from a CDN sends every visitor's IP address
-  abroad to render a page. check-data-residency.mjs fails the build on exactly
-  that, and this page is inside its scope.
+  Everything is inline and same-origin, deliberately. Non-negotiable #4 of this
+  project is "No PII leaves India", and a webfont or script from someone else's
+  CDN sends every visitor's IP address abroad just to render a page.
+  check-data-residency.mjs fails the build on exactly that, and pages/ is inside
+  its scope. No external fonts, no analytics, no trackers, no CDN.
 -->
 <style>
-  :root {
-    --ink:#0d1117; --paper:#ffffff; --muted:#57606a; --rule:#d8dee4;
-    --blue:#0b4ea8; --green:#136c3a; --amber:#8a5a00; --band:#f6f8fa;
-    --mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+:root{
+  --bg:#0a0c10; --bg-2:#0e1219; --surface:#131822; --surface-2:#171d29;
+  --line:#232b3a; --line-soft:#1b2231;
+  --ink:#e9eef6; --ink-2:#aab6c8; --ink-3:#6f7d92;
+  --accent:#4da3ff; --accent-dim:#1f4f85; --cyan:#5fd0d8;
+  --ok:#49c97e; --warn:#e0a640; --alert:#ef6363;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;
+  --nav-h:60px;
+  --r:14px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:calc(var(--nav-h) + 16px)}
+body{
+  margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+  line-height:1.62;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+}
+img,video{max-width:100%;display:block}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+section{padding:86px 0;border-top:1px solid var(--line-soft)}
+section:first-of-type{border-top:0}
+
+.eyebrow{
+  font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);font-weight:700;margin:0 0 12px;
+}
+h1,h2,h3{letter-spacing:-.022em;margin:0}
+h1{font-size:clamp(2.1rem,5.2vw,3.5rem);line-height:1.08;font-weight:700}
+h2{font-size:clamp(1.5rem,3vw,2.05rem);line-height:1.18;font-weight:650;margin-bottom:12px}
+h3{font-size:1.02rem;font-weight:650;margin-bottom:6px}
+p{margin:0 0 14px;max-width:68ch;color:var(--ink-2)}
+.lead{font-size:1.1rem;color:var(--ink-2);max-width:60ch}
+.sub{color:var(--ink-3);font-size:.93rem}
+code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
+     border:1px solid var(--line-soft);padding:.1em .38em;border-radius:5px;color:var(--cyan)}
+
+/* ── navigation ─────────────────────────────────────────────── */
+.nav{
+  position:sticky;top:0;z-index:60;height:var(--nav-h);
+  background:rgba(10,12,16,.82);backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line-soft);
+}
+.nav-in{max-width:1140px;margin:0 auto;padding:0 24px;height:100%;
+        display:flex;align-items:center;gap:22px}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:-.02em;
+       color:var(--ink);font-size:.97rem;white-space:nowrap}
+.brand:hover{text-decoration:none}
+.brand svg{flex:0 0 auto}
+.nav-links{display:flex;gap:2px;margin-left:auto;align-items:center}
+.nav-links a{
+  color:var(--ink-2);font-size:.86rem;padding:7px 11px;border-radius:8px;
+  white-space:nowrap;transition:color .15s,background .15s;
+}
+.nav-links a:hover{color:var(--ink);background:var(--surface);text-decoration:none}
+.nav-links a[aria-current="true"]{color:var(--ink);background:var(--surface-2)}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;font-size:.88rem;font-weight:600;
+  padding:10px 17px;border-radius:10px;border:1px solid transparent;
+  cursor:pointer;transition:transform .14s,background .15s,border-color .15s;
+  font-family:inherit;
+}
+.btn:hover{text-decoration:none;transform:translateY(-1px)}
+.btn-primary{background:var(--accent);color:#04101f;border-color:var(--accent)}
+.btn-primary:hover{background:#6bb4ff}
+.btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line)}
+.btn-ghost:hover{background:var(--surface-2);border-color:#2f3a4d}
+.btn-sm{padding:7px 13px;font-size:.82rem}
+.nav .btn{margin-left:6px}
+.nav-toggle{display:none;margin-left:auto;background:var(--surface);border:1px solid var(--line);
+            color:var(--ink);border-radius:9px;padding:8px 10px;cursor:pointer;font-family:inherit}
+
+/* ── hero ───────────────────────────────────────────────────── */
+.hero{padding:74px 0 66px;position:relative;overflow:hidden}
+.hero::before{
+  content:"";position:absolute;inset:-40% 0 auto -10%;height:640px;pointer-events:none;
+  background:radial-gradient(60% 55% at 25% 40%,rgba(77,163,255,.16),transparent 70%),
+             radial-gradient(45% 45% at 78% 20%,rgba(95,208,216,.09),transparent 70%);
+}
+.hero-in{position:relative;display:grid;grid-template-columns:1.02fr .98fr;gap:52px;align-items:center}
+.pill{
+  display:inline-flex;align-items:center;gap:9px;font-size:.73rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);
+  background:var(--surface);border:1px solid var(--line);
+  padding:7px 14px;border-radius:999px;margin-bottom:20px;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:0 0 auto}
+.hero h1{margin-bottom:16px}
+.hero-cta{display:flex;flex-wrap:wrap;gap:11px;margin-top:26px}
+.hero-fig{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+          background:var(--surface);box-shadow:0 20px 60px -24px rgba(0,0,0,.85)}
+.hero-fig img{width:100%}
+.hero-note{font-size:.8rem;color:var(--ink-3);margin-top:10px}
+
+/* ── evidence strip ─────────────────────────────────────────── */
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line-soft);
+         border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden}
+.metric{background:var(--bg-2);padding:22px 18px;text-align:center}
+.metric .v{font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:700;letter-spacing:-.03em;
+           font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.1}
+.metric .l{font-size:.73rem;letter-spacing:.09em;text-transform:uppercase;
+           color:var(--ink-3);margin-top:7px}
+
+/* ── generic cards ──────────────────────────────────────────── */
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.card{
+  background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r);
+  padding:22px;transition:border-color .18s,transform .18s,background .18s;
+}
+.card:hover{border-color:var(--line);transform:translateY(-2px)}
+.card .n{font-family:var(--mono);font-size:.78rem;color:var(--accent);letter-spacing:.08em}
+.card p{font-size:.92rem;margin-bottom:0}
+.card .adr{display:inline-block;margin-top:12px;font-size:.82rem}
+
+/* ── journey ────────────────────────────────────────────────── */
+.stages{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.stage{
+  background:var(--surface);border:1px solid var(--line-soft);color:var(--ink-2);
+  border-radius:10px;padding:9px 14px;font-size:.86rem;cursor:pointer;
+  font-family:inherit;transition:all .16s;display:inline-flex;align-items:center;gap:9px;
+}
+.stage:hover{border-color:var(--line);color:var(--ink)}
+.stage[aria-selected="true"]{background:var(--accent-dim);border-color:var(--accent);color:#fff}
+.stage .i{font-family:var(--mono);font-size:.74rem;opacity:.75}
+.panel{display:grid;grid-template-columns:.92fr 1.08fr;gap:28px;align-items:center;
+       background:var(--bg-2);border:1px solid var(--line-soft);border-radius:var(--r);padding:24px}
+.panel img{border:1px solid var(--line-soft);border-radius:10px;width:100%}
+.panel h3{font-size:1.15rem}
+
+/* ── tables / test dashboard ────────────────────────────────── */
+.tbl{width:100%;border-collapse:collapse;font-size:.92rem;
+     border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden}
+.tbl th{background:var(--bg-2);color:var(--ink-3);font-size:.72rem;letter-spacing:.09em;
+        text-transform:uppercase;font-weight:700;text-align:left;padding:11px 15px}
+.tbl td{padding:11px 15px;border-top:1px solid var(--line-soft);color:var(--ink-2)}
+.tbl td:first-child{color:var(--ink);font-weight:550}
+.tbl .num{font-variant-numeric:tabular-nums;text-align:right;color:var(--ink)}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:.73rem;font-weight:700;
+       letter-spacing:.06em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.badge-ok{background:rgba(73,201,126,.12);color:var(--ok);border:1px solid rgba(73,201,126,.28)}
+.badge-no{background:rgba(224,166,64,.1);color:var(--warn);border:1px solid rgba(224,166,64,.28)}
+
+.note{
+  border:1px solid var(--line-soft);border-left:3px solid var(--warn);
+  background:var(--bg-2);border-radius:0 12px 12px 0;padding:16px 20px;margin:20px 0;
+}
+.note strong{color:var(--warn)}
+.note p:last-child{margin-bottom:0}
+
+/* ── pipeline / flow ────────────────────────────────────────── */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:9px;margin:20px 0}
+.flow .step{
+  flex:1 1 130px;background:var(--surface);border:1px solid var(--line-soft);
+  border-radius:11px;padding:13px 14px;position:relative;
+}
+.flow .step .k{font-size:.71rem;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);font-weight:700}
+.flow .step .d{font-size:.86rem;color:var(--ink-2);margin-top:3px}
+.flow .arr{align-self:center;color:var(--ink-3);font-size:1rem;flex:0 0 auto}
+
+/* ── gallery ────────────────────────────────────────────────── */
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(212px,1fr));gap:14px}
+.shot{background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;
+      overflow:hidden;cursor:zoom-in;padding:0;font-family:inherit;text-align:left;
+      transition:border-color .18s,transform .18s}
+.shot:hover{border-color:var(--accent);transform:translateY(-3px)}
+.shot img{width:100%;aspect-ratio:4/5;object-fit:cover;object-position:top}
+.shot .cap{padding:10px 12px;font-size:.8rem;color:var(--ink-2)}
+dialog.lb{border:0;padding:0;background:transparent;max-width:min(94vw,1100px);max-height:94vh}
+dialog.lb::backdrop{background:rgba(4,6,10,.9)}
+.lb-in{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.lb-in img{max-height:76vh;width:auto;margin:0 auto;object-fit:contain}
+.lb-bar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line-soft)}
+.lb-bar p{margin:0;font-size:.88rem;flex:1}
+
+/* ── videos ─────────────────────────────────────────────────── */
+.vids{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+.vid{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden}
+.vid video{width:100%;background:#000;aspect-ratio:16/10;object-fit:cover}
+.vid .meta{padding:14px 17px}
+.vid h3{margin-bottom:3px}
+.vid p{font-size:.86rem;margin:0}
+
+/* ── code block ─────────────────────────────────────────────── */
+.codewrap{position:relative;background:var(--bg-2);border:1px solid var(--line-soft);
+          border-radius:12px;overflow:hidden}
+.codewrap pre{margin:0;padding:18px 20px;overflow-x:auto;font-family:var(--mono);
+              font-size:.86rem;line-height:1.65;color:var(--ink)}
+.copy{position:absolute;top:10px;right:10px}
+
+/* ── scope ──────────────────────────────────────────────────── */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{background:var(--bg-2);border:1px dashed var(--line);color:var(--ink-3);
+      border-radius:8px;padding:6px 12px;font-size:.85rem}
+
+/* ── footer ─────────────────────────────────────────────────── */
+footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(--bg-2)}
+.foot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:34px}
+.foot h4{font-size:.73rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+         margin:0 0 12px;font-weight:700}
+.foot ul{list-style:none;margin:0;padding:0}
+.foot li{margin:0 0 7px;font-size:.9rem}
+.foot .team{color:var(--ink-2);font-size:.9rem;margin:0 0 5px}
+.legal{margin-top:34px;padding-top:20px;border-top:1px solid var(--line-soft);
+       color:var(--ink-3);font-size:.83rem}
+
+/* ── reveal ─────────────────────────────────────────────────── */
+/* Scoped to .js, set by an inline script before first paint. Without it a
+   reader with JavaScript disabled or blocked would get a page whose every
+   section is opacity:0 - i.e. blank. Content first, animation second. */
+.js .rv{opacity:0;transform:translateY(14px);transition:opacity .55s ease,transform .55s ease}
+.js .rv.in{opacity:1;transform:none}
+
+@media (max-width:980px){
+  .hero-in{grid-template-columns:1fr;gap:34px}
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  .g3,.g4{grid-template-columns:repeat(2,1fr)}
+  .panel{grid-template-columns:1fr}
+  .vids{grid-template-columns:1fr}
+  .foot{grid-template-columns:1fr 1fr}
+}
+@media (max-width:720px){
+  section{padding:58px 0}
+  .nav-links{
+    position:fixed;inset:var(--nav-h) 0 auto 0;background:var(--bg-2);
+    border-bottom:1px solid var(--line);flex-direction:column;align-items:stretch;
+    gap:0;padding:10px 16px 16px;display:none;
   }
-  @media (prefers-color-scheme: dark) {
-    :root { --ink:#e6edf3; --paper:#0d1117; --muted:#9198a1; --rule:#30363d;
-            --blue:#79b8ff; --green:#56d364; --amber:#e3b341; --band:#161b22; }
-  }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans);
-         line-height:1.6; -webkit-text-size-adjust:100%; }
-  .wrap { max-width:880px; margin:0 auto; padding:0 20px; }
-  header { border-bottom:1px solid var(--rule); padding:56px 0 40px; }
-  h1 { font-size:2.4rem; line-height:1.15; margin:0 0 6px; letter-spacing:-.02em; }
-  .tagline { font-size:1.05rem; color:var(--muted); margin:0 0 20px; }
-  .lede { font-size:1.08rem; max-width:62ch; }
-  h2 { font-size:1.3rem; margin:44px 0 12px; letter-spacing:-.01em; }
-  h3 { font-size:1rem; margin:26px 0 6px; }
-  p { max-width:68ch; }
-  a { color:var(--blue); }
-  code, kbd { font-family:var(--mono); font-size:.9em; background:var(--band);
-              padding:.12em .35em; border-radius:4px; }
-  pre { background:var(--band); border-left:3px solid var(--blue); padding:14px 16px;
-        overflow-x:auto; border-radius:0 6px 6px 0; }
-  pre code { background:none; padding:0; font-size:.86rem; line-height:1.5; }
-  .notice { border:1px solid var(--rule); border-left:3px solid var(--amber);
-            background:var(--band); padding:14px 16px; border-radius:0 6px 6px 0; margin:22px 0; }
-  .notice strong { color:var(--amber); }
-  table { border-collapse:collapse; width:100%; margin:14px 0; font-size:.94rem; }
-  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--rule); vertical-align:top; }
-  th { background:var(--band); font-weight:600; }
-  .num { font-variant-numeric:tabular-nums; }
-  .ok { color:var(--green); font-weight:600; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; margin:18px 0; }
-  .card { border:1px solid var(--rule); border-radius:8px; padding:14px 16px; background:var(--band); }
-  .card .big { font-size:1.6rem; font-weight:700; letter-spacing:-.02em; }
-  .card .cap { color:var(--muted); font-size:.85rem; }
-  .shots { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:18px 0; }
-  figure { margin:0; }
-  figure img { width:100%; border:1px solid var(--rule); border-radius:8px; display:block; background:var(--band); }
-  figcaption { color:var(--muted); font-size:.83rem; margin-top:6px; }
-  video { width:100%; border:1px solid var(--rule); border-radius:8px; background:#000; }
-  footer { border-top:1px solid var(--rule); margin-top:56px; padding:24px 0 48px;
-           color:var(--muted); font-size:.9rem; }
-  ul { max-width:68ch; }
-  li { margin:4px 0; }
+  .nav-links.open{display:flex}
+  .nav-links a{padding:11px 12px;font-size:.95rem}
+  .nav .btn{margin:8px 0 0}
+  .nav-toggle{display:block}
+  .g2,.g3,.g4,.metrics{grid-template-columns:1fr}
+  .foot{grid-template-columns:1fr}
+  .shots{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
+  .rv{opacity:1;transform:none}
+}
 </style>
+<script>document.documentElement.classList.add("js");</script>
 </head>
 <body>
-<div class="wrap">
 
-<header>
-  <h1>RoadAssist Bharat</h1>
-  <p class="tagline">One platform. Every vehicle. Every phone. Every road.</p>
-  <p class="lede">
-    An offline-first roadside assistance and emergency mobility platform for
-    India — built for the roads where coverage is worst, where an emergency has
-    to work with no network at all.
-  </p>
-  <p class="tagline" style="margin-top:14px">
-    SWE4004 · Cloud Computing and Applications ·
-    <a href="https://github.com/saatwik-1157/roadassist-bharat">source on GitHub</a>
-  </p>
+<nav class="nav">
+  <div class="nav-in">
+    <a class="brand" href="#top">
+      <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 4l10 4.4v7.8C26 22.6 21.8 27.9 16 29.3 10.2 27.9 6 22.6 6 16.2V8.4z"
+              fill="none" stroke="#4da3ff" stroke-width="2"/>
+        <path d="M16 11.5v6.2M16 21v1" stroke="#4da3ff" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      RoadAssist Bharat
+    </a>
+    <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navLinks">Menu</button>
+    <div class="nav-links" id="navLinks">
+      <a href="#product">Product</a>
+      <a href="#how">How it works</a>
+      <a href="#raksha">RAKSHA</a>
+      <a href="#run">Run it</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#security">Security</a>
+      <a href="#evidence">Evidence</a>
+      <a href="https://github.com/saatwik-1157/roadassist-bharat">GitHub</a>
+      <a class="btn btn-primary btn-sm" href="#run">Run the platform</a>
+    </div>
+  </div>
+</nav>
+
+<main id="top">
+
+<!-- ═══ HERO ═══ -->
+<header class="hero">
+  <div class="wrap hero-in">
+    <div>
+      <span class="pill"><span class="dot"></span> Project showcase · source and image public</span>
+      <h1>Roadside assistance, rebuilt for the roads where coverage fails.</h1>
+      <p class="lead">
+        One platform connecting stranded drivers, verified mechanics and road-safety
+        authorities — with an emergency path that keeps working when the network does not.
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#run">Run the platform</a>
+        <a class="btn btn-ghost" href="#raksha">Explore RAKSHA</a>
+        <a class="btn btn-ghost" href="#architecture">View architecture</a>
+      </div>
+    </div>
+    <div>
+      <figure class="hero-fig">
+        <img src="visuals/vis_products.png" width="1900" height="900"
+             alt="Three phone screens from the running app: home with the SOS control, live job tracking, and mechanic dispatch with ranked offers">
+      </figure>
+      <p class="hero-note">Real screenshots of the running system, set into device frames — not mockups.</p>
+    </div>
+  </div>
 </header>
 
-<figure style="margin:0 0 6px">
-  <img src="visuals/vis_hero.png" alt="The citizen app and mechanic console, set into device frames over a network graph"
-       style="width:100%;border:1px solid var(--rule);border-radius:10px;display:block" loading="eager">
-</figure>
-<p class="tagline" style="margin-top:8px">
-  Real screenshots of the running system, set into device frames — not mockups.
-</p>
+<!-- ═══ EVIDENCE STRIP ═══ -->
+<section id="product" style="padding-top:0;border-top:0">
+  <div class="wrap">
+    <div class="metrics rv" id="metrics">
+      <div class="metric"><div class="v" data-count="650">650</div><div class="l">Assertions</div></div>
+      <div class="metric"><div class="v" data-count="56">56</div><div class="l">Tables</div></div>
+      <div class="metric"><div class="v" data-count="138">138</div><div class="l">Indexes</div></div>
+      <div class="metric"><div class="v" data-count="65">65</div><div class="l">API routes</div></div>
+      <div class="metric"><div class="v" data-count="8">8</div><div class="l">Languages</div></div>
+    </div>
+    <p class="sub" style="margin-top:14px">
+      Every figure on this page was produced by running the thing it describes against a
+      database migrated from empty and seeded. Nothing here is estimated.
+    </p>
+  </div>
+</section>
 
-<div class="notice">
-  <strong>What this page is.</strong> A showcase: screenshots and recordings of
-  the running system, plus the measured numbers behind it. It is not the live
-  application — GitHub Pages serves static files, and this platform needs a
-  long-lived process for its live event streams, its offer-expiry sweeper and a
-  PostGIS database. To run the real thing, see
-  <a href="#run">one command</a> below.
-</div>
+<!-- ═══ WHAT IT IS ═══ -->
+<section class="rv">
+  <div class="wrap">
+    <p class="eyebrow">What it is</p>
+    <h2>Four surfaces, one process, and a path that survives no signal</h2>
+    <div class="grid g4" style="margin-top:22px">
+      <div class="card">
+        <h3>Citizen app</h3>
+        <p>Request assistance, hold to raise an SOS, track a job, pay, and review — with a
+           diagnosis step that names a likely cause before dispatch.</p>
+      </div>
+      <div class="card">
+        <h3>Mechanic console</h3>
+        <p>Dispatch inbox with ranked offers, the job lifecycle from accept to complete,
+           and settlement recorded against the booking.</p>
+      </div>
+      <div class="card">
+        <h3>RAKSHA authority</h3>
+        <p>Live operational map, road-health scoring, and a confirmation queue for
+           detections that a person — never a model — acts on.</p>
+      </div>
+      <div class="card">
+        <h3>Feature phone</h3>
+        <p>A complete booking over SMS with no app at all, in eight languages,
+           switched by texting <code>LANG TA</code>.</p>
+      </div>
+    </div>
+    <div class="note">
+      <p><strong>Showcase, not the live application.</strong> This page is static: screenshots,
+      recordings and measured evidence. The platform itself needs a long-lived process — it
+      holds open event streams and runs an offer-expiry sweeper — plus PostgreSQL with PostGIS.
+      <a href="#run">One command runs the whole thing locally</a>, and it is the same image
+      published from this repository.</p>
+    </div>
+  </div>
+</section>
 
-<h2>The AI question, answered first</h2>
-<p>
-  &ldquo;AI-powered&rdquo; is the claim most worth distrusting, so here is the
-  whole of it. Two components, and neither is a language model:
-</p>
-<table>
-  <tr><th>Component</th><th>What it actually is</th><th>Evidence</th></tr>
-  <tr>
-    <td>RAKSHA road-damage detection</td>
-    <td>A YOLO11 model trained in this repository on RDD2022 across four countries</td>
-    <td class="num">mAP50 <strong>0.471</strong>, mAP50-95 0.226 on held-out validation</td>
-  </tr>
-  <tr>
-    <td>Roadside diagnosis</td>
-    <td>A deterministic rule table (ADR-0006) returning <code>rules-1.0.0</code></td>
-    <td>Labelled as a rules engine on every screen that shows it</td>
-  </tr>
-</table>
-<p>
-  <strong>No language model is involved anywhere</strong> — no LLM dependency in
-  any manifest, no chat endpoint called from any source file. That is enforced
-  rather than promised: <code>npm run no-llm</code> fails the build if one ever
-  appears, and it runs in CI.
-</p>
+<!-- ═══ HOW IT WORKS ═══ -->
+<section id="how" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">How it works</p>
+    <h2>From breakdown to resolution</h2>
+    <p>Select a stage to see it in the running application.</p>
 
-<h2>Measured, not estimated</h2>
-<p>Every figure below was produced by running the thing it describes, against a database migrated from empty and seeded.</p>
-<div class="grid">
-  <div class="card"><div class="big num">650</div><div class="cap">assertions across six suites, zero failures</div></div>
-  <div class="card"><div class="big num">74</div><div class="cap">attacks that must every one be refused</div></div>
-  <div class="card"><div class="big num">56</div><div class="cap">tables · 138 indexes · 65 routes</div></div>
-  <div class="card"><div class="big num">8</div><div class="cap">languages, SMS included — not native-reviewed</div></div>
-</div>
-<table>
-  <tr><th>Suite</th><th>Scope</th><th class="num">Assertions</th><th>Result</th></tr>
-  <tr><td>Unit</td><td>No I/O; runs standalone</td><td class="num">122</td><td class="ok">pass</td></tr>
-  <tr><td>End-to-end</td><td>Full citizen and mechanic journeys</td><td class="num">189</td><td class="ok">pass</td></tr>
-  <tr><td>Concurrency</td><td>Races settled by Postgres, not by timing</td><td class="num">75</td><td class="ok">pass</td></tr>
-  <tr><td>Security</td><td>Attacks that must every one be refused</td><td class="num">74</td><td class="ok">pass</td></tr>
-  <tr><td>Gateway security</td><td>Telecom path, audit hash chain, OTP limits</td><td class="num">27</td><td class="ok">pass</td></tr>
-  <tr><td>Browser</td><td>Real Chrome driven over CDP</td><td class="num">163</td><td class="ok">pass</td></tr>
-</table>
-<p class="tagline">
-  Android adds 66 tests with zero lint errors; the CV pipeline adds 39. Twenty-two
-  Razorpay sandbox checks need a payment account, have never run, and are not
-  counted in any total on this page.
-</p>
+    <div class="stages" role="tablist" aria-label="Journey stages">
+      <button class="stage" role="tab" aria-selected="true"  data-shot="02-home"          data-title="Request or escalate" data-body="The home screen carries both paths: an ordinary assistance request, and an SOS that must be held for 1.5 seconds so a pocket press never calls a responder.">
+        <span class="i">01</span> Citizen</button>
+      <button class="stage" role="tab" aria-selected="false" data-shot="04-ai-diagnosis"  data-title="Diagnosis, labelled" data-body="A deterministic rule table names a likely cause with a confidence and a safety action, and every screen that shows it says it is a rules engine — returning rules-1.0.0, not a model.">
+        <span class="i">02</span> Diagnosis</button>
+      <button class="stage" role="tab" aria-selected="false" data-shot="05-dispatch"      data-title="Dispatch, ranked" data-body="Providers are scored at run time from a live pool by distance, ETA and rating. Two mechanics accepting one job is settled by a row lock, not by timing.">
+        <span class="i">03</span> Dispatch</button>
+      <button class="stage" role="tab" aria-selected="false" data-shot="06-tracking"      data-title="Live status" data-body="The booking state machine drives the client over a live event stream — and the stream is never the source of truth, so a dropped connection loses nothing.">
+        <span class="i">04</span> Tracking</button>
+      <button class="stage" role="tab" aria-selected="false" data-shot="09-offgrid-sos"   data-title="Off-grid SOS" data-body="With no network an SOS still becomes a real incident, stored on the device with its own reference and GPS fix. The screen says &ldquo;nothing has been transmitted&rdquo; rather than pretending it was sent.">
+        <span class="i">05</span> Off-grid</button>
+      <button class="stage" role="tab" aria-selected="false" data-shot="11-sync-complete" data-title="Idempotent sync" data-body="When connectivity returns the journal replays itself against a client-minted reference, so a retry becomes the same incident and never a second ambulance.">
+        <span class="i">06</span> Sync</button>
+      <button class="stage" role="tab" aria-selected="false" data-shot="16-payment"       data-title="Settlement" data-body="The client never decides that money arrived: a payment is recorded only against a settlement the server verified, and a partial unique index makes &ldquo;paid once&rdquo; hold under concurrent confirmations.">
+        <span class="i">07</span> Payment</button>
+      <button class="stage" role="tab" aria-selected="false" data-shot="14-authority"     data-title="Authority oversight" data-body="RAKSHA shows the live map, road-health scoring and detection triage. A model-detected incident waits in a confirmation queue until a person moves it.">
+        <span class="i">08</span> RAKSHA</button>
+    </div>
 
-<h2>The decisions worth defending</h2>
-<h3>A model is never allowed to dispatch</h3>
-<p>
-  ADR-0005. A crash signal raises an incident that waits in
-  <code>AWAITING_CONFIRMATION</code> until a person moves it. A false positive
-  that dispatches is worse than a false negative that asks. ADR-0011 then bounds
-  the mirror failure — nobody arriving — with a review deadline per severity that
-  escalates <em>attention</em>, never responders.
-</p>
-<h3>Exactly one channel owns an emergency</h3>
-<p>
-  The SOS ladder falls back <code>data → SMS → 112 → offline queue</code>. A
-  confirmed SMS must not also queue an API replay; an unconfirmed one must.
-  Getting this wrong sends two responders to one accident, or none.
-</p>
-<h3>Races are settled by Postgres, not by timing</h3>
-<p>
-  Row locks with <code>SELECT … FOR UPDATE</code>, a partial unique index so
-  &ldquo;paid once&rdquo; holds when two confirmations arrive together, and a
-  hash-chained audit log that Postgres <code>RULES</code> make append-only.
-</p>
-<h3>The build refuses to let the documents lie</h3>
-<p>
-  Five gates run on every push: documented claims must match the measured file,
-  every <code>file.ts:123</code> citation must still point at real code, module
-  boundaries hold, no language model enters the system, and no personal data
-  leaves India. That last one found a live leak the day it was written.
-</p>
+    <div class="panel">
+      <div>
+        <h3 id="stageTitle">Request or escalate</h3>
+        <p id="stageBody">The home screen carries both paths: an ordinary assistance request, and an SOS that must be held for 1.5 seconds so a pocket press never calls a responder.</p>
+      </div>
+      <img id="stageShot" src="shots/02-home.png" width="780" height="1688" alt="Citizen home screen with the SOS control and emergency readiness">
+    </div>
+  </div>
+</section>
 
-<h2 id="shots">The running system</h2>
-<figure style="margin:0 0 18px">
-  <img src="visuals/vis_products.png" alt="Three phone screens: home with SOS, live tracking, and mechanic dispatch"
-       style="width:100%;border:1px solid var(--rule);border-radius:10px;display:block" loading="lazy">
-  <figcaption>Home with the hold-to-escalate SOS · live tracking · dispatch with ranked offers</figcaption>
-</figure>
-<div class="shots">
-  <figure><img src="shots/02-home.png" alt="Citizen home screen with SOS and emergency readiness" loading="lazy">
-    <figcaption>Home — SOS, emergency readiness, quick actions</figcaption></figure>
-  <figure><img src="shots/04-ai-diagnosis.png" alt="Diagnosis screen showing cause, confidence and safety action" loading="lazy">
-    <figcaption>Diagnosis — cause, confidence, severity, labelled a rules engine</figcaption></figure>
-  <figure><img src="shots/05-dispatch.png" alt="Dispatch screen with ranked mechanic offers" loading="lazy">
-    <figcaption>Dispatch — ranked offers with distance, ETA and score</figcaption></figure>
-  <figure><img src="shots/09-offgrid-sos.png" alt="Off-grid SOS created, stating nothing has been transmitted" loading="lazy">
-    <figcaption>Off-grid SOS — it says &ldquo;nothing has been transmitted&rdquo;</figcaption></figure>
-  <figure><img src="shots/11-sync-complete.png" alt="SOS synchronised after connectivity returned" loading="lazy">
-    <figcaption>Sync complete — the journal replays idempotently</figcaption></figure>
-  <figure><img src="shots/14-authority.png" alt="RAKSHA authority dashboard with live map and road health" loading="lazy">
-    <figcaption>RAKSHA authority dashboard — live map, road health, detections</figcaption></figure>
-</div>
+<!-- ═══ RAKSHA ═══ -->
+<section id="raksha" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">RAKSHA</p>
+    <h2>Road-safety intelligence, with a human in the loop</h2>
+    <p class="lead" style="margin-bottom:24px">
+      Edge devices post road-damage detections; the platform scores road health and raises
+      an incident when severity and confidence both clear a threshold — and then waits.
+    </p>
 
-<h2>Recordings</h2>
-<video controls preload="metadata" poster="shots/15-landing.png">
-  <source src="media/roadassist-app-demo.mp4" type="video/mp4">
-  Your browser cannot play this video.
-</video>
-<p class="tagline">The citizen journey, recorded against the running system.</p>
-<video controls preload="metadata" poster="shots/14-authority.png">
-  <source src="media/raksha-full-demo.mp4" type="video/mp4">
-  Your browser cannot play this video.
-</video>
-<p class="tagline">RAKSHA — real detections replayed through the ingest path.</p>
+    <figure style="margin:0 0 22px">
+      <img src="shots/14-authority.png" width="2560" height="1720"
+           style="border:1px solid var(--line);border-radius:14px"
+           alt="RAKSHA authority dashboard showing a live map, road-health scoring and detection triage" loading="lazy">
+    </figure>
 
-<h2>Infrastructure, drawn rather than photographed</h2>
-<figure style="margin:0 0 6px">
-  <img src="visuals/vis_datacenter.png" alt="Isometric rendering of the deployment topology"
-       style="width:100%;border:1px solid var(--rule);border-radius:10px;display:block" loading="lazy">
-  <figcaption>
-    Rendered procedurally as geometry. Nothing photographic is claimed, and no
-    stock image with unknown licensing enters the project.
-  </figcaption>
-</figure>
+    <div class="flow">
+      <div class="step"><div class="k">Capture</div><div class="d">Edge device, road imagery</div></div>
+      <span class="arr">→</span>
+      <div class="step"><div class="k">YOLO11</div><div class="d">Trained detector, four classes</div></div>
+      <span class="arr">→</span>
+      <div class="step"><div class="k">Detections</div><div class="d">Structured output, hashed for audit</div></div>
+      <span class="arr">→</span>
+      <div class="step"><div class="k">Rules</div><div class="d">Deterministic thresholds</div></div>
+      <span class="arr">→</span>
+      <div class="step"><div class="k">Human</div><div class="d">Confirms before any response</div></div>
+    </div>
 
-<h2 id="run">Run the real thing, one command</h2>
-<p>Nothing to install but Docker. This is the whole platform, not a mock:</p>
-<pre><code>git clone https://github.com/saatwik-1157/roadassist-bharat
+    <div class="grid g3" style="margin-top:22px">
+      <div class="card">
+        <span class="n">DETECTION</span>
+        <h3 style="margin-top:8px">A model that was trained</h3>
+        <p>YOLO11 on RDD2022 across four countries. The training script, dataset manifest and
+           per-epoch metrics are in the repository; the weights are gitignored.</p>
+      </div>
+      <div class="card">
+        <span class="n">DECISION</span>
+        <h3 style="margin-top:8px">Rules, not inference</h3>
+        <p>Severity and confidence thresholds decide whether a detection raises an incident.
+           The roadside diagnosis is a rule table returning <code>rules-1.0.0</code>.</p>
+      </div>
+      <div class="card">
+        <span class="n">RESPONSE</span>
+        <h3 style="margin-top:8px">A person decides</h3>
+        <p>A model-raised incident sits in <code>AWAITING_CONFIRMATION</code>. There is no
+           transition out of it that does not pass through a human (ADR-0005).</p>
+      </div>
+    </div>
+
+    <div class="note" style="border-left-color:var(--accent)">
+      <p><strong style="color:var(--accent)">No language model anywhere.</strong>
+      There is no LLM or GPT dependency in any manifest and no chat endpoint called from any
+      source file — not in the API, the Android client, the web surfaces or the CV pipeline.
+      <code>npm run no-llm</code> fails the build if one ever appears, and it runs in CI.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ AI EVIDENCE ═══ -->
+<section class="rv">
+  <div class="wrap">
+    <p class="eyebrow">AI evidence</p>
+    <h2>The measured result, and what it is not</h2>
+    <div class="grid g2" style="align-items:start">
+      <div>
+        <table class="tbl">
+          <tr><th>Metric</th><th class="num">Value</th></tr>
+          <tr><td>mAP50</td><td class="num">0.471</td></tr>
+          <tr><td>mAP50-95</td><td class="num">0.226</td></tr>
+          <tr><td>Classes</td><td class="num">4</td></tr>
+          <tr><td>Training data</td><td class="num">4-country, 3.2k</td></tr>
+          <tr><td>Epochs</td><td class="num">13</td></tr>
+          <tr><td>ONNX export</td><td class="num">37 MB</td></tr>
+          <tr><td>Inference, CPU</td><td class="num">~135 ms/img</td></tr>
+        </table>
+        <p class="sub" style="margin-top:12px">
+          Model <code>yolo11s-multi-rich</code>. Per-class mAP50: pothole 0.242, road damage 0.431.
+        </p>
+      </div>
+      <div>
+        <div class="note" style="margin-top:0">
+          <p><strong>Held-out validation only.</strong> These are validation figures from the
+          training run recorded in <code>ai/README.md</code>. They are not production accuracy,
+          not real-world accuracy, and not a guarantee — the model has never run against live
+          Indian road imagery at scale, and saying otherwise would be inventing a result.</p>
+        </div>
+        <p style="font-size:.92rem">
+          The pipeline is 39 tests, standard library only, so the logic is checked on every push
+          without a multi-gigabyte install. The detection path stores a hash of each event and
+          never the frame itself (ADR-0006), so an audit trail exists without retaining imagery.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ DECISIONS ═══ -->
+<section class="rv">
+  <div class="wrap">
+    <p class="eyebrow">Engineering decisions</p>
+    <h2>Four decisions worth defending</h2>
+    <p>Each is enforced by something that fails the build if it regresses.</p>
+    <div class="grid g2" style="margin-top:22px">
+      <article class="card">
+        <span class="n">01</span>
+        <h3 style="margin-top:8px">A model is never allowed to dispatch</h3>
+        <p>A crash signal raises an incident that waits in <code>AWAITING_CONFIRMATION</code>
+           until a person moves it. A false positive that dispatches is worse than a false
+           negative that asks. ADR-0011 then bounds the mirror failure — nobody arriving — with
+           a review deadline per severity that escalates attention, never responders.</p>
+        <a class="adr" href="https://github.com/saatwik-1157/roadassist-bharat/blob/main/app/docs/adr/0005-emergency-isolation.md">Read ADR-0005 →</a>
+      </article>
+      <article class="card">
+        <span class="n">02</span>
+        <h3 style="margin-top:8px">Exactly one channel owns an emergency</h3>
+        <p>The SOS ladder falls back <code>data → SMS → 112 → offline queue</code>. The invariant
+           is that precisely one of them owns the report: a confirmed SMS must not also queue an
+           API replay; an unconfirmed one must. Getting this wrong sends two responders to one
+           accident, or none.</p>
+        <a class="adr" href="https://github.com/saatwik-1157/roadassist-bharat/blob/main/app/docs/adr/0009-offgrid-mode.md">Read ADR-0009 →</a>
+      </article>
+      <article class="card">
+        <span class="n">03</span>
+        <h3 style="margin-top:8px">Races are settled by Postgres, not by timing</h3>
+        <p>Two mechanics accepting one job: <code>SELECT … FOR UPDATE</code> with offer expiry
+           re-checked under the lock. A duplicate SOS: a unique index on a client-minted
+           reference. Double settlement: a partial unique index over settled payments. The audit
+           log is hash-chained, with Postgres <code>RULES</code> making UPDATE and DELETE no-ops.</p>
+        <a class="adr" href="https://github.com/saatwik-1157/roadassist-bharat/blob/main/app/docs/adr/0010-realtime-and-concurrency.md">Read ADR-0010 →</a>
+      </article>
+      <article class="card">
+        <span class="n">04</span>
+        <h3 style="margin-top:8px">The build refuses to let the documents lie</h3>
+        <p>Five gates run on every push: documented claims must match the measured file; every
+           <code>file.ts:123</code> citation must still resolve; module boundaries hold; no
+           language model enters the system; and no personal data leaves India. The last one
+           found a live leak the day it was written.</p>
+        <a class="adr" href="https://github.com/saatwik-1157/roadassist-bharat/blob/main/app/docs/adr/0002-boundaries-in-ci.md">Read ADR-0002 →</a>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ ARCHITECTURE ═══ -->
+<section id="architecture" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">Architecture</p>
+    <h2>A modular monolith, on purpose</h2>
+    <p class="lead">
+      The API and every web surface ship in one process. The surfaces are plain HTML, CSS and
+      JavaScript with no build step, so a second deployment unit would add a network hop and a
+      CORS boundary in exchange for nothing.
+    </p>
+
+    <div class="grid g3" style="margin-top:24px">
+      <div class="card"><h3>Clients</h3>
+        <p>Citizen PWA, mechanic console, RAKSHA dashboard, live map — plus a native Android
+           client in Kotlin and Compose, and SMS for feature phones.</p></div>
+      <div class="card"><h3>API</h3>
+        <p>Fastify, 65 routes under a versioned <code>/v1</code> contract, Zod validation at every
+           boundary, JWT with role-based access, and server-sent events for real time.</p></div>
+      <div class="card"><h3>Data</h3>
+        <p>PostgreSQL 16 with PostGIS. 56 tables, 138 indexes, 5 GiST indexes for geospatial
+           dispatch, 5 migrations, and an append-only audit log.</p></div>
+    </div>
+
+    <div class="flow" style="margin-top:20px">
+      <div class="step"><div class="k">Request</div><div class="d">Client or SMS gateway</div></div>
+      <span class="arr">→</span>
+      <div class="step"><div class="k">Auth</div><div class="d">OTP → JWT → role</div></div>
+      <span class="arr">→</span>
+      <div class="step"><div class="k">Validation</div><div class="d">Zod schema at the boundary</div></div>
+      <span class="arr">→</span>
+      <div class="step"><div class="k">Domain</div><div class="d">Guarded state machines</div></div>
+      <span class="arr">→</span>
+      <div class="step"><div class="k">Postgres</div><div class="d">Transaction, locks, constraints</div></div>
+      <span class="arr">→</span>
+      <div class="step"><div class="k">Audit</div><div class="d">Hash-chained, append-only</div></div>
+    </div>
+
+    <figure style="margin:24px 0 0">
+      <img src="visuals/vis_datacenter.png" width="1800" height="864"
+           style="border:1px solid var(--line);border-radius:14px"
+           alt="Isometric rendering of the deployment topology" loading="lazy">
+      <figcaption class="sub" style="margin-top:10px">
+        Infrastructure, drawn rather than photographed — rendered procedurally as geometry.
+        Nothing photographic is claimed and no stock image with unknown licensing enters the project.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ═══ SECURITY ═══ -->
+<section id="security" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">Security</p>
+    <h2>74 attacks, every one refused</h2>
+    <p class="lead">
+      The security suite is not a checklist. It is a set of attacks that must all fail — a green
+      run means each was attempted and refused, which is a stronger statement than
+      &ldquo;the code looks right&rdquo;.
+    </p>
+    <div class="grid g3" style="margin-top:22px">
+      <div class="card"><h3>Access</h3>
+        <p>Cross-tenant reads and writes, role escalation and id manipulation — every read is
+           scoped by the caller, and a break-glass read is recorded with its reason.</p></div>
+      <div class="card"><h3>Tokens and input</h3>
+        <p>Forged and <code>alg:none</code> tokens, unsigned webhooks, SQL injection, oversized
+           input, and error bodies checked for leakage.</p></div>
+      <div class="card"><h3>Integrity</h3>
+        <p>The audit chain is verified on read and a forged link is reported as a broken chain.
+           Postgres <code>RULES</code> make UPDATE and DELETE on the log no-ops.</p></div>
+    </div>
+    <p class="sub" style="margin-top:16px">
+      CI additionally kills PostgreSQL under a running API and asserts the platform is honest
+      about it — <code>/health</code> returns 503 naming the database while <code>/v1/ping</code>
+      still returns 200, so a client can tell &ldquo;you have no network&rdquo; from
+      &ldquo;the platform is unwell&rdquo; — then rehearses a backup and restore and re-verifies
+      the audit hash chain on the restored copy.
+    </p>
+  </div>
+</section>
+
+<!-- ═══ EVIDENCE ═══ -->
+<section id="evidence" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">Evidence</p>
+    <h2>Every suite, and the one that never ran</h2>
+    <table class="tbl" style="margin-top:18px">
+      <tr><th>Suite</th><th>What it covers</th><th class="num">Assertions</th><th>Status</th></tr>
+      <tr><td>Unit</td><td>No I/O; the only suite that runs standalone</td><td class="num">122</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>End-to-end</td><td>Full citizen and mechanic journeys against a live API</td><td class="num">189</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Concurrency</td><td>Races settled by Postgres rather than by timing</td><td class="num">75</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Security</td><td>Attacks that must every one be refused</td><td class="num">74</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Gateway security</td><td>Telecom path, audit hash chain, OTP limits</td><td class="num">27</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Browser</td><td>Real Chrome driven over CDP</td><td class="num">163</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td><strong>Total</strong></td><td>Six suites, zero failures</td><td class="num"><strong>650</strong></td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Android</td><td>Kotlin unit tests; 21 cover the SOS ladder alone</td><td class="num">66</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>CV pipeline</td><td>Standard library only, no model download needed</td><td class="num">39</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Razorpay sandbox</td><td>Needs a payment account; has never been executed</td><td class="num">22</td><td><span class="badge badge-no">NOT RUN</span></td></tr>
+    </table>
+    <div class="note">
+      <p><strong>Tested is not the same as claimed.</strong> The 22 Razorpay sandbox checks need a
+      KYC-verified account. They have never run, they are not part of the 650, and they are never
+      described as passing. Android lint reports zero errors and the release APK builds under R8.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SCREENSHOTS ═══ -->
+<section class="rv">
+  <div class="wrap">
+    <p class="eyebrow">The running system</p>
+    <h2>Captured from the application, not designed for this page</h2>
+    <p class="sub" style="margin-bottom:20px">
+      Produced by <code>scripts/capture-screens.mjs</code> against the live API — regenerable in
+      about ninety seconds, so they cannot quietly drift from what the product does.
+      Select any image to enlarge.
+    </p>
+    <div class="shots" id="gallery">
+      <button class="shot" data-src="shots/01-login.png"            data-cap="OTP sign-in — real API, development code returned in the response"><img src="shots/01-login.png" alt="OTP sign-in screen" loading="lazy"><span class="cap">Sign in</span></button>
+      <button class="shot" data-src="shots/02-home.png"             data-cap="Home — SOS, emergency readiness, quick actions"><img src="shots/02-home.png" alt="Citizen home screen" loading="lazy"><span class="cap">Home &amp; SOS</span></button>
+      <button class="shot" data-src="shots/04-ai-diagnosis.png"     data-cap="Diagnosis — cause, confidence, severity and safety action, labelled a rules engine"><img src="shots/04-ai-diagnosis.png" alt="Diagnosis screen" loading="lazy"><span class="cap">Diagnosis</span></button>
+      <button class="shot" data-src="shots/05-dispatch.png"         data-cap="Dispatch — ranked offers with distance, ETA and score"><img src="shots/05-dispatch.png" alt="Dispatch with ranked offers" loading="lazy"><span class="cap">Dispatch</span></button>
+      <button class="shot" data-src="shots/06-tracking.png"         data-cap="Tracking — live status, provider, ETA, last updated"><img src="shots/06-tracking.png" alt="Live job tracking" loading="lazy"><span class="cap">Tracking</span></button>
+      <button class="shot" data-src="shots/07-offline-banner.png"   data-cap="OFF-GRID — the indicator and banner say what still works"><img src="shots/07-offline-banner.png" alt="Off-grid banner" loading="lazy"><span class="cap">Off-grid mode</span></button>
+      <button class="shot" data-src="shots/08-offline-diagnosis.png" data-cap="Local offline diagnosis — the on-device rules engine, labelled as such"><img src="shots/08-offline-diagnosis.png" alt="Offline diagnosis" loading="lazy"><span class="cap">On-device rules</span></button>
+      <button class="shot" data-src="shots/09-offgrid-sos.png"      data-cap="Off-grid SOS created — &ldquo;nothing has been transmitted&rdquo;"><img src="shots/09-offgrid-sos.png" alt="Off-grid SOS created" loading="lazy"><span class="cap">Off-grid SOS</span></button>
+      <button class="shot" data-src="shots/11-sync-complete.png"    data-cap="SOS synchronised — journal empty, platform reference returned"><img src="shots/11-sync-complete.png" alt="Sync complete" loading="lazy"><span class="cap">Idempotent sync</span></button>
+      <button class="shot" data-src="shots/16-payment.png"          data-cap="Payment — settlement recorded against the booking, never decided by the client"><img src="shots/16-payment.png" alt="Payment screen" loading="lazy"><span class="cap">Payment</span></button>
+      <button class="shot" data-src="shots/13-mechanic-login.png"   data-cap="Mechanic console — dispatch inbox, live badge, job lifecycle"><img src="shots/13-mechanic-login.png" alt="Mechanic console" loading="lazy"><span class="cap">Mechanic console</span></button>
+      <button class="shot" data-src="shots/14-authority.png"        data-cap="RAKSHA authority — live map, road health, detection triage"><img src="shots/14-authority.png" alt="RAKSHA authority dashboard" loading="lazy"><span class="cap">RAKSHA authority</span></button>
+      <button class="shot" data-src="shots/18-live-map.png"         data-cap="RAKSHA live map — clustered mechanics, responders and detections"><img src="shots/18-live-map.png" alt="RAKSHA live map" loading="lazy"><span class="cap">Live map</span></button>
+      <button class="shot" data-src="shots/20-database-schema.png"  data-cap="The schema — 56 tables, counted through pg_depend so PostGIS does not inflate it"><img src="shots/20-database-schema.png" alt="Database schema" loading="lazy"><span class="cap">Schema</span></button>
+      <button class="shot" data-src="shots/21-test-security.png"    data-cap="The security suite — 74 attacks, every one refused"><img src="shots/21-test-security.png" alt="Security suite output" loading="lazy"><span class="cap">Security suite</span></button>
+      <button class="shot" data-src="shots/23-console.png"          data-cap="Request console — every API call the client makes, with its response"><img src="shots/23-console.png" alt="Request console" loading="lazy"><span class="cap">Request console</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ VIDEOS ═══ -->
+<section class="rv">
+  <div class="wrap">
+    <p class="eyebrow">Recordings</p>
+    <h2>See the system in motion</h2>
+    <div class="vids" style="margin-top:20px">
+      <div class="vid">
+        <video controls preload="none" playsinline poster="shots/15-landing.png"
+               aria-label="Citizen journey recording">
+          <source src="media/roadassist-app-demo.mp4" type="video/mp4">
+          Your browser cannot play this video. The file is at media/roadassist-app-demo.mp4.
+        </video>
+        <div class="meta">
+          <h3>Citizen journey</h3>
+          <p>Sign in, diagnose, dispatch, track, pay — recorded against the running system.</p>
+        </div>
+      </div>
+      <div class="vid">
+        <video controls preload="none" playsinline poster="shots/14-authority.png"
+               aria-label="RAKSHA replay recording">
+          <source src="media/raksha-full-demo.mp4" type="video/mp4">
+          Your browser cannot play this video. The file is at media/raksha-full-demo.mp4.
+        </video>
+        <div class="meta">
+          <h3>RAKSHA replay</h3>
+          <p>65 real detections replayed through the ingest path, twice, to show the replay is idempotent.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ RUN IT ═══ -->
+<section id="run" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">Run it yourself</p>
+    <h2>The whole platform, one command</h2>
+    <p class="lead">
+      No account, no cloud, no credentials. It pulls the published image, brings up PostGIS,
+      migrates, seeds, and serves every surface. Running it twice is a no-op rather than an error.
+    </p>
+    <div class="codewrap" style="margin-top:20px">
+      <button class="btn btn-ghost btn-sm copy" id="copyBtn" type="button">Copy</button>
+<pre id="cmd"><code>git clone https://github.com/saatwik-1157/roadassist-bharat
 cd roadassist-bharat
 docker compose -f docker-compose.demo.yml up</code></pre>
-<p>
-  Then open <code>http://localhost:4000</code>. It pulls the published image,
-  brings up PostGIS, migrates, seeds, and serves the citizen app, mechanic
-  console, authority dashboard and live map from one process. Running it twice
-  is a no-op rather than an error.
-</p>
-<p>
-  Sign in with <code>+917000000000</code> (citizen),
-  <code>+919999900001</code> (authority) or <code>+919600000000</code>
-  (mechanic). The one-time code is returned by the API in demo mode and fills
-  itself in.
-</p>
+    </div>
+    <p style="margin-top:16px">
+      Then open <code>http://localhost:4000</code> — the citizen app, mechanic console, authority
+      dashboard and live map are all served by that one process.
+    </p>
 
-<h2>Deliberately not built</h2>
-<p>
-  Said plainly rather than implied otherwise: iOS, Android Auto, IVR, USSD,
-  satellite, mesh networking, ERSS-112 handoff (stubbed, and the API says so in
-  its own response), Kubernetes, Terraform, autoscaling and multi-zone anything.
-  There is no load test — latency is measured single-user, on one machine.
-</p>
+    <div class="grid g3" style="margin-top:20px">
+      <div class="card"><h3>Citizen</h3><p><code>+917000000000</code></p></div>
+      <div class="card"><h3>Authority</h3><p><code>+919999900001</code></p></div>
+      <div class="card"><h3>Mechanic</h3><p><code>+919600000000</code></p></div>
+    </div>
+    <p class="sub" style="margin-top:12px">
+      These are seeded demo accounts in a throwaway local database. In demo mode the one-time code
+      is returned by the API and fills itself in, so there is no password to publish — and nothing
+      here is a credential for any deployed system.
+    </p>
+
+    <div class="note">
+      <p><strong>Why there is no hosted demo link.</strong> The image is built and published, and
+      CI boots it against a real PostGIS and runs the end-to-end and security suites against the
+      running container before publishing. A hosted instance additionally needs a managed PostGIS
+      database wired to it; that is configuration, not code, and until it is in place this page
+      will not link to a URL that does not answer.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SCOPE ═══ -->
+<section class="rv">
+  <div class="wrap">
+    <p class="eyebrow">Scope</p>
+    <h2>Scope, by design</h2>
+    <p>
+      The project distinguishes implemented functionality from future scope, and says which is
+      which. These are named rather than implied:
+    </p>
+    <div class="chips">
+      <span class="chip">iOS</span><span class="chip">Android Auto</span><span class="chip">IVR</span>
+      <span class="chip">USSD</span><span class="chip">Satellite</span><span class="chip">Mesh networking</span>
+      <span class="chip">ERSS-112 handoff (stubbed)</span><span class="chip">Kubernetes</span>
+      <span class="chip">Terraform</span><span class="chip">Autoscaling</span>
+      <span class="chip">Multi-zone</span><span class="chip">Load testing</span>
+    </div>
+    <p class="sub" style="margin-top:16px">
+      Latency is measured single-user on one machine. The eight languages ship, but seven are
+      machine-translated and have not been reviewed by native speakers — the strings exist, the
+      quality is unverified, and those are different claims.
+    </p>
+  </div>
+</section>
+
+</main>
 
 <footer>
-  <p>
-    Built by V. Saatwik Sairaam, P. Nirisha Chowdary, T. V. S. Jignesh and
-    G. Parthavi for SWE4004 — Cloud Computing and Applications.
-  </p>
-  <p>
-    <a href="https://github.com/saatwik-1157/roadassist-bharat">Source</a> ·
-    <a href="https://github.com/saatwik-1157/roadassist-bharat/blob/main/DEPLOYMENT.md">Deployment notes</a> ·
-    <a href="https://github.com/saatwik-1157/roadassist-bharat/tree/main/app/docs/adr">Decision records</a>
-  </p>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="#top" style="margin-bottom:10px">
+          <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M16 4l10 4.4v7.8C26 22.6 21.8 27.9 16 29.3 10.2 27.9 6 22.6 6 16.2V8.4z" fill="none" stroke="#4da3ff" stroke-width="2"/>
+          </svg>
+          RoadAssist Bharat
+        </a>
+        <p class="sub" style="max-width:34ch">One platform. Every vehicle. Every phone. Every road.</p>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/saatwik-1157/roadassist-bharat">Source</a></li>
+          <li><a href="https://github.com/saatwik-1157/roadassist-bharat/tree/main/app/docs/adr">Decision records</a></li>
+          <li><a href="https://github.com/saatwik-1157/roadassist-bharat/blob/main/DEPLOYMENT.md">Deployment notes</a></li>
+          <li><a href="https://github.com/saatwik-1157/roadassist-bharat/blob/main/app/docs/CLAIMS-AUDIT.md">Claims audit</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Team</h4>
+        <p class="team">V. Saatwik Sairaam</p>
+        <p class="team">P. Nirisha Chowdary</p>
+        <p class="team">T. V. S. Jignesh</p>
+        <p class="team">G. Parthavi</p>
+      </div>
+    </div>
+    <p class="legal">
+      SWE4004 — Cloud Computing and Applications. This page is a project showcase; it is not the
+      running application. Every figure on it is measured and reproducible from the repository.
+    </p>
+  </div>
 </footer>
 
-</div>
+<dialog class="lb" id="lightbox" aria-label="Screenshot viewer">
+  <div class="lb-in">
+    <img id="lbImg" src="shots/02-home.png" alt="">
+    <div class="lb-bar">
+      <p id="lbCap"></p>
+      <button class="btn btn-ghost btn-sm" id="lbPrev" type="button">&larr; Prev</button>
+      <button class="btn btn-ghost btn-sm" id="lbNext" type="button">Next &rarr;</button>
+      <button class="btn btn-primary btn-sm" id="lbClose" type="button">Close</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+  var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* mobile navigation */
+  var toggle = document.getElementById("navToggle");
+  var links = document.getElementById("navLinks");
+  toggle.addEventListener("click", function () {
+    var open = links.classList.toggle("open");
+    toggle.setAttribute("aria-expanded", String(open));
+  });
+  links.addEventListener("click", function (e) {
+    if (e.target.tagName === "A") { links.classList.remove("open"); toggle.setAttribute("aria-expanded", "false"); }
+  });
+
+  /* section reveal */
+  var rv = document.querySelectorAll(".rv");
+  if (reduced || !("IntersectionObserver" in window)) {
+    rv.forEach(function (el) { el.classList.add("in"); });
+  } else {
+    var ro = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); ro.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.05 });
+    rv.forEach(function (el) { ro.observe(el); });
+
+    // Failsafe. A reveal animation must never be the reason someone cannot read
+    // the page: if the observer has revealed nothing after two seconds - a zero
+    // height viewport, an embedded frame, a browser that throttles callbacks -
+    // stop animating and just show everything.
+    setTimeout(function () {
+      if (!document.querySelector(".rv.in")) {
+        rv.forEach(function (el) { el.classList.add("in"); });
+      }
+    }, 2000);
+  }
+
+  /* count-up, once — the numbers are real, so they are never randomised */
+  var metrics = document.getElementById("metrics");
+  function countUp() {
+    metrics.querySelectorAll("[data-count]").forEach(function (el) {
+      var target = parseInt(el.getAttribute("data-count"), 10);
+      if (reduced) { el.textContent = String(target); return; }
+      var t0 = performance.now(), dur = 900;
+      (function tick(now) {
+        var p = Math.min(1, (now - t0) / dur);
+        el.textContent = String(Math.round(target * (1 - Math.pow(1 - p, 3))));
+        if (p < 1) requestAnimationFrame(tick);
+      })(t0);
+    });
+  }
+  if (!("IntersectionObserver" in window)) { countUp(); }
+  else {
+    var mo = new IntersectionObserver(function (es) {
+      if (es[0].isIntersecting) { countUp(); mo.disconnect(); }
+    }, { threshold: 0.4 });
+    mo.observe(metrics);
+  }
+
+  /* active section in the navigation */
+  var navA = Array.prototype.slice.call(links.querySelectorAll('a[href^="#"]'));
+  var targets = navA.map(function (a) { return document.querySelector(a.getAttribute("href")); }).filter(Boolean);
+  if ("IntersectionObserver" in window && targets.length) {
+    var so = new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        navA.forEach(function (a) {
+          a.setAttribute("aria-current", String(a.getAttribute("href") === "#" + e.target.id));
+        });
+      });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+    targets.forEach(function (t) { so.observe(t); });
+  }
+
+  /* journey stages */
+  var stages = Array.prototype.slice.call(document.querySelectorAll(".stage"));
+  var sTitle = document.getElementById("stageTitle");
+  var sBody = document.getElementById("stageBody");
+  var sShot = document.getElementById("stageShot");
+  function selectStage(btn) {
+    stages.forEach(function (b) { b.setAttribute("aria-selected", String(b === btn)); });
+    sTitle.textContent = btn.dataset.title;
+    sBody.innerHTML = btn.dataset.body;
+    var next = "shots/" + btn.dataset.shot + ".png";
+    sShot.src = next;
+    sShot.alt = btn.dataset.title;
+  }
+  stages.forEach(function (b) {
+    b.addEventListener("click", function () { selectStage(b); });
+    b.addEventListener("keydown", function (e) {
+      var i = stages.indexOf(b), n = null;
+      if (e.key === "ArrowRight") n = stages[(i + 1) % stages.length];
+      if (e.key === "ArrowLeft") n = stages[(i - 1 + stages.length) % stages.length];
+      if (n) { e.preventDefault(); n.focus(); selectStage(n); }
+    });
+  });
+
+  /* lightbox */
+  var lb = document.getElementById("lightbox");
+  var lbImg = document.getElementById("lbImg"), lbCap = document.getElementById("lbCap");
+  var shots = Array.prototype.slice.call(document.querySelectorAll(".shot"));
+  var at = 0;
+  function show(i) {
+    at = (i + shots.length) % shots.length;
+    var b = shots[at];
+    lbImg.src = b.dataset.src;
+    lbImg.alt = b.dataset.cap.replace(/&[a-z]+;/g, "");
+    lbCap.innerHTML = b.dataset.cap;
+  }
+  shots.forEach(function (b, i) {
+    b.addEventListener("click", function () {
+      show(i);
+      if (typeof lb.showModal === "function") lb.showModal(); else lb.setAttribute("open", "");
+    });
+  });
+  document.getElementById("lbClose").addEventListener("click", function () { lb.close(); });
+  document.getElementById("lbNext").addEventListener("click", function () { show(at + 1); });
+  document.getElementById("lbPrev").addEventListener("click", function () { show(at - 1); });
+  lb.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowRight") show(at + 1);
+    if (e.key === "ArrowLeft") show(at - 1);
+  });
+  lb.addEventListener("click", function (e) { if (e.target === lb) lb.close(); });
+
+  /* copy the run command */
+  var copyBtn = document.getElementById("copyBtn");
+  copyBtn.addEventListener("click", function () {
+    var text = document.getElementById("cmd").innerText;
+    function done(ok) {
+      copyBtn.textContent = ok ? "Copied" : "Press Ctrl+C";
+      setTimeout(function () { copyBtn.textContent = "Copy"; }, 1800);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+    } else {
+      // No clipboard API (or a non-secure context): select the text so the
+      // keyboard shortcut still works rather than failing silently.
+      var r = document.createRange();
+      r.selectNodeContents(document.getElementById("cmd"));
+      var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      done(false);
+    }
+  });
+
+  /* a broken asset must degrade, never leave a hole */
+  document.addEventListener("error", function (e) {
+    var el = e.target;
+    if (el.tagName !== "IMG") return;
+    el.style.display = "none";
+    var host = el.closest("figure, .shot, .panel, .hero-fig");
+    if (host && !host.querySelector(".fallback")) {
+      var d = document.createElement("div");
+      d.className = "fallback";
+      d.style.cssText = "padding:22px;color:var(--ink-3);font-size:.86rem;text-align:center";
+      d.textContent = "Image unavailable.";
+      host.appendChild(d);
+    }
+  }, true);
+})();
+</script>
 </body>
 </html>
