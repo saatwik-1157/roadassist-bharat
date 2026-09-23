@@ -5,12 +5,23 @@
 > An offline-first emergency mobility platform for India — built for the roads
 > where coverage is worst.
 
-**Designed and built entirely by [Saatwik Sairaam Vasamsetti](https://github.com/saatwik-1157).**
-Every line of the API, the Android client, the web surfaces, the CV pipeline,
-the schema, the test suites and the CI is the work of one person. The
-`docs/0X-*-roadmap.md` files are written in the voice of four notional leads
-because that is how the 18-phase plan was drafted; they describe *workstreams*,
-not people. There is no team.
+**A four-person team project for SWE4004 — Cloud Computing and Applications**,
+presented at Review 1 with the workstreams below.
+
+| Member | Workstream |
+|---|---|
+| [V. Saatwik Sairaam](https://github.com/saatwik-1157) | Backend · APIs · Database |
+| P. Nirisha Chowdary | Auth · Security · Real-time |
+| T. V. S. Jignesh | Frontend · Customer app |
+| G. Parthavi | Mechanic & admin surfaces · Cloud DevOps |
+
+The `docs/0X-*-roadmap.md` files are written as four lead roadmaps because that
+is how the 18-phase plan divides the work; D1–D4 map onto the four members in
+that order.
+
+The repository is pushed from a single account, so `git log` shows one
+committer. That is how the code reached GitHub, not how the work was split —
+said here rather than left for someone to infer from the commit list.
 
 ---
 

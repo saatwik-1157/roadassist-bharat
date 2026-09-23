@@ -72,8 +72,8 @@ txt(s, 1.1, 4.5, 4.8, 0.35, "“RoadAssist doesn't stop when the network stops.�
     size=12.5, color=WHITE, bold=True, font=SANS_SEMI)
 
 bullet_rows(s, 7.05, 4.32, [
-    ("Team", "V Saatwik Sairaam · P Sai Nirisha Chowdary"),
-    ("", "T V S Jignesh · G Parthavi"),
+    ("Team", "V. Saatwik Sairaam · P. Nirisha Chowdary"),
+    ("", "T. V. S. Jignesh · G. Parthavi"),
     ("Faculty", "Dr. Nagendra Panini Challa"),
     ("Institution", "VIT-AP University"),
 ], w=5.4, gap=0.36, size=10.5)

@@ -1,9 +1,18 @@
 # D3 — AI & Data Science Lead · Individual Roadmap
 
-> **One author.** This project was designed and built entirely by Saatwik Sairaam
-> Vasamsetti. The D1–D4 roles below are *workstreams* in an 18-phase plan, not
-> people — they were drafted that way to divide the work, and one person did all
-> of it. Nothing here should be read as describing a team.
+> **A four-person team**, as presented at Review 1 for SWE4004 — Cloud Computing
+> and Applications:
+>
+> | Member | Workstream |
+> |---|---|
+> | V. Saatwik Sairaam | Backend · APIs · Database |
+> | P. Nirisha Chowdary | Auth · Security · Real-time |
+> | T. V. S. Jignesh | Frontend · Customer app |
+> | G. Parthavi | Mechanic & admin surfaces · Cloud DevOps |
+>
+> The D1–D4 roles below are the same four workstreams, in that order. The
+> repository is pushed from one account, so `git log` shows a single committer;
+> that is how the code was submitted, not how the work was divided.
 
 **Owns:** all 9 AI subsystems, model training and serving, on-device inference, feature store, voice/IVR NLU, analytics pipeline, government forecasting.
 **Backs up:** D1 on the analytics service.
