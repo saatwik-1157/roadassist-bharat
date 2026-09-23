@@ -86,6 +86,22 @@ npm run test:security    # 74 attacks, every one must be refused
 npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
 ```
 
+**The concurrency suite degrades on a database it has already run against.**
+It needs free, verified providers near the test point, and every run — plus any
+booking you dispatch by hand for a demo — leaves some of the pool occupied. The
+failure is legible once you know it: `0 offers — only 0 free provider(s) in
+range; skipped: {"OFFLINE":39,"BUSY":30}`, and it gets worse each time. Measured
+across four consecutive runs on one database: 75 passed, then 65, then 44, then
+44. A fresh seed returns it to 75 immediately.
+
+So it is not a flaky test and not a regression — it is state. Reset before you
+trust a concurrency run, and especially before a demo:
+
+```bash
+docker compose -f docker-compose.demo.yml down -v
+docker compose -f docker-compose.demo.yml up -d
+```
+
 `npm run test:razorpay` (22) needs a Razorpay sandbox account and refuses to run
 without one. It is **not** part of the 636 and must never be described as
 passing.

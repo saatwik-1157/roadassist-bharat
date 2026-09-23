@@ -292,6 +292,26 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
             padding:3px 10px;border-radius:999px;margin-bottom:10px}
 @media (max-width:820px){.surf{grid-template-columns:1fr}}
 
+/* ── feature visuals ────────────────────────────────────────── */
+.journey-hero{margin:0 0 26px;position:relative;border:1px solid var(--line);
+              border-radius:var(--r);overflow:hidden;background:var(--bg-2)}
+.journey-hero img{width:100%;max-height:460px;object-fit:cover;object-position:center 22%}
+.journey-hero figcaption,.arch-devices figcaption{color:var(--ink-3);font-size:.84rem;
+              padding:12px 18px;border-top:1px solid var(--line-soft)}
+.arch-devices{margin:26px 0 0;border:1px solid var(--line);border-radius:var(--r);
+              overflow:hidden;background:var(--bg-2)}
+.arch-devices img{width:100%;max-height:520px;object-fit:cover;object-position:center 30%}
+.vid{position:relative}
+.vid .badge-live{position:absolute;top:12px;left:12px;z-index:2;display:none;
+  align-items:center;gap:6px;font-size:.68rem;font-weight:800;letter-spacing:.12em;
+  background:rgba(8,9,12,.72);border:1px solid var(--line);color:var(--ink-2);
+  padding:5px 11px;border-radius:999px;backdrop-filter:blur(6px)}
+.vid.is-live .badge-live{display:inline-flex}
+.badge-live i{width:6px;height:6px;border-radius:50%;background:var(--alert);
+  animation:pulse 1.8s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.badge-live i{animation:none}}
+
 /* ── reveal ─────────────────────────────────────────────────── */
 /* Scoped to .js, set by an inline script before first paint. Without it a
    reader with JavaScript disabled or blocked would get a page whose every
@@ -314,6 +334,16 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   .tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;
        border-radius:12px;max-width:100%}
   .tbl th,.tbl td{padding:9px 11px;font-size:.87rem}
+}
+@media (hover:none),(max-width:720px){
+  /* Anything you tap with a thumb gets a 44px target. The chips and small
+     buttons were landing near 30px, which is fine for a cursor and a guess
+     for a finger. */
+  .btn,.chip-q,.stage,.shot,.nav-links a{min-height:44px}
+  .btn,.chip-q,.stage{display:inline-flex;align-items:center}
+  .chip-q{padding:0 16px}
+  .btn-sm{padding:0 18px}
+  .ask-bar input{min-height:48px}
 }
 @media (max-width:720px){
   section{padding:58px 0}
@@ -566,6 +596,12 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         <span class="i">08</span> RAKSHA</button>
     </div>
 
+    <figure class="journey-hero">
+      <img src="visuals/vis_closing.png" width="1180" height="1520" loading="lazy"
+           alt="The citizen app tracking a live rescue, set into a device frame over a routed map">
+      <figcaption>A live job on the citizen app — the state machine driving the client over an event stream.</figcaption>
+    </figure>
+
     <div class="panel">
       <div>
         <h3 id="stageTitle">Request or escalate</h3>
@@ -756,6 +792,12 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       <div class="step"><div class="k">Audit</div><div class="d">Hash-chained, append-only</div></div>
     </div>
 
+    <figure class="arch-devices">
+      <img src="visuals/vis_hero.png" width="1720" height="1680" loading="lazy"
+           alt="The citizen app and mechanic console side by side over a network graph">
+      <figcaption>Two clients, one contract — the same versioned /v1 API behind both.</figcaption>
+    </figure>
+
     <figure style="margin:24px 0 0">
       <img src="visuals/vis_datacenter.png" width="1800" height="864"
            style="border:1px solid var(--line);border-radius:14px"
@@ -868,7 +910,8 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     <h2>See the system in motion</h2>
     <div class="vids" style="margin-top:20px">
       <div class="vid">
-        <video controls preload="none" playsinline poster="shots/15-landing.png"
+        <span class="badge-live"><i></i>LIVE PREVIEW</span>
+        <video class="live" controls muted loop playsinline preload="none" poster="shots/15-landing.png"
                aria-label="Citizen journey recording">
           <source src="media/roadassist-app-demo.mp4" type="video/mp4">
           Your browser cannot play this video. The file is at media/roadassist-app-demo.mp4.
@@ -879,7 +922,8 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         </div>
       </div>
       <div class="vid">
-        <video controls preload="none" playsinline poster="shots/14-authority.png"
+        <span class="badge-live"><i></i>LIVE PREVIEW</span>
+        <video class="live" controls muted loop playsinline preload="none" poster="shots/14-authority.png"
                aria-label="RAKSHA replay recording">
           <source src="media/raksha-full-demo.mp4" type="video/mp4">
           Your browser cannot play this video. The file is at media/raksha-full-demo.mp4.
@@ -1151,6 +1195,49 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       done(false);
     }
   });
+
+  /* Live previews.
+
+     The recordings play themselves while they are on screen and pause the moment
+     they are not, so the page feels alive without a click and without a phone
+     decoding video nobody is looking at. Muted and playsinline, because a page
+     that makes noise unasked is a page people close.
+
+     Three ways to opt out, all respected: prefers-reduced-motion, the browser's
+     data-saver flag, and a connection that reports itself as 2g. On any of them
+     the poster stays and the controls still work - nothing is lost, it just
+     waits to be asked. */
+  (function () {
+    var vids = [].slice.call(document.querySelectorAll("video.live"));
+    if (!vids.length) return;
+
+    var conn = navigator.connection || {};
+    var frugal = reduced || conn.saveData === true ||
+                 /^(slow-)?2g$/.test(conn.effectiveType || "");
+    if (frugal || !("IntersectionObserver" in window)) return;
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        var v = e.target, card = v.closest(".vid");
+        if (e.isIntersecting) {
+          if (v.preload === "none") v.preload = "metadata";
+          var p = v.play();
+          if (p && p.catch) p.catch(function () { /* autoplay refused; poster stays */ });
+          if (card) card.classList.add("is-live");
+        } else {
+          v.pause();
+          if (card) card.classList.remove("is-live");
+        }
+      });
+    }, { threshold: 0.45 });
+
+    vids.forEach(function (v) {
+      io.observe(v);
+      // Once somebody takes control, stop managing it for them.
+      v.addEventListener("play", function () { if (!v.muted) io.unobserve(v); });
+      v.addEventListener("volumechange", function () { if (!v.muted) io.unobserve(v); });
+    });
+  })();
 
   /* a broken asset must degrade, never leave a hole */
   document.addEventListener("error", function (e) {
