@@ -53,10 +53,12 @@ jobs:
           # slower page for no reason.
           cp site/roadassist-app-demo.mp4 _site/media/
           cp site/raksha-full-demo.mp4    _site/media/
-          # The generated 3D visuals. render_visuals.py builds them from the
+          # The generated 3D visuals, all of them: naming three by hand meant
+          # adding a fourth to the page failed the build instead of shipping.
+          # render_visuals.py builds them from the
           # real screenshots above and refuses a landscape capture in a phone
           # frame, which is how the hero silently rendered as overlap once.
-          cp ppt/assets/vis_hero.png ppt/assets/vis_products.png ppt/assets/vis_datacenter.png _site/visuals/
+          cp ppt/assets/vis_*.png _site/visuals/
           # Jekyll would otherwise try to process this and skip _-prefixed files.
           touch _site/.nojekyll
 
