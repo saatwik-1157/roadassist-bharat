@@ -162,6 +162,26 @@ surfaced on a first deploy, against an empty database — the worst moment.
    uses 22. `npm ci` did not object because engine-strict is off, so the
    deployed artefact ran on a runtime the project says it does not support.
 
+## Hosts that cannot run this
+
+Said plainly, because the question comes up and the answer is not obvious from
+the outside: **Netlify, Vercel and any function-per-request host cannot run this
+API.** Three things need a long-lived process —
+
+- `realtime.ts` holds open `text/event-stream` connections; a function
+  terminates and takes the stream with it.
+- `dispatch.ts` runs the offer-expiry sweeper on an interval, and `ratelimit.ts`
+  sweeps the limiter. Neither runs between invocations, so offers would never
+  expire — and offer expiry is load-bearing for the concurrency guarantees.
+- The Postgres pool is persistent, and PostGIS is required.
+
+Hosting the surfaces there and the API elsewhere would also split what ADR-0001
+deliberately keeps in one process, adding a CORS boundary and a second
+deployment unit in exchange for nothing — and the API would still need a home.
+
+[`fly.toml`](fly.toml) is a ready alternative to Render; both run the same
+image, so nothing about the application changes between them.
+
 ## Checking a deployment
 
 The suites prove the code. This proves the thing on the internet, which is a

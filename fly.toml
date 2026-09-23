@@ -1,0 +1,80 @@
+# Fly.io deployment — the fallback if Render is being difficult.
+#
+# Fly runs the same image as a long-lived process, which this platform needs
+# and a serverless host cannot give it: realtime.ts holds open SSE streams,
+# dispatch.ts runs the offer-expiry sweeper on an interval, and the Postgres
+# pool is persistent. On a function-per-request host the streams die, offers
+# never expire, and the concurrency guarantees quietly stop being true.
+#
+#   fly launch --no-deploy --copy-config      # creates the app, keeps this file
+#   fly postgres create --name roadassist-db  # then attach it, see below
+#   fly deploy
+#
+# PostGIS: Fly's Postgres is a plain Postgres image, so enable the extension
+# once before the first deploy —
+#
+#   fly postgres connect -a roadassist-db
+#   CREATE EXTENSION IF NOT EXISTS postgis;
+#
+# migrate.ts also runs CREATE EXTENSION, but it needs the superuser rights that
+# the attached role may not have; doing it by hand once removes the doubt.
+
+app = "roadassist"
+primary_region = "bom"          # Mumbai — closest to the users this serves
+
+[build]
+  dockerfile = "app/Dockerfile"
+  # site/ lives outside the npm workspace and is served at /media, so the build
+  # context has to be the repository root.
+
+[env]
+  # NOT "production": the guard in env.ts rightly refuses to boot without a real
+  # payment gateway, a real SMS provider and webhook secrets. Running as "demo"
+  # keeps that guard meaningful instead of weakening it.
+  NODE_ENV = "demo"
+  PORT = "8080"
+  HOST = "0.0.0.0"
+  TRUST_PROXY = "true"          # Fly proxies; without this the per-IP OTP limiter sees one client
+  SMS_PROVIDER = "console"
+  PAYMENTS_PROVIDER = "mock"
+  EXPOSE_DEV_OTP = "true"       # see the warning in DEPLOYMENT.md before sharing the URL
+  UPLOAD_DIR = "/repo/app/var/uploads"
+  CORS_ORIGINS = "https://roadassist.dpdns.org"
+
+# Secrets are set out of band, never in this file:
+#   fly secrets set JWT_SECRET="$(openssl rand -hex 32)"
+#   fly secrets set DATABASE_URL="postgres://..."     # from `fly postgres attach`
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0      # set to 1 to remove cold starts, at a cost
+
+  [http_service.http_options.response]
+    pristine = true             # do not let the proxy buffer the SSE streams
+
+  [[http_service.checks]]
+    path = "/health"            # 503 while the database is unreachable
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "20s"
+
+# Hazard photos. ADR-0006 keeps only a reference in the database, so without a
+# volume the row outlives the file and the photo endpoint 404s rather than
+# corrupting anything — but attach one if the photos should survive a restart:
+#   fly volumes create roadassist_data --region bom --size 1
+# [mounts]
+#   source = "roadassist_data"
+#   destination = "/repo/app/var"
+
+[deploy]
+  # migrate.ts is idempotent — it applies the journal, pins SRIDs, rebuilds the
+  # GiST indexes and re-asserts the append-only audit RULES — so running it on
+  # every release costs a second and makes a first deploy need no extra step.
+  release_command = "node packages/db/dist/src/migrate.js"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
