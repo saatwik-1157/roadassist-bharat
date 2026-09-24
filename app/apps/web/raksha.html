@@ -763,7 +763,7 @@
           (isCitizen ? "" : "Confidence: " + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
             (d.used_fallback ? " (fallback)" : "") + "<br>") +
           "Status: " + esc(d.status) +
-          "<br>Source: " + (isCitizen ? "<b>Citizen report</b>" : "Edge device — " + esc(d.device_name) + (d.simulated ? " [SIMULATED]" : "")) +
+          "<br>Source: " + (isCitizen ? "<b>Citizen report</b>" : "Edge device — " + deviceLabel(d)) +
           (d.notes ? "<br>Note: " + esc(d.notes) : "") +
           (d.segment_code ? "<br>Segment: " + esc(d.segment_code) : "") +
           (isCitizen ? "" : "<br>Captured: " + new Date(d.captured_at).toLocaleString() + (d.ran_offline ? " · offline" : ""));
@@ -798,7 +798,7 @@
         '<span class="st">' + esc(d.status) + "</span></div>" +
         '<div class="meta">' + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
         " · " + esc(d.segment_code || "off-segment") + " · " +
-        (isCitizen ? "crowdsourced" : esc(d.device_name) + (d.simulated ? " [SIMULATED]" : "")) +
+        (isCitizen ? "crowdsourced" : deviceLabel(d)) +
         (isCitizen && d.notes ? "<br>“" + esc(d.notes) + "”" : "") + "<br>" +
         new Date(d.captured_at).toLocaleString() + (d.ran_offline ? " · captured offline" : "") +
         "<span class='pos " + (pos.provenance === "simulated" ? "sim" : "gps") + "'>" + esc(pos.label) + "</span></div>";
@@ -1054,6 +1054,13 @@
     saveSession();
     await enterConsole(d.roles, d.user.msisdn);
   } });
+
+  // A simulated device is tagged once. The simulator registers its device with
+  // "[SIMULATED]" already in the name, and appending the flag again printed it twice.
+  function deviceLabel(d) {
+    var name = esc(d.device_name || "");
+    return d.simulated && !/\[SIMULATED\]/i.test(d.device_name || "") ? name + " [SIMULATED]" : name;
+  }
 
   /** Everything that happens once a session exists, fresh or restored. */
   async function enterConsole(roles, who) {
