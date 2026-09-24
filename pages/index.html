@@ -208,11 +208,11 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
 .shot img{width:100%;object-fit:cover;object-position:top;background:var(--bg)}
 .shots-phone .shot img{aspect-ratio:78/169}
 .shots-wide  .shot img{aspect-ratio:16/10;object-position:center top}
-.shots-phone{grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
-.shots-wide{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.shots-phone{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:20px}
+.shots-wide{grid-template-columns:repeat(auto-fill,minmax(440px,1fr));gap:20px}
 .shots-label{font-size:.73rem;letter-spacing:.1em;text-transform:uppercase;
              color:var(--ink-3);font-weight:700;margin:26px 0 12px}
-.shot .cap{padding:10px 12px;font-size:.8rem;color:var(--ink-2)}
+.shot .cap{padding:13px 15px;font-size:.87rem;color:var(--ink-2);line-height:1.45}
 dialog.lb{border:0;padding:0;background:transparent;max-width:min(94vw,1100px);max-height:94vh}
 dialog.lb::backdrop{background:rgba(4,6,10,.9)}
 .lb-in{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
@@ -280,10 +280,8 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .surf{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-top:24px}
 .surf article{background:var(--surface);border:1px solid var(--line-soft);
               border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column}
-.surf .frame{background:var(--bg);border-bottom:1px solid var(--line-soft);
-             aspect-ratio:16/10;overflow:hidden;display:flex;align-items:flex-start;justify-content:center}
-.surf .frame img{width:100%;height:100%;object-fit:cover;object-position:center top}
-.surf .frame.tall img{object-position:center top}
+.surf .stagebox{border:0;border-radius:0;border-bottom:1px solid var(--line-soft);padding:26px 26px 0}
+.surf .device img{max-height:270px;object-fit:cover;object-position:center top}
 .surf .body{padding:20px 22px}
 .surf h3{font-size:1.06rem;margin-bottom:5px}
 .surf p{font-size:.9rem;margin-bottom:0}
@@ -311,6 +309,50 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   animation:pulse 1.8s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 @media (prefers-reduced-motion:reduce){.badge-live i{animation:none}}
+
+/* ── device chrome: a capture presented as running software ──── */
+.stagebox{position:relative;border-radius:22px;padding:30px;overflow:hidden;
+  background:radial-gradient(72% 90% at 50% 0%,rgba(240,180,41,.10),transparent 62%),
+             radial-gradient(60% 80% at 84% 20%,rgba(77,163,255,.10),transparent 64%),
+             linear-gradient(180deg,var(--bg-2),var(--bg));
+  border:1px solid var(--line-soft)}
+.stagebox::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent 70%,rgba(8,9,12,.55));}
+
+/* A browser shell for the console captures, a handset shell for the phone
+   ones. Both are CSS - no extra image, no stock mockup, and the capture inside
+   is untouched. */
+.device{position:relative;border-radius:14px;overflow:hidden;background:#0b0d12;
+  border:1px solid var(--line);box-shadow:0 34px 70px -28px rgba(0,0,0,.92),
+  0 0 0 1px rgba(255,255,255,.03) inset;transition:transform .5s cubic-bezier(.2,.7,.3,1)}
+.device .bar{display:flex;align-items:center;gap:7px;padding:9px 13px;
+  background:#111520;border-bottom:1px solid var(--line-soft)}
+.device .bar i{width:9px;height:9px;border-radius:50%;background:#2b3444;flex:0 0 auto}
+.device .bar i:nth-child(1){background:#e05a5a}
+.device .bar i:nth-child(2){background:#e0a640}
+.device .bar i:nth-child(3){background:#49c97e}
+.device .bar span{margin-left:8px;font-family:var(--mono);font-size:.72rem;color:var(--ink-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.device .bar .dot-live{margin-left:auto;display:inline-flex;align-items:center;gap:5px;
+  font-size:.62rem;letter-spacing:.11em;font-weight:800;color:var(--ok)}
+.device .bar .dot-live b{width:5px;height:5px;border-radius:50%;background:var(--ok);
+  animation:pulse 2s ease-in-out infinite}
+.device img{width:100%;display:block}
+.device.phone{border-radius:26px;max-width:292px;margin:0 auto;padding:9px;background:#14181f}
+.device.phone img{border-radius:18px}
+.device.phone .notch{position:absolute;top:13px;left:50%;transform:translateX(-50%);
+  width:86px;height:17px;border-radius:0 0 12px 12px;background:#14181f;z-index:2}
+@media (hover:hover){
+  .tilt:hover .device{transform:perspective(1500px) rotateY(-5deg) rotateX(3deg) translateY(-6px)}
+}
+@media (prefers-reduced-motion:reduce){.device{transition:none}.tilt:hover .device{transform:none}}
+
+.runline{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:14px;
+  font-family:var(--mono);font-size:.74rem;color:var(--ink-3)}
+.runline .dot-live{display:inline-flex;align-items:center;gap:5px;font-family:var(--sans);
+  font-size:.62rem;letter-spacing:.11em;font-weight:800;color:var(--ok)}
+.runline .dot-live b{width:5px;height:5px;border-radius:50%;background:var(--ok);
+  animation:pulse 2s ease-in-out infinite}
 
 /* ── reveal ─────────────────────────────────────────────────── */
 /* Scoped to .js, set by an inline script before first paint. Without it a
@@ -358,7 +400,15 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   .nav-toggle{display:block}
   .g2,.g3,.g4,.metrics{grid-template-columns:1fr}
   .foot{grid-template-columns:1fr}
-  .shots{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  /* Two columns for the portrait phone captures - at ~155px wide a 78:169
+     frame is still 335px tall, which reads. A 2560x1720 desktop capture at
+     that width does not: it becomes a grey smear. So the wide gallery drops
+     to one full-width column on a phone rather than shrinking to fit. */
+  .shots-phone{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}
+  .shots-wide{grid-template-columns:1fr;gap:16px}
+  .stagebox{padding:16px;border-radius:16px}
+  .device{padding:7px}
+  .device.phone{padding:7px;max-width:250px}
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -517,8 +567,95 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     </p>
 
     <div class="surf">
+      <article class="tilt">
+        <div class="stagebox">
+          <div class="device phone">
+            <span class="notch"></span>
+            <img src="shots/stage/02-home.webp" width="780" height="1688" loading="lazy" alt="Citizen app home screen with the hold-to-escalate SOS control">
+          </div>
+          <p class="runline">localhost:4000/app.html <span class="dot-live"><b></b>RUNNING</span></p>
+        </div>
+        <div class="body">
+          <h3>Citizen app</h3>
+          <p>Request assistance, hold to raise an SOS, track the job, pay and review. Works off-grid: an SOS with no signal becomes a real incident on the device.</p>
+        </div>
+      </article>
+
+      <article class="tilt">
+        <div class="stagebox">
+          <div class="device">
+            <div class="bar"><i></i><i></i><i></i>
+              <span>localhost:4000/mechanic.html</span>
+              <span class="dot-live"><b></b>RUNNING</span>
+            </div>
+            <img src="shots/stage/13-mechanic-login.webp" width="1400" height="941" loading="lazy" alt="Mechanic console running in a browser">
+          </div>
+        </div>
+        <div class="body">
+          <h3>Mechanic console</h3>
+          <p>Availability toggle, rating and job history, the active job, and a dispatch inbox of ranked offers with distance and ETA that expire if not accepted. Shown at sign-in &mdash; the console itself is in the recording below.</p>
+        </div>
+      </article>
+
+      <article class="tilt">
+        <div class="stagebox">
+          <div class="device">
+            <div class="bar"><i></i><i></i><i></i>
+              <span>localhost:4000/raksha.html</span>
+              <span class="dot-live"><b></b>RUNNING</span>
+            </div>
+            <img src="shots/stage/14-authority.webp" width="1400" height="941" loading="lazy" alt="RAKSHA authority dashboard with live map, road health scoring and detections">
+          </div>
+        </div>
+        <div class="body">
+          <h3>RAKSHA authority dashboard</h3>
+          <p>Detection triage, road-health scoring per segment, edge-device status, and the confirmation queue where a model-raised incident waits for a person (ADR-0005).</p>
+        </div>
+      </article>
+
+      <article class="tilt">
+        <div class="stagebox">
+          <div class="device phone">
+            <span class="notch"></span>
+            <img src="shots/stage/18-live-map.webp" width="860" height="1800" loading="lazy" alt="Live operational map with clustered mechanics, responders and detections">
+          </div>
+          <p class="runline">localhost:4000/map.html <span class="dot-live"><b></b>RUNNING</span></p>
+        </div>
+        <div class="body">
+          <h3>Live operational map</h3>
+          <p>Clustered mechanics, responders and detections over PostGIS geometry, with basemap tiles proxied and cached server-side so no visitor address reaches the tile host.</p>
+        </div>
+      </article>
+    </div>
+      <div class="card">
+        <h3>Feature phone</h3>
+        <p>A complete booking over SMS with no app at all, in eight languages,
+           switched by texting <code>LANG TA</code>.</p>
+      </div>
+    </div>
+    <div class="note">
+      <p><strong>Showcase, not the live application.</strong> This page is static: screenshots,
+      recordings and measured evidence. The platform itself needs a long-lived process — it
+      holds open event streams and runs an offer-expiry sweeper — plus PostgreSQL with PostGIS.
+      <a href="#run">One command runs the whole thing locally</a>, and it is the same image
+      published from this repository.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ SURFACES ═══ -->
+<section id="surfaces" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">The surfaces</p>
+    <h2>Four dashboards, one process</h2>
+    <p class="lead">
+      Each role gets its own surface, and all four are served by the same Fastify process
+      (ADR-0001). The paths below are exactly where they live once the platform is running.
+    </p>
+
+    <div class="surf">
       <article>
-        <div class="frame"><img src="shots/02-home.png" width="780" height="1688" loading="lazy"
+        <div class="frame"><img src="shots/stage/02-home.webp" width="780" height="1688" loading="lazy"
              alt="Citizen app home screen with the hold-to-escalate SOS control"></div>
         <div class="body">
           <span class="path">/app.html</span>
@@ -529,7 +666,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       </article>
 
       <article>
-        <div class="frame"><img src="shots/13-mechanic-login.png" width="2560" height="1720" loading="lazy"
+        <div class="frame"><img src="shots/stage/13-mechanic-login.webp" width="1400" height="941" loading="lazy"
              alt="Mechanic console sign-in screen"></div>
         <div class="body">
           <span class="path">/mechanic.html</span>
@@ -541,7 +678,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       </article>
 
       <article>
-        <div class="frame"><img src="shots/14-authority.png" width="2560" height="1720" loading="lazy"
+        <div class="frame"><img src="shots/stage/14-authority.webp" width="1400" height="941" loading="lazy"
              alt="RAKSHA authority dashboard with live map, road health scoring and detections"></div>
         <div class="body">
           <span class="path">/raksha.html</span>
@@ -552,7 +689,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       </article>
 
       <article>
-        <div class="frame"><img src="shots/18-live-map.png" width="860" height="1800" loading="lazy"
+        <div class="frame"><img src="shots/stage/18-live-map.webp" width="860" height="1800" loading="lazy"
              alt="Live operational map with clustered mechanics, responders and detections"></div>
         <div class="body">
           <span class="path">/map.html</span>
@@ -607,7 +744,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         <h3 id="stageTitle">Request or escalate</h3>
         <p id="stageBody">The home screen carries both paths: an ordinary assistance request, and an SOS that must be held for 1.5 seconds so a pocket press never calls a responder.</p>
       </div>
-      <img id="stageShot" src="shots/02-home.png" width="780" height="1688" alt="Citizen home screen with the SOS control and emergency readiness">
+      <img id="stageShot" src="shots/stage/02-home.webp" width="780" height="1688" alt="Citizen home screen with the SOS control and emergency readiness">
     </div>
   </div>
 </section>
@@ -623,7 +760,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     </p>
 
     <figure style="margin:0 0 22px">
-      <img src="shots/14-authority.png" width="2560" height="1720"
+      <img src="shots/stage/14-authority.webp" width="1400" height="941"
            style="border:1px solid var(--line);border-radius:14px"
            alt="RAKSHA authority dashboard showing a live map, road-health scoring and detection triage" loading="lazy">
     </figure>
@@ -879,26 +1016,26 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     </p>
     <p class="shots-label">On the phone &mdash; citizen surfaces</p>
     <div class="shots shots-phone">
-      <button class="shot" data-src="shots/01-login.png"            data-cap="OTP sign-in — real API, development code returned in the response"><img src="shots/01-login.png" alt="OTP sign-in screen" loading="lazy"><span class="cap">Sign in</span></button>
-      <button class="shot" data-src="shots/02-home.png"             data-cap="Home — SOS, emergency readiness, quick actions"><img src="shots/02-home.png" alt="Citizen home screen" loading="lazy"><span class="cap">Home &amp; SOS</span></button>
-      <button class="shot" data-src="shots/04-ai-diagnosis.png"     data-cap="Diagnosis — cause, confidence, severity and safety action, labelled a rules engine"><img src="shots/04-ai-diagnosis.png" alt="Diagnosis screen" loading="lazy"><span class="cap">Diagnosis</span></button>
-      <button class="shot" data-src="shots/05-dispatch.png"         data-cap="Dispatch — ranked offers with distance, ETA and score"><img src="shots/05-dispatch.png" alt="Dispatch with ranked offers" loading="lazy"><span class="cap">Dispatch</span></button>
-      <button class="shot" data-src="shots/06-tracking.png"         data-cap="Tracking — live status, provider, ETA, last updated"><img src="shots/06-tracking.png" alt="Live job tracking" loading="lazy"><span class="cap">Tracking</span></button>
-      <button class="shot" data-src="shots/07-offline-banner.png"   data-cap="OFF-GRID — the indicator and banner say what still works"><img src="shots/07-offline-banner.png" alt="Off-grid banner" loading="lazy"><span class="cap">Off-grid mode</span></button>
-      <button class="shot" data-src="shots/08-offline-diagnosis.png" data-cap="Local offline diagnosis — the on-device rules engine, labelled as such"><img src="shots/08-offline-diagnosis.png" alt="Offline diagnosis" loading="lazy"><span class="cap">On-device rules</span></button>
-      <button class="shot" data-src="shots/09-offgrid-sos.png"      data-cap="Off-grid SOS created — &ldquo;nothing has been transmitted&rdquo;"><img src="shots/09-offgrid-sos.png" alt="Off-grid SOS created" loading="lazy"><span class="cap">Off-grid SOS</span></button>
-      <button class="shot" data-src="shots/11-sync-complete.png"    data-cap="SOS synchronised — journal empty, platform reference returned"><img src="shots/11-sync-complete.png" alt="Sync complete" loading="lazy"><span class="cap">Idempotent sync</span></button>
-      <button class="shot" data-src="shots/16-payment.png"          data-cap="Payment — settlement recorded against the booking, never decided by the client"><img src="shots/16-payment.png" alt="Payment screen" loading="lazy"><span class="cap">Payment</span></button>
-      <button class="shot" data-src="shots/18-live-map.png"         data-cap="RAKSHA live map — clustered mechanics, responders and detections"><img src="shots/18-live-map.png" alt="RAKSHA live map" loading="lazy"><span class="cap">Live map</span></button>
+      <button class="shot" data-src="shots/01-login.png"            data-cap="OTP sign-in — real API, development code returned in the response"><img src="shots/thumbs/01-login.webp" alt="OTP sign-in screen" loading="lazy"><span class="cap">Sign in</span></button>
+      <button class="shot" data-src="shots/02-home.png"             data-cap="Home — SOS, emergency readiness, quick actions"><img src="shots/thumbs/02-home.webp" alt="Citizen home screen" loading="lazy"><span class="cap">Home &amp; SOS</span></button>
+      <button class="shot" data-src="shots/04-ai-diagnosis.png"     data-cap="Diagnosis — cause, confidence, severity and safety action, labelled a rules engine"><img src="shots/thumbs/04-ai-diagnosis.webp" alt="Diagnosis screen" loading="lazy"><span class="cap">Diagnosis</span></button>
+      <button class="shot" data-src="shots/05-dispatch.png"         data-cap="Dispatch — ranked offers with distance, ETA and score"><img src="shots/thumbs/05-dispatch.webp" alt="Dispatch with ranked offers" loading="lazy"><span class="cap">Dispatch</span></button>
+      <button class="shot" data-src="shots/06-tracking.png"         data-cap="Tracking — live status, provider, ETA, last updated"><img src="shots/thumbs/06-tracking.webp" alt="Live job tracking" loading="lazy"><span class="cap">Tracking</span></button>
+      <button class="shot" data-src="shots/07-offline-banner.png"   data-cap="OFF-GRID — the indicator and banner say what still works"><img src="shots/thumbs/07-offline-banner.webp" alt="Off-grid banner" loading="lazy"><span class="cap">Off-grid mode</span></button>
+      <button class="shot" data-src="shots/08-offline-diagnosis.png" data-cap="Local offline diagnosis — the on-device rules engine, labelled as such"><img src="shots/thumbs/08-offline-diagnosis.webp" alt="Offline diagnosis" loading="lazy"><span class="cap">On-device rules</span></button>
+      <button class="shot" data-src="shots/09-offgrid-sos.png"      data-cap="Off-grid SOS created — &ldquo;nothing has been transmitted&rdquo;"><img src="shots/thumbs/09-offgrid-sos.webp" alt="Off-grid SOS created" loading="lazy"><span class="cap">Off-grid SOS</span></button>
+      <button class="shot" data-src="shots/11-sync-complete.png"    data-cap="SOS synchronised — journal empty, platform reference returned"><img src="shots/thumbs/11-sync-complete.webp" alt="Sync complete" loading="lazy"><span class="cap">Idempotent sync</span></button>
+      <button class="shot" data-src="shots/16-payment.png"          data-cap="Payment — settlement recorded against the booking, never decided by the client"><img src="shots/thumbs/16-payment.webp" alt="Payment screen" loading="lazy"><span class="cap">Payment</span></button>
+      <button class="shot" data-src="shots/18-live-map.png"         data-cap="RAKSHA live map — clustered mechanics, responders and detections"><img src="shots/thumbs/18-live-map.webp" alt="RAKSHA live map" loading="lazy"><span class="cap">Live map</span></button>
     </div>
 
     <p class="shots-label">On a desktop &mdash; mechanic, authority and operations</p>
     <div class="shots shots-wide">
-      <button class="shot" data-src="shots/13-mechanic-login.png"   data-cap="Mechanic console — dispatch inbox, live badge, job lifecycle"><img src="shots/13-mechanic-login.png" alt="Mechanic console" loading="lazy"><span class="cap">Mechanic console</span></button>
-      <button class="shot" data-src="shots/14-authority.png"        data-cap="RAKSHA authority — live map, road health, detection triage"><img src="shots/14-authority.png" alt="RAKSHA authority dashboard" loading="lazy"><span class="cap">RAKSHA authority</span></button>
-      <button class="shot" data-src="shots/20-database-schema.png"  data-cap="The schema — 56 tables, counted through pg_depend so PostGIS does not inflate it"><img src="shots/20-database-schema.png" alt="Database schema" loading="lazy"><span class="cap">Schema</span></button>
-      <button class="shot" data-src="shots/21-test-security.png"    data-cap="The security suite — 74 attacks, every one refused"><img src="shots/21-test-security.png" alt="Security suite output" loading="lazy"><span class="cap">Security suite</span></button>
-      <button class="shot" data-src="shots/23-console.png"          data-cap="Request console — every API call the client makes, with its response"><img src="shots/23-console.png" alt="Request console" loading="lazy"><span class="cap">Request console</span></button>
+      <button class="shot" data-src="shots/13-mechanic-login.png"   data-cap="Mechanic console — dispatch inbox, live badge, job lifecycle"><img src="shots/stage/13-mechanic-login.webp" alt="Mechanic console" loading="lazy"><span class="cap">Mechanic console</span></button>
+      <button class="shot" data-src="shots/14-authority.png"        data-cap="RAKSHA authority — live map, road health, detection triage"><img src="shots/stage/14-authority.webp" alt="RAKSHA authority dashboard" loading="lazy"><span class="cap">RAKSHA authority</span></button>
+      <button class="shot" data-src="shots/20-database-schema.png"  data-cap="The schema — 56 tables, counted through pg_depend so PostGIS does not inflate it"><img src="shots/stage/20-database-schema.webp" alt="Database schema" loading="lazy"><span class="cap">Schema</span></button>
+      <button class="shot" data-src="shots/21-test-security.png"    data-cap="The security suite — 74 attacks, every one refused"><img src="shots/stage/21-test-security.webp" alt="Security suite output" loading="lazy"><span class="cap">Security suite</span></button>
+      <button class="shot" data-src="shots/23-console.png"          data-cap="Request console — every API call the client makes, with its response"><img src="shots/stage/23-console.webp" alt="Request console" loading="lazy"><span class="cap">Request console</span></button>
     </div>
   </div>
 </section>
@@ -911,7 +1048,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     <div class="vids" style="margin-top:20px">
       <div class="vid">
         <span class="badge-live"><i></i>LIVE PREVIEW</span>
-        <video class="live" controls muted loop playsinline preload="none" poster="shots/15-landing.png"
+        <video class="live" controls muted loop playsinline preload="none" poster="shots/stage/15-landing.webp"
                aria-label="Citizen journey recording">
           <source src="media/roadassist-app-demo.mp4" type="video/mp4">
           Your browser cannot play this video. The file is at media/roadassist-app-demo.mp4.
@@ -923,7 +1060,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       </div>
       <div class="vid">
         <span class="badge-live"><i></i>LIVE PREVIEW</span>
-        <video class="live" controls muted loop playsinline preload="none" poster="shots/14-authority.png"
+        <video class="live" controls muted loop playsinline preload="none" poster="shots/stage/14-authority.webp"
                aria-label="RAKSHA replay recording">
           <source src="media/raksha-full-demo.mp4" type="video/mp4">
           Your browser cannot play this video. The file is at media/raksha-full-demo.mp4.
@@ -1042,7 +1179,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
 
 <dialog class="lb" id="lightbox" aria-label="Screenshot viewer">
   <div class="lb-in">
-    <img id="lbImg" src="shots/02-home.png" alt="">
+    <img id="lbImg" alt="">
     <div class="lb-bar">
       <p id="lbCap"></p>
       <button class="btn btn-ghost btn-sm" id="lbPrev" type="button">&larr; Prev</button>
@@ -1135,7 +1272,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     stages.forEach(function (b) { b.setAttribute("aria-selected", String(b === btn)); });
     sTitle.textContent = btn.dataset.title;
     sBody.innerHTML = btn.dataset.body;
-    var next = "shots/" + btn.dataset.shot + ".png";
+    var next = "shots/stage/" + btn.dataset.shot + ".webp";
     sShot.src = next;
     sShot.alt = btn.dataset.title;
   }

@@ -48,6 +48,13 @@ jobs:
           # rather than moving it. Point the DNS first, then add the file.
           [ -f pages/CNAME ] && cp pages/CNAME _site/ || true
           cp app/docs/screenshots/*.png _site/shots/
+          # The web-sized copies pages/build-thumbs.py makes: the page loads
+          # these into tiles and device frames and keeps the untouched PNGs
+          # above for the lightbox. Built locally and committed rather than
+          # here, so what reviewers saw in the PR is what gets published.
+          mkdir -p _site/shots/thumbs _site/shots/stage
+          cp app/docs/screenshots/thumbs/*.webp _site/shots/thumbs/
+          cp app/docs/screenshots/stage/*.webp  _site/shots/stage/
           # Only the two the page actually embeds. The rest are large and
           # nothing links to them, and an unreferenced 29 MB of video is a
           # slower page for no reason.
@@ -85,6 +92,13 @@ jobs:
           fail=0
           for ref in $(grep -oE '(src|poster)="[^"h][^"]*"' _site/index.html | cut -d'"' -f2 | sort -u); do
             if [ -f "_site/$ref" ]; then echo "  ok   $ref"; else echo "  MISS $ref"; fail=1; fi
+          done
+          # The journey switcher builds its image URL in script from
+          # data-shot, so the grep above never sees those paths. A renamed
+          # screenshot would pass it and then show a broken frame on click.
+          for shot in $(grep -oE 'data-shot="[^"]+"' _site/index.html | cut -d'"' -f2 | sort -u); do
+            ref="shots/stage/$shot.webp"
+            if [ -f "_site/$ref" ]; then echo "  ok   $ref (switcher)"; else echo "  MISS $ref (switcher)"; fail=1; fi
           done
           exit $fail
 
