@@ -1486,7 +1486,9 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       return "<strong>Chrome is blocking this site from reaching your computer.</strong> Click the icon at the " +
         "left of the address bar, open <strong>Site settings</strong>, and set the permission for " +
         "<strong>apps on this device</strong> (it may be called <em>Loopback network</em> &mdash; separate " +
-        "from <em>Local network</em>) to <strong>Allow</strong>, then reload. Or " +
+        "from <em>Local network</em>) to <strong>Allow</strong>, then reload. If there is no such setting, " +
+        "Chrome has stopped asking because the prompt was dismissed several times: press " +
+        "<strong>Reset permissions</strong> on that page, reload, and choose <strong>Allow</strong> when it asks. Or " +
         "<a href=\"" + esc(origin) + "/showcase.html\" target=\"_blank\" rel=\"noopener\">open the " +
         "platform&rsquo;s own showcase</a>, which needs no permission.";
     }
