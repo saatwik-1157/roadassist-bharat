@@ -140,7 +140,7 @@
   .stage3d { perspective: 1400px; display: grid; place-items: center; padding: 20px 0 10px; }
   .pipe { transform-style: preserve-3d; transform: rotateX(56deg) rotateZ(-38deg);
     display: grid; gap: 18px; will-change: transform; transition: transform 0.2s linear; }
-  .slab { position: relative; width: min(520px, 78vw); padding: 19px 24px;
+  .slab { position: relative; width: min(520px, 58vw); padding: 19px 24px;
     background: linear-gradient(160deg, var(--surface-2), var(--surface) 70%);
     border: 1px solid var(--line); border-radius: 14px;
     transform-style: preserve-3d;
@@ -162,6 +162,20 @@
     background: linear-gradient(90deg, transparent, var(--gold), transparent);
     filter: blur(1px); animation: pulse-line 1.6s ease-in-out infinite; }
   @keyframes pulse-line { 50% { opacity: 0.35; } }
+  /* A phone cannot hold the desktop angle: rotated -38deg a 78vw slab is far
+     wider than the screen, so the first slab lost its left half and the page
+     scrolled sideways. A shallower turn and narrower slabs keep the stack whole. */
+  @media (max-width: 760px) {
+    nav .links { display: none; }
+    nav .theme-btn { margin-left: auto; }
+    .stage3d { perspective: 1000px; }
+    .pipe { transform: translateX(-9vw) scale(0.84) rotateX(50deg) rotateZ(-14deg); gap: 14px; }
+    .slab { width: 62vw; padding: 16px 18px; }
+    /* Too narrow to float the metric beside the caption — it sat on top of
+       the text. It takes its own line instead. */
+    .slab .metric { position: static; translate: none; display: block; margin-top: 6px; font-size: 16px; }
+    .raksha-chip { white-space: nowrap; }
+  }
   .pipe-note { text-align: center; color: var(--muted); font-size: 11.5px; margin-top: 34px; letter-spacing: 0.06em; }
 
   /* ═══ 3D GALLERY — real screenshots on tilt cards ═══ */
@@ -235,6 +249,9 @@
     .rv { opacity: 1; transform: none; }
     .hero-bg { transform: none !important; }
     .pipe { transform: rotateX(56deg) rotateZ(-38deg) !important; }
+  }
+  @media (prefers-reduced-motion: reduce) and (max-width: 760px) {
+    .pipe { transform: translateX(-9vw) scale(0.84) rotateX(50deg) rotateZ(-14deg) !important; }
   }
 </style>
 </head>
@@ -442,17 +459,26 @@
   // 3D pipeline: pointer-steered tilt (lerped) + travelling highlight
   var pipe = document.getElementById("pipe");
   var slabs = pipe.querySelectorAll(".slab");
-  var rx = 56, rz = -38, trx = 56, trz = -38;
+  // The resting angle follows the CSS: shallower on a phone, where the desktop
+  // turn pushes the stack off the screen.
+  var narrow = window.matchMedia("(max-width: 760px)");
+  var baseX = function () { return narrow.matches ? 50 : 56; };
+  var baseZ = function () { return narrow.matches ? -14 : -38; };
+  var rx = baseX(), rz = baseZ(), trx = rx, trz = rz;
+  narrow.addEventListener("change", function () { trx = baseX(); trz = baseZ(); });
   if (!reduced) {
     pipe.parentElement.addEventListener("pointermove", function (e) {
       var r = pipe.parentElement.getBoundingClientRect();
-      trz = -38 + ((e.clientX - r.left) / r.width - 0.5) * 14;
-      trx = 56 + ((e.clientY - r.top) / r.height - 0.5) * -10;
+      trz = baseZ() + ((e.clientX - r.left) / r.width - 0.5) * 14;
+      trx = baseX() + ((e.clientY - r.top) / r.height - 0.5) * -10;
     });
-    pipe.parentElement.addEventListener("pointerleave", function () { trx = 56; trz = -38; });
+    pipe.parentElement.addEventListener("pointerleave", function () { trx = baseX(); trz = baseZ(); });
     (function steer() {
       rx += (trx - rx) * 0.07; rz += (trz - rz) * 0.07;
-      pipe.style.transform = "rotateX(" + rx.toFixed(2) + "deg) rotateZ(" + rz.toFixed(2) + "deg)";
+      // Perspective makes the near slabs larger and the turn pushes them right,
+      // so on a phone the stack is pulled back to centre and scaled to fit.
+      pipe.style.transform = (narrow.matches ? "translateX(-9vw) scale(0.84) " : "") +
+        "rotateX(" + rx.toFixed(2) + "deg) rotateZ(" + rz.toFixed(2) + "deg)";
       requestAnimationFrame(steer);
     })();
   }

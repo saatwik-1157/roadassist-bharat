@@ -166,6 +166,11 @@ async function openPage(browser, url) {
   const p = await connectTo(t.webSocketDebuggerUrl);
   await p.send("Page.enable");
   await p.send("Runtime.enable");
+  // Two tabs means one is always in the background, and Chrome parks a
+  // background tab's geolocation request until it is shown — the request
+  // never settles, its own timeout included. A presenter has both windows on
+  // screen, so both are treated as visible.
+  await p.send("Emulation.setFocusEmulationEnabled", { enabled: true });
   return p;
 }
 
@@ -390,15 +395,18 @@ const run = async () => {
     });
 
     await beat(10, "Review", 15, async () => {
+      // Beat 9 can finish on the word "paid" in the timeline, a render before
+      // the rating card exists — wait for the card rather than race it.
+      await customer.waitFor(`document.getElementById("t-submit")`, 15000);
       await customer.eval(`(() => { const s = document.querySelectorAll("#t-stars *");
         if (s.length) s[s.length - 1].click(); return true; })()`);
-      await customer.eval(`(() => { const t = document.getElementById("t-note");
+      await customer.eval(`(() => { const t = document.getElementById("t-comment");
         if (t) { const set = Object.getOwnPropertyDescriptor(t.constructor.prototype, "value").set;
         set.call(t, "Fast and clear."); t.dispatchEvent(new Event("input", { bubbles: true })); }
         return true; })()`);
       await customer.click("#t-submit");
-      await sleep(1500);
-      return "review submitted";
+      await customer.waitFor(`/now sits at/.test(document.getElementById("t-review").textContent)`, 15000);
+      return "review recorded";
     });
 
     await beat(11, "Online SOS", 30, async () => {
