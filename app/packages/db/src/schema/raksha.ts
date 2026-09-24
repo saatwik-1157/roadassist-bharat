@@ -90,6 +90,13 @@ export const rakshaDetections = pgTable("raksha_detections", {
   severity: integer("severity").notNull(),                 // 1..5, CHECK in migrate.ts
   status: rakshaDetectionStatusEnum("status").notNull().default("DETECTED"),
   location: geoPoint("location"),
+  /**
+   * Radius in metres the reporting phone gave for `location` (the Geolocation
+   * API's coords.accuracy), normalised by the API. NULL means no radius was
+   * measured — every report before 0005, and every device sighting — and is
+   * shown as "accuracy not reported", never filled with an estimate.
+   */
+  locationAccuracyM: doublePrecision("location_accuracy_m"),
   /** Device clock at capture — preserved verbatim; created_at is server truth. */
   capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
   ranOffline: boolean("ran_offline").notNull().default(false),

@@ -20,7 +20,7 @@ import {
   diagnoseWithFallback, email, maps, providerSummary, sms,
 } from "./providers.js";
 import { ok, msisdnSchema } from "./http.js";
-import { rakshaRoutes } from "./raksha.js";
+import { rakshaRoutes, describePosition } from "./raksha.js";
 import { authRoutes } from "./routes/auth.js";
 import { emergencyRoutes } from "./routes/emergency.js";
 import { telecomRoutes } from "./routes/telecom.js";
@@ -1798,15 +1798,29 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
        AND ST_DWithin(last_location::geography, ${pt}::geography, ${r})
      ORDER BY last_location <-> ${pt} LIMIT 50`);
 
-  const detections = await db.execute<Record<string, unknown>>(raw`
-    SELECT detection_type, severity, status,
-           COALESCE(raw->>'source', 'device') AS source,
-           ST_Y(location) AS lat, ST_X(location) AS lng
-      FROM raksha_detections
-     WHERE deleted_at IS NULL AND location IS NOT NULL
-       AND status NOT IN ('REJECTED', 'CLOSED')
-       AND ST_DWithin(location::geography, ${pt}::geography, ${r})
-     ORDER BY created_at DESC LIMIT 300`);
+  // The radius and the device's simulated flag travel with each point so the
+  // map can say which positions a phone measured and which were placed.
+  const detectionRows = await db.execute<{
+    detection_type: string; severity: number; status: string; source: string;
+    lat: number; lng: number; location_accuracy_m: number | null;
+    simulated: boolean | null; model_version: string; created_at: string;
+  }>(raw`
+    SELECT rd.detection_type, rd.severity, rd.status,
+           COALESCE(rd.raw->>'source', 'device') AS source,
+           ST_Y(rd.location) AS lat, ST_X(rd.location) AS lng, rd.location_accuracy_m,
+           ed.simulated, rd.model_version, rd.created_at
+      FROM raksha_detections rd
+      JOIN edge_devices ed ON ed.id = rd.device_id
+     WHERE rd.deleted_at IS NULL AND rd.location IS NOT NULL
+       AND rd.status NOT IN ('REJECTED', 'CLOSED')
+       AND ST_DWithin(rd.location::geography, ${pt}::geography, ${r})
+     ORDER BY rd.created_at DESC LIMIT 300`);
+  const detections = detectionRows.map(({ simulated, model_version, ...d }) => {
+    const position = describePosition({
+      source: d.source, simulated, modelVersion: model_version, accuracyM: d.location_accuracy_m,
+    });
+    return { ...d, position_label: position.label };
+  });
 
   return ok({ center: { lat: q.lat, lng: q.lng }, mechanics, responders, detections },
     { counts: { mechanics: mechanics.length, responders: responders.length, detections: detections.length } });

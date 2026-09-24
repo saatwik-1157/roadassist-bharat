@@ -3589,15 +3589,27 @@
     if (!state.token) { toast("Sign in first", "bad"); return; }
     try {
       var pos = await locate();
+      // locate() falls back to a fixed demo point when there is no fix. That is
+      // fine for centring a map and wrong for a hazard: RAKSHA shows a citizen
+      // report as a phone-measured position, so a borrowed one is refused here.
+      if (pos.demo) {
+        toast(pos.denied ? "Allow location to report a hazard — it is placed where your phone is"
+          : "Couldn't get a GPS fix — step outside or wait a moment, then try again", "bad");
+        return;
+      }
       var body = {
         type: $("r-type").value, severity: report.severity,
         lat: pos.lat, lng: pos.lng,
+        // The phone's own radius for this fix, so the authority map can draw
+        // how precise the point is instead of implying it is exact.
+        accuracyM: typeof pos.accuracy === "number" && isFinite(pos.accuracy) ? pos.accuracy : null,
         note: $("r-note").value.trim() || undefined,
       };
       if (report.photo) { body.photoBase64 = report.photo; body.photoMime = report.mime; }
       var r = await api("POST", "/v1/raksha/report", body, { force: true });
       closeSheet();
-      toast("Reported — " + r.meta.note, "ok"); buzz([10, 40, 10]);
+      toast("Reported — " + r.meta.note +
+        (r.data.position ? " (" + r.data.position.label + ")" : ""), "ok"); buzz([10, 40, 10]);
       // Reset for the next report and refresh the map so the pin appears.
       $("r-note").value = ""; $("r-photo").value = ""; $("r-thumb").hidden = true;
       report.photo = null; report.mime = null;

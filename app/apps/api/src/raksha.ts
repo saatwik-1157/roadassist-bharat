@@ -23,6 +23,12 @@ import {
   REVIEW_SLA_MINUTES, assessReview, compareReviewUrgency,
   type IncidentSeverity,
 } from "./domain/incident-review.js";
+import { describePosition, normaliseAccuracyM } from "./domain/report-position.js";
+
+// Re-exported for the live map in server.ts, which labels the same points and
+// must use the same sentence (and, taken from here, adds no line to server.ts
+// that would move the line numbers docs/viva cite into it).
+export { describePosition };
 
 const ok = <T>(data: T, meta: Record<string, unknown> = {}) => ({ data, meta });
 
@@ -481,9 +487,14 @@ export async function rakshaRoutes(app: FastifyInstance) {
       photoBase64: z.string().min(1).max(9_000_000).optional(),
       photoMime: z.enum(["image/jpeg", "image/png", "image/webp"]).optional(),
       ...latLng,
+      // The phone's own radius for this fix (Geolocation coords.accuracy, in
+      // metres). Optional: older app builds never sent it. A malformed value is
+      // dropped by normaliseAccuracyM, never allowed to sink the report.
+      accuracyM: z.number().nullable().optional(),
     }).parse(req.body);
 
     const userId = req.user!.sub;
+    const accuracyM = normaliseAccuracyM(body.accuracyM);
 
     // Per-user rate limit: one account cannot flood the queue/map with reports.
     const [{ n: recent }] = await db.execute<{ n: number }>(raw`
@@ -536,7 +547,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
         confidence: 1, severity: body.severity,
         capturedAt: new Date(), ranOffline: false,
         modelVersion: "citizen-report", usedFallback: false,
-        notes: body.note,
+        notes: body.note, locationAccuracyM: accuracyM,
         raw: { source: "citizen", reportedBy: userId },
       }).returning({ id: S.rakshaDetections.id });
       const id = ins.id;
@@ -566,7 +577,10 @@ export async function rakshaRoutes(app: FastifyInstance) {
     }
 
     return reply.code(201).send(ok(
-      { id: detectionId, status: "DETECTED", type: body.type, severity: body.severity, hasPhoto: Boolean(imageRef) },
+      {
+        id: detectionId, status: "DETECTED", type: body.type, severity: body.severity, hasPhoto: Boolean(imageRef),
+        position: describePosition({ source: "citizen", simulated: null, modelVersion: "citizen-report", accuracyM }),
+      },
       { source: "citizen", note: "Queued for authority verification; now visible on the live map." },
     ));
   });
@@ -603,7 +617,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
     const userId = req.user!.sub;
     const rows = await db.execute<Record<string, unknown>>(raw`
       SELECT id, detection_type, severity, status, created_at,
-             ST_Y(location) AS lat, ST_X(location) AS lng, notes,
+             ST_Y(location) AS lat, ST_X(location) AS lng, location_accuracy_m, notes,
              (image_ref IS NOT NULL) AS has_photo
         FROM raksha_detections
        WHERE deleted_at IS NULL
@@ -628,7 +642,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
              rd.captured_at, rd.created_at, rd.ran_offline, rd.model_version, rd.used_fallback,
              rd.image_ref, rd.notes,
              COALESCE(rd.raw->>'source', 'device') AS source,
-             ST_Y(rd.location) AS lat, ST_X(rd.location) AS lng,
+             ST_Y(rd.location) AS lat, ST_X(rd.location) AS lng, rd.location_accuracy_m,
              ed.name AS device_name, ed.simulated,
              rs.code AS segment_code, rs.name AS segment_name
         FROM raksha_detections rd
@@ -640,7 +654,20 @@ export async function rakshaRoutes(app: FastifyInstance) {
          AND (${q.source ?? null}::text IS NULL OR COALESCE(rd.raw->>'source', 'device') = ${q.source ?? null})
        ORDER BY rd.created_at DESC
        LIMIT ${q.limit ?? 50}`);
-    return ok(rows, { count: rows.length });
+    // Every row says where its point came from: a phone's measured fix, or a
+    // simulated placement. The dashboard prints this; it never infers it.
+    const withPosition = rows.map((r) => ({
+      ...r,
+      position: describePosition({
+        source: r.source as string, simulated: r.simulated as boolean | null,
+        modelVersion: r.model_version as string, accuracyM: r.location_accuracy_m as number | null,
+      }),
+    }));
+    return ok(withPosition, {
+      count: rows.length,
+      positions: "citizen reports carry the phone's own GPS fix and radius; " +
+        "model detections are placed along NH-48 and SIMULATED (RDD2022 images carry no GPS)",
+    });
   });
 
   // ── the confirmation queue (ADR-0011) ───────────────────────────────────
