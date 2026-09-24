@@ -25,7 +25,14 @@ if (!url) {
   process.exit(1);
 }
 
-const sql = postgres(url, { max: 1, onnotice: () => {} });
+// Neon's copied string ends in channel_binding=require, which postgres.js sends
+// to the server as a setting and the server refuses. The seeders go through
+// checkDatabaseUrl() in packages/db, which drops it; this probe has to as well.
+const probeUrl = (() => {
+  try { const u = new URL(url.trim()); u.searchParams.delete("channel_binding"); return u.toString(); }
+  catch { return url; }
+})();
+const sql = postgres(probeUrl, { max: 1, onnotice: () => {} });
 
 let seeded = false;
 try {
