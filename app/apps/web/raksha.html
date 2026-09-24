@@ -407,6 +407,7 @@
 <div class="statusbar" id="status">Loading…</div>
 
 <script src="vendor/leaflet.js"></script>
+<script src="email-signin.js"></script>
 <script>
 (function () {
   "use strict";
@@ -977,6 +978,12 @@
     } catch (e) { status("✗ " + e.message); }
     finally { btn.classList.remove("is-busy"); }
   };
+
+  if (window.RAEmail) RAEmail.mount($("login-btn"), { toast: function (m) { status(m); }, onSession: async function (d) {
+    token = d.accessToken; refreshToken = d.refreshToken; sessionMsisdn = d.user.msisdn;
+    saveSession();
+    await enterConsole(d.roles, d.user.msisdn);
+  } });
 
   /** Everything that happens once a session exists, fresh or restored. */
   async function enterConsole(roles, who) {

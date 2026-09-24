@@ -87,7 +87,7 @@ Facts that *are* asserted, all verified against the running system:
   webhook — default provider is `mock`; live keys need a KYC-verified account
 - Docker Compose provides PostGIS, Redis and Redpanda locally — **Redis and
   Redpanda are provisioned but not used by application code**, and the deck says so
-- 663 automated assertions across six suites: 135 unit · 189 API e2e · 75 concurrency
+- 667 automated assertions across six suites: 139 unit · 189 API e2e · 75 concurrency
   · 74 security · 27 gateway security · 163 browser. A seventh — 22 payment-gateway
   checks — needs a Razorpay sandbox account, is **not** counted here and is never
   described as passing.

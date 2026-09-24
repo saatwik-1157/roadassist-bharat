@@ -944,6 +944,7 @@
   <p class="hint center" style="margin-top:10px">Location is taken from this device when permitted.</p>
 </div>
 
+<script src="email-signin.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1830,6 +1831,14 @@
       toast("Signed in", "ok"); buzz([10, 40, 10]);
     } catch (e) { toast(e.message, "bad"); }
   });
+
+  // Email sign-in (email-signin.js) lands on the same path as the phone code.
+  if (window.RAEmail) RAEmail.mount($("a-step2"), { toast: toast, onSession: async function (d) {
+    state.token = d.accessToken; state.refresh = d.refreshToken; state.msisdn = d.user.msisdn;
+    saveSession();
+    await enterApp(d.roles, "signed in by email");
+    toast("Signed in", "ok");
+  } });
 
   /**
    * Everything that happens once there is a valid session, whether it was just

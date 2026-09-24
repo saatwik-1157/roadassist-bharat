@@ -198,6 +198,9 @@ export const env = {
     baseUrl: process.env.EMAIL_BASE_URL ?? "",
     from: process.env.EMAIL_FROM ?? "RoadAssist <no-reply@roadassist.in>",
   },
+  // Email sign-in (domain/email-signin.ts): "email=+91XXXXXXXXXX, ..." set in
+  // the host's environment. Empty = no email sign-in, phone only.
+  emailSignin: process.env.EMAIL_SIGNIN ?? "",
   // Operator alerts (alerts.ts). Off unless ALERT_EMAIL_TO is set; delivered
   // through the email provider above, so EMAIL_PROVIDER=http is what makes them
   // real mail rather than console lines.

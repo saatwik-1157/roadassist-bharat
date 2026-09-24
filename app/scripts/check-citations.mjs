@@ -86,7 +86,7 @@ function resolve(cited) {
  */
 function sourceIndex(dir, out = new Map()) {
   for (const entry of readdirSync(dir)) {
-    if (["node_modules", ".git", "dist", "build", ".idea", ".venv", "venv",
+    if (["node_modules", ".git", ".claude", "dist", "build", ".idea", ".venv", "venv",
          "runs", "data", "__pycache__", ".gradle", ".kotlin"].includes(entry)) continue;
     const p = join(dir, entry);
     if (statSync(p).isDirectory()) sourceIndex(p, out);
@@ -100,7 +100,7 @@ function sourceIndex(dir, out = new Map()) {
 
 function markdownFiles(dir, out = []) {
   for (const entry of readdirSync(dir)) {
-    if (["node_modules", ".git", "dist", "build", ".idea", "assets", "runs"].includes(entry)) continue;
+    if (["node_modules", ".git", ".claude", "dist", "build", ".idea", "assets", "runs"].includes(entry)) continue;
     const p = join(dir, entry);
     if (statSync(p).isDirectory()) markdownFiles(p, out);
     else if (entry.endsWith(".md")) out.push(p);

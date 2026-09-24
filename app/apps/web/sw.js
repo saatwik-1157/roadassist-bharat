@@ -12,7 +12,7 @@
  */
 // Bump whenever SHELL_ASSETS changes: the old cache is dropped on activate, so
 // a viewer who already installed v1 does not keep a shell missing the new files.
-const VERSION = "ra-v6";
+const VERSION = "ra-v7";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -27,6 +27,7 @@ const SHELL_ASSETS = [
   "/mechanic.html",
   "/ds.css",
   "/depth.js",
+  "/email-signin.js",
   "/manifest.webmanifest",
   // Off-Grid Mode (ADR-0009). Without these cached, the feature that exists for
   // a dead network would need the network to load.

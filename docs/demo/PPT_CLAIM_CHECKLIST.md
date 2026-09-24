@@ -30,7 +30,7 @@ the start of this phase and has been fixed.
 | 21 | "Full test suite passes AGAINST the image" | True — verified in an earlier phase | — | **GREEN** | None |
 | 22 | "Two are built. Six are design. I will not show you an animation and call it an autoscaler." | Workload distribution + resource pooling built; rest design | `dispatch.ts` | **GREEN** | None — the strongest slide in the deck |
 | 23 | "Static vs dynamic scheduling" | Both real | `OFFER_SWEEP_SECONDS`, `dispatch.ts` | **GREEN** | None |
-| 24 | **"663 assertions, all executed"** | 626 execute; 22 more need a Razorpay account | this phase | **GREEN** *(was RED)* | **Already fixed** — see below |
+| 24 | **"667 assertions, all executed"** | 626 execute; 22 more need a Razorpay account | this phase | **GREEN** *(was RED)* | **Already fixed** — see below |
 | 25 | "Twenty rows in the failure matrix" | `architecture/failure-matrix.md` has 20 | — | **GREEN** | None |
 | 26 | "Marked from the code, not from intent" | Consistent with the mapping | — | **GREEN** | None |
 | 27 | "Nothing is deployed to a cloud" | True and stated first | — | **GREEN** | None — volunteering this is worth marks |
@@ -50,8 +50,8 @@ run without one. Presenting a suite as passing when it cannot run is precisely
 the failure this deck otherwise avoids, and a professor who asked *"show me the
 seventh suite"* would have found it unrunnable.
 
-**Applied:** slide retitled **"663 assertions, all executed"**; footer now reads
-"663 assertions · 6 suites · 0 failures · 56 tables · 65 routes · 10 ADRs". The
+**Applied:** slide retitled **"667 assertions, all executed"**; footer now reads
+"667 assertions · 6 suites · 0 failures · 56 tables · 65 routes · 10 ADRs". The
 deck was rebuilt (`python ppt/make_final.py`) and re-exported to PDF (32 pages,
 verified). The same correction was applied to six documents — see
 `CLAIM_VERIFICATION_FINAL.md`.

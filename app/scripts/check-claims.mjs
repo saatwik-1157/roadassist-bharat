@@ -289,7 +289,9 @@ function files(dir, out = []) {
     // generated results.csv is not a claim this project makes, and scanning
     // them means a third-party doc that happens to quote one of our numbers
     // fails the build. ai/.venv alone is 649 MB of other people's markdown.
-    if (["node_modules", ".git", "dist", "build", ".idea", "assets",
+    // .claude/ is agent tooling state (gitignored); its worktrees are whole copies
+    // of the repo mid-edit, so scanning them reports another checkout's drift.
+    if (["node_modules", ".git", ".claude", "dist", "build", ".idea", "assets",
          ".venv", "venv", "__pycache__", "runs"].includes(entry)) continue;
     const p = join(dir, entry);
     if (statSync(p).isDirectory()) files(p, out);

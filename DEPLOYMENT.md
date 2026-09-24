@@ -138,6 +138,32 @@ Web3Forms was considered and not used: its API only allows server-side sending
 on a paid plan with a whitelisted server IP, and sending from the browser
 would put a key in the page and every visitor's IP address abroad.
 
+## Optional · Email sign-in for the team — **YOU**
+
+The demo shows the phone OTP on screen, because there is no SMS gateway. That
+makes it usable, and it also means anyone who types an account's number
+becomes that account. Email sign-in closes that for the accounts you name.
+
+Set `EMAIL_SIGNIN` in Render → **Environment** to `email=+91XXXXXXXXXX` pairs,
+comma-separated, each pointing an address at an existing account:
+
+```
+you@example.com=+919999900001, teammate@example.com=+919600000000
+```
+
+- That address can now choose **Sign in with email**; a random 6-digit code is
+  emailed through the provider configured above and is never shown on screen.
+- That account's number stops accepting the on-screen phone code (it answers
+  `email_signin_required`), so the email is the only way in while the demo
+  code is exposed.
+- An address that is not listed gets the same reply and no email, so the
+  form cannot be used to discover who has an account.
+- Delivery uses the same email provider as the alerts, so on Resend's free
+  sender only your own address receives codes until a domain is verified.
+
+The boot log prints `email sign-in: N account(s)`, and any malformed entry is
+logged as ignored rather than half-applied.
+
 ## 3 · Point the domain — **YOU**
 
 In Render: **Settings → Custom Domains → Add** `app.roadassistbharat.online`.

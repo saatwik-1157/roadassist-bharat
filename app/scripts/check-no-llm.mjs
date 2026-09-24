@@ -30,7 +30,7 @@ const SELF = "check-no-llm.mjs";
 
 /** Directories that are vendored, generated or gitignored — not our code. */
 const SKIP_DIRS = new Set([
-  "node_modules", ".git", ".venv", "venv", "__pycache__", "build", "dist",
+  "node_modules", ".git", ".claude", ".venv", "venv", "__pycache__", "build", "dist",
   ".gradle", ".idea", "runs", "outputs", "weights", "datasets", ".next",
   "coverage", "test-results", "presentation",
 ]);

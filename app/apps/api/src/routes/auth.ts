@@ -21,6 +21,8 @@ import { env } from "../env.js";
 import { ok, msisdnSchema } from "../http.js";
 import { audit } from "../audit.js";
 import { alerts } from "../alerts.js";
+import { emailSignin } from "./email-auth.js";
+import { phoneSignInBlocked } from "../domain/email-signin.js";
 import { sms } from "../providers.js";
 import { t, resolveLocale } from "../i18n.js";
 import { otpPolicy } from "../domain/otp-policy.js";
@@ -67,6 +69,18 @@ export async function authRoutes(app: FastifyInstance) {
     // not unpredictable to an attacker who has seen previous outputs — for a
     // credential with a five-minute life and a six-digit space, that is the
     // difference between guessing 1-in-900000 and computing the next one.
+    // An account its owner put behind email sign-in cannot be entered with a
+    // code that is printed on the screen - that would make the email pointless.
+    if (phoneSignInBlocked(msisdn, emailSignin, policy.echo)) {
+      return reply.code(403).send({
+        error: {
+          code: "email_signin_required",
+          title: "This account signs in with its email address. Choose “Sign in with email”.",
+          retryable: false,
+        },
+      });
+    }
+
     const code = policy.random ? String(randomInt(100000, 1000000)) : env.devOtp;
     await db.insert(S.otpChallenges).values({
       msisdn, codeHash: sha256(code), ip: req.ip,

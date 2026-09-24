@@ -22,6 +22,7 @@ import {
 import { ok, msisdnSchema } from "./http.js";
 import { rakshaRoutes } from "./raksha.js";
 import { authRoutes } from "./routes/auth.js";
+import { emailAuthRoutes, emailSignin } from "./routes/email-auth.js";
 import { emergencyRoutes } from "./routes/emergency.js";
 import { telecomRoutes } from "./routes/telecom.js";
 import { mechanicRoutes } from "./routes/mechanic.js";
@@ -1814,6 +1815,7 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
 
 // ══ RAKSHA — autonomous road monitoring (ADR-0007) ═════════════════════════
 await app.register(authRoutes);
+await app.register(emailAuthRoutes);
 await app.register(emergencyRoutes);
 await app.register(telecomRoutes);
 await app.register(mechanicRoutes);
@@ -1842,6 +1844,10 @@ process.on("SIGTERM", close);
 await app.listen({ port: env.port, host: env.host });
 app.log.info({ providers: providerSummary() }, "RoadAssist API ready");
 app.log.info(alertsStatus());
+app.log.info(emailSignin.accounts.size
+  ? `email sign-in: ${emailSignin.accounts.size} account(s), via ${providerSummary().email}`
+  : "email sign-in: off (EMAIL_SIGNIN unset)");
+for (const r of emailSignin.rejected) app.log.warn(`EMAIL_SIGNIN entry ignored: ${r}`);
 
 // Trusting *every* hop means any client that can reach this port may set
 // X-Forwarded-For itself, mint a fresh address per request, and walk straight

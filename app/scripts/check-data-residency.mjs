@@ -102,7 +102,7 @@ const TELEMETRY_SDKS = [
 const PII_IN_URL = /[?&/](msisdn|phone|mobile|email|aadhaar|aadhar|pan|dob|otp|password)=/i;
 
 const SKIP_DIRS = new Set([
-  "node_modules", ".git", ".venv", "venv", "__pycache__", "build", "dist",
+  "node_modules", ".git", ".claude", ".venv", "venv", "__pycache__", "build", "dist",
   ".gradle", ".idea", "runs", "outputs", "coverage", "test-results", "presentation",
 ]);
 

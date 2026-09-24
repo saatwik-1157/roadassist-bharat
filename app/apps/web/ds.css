@@ -614,6 +614,10 @@ body { background: transparent; }
 .emblem3d.sm .e-floor { width: 104px; height: 104px; margin-left: -52px; }
 .emblem3d.sm .e-mark { width: 62px; height: 62px; margin-left: -31px; }
 
+/* Sign in with email (email-signin.js): a quiet second path under the phone one. */
+.em-signin { margin-top: 14px; }
+.em-signin .em-note { margin-top: 10px; }
+
 /* ── reduced motion ──────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

@@ -78,7 +78,7 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 135 unit — no I/O, the only ones that run standalone
+npm test                 # 139 unit — no I/O, the only ones that run standalone
 npm run test:e2e         # 189
 npm run test:concurrency # 75
 npm run test:gateway     # 27

@@ -35,7 +35,7 @@ repository; nothing is aspirational.
 > storage, and it says plainly that nothing has been transmitted. On reconnect
 > it forwards itself, and a unique key makes a duplicate impossible.
 >
-> **Result.** 663 assertions executed across six suites, no failures, including 74
+> **Result.** 667 assertions executed across six suites, no failures, including 74
 > attacks that must fail. A seventh suite — 22 payment-gateway checks — needs a
 > Razorpay sandbox account and is not run; the same settlement path is covered
 > against a signature-exact stub. Every claim on our slides is something I can show you.

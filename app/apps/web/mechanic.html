@@ -262,6 +262,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="email-signin.js"></script>
 <script>
 (function () {
   "use strict";
@@ -483,6 +484,14 @@
       toast("Signed in", "ok");
     } catch (e) { toast(e.message, "bad"); }
   });
+
+  if (window.RAEmail) RAEmail.mount($("m-signin"), { toast: toast, onSession: async function (d) {
+    if (!d.roles.includes("mechanic") && !d.roles.includes("admin")) { toast("That account has no mechanic role", "bad"); return; }
+    state.token = d.accessToken; state.refresh = d.refreshToken; state.msisdn = d.user.msisdn;
+    saveSession();
+    await enterConsole(d.roles);
+    toast("Signed in", "ok");
+  } });
 
   async function enterConsole(roles) {
     $("scr-auth").hidden = true;

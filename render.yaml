@@ -134,3 +134,10 @@ services:
         sync: false
       - key: ALERT_LABEL
         value: roadassist on Render
+
+      # Email sign-in (apps/api/src/domain/email-signin.ts): "email=+91XXXXXXXXXX"
+      # pairs, comma-separated, set by hand. Each listed account signs in with a
+      # code emailed through the provider above, never shown on screen, and its
+      # number stops accepting the on-screen demo code. Empty = phone only.
+      - key: EMAIL_SIGNIN
+        sync: false
