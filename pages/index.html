@@ -309,7 +309,10 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .scene3d .scene-img.is-on{opacity:1;transform:none}
 .scene-step{font-family:var(--mono);color:var(--accent);margin-right:6px}
 .scene-auto{color:var(--ink-3)}
-.hero-3d{border:0;background:none;box-shadow:none;overflow:visible;perspective:1400px}
+/* The render fades into the page at its own edges, so it can run a little past
+   its column instead of sitting inside the figure's default 40px margins. */
+.hero-3d{border:0;background:none;box-shadow:none;overflow:visible;perspective:1400px;
+         margin:0 -7% 0 -9%}
 .hero-3d img{transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform;
              animation:hero-float 7s ease-in-out infinite}
 @keyframes hero-float{50%{translate:0 -8px}}

@@ -58,6 +58,10 @@ jobs:
           mkdir -p _site/shots/thumbs _site/shots/stage
           cp app/docs/screenshots/thumbs/*.webp _site/shots/thumbs/
           cp app/docs/screenshots/stage/*.webp  _site/shots/stage/
+          # One 3D scene per journey stage plus the hero, rendered from the real
+          # screenshots by pages/scenes/*.py and committed like the thumbs.
+          mkdir -p _site/shots/scene
+          cp app/docs/screenshots/scene/*.webp  _site/shots/scene/
           # Only the two the page actually embeds. The rest are large and
           # nothing links to them, and an unreferenced 29 MB of video is a
           # slower page for no reason.
@@ -102,6 +106,9 @@ jobs:
           for shot in $(grep -oE 'data-shot="[^"]+"' _site/index.html | cut -d'"' -f2 | sort -u); do
             ref="shots/stage/$shot.webp"
             if [ -f "_site/$ref" ]; then echo "  ok   $ref (switcher)"; else echo "  MISS $ref (switcher)"; fail=1; fi
+            # ...and the stage's 3D scene, which the switcher swaps in beside it.
+            ref="shots/scene/$shot.webp"
+            if [ -f "_site/$ref" ]; then echo "  ok   $ref (scene)"; else echo "  MISS $ref (scene)"; fail=1; fi
           done
           exit $fail
 
