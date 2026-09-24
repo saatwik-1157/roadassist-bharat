@@ -29,9 +29,34 @@ loadDotEnv();
  */
 const DEV_DATABASE_URL = "postgres://roadassist:devpassword@localhost:5434/roadassist";
 
+/**
+ * A DATABASE_URL that is not a postgres URL fails fast here, and the message
+ * never repeats the value. Handed straight to the driver, a malformed value -
+ * a bare password pasted where the whole connection string belonged - made it
+ * throw "Invalid URL" with the input attached, which printed the password into
+ * the deploy logs.
+ */
+export function checkDatabaseUrl(value: string): string {
+  const trimmed = value.trim();
+  let parsed: URL | null = null;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    parsed = null;
+  }
+  if (!parsed || (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") || !parsed.hostname) {
+    throw new Error(
+      "DATABASE_URL is not a postgres connection string. It must look like " +
+      "postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require - the whole line, not " +
+      "only the password. (The value is not shown here, because it may contain one.)",
+    );
+  }
+  return trimmed;
+}
+
 function resolveDatabaseUrl(): string {
   const fromEnv = process.env.DATABASE_URL;
-  if (fromEnv) return fromEnv;
+  if (fromEnv) return checkDatabaseUrl(fromEnv);
 
   const mode = process.env.NODE_ENV ?? "development";
   if (mode === "development" || mode === "test") return DEV_DATABASE_URL;
