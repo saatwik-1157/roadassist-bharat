@@ -104,9 +104,14 @@ def image(x, y, w, h, href, r=0, name=None, fit="xMidYMin slice"):
 
 
 def glow(cx, cy, rx, ry, color, op=0.35, blur=60):
-    fid = f"g{abs(hash((cx, cy, rx, color))) % 10**8}"
-    return (f'<filter id="{fid}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="{blur}"/></filter>'
-            f'<ellipse cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}" fill="{color}" fill-opacity="{op}" filter="url(#{fid})"/>')
+    """A soft light. A radial gradient, not an feGaussianBlur: Figma imports
+    gradients as fills but drops SVG filters, which left hard-edged discs."""
+    gid = f"rg{abs(hash((cx, cy, rx, ry, color))) % 10**9}"
+    return (f'<radialGradient id="{gid}" cx="0.5" cy="0.5" r="0.5">'
+            f'<stop offset="0" stop-color="{color}" stop-opacity="{op}"/>'
+            f'<stop offset="0.55" stop-color="{color}" stop-opacity="{op * 0.35:.3f}"/>'
+            f'<stop offset="1" stop-color="{color}" stop-opacity="0"/></radialGradient>'
+            f'<ellipse cx="{cx}" cy="{cy}" rx="{rx * 1.35}" ry="{ry * 1.35}" fill="url(#{gid})"/>')
 
 
 def pill(x, y, label, fill=SURF2, color=INK2, size=13, weight=600, pad=14, h=32, dot=None, stroke="#FFFFFF", so=0.08):
@@ -160,8 +165,22 @@ def svg(w, h, body, title):
             f'<title>{escape(title)}</title>{body}</svg>')
 
 
+_MARK_SRC = (BRAND / "logo-mark.svg").read_text(encoding="utf-8")
+_MARK_BODY = _MARK_SRC[_MARK_SRC.index(">", _MARK_SRC.index("<svg")) + 1:_MARK_SRC.rindex("</svg>")]
+_MARK_N = [0]
+
+
+def mark(x, y, size, name="Logo mark"):
+    """The logo as live vectors. Gradient ids are made unique per use, since
+    one SVG document may hold the mark several times."""
+    _MARK_N[0] += 1
+    body = _MARK_BODY
+    for gid in ("ra-gold", "ra-road", "ra-pulse"):
+        body = body.replace(f'id="{gid}"', f'id="{gid}-{_MARK_N[0]}"').replace(f"url(#{gid})", f"url(#{gid}-{_MARK_N[0]})")
+    return f'<g id="{escape(name)}" transform="translate({x} {y}) scale({size / 128})">{body}</g>'
+
+
 # ── assets ─────────────────────────────────────────────────────────────────
-MARK = svg_file_data(BRAND / "logo-mark.svg")
 HERO, _, _ = img_data(SHOTS / "scene" / "hero.webp", 1600, 88)
 SCENE_HOME, _, _ = img_data(SHOTS / "scene" / "02-home.webp", 1600, 86)
 CITIZEN, _, _ = img_data(SHOTS / "stage" / "02-home.webp", 780)
@@ -174,7 +193,7 @@ APPICON, _, _ = img_data(BRAND / "app-icon.png", 512, 90)
 def lockup(x, y, scale=1.0, dark=True):
     m = round(46 * scale)
     word = INK if dark else "#0B0E14"
-    return (f'<image x="{x}" y="{y}" width="{m}" height="{m}" href="{MARK}"/>'
+    return (mark(x, y, m)
             + f'<text x="{x + m + 12 * scale}" y="{y + m * 0.56}" font-family="{FONT}" font-size="{22 * scale}" font-weight="800" letter-spacing="-0.4" fill="{word}">Road<tspan fill="{GOLD}">Assist</tspan></text>'
             + text(x + m + 13 * scale, y + m * 0.92, "B H A R A T", 10.5 * scale, 700, INK3 if dark else "#4B5566", ls=1.2 * scale))
 
@@ -410,7 +429,7 @@ def brand():
     b.append(text(X, 110, "RoadAssist Bharat — Brand", 44, 800, INK, ls=-1.2))
     b.append(text(X, 148, "A shield for safety. A road that forms the A of Assist. A signal at the apex: help that still reaches you off-grid.", 17, 400, INK2))
     b.append(rect(X, 200, 560, 420, SURF, r=28, stroke="#FFFFFF", so=0.07))
-    b.append(f'<image x="{X + 170}" y="{240}" width="220" height="220" href="{MARK}"/>')
+    b.append(mark(X + 170, 240, 220, "Logo mark, primary"))
     b.append(f'<text x="{X + 280}" y="540" font-family="{FONT}" font-size="46" font-weight="800" letter-spacing="-1" fill="{INK}" text-anchor="middle">Road<tspan fill="{GOLD}">Assist</tspan></text>')
     b.append(text(X + 280, 580, "B H A R A T", 18, 700, INK3, "middle", ls=2))
     # light version
