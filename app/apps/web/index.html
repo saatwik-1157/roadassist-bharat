@@ -208,7 +208,12 @@ const state = {
   online: false,
   token: null, refresh: null, msisdn: null,
   vehicle: null, booking: null, offers: [], incident: null, contacts: [],
-  queue: JSON.parse(localStorage.getItem("ra.queue") || "[]"),
+  queue: (() => {
+    // Guarded for the same reason as the citizen app: blocked storage threw
+    // here while the state object was being built and stopped the console.
+    try { const q = JSON.parse(localStorage.getItem("ra.queue") || "[]"); return Array.isArray(q) ? q : []; }
+    catch { return []; }
+  })(),
   step: 0,
 };
 
@@ -219,7 +224,10 @@ function write(cls, text) {
   log.appendChild(el);
   log.scrollTop = log.scrollHeight;
 }
-const saveQueue = () => localStorage.setItem("ra.queue", JSON.stringify(state.queue));
+const saveQueue = () => {
+  try { localStorage.setItem("ra.queue", JSON.stringify(state.queue)); }
+  catch { /* storage blocked - the queue lasts for this page only */ }
+};
 
 async function api(method, path, body, opts = {}) {
   if (!state.online && !opts.force) {

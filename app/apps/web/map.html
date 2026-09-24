@@ -149,7 +149,22 @@
   // silently rotate it — so the map self-heals instead of showing "expired".
   function authToken() {
     try { if (window.AndroidAuth && AndroidAuth.token) return AndroidAuth.token() || TOKEN; } catch (e) {}
-    return TOKEN;
+    return TOKEN || sessionToken();
+  }
+  // Opened in a browser there is no app to hand over a token, so the map
+  // answered every load with "Unauthorized" and showed an empty India. It now
+  // uses the session of whichever surface you signed in to on this origin -
+  // the same token that page already holds, so this grants nothing a signed-in
+  // user did not have. With no session it still gets nothing, and says so.
+  var SESSION_KEYS = ["ra.raksha.session", "ra.mechanic.session", "ra.app.session"];
+  function sessionToken() {
+    for (var i = 0; i < SESSION_KEYS.length; i++) {
+      try {
+        var s = JSON.parse(localStorage.getItem(SESSION_KEYS[i]) || "null");
+        if (s && typeof s.token === "string" && s.token) return s.token;
+      } catch (e) { /* storage blocked or corrupt - try the next one */ }
+    }
+    return "";
   }
   function tryRefresh() {
     try { if (window.AndroidAuth && AndroidAuth.refresh) return !!AndroidAuth.refresh(); } catch (e) {}
@@ -172,10 +187,13 @@
   // preferCanvas: the 200+ detection markers render on one canvas instead of
   // one SVG/DOM node each — panning and zooming stay smooth.
   var map = L.map("map", {
-    zoomControl: true, minZoom: 4, maxZoom: 17,
+    // The status badge owns the top-left corner, where Leaflet puts zoom by
+    // default — the badge sat on top of the + button.
+    zoomControl: false, minZoom: 4, maxZoom: 17,
     preferCanvas: true, zoomAnimation: true, fadeAnimation: true,
     wheelPxPerZoomLevel: 90, zoomSnap: 0.25,
   });
+  L.control.zoom({ position: "topright" }).addTo(map);
   map.fitBounds(INDIA);
 
   // Keyless OSM basemap via the platform's proxy (polite UA + cache).
@@ -314,7 +332,13 @@
       }
       var j = await res.json();
       if (!res.ok) {
-        document.getElementById("badge").innerHTML = "⚠ " + esc((j.error && j.error.title) || res.status);
+        var why = (j.error && j.error.title) || res.status;
+        // A bare "Unauthorized" tells a visitor nothing they can act on.
+        if (res.status === 401) {
+          why = tok ? "Your session has expired - sign in again on the citizen app, mechanic console or RAKSHA"
+                    : "Sign in on the citizen app, mechanic console or RAKSHA in this browser to see the live map";
+        }
+        document.getElementById("badge").innerHTML = "⚠ " + esc(why);
         return;
       }
       var d = j.data;
@@ -416,6 +440,11 @@
   }
 
   setInterval(function () { if (!document.hidden) load(); }, 15000);
+  // Signing in on another tab or frame of this origin shows up here at once,
+  // rather than on the next 15-second tick.
+  window.addEventListener("storage", function (e) {
+    if (e.key && SESSION_KEYS.indexOf(e.key) !== -1) { lastSig = ""; load(); }
+  });
 })();
 </script>
 </body>

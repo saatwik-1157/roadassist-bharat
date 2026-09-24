@@ -971,6 +971,19 @@
     if (local && location.port !== "4000") return "http://localhost:4000";
     return location.origin;
   })();
+  // Read unguarded, this one line took the whole app down wherever storage is
+  // blocked - Safari private browsing, Brave, a third-party frame - because it
+  // runs while the state object is being built, before anything can catch it.
+  // A corrupt entry is the same failure by another route. Either way the right
+  // answer is an empty queue: the SOS path still works, it just has nothing
+  // left over from a previous page to replay.
+  function loadQueue() {
+    try {
+      var q = JSON.parse(localStorage.getItem("ra.app.queue") || "[]");
+      return Array.isArray(q) ? q : [];
+    } catch (e) { return []; }
+  }
+
   var state = {
     token: null, refresh: null, msisdn: null,
     vehicleId: null, vehicles: [], bookingId: null, diagnosis: null, radiusKm: 25,
@@ -978,7 +991,7 @@
     // ONLINE · LIMITED · OFFLINE — the connectivity manager owns this; `online`
     // above is derived from it and kept for the code that predates Off-Grid Mode.
     tier: navigator.onLine ? "ONLINE" : "OFFLINE",
-    queue: JSON.parse(localStorage.getItem("ra.app.queue") || "[]"),
+    queue: loadQueue(),
     mapLoaded: false, act: "bookings",
     /** The off-grid incident raised in this session, if there is one. */
     offGridIncidentId: null,
@@ -1163,7 +1176,8 @@
 
   // ── offline queue ─────────────────────────────────────────────────────────
   function saveQueue() {
-    localStorage.setItem("ra.app.queue", JSON.stringify(state.queue));
+    try { localStorage.setItem("ra.app.queue", JSON.stringify(state.queue)); }
+    catch (e) { /* storage blocked — the queue lasts for this page only */ }
     var n = state.queue.length;
     var note = $("queue-note");
     note.hidden = n === 0;
@@ -2160,7 +2174,18 @@
       // internet, which is exactly why it stays on the "available" side of the
       // off-grid line. Every resolution below is remembered so a fallback path
       // never has to re-prompt a person who is already in trouble.
-      function keep(pos) { sosLastPos = pos; resolve(pos); }
+      var settled = false;
+      function keep(pos) {
+        if (settled) return;
+        settled = true; clearTimeout(watchdog); sosLastPos = pos; resolve(pos);
+      }
+      // The API's own timeout only starts once a fix is being sought. An
+      // unanswered permission prompt, or a tab the browser has parked in the
+      // background, never settles at all — and a spinner reading "Getting your
+      // location…" forever is worse than the labelled fallback.
+      var watchdog = setTimeout(function () {
+        keep({ lat: DEMO_POS.lat, lng: DEMO_POS.lng, demo: true, reason: "timeout" });
+      }, 12000);
       if (!navigator.geolocation) {
         return keep({ lat: DEMO_POS.lat, lng: DEMO_POS.lng, demo: true, reason: "unsupported" });
       }
@@ -4377,7 +4402,9 @@
     if (!state.token) { toast("Sign in first — Guardian prepares your route"); return; }
     try {
       var r = await api("GET", "/v1/trip/prepare", null, { force: true });
-      localStorage.setItem(TRIP_KEY, JSON.stringify({ t: Date.now(), data: r.data }));
+      // Caching is a convenience; failing to cache must not hide a route the
+      // server already prepared, so it gets its own guard.
+      try { localStorage.setItem(TRIP_KEY, JSON.stringify({ t: Date.now(), data: r.data })); } catch (e) { /* storage blocked */ }
       renderTrip(r.data, null);
       var cache = await caches.open("ra-tiles-v2");
       var done = 0;
