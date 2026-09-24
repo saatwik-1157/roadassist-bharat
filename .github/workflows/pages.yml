@@ -107,8 +107,7 @@ jobs:
           # Every candidate in every srcset. The grep above only sees src, so a
           # missing hd/ copy would pass it and then break the image on exactly the
           # retina screens it exists for.
-          for ref in $(grep -oE 'srcset="[^"]+"' _site/index.html | cut -d'"' -f2 | tr ',' '
-' | awk '{print $1}' | sort -u); do
+          for ref in $(grep -oE 'srcset="[^"]+"' _site/index.html | cut -d'"' -f2 | tr ',' '\n' | awk '{print $1}' | sort -u); do
             if [ -f "_site/$ref" ]; then echo "  ok   $ref (srcset)"; else echo "  MISS $ref (srcset)"; fail=1; fi
           done
           # The journey switcher builds its image URL in script from
