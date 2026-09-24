@@ -13,6 +13,7 @@ import * as I from "./schema/identity.js";
 import * as F from "./schema/fleet.js";
 import * as S from "./schema/service.js";
 import * as O from "./schema/ops.js";
+import { SERVICE_TYPES } from "./service-catalogue.js";
 
 const USERS = Number(process.env.SEED_USERS ?? 4000);
 const MECHANICS = Number(process.env.SEED_MECHANICS ?? 600);
@@ -51,17 +52,6 @@ const ZONES = [
   { name: "Guwahati", state: "Assam", district: "Kamrup Metro", lng: 91.7362, lat: 26.1445 },
   { name: "Bhopal", state: "Madhya Pradesh", district: "Bhopal", lng: 77.4126, lat: 23.2599 },
 ];
-
-const SERVICE_TYPES = [
-  ["flat_tyre", "Flat tyre / puncture", 39900, 1200, 25],
-  ["battery_jumpstart", "Battery jump start", 34900, 1200, 20],
-  ["fuel_delivery", "Emergency fuel delivery", 29900, 1500, 30],
-  ["key_lockout", "Key lockout assistance", 49900, 1200, 35],
-  ["minor_repair", "On-spot minor repair", 59900, 1500, 40],
-  ["towing", "Towing to nearest garage", 99900, 4500, 45],
-  ["ev_charge", "EV mobile charging", 79900, 2000, 40],
-  ["accident_support", "Accident support", 0, 0, 15],
-] as const;
 
 const DTC = [
   ["P0300", "engine", 4, false, "Random or multiple cylinder misfire detected"],

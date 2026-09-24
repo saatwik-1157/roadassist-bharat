@@ -17,6 +17,7 @@
     "migrate": "tsx src/migrate.ts",
     "seed": "tsx src/seed.ts",
     "seed:raksha": "tsx src/seed-raksha.ts",
+    "seed:demo-fleet": "tsx src/seed-demo-fleet.ts",
     "reset": "tsx src/reset.ts",
     "studio": "drizzle-kit studio"
   },
