@@ -9,8 +9,10 @@ never wider than about 700 px. Sending the originals to those places costs
 roughly 5.9 MB of PNG, which on a phone over mobile data is the difference
 between a page that opens and a page somebody closes.
 
-Two tiers, both WebP, both a plain LANCZOS downscale of the original:
+Three tiers, all WebP, all a plain LANCZOS downscale of the original:
 
+  hd/      up to 2560 px - only for captures wider than 1400, offered to 2x
+           screens through srcset and never downloaded by a phone
   stage/   1400 px wide - the device frames, the hero, the video posters,
            and the desktop-capture gallery tiles, which render up to 536 px
            wide and so need about 1100 px to stay sharp on a retina screen
@@ -53,10 +55,17 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "app" / "docs" / "screenshots"
 
 # (directory, max width for a landscape capture, max width for a portrait
-#  capture, the size above which lossless is abandoned for quality 90)
+#  capture, the size above which lossless is abandoned for quality 90, and the
+#  source width a capture must exceed to get a copy in this tier at all)
+#
+# hd/ exists for retina laptops and big monitors: a 1400 px copy in a 1100 px
+# box on a 2x screen is visibly soft. Only captures wider than the stage tier
+# get one - there is nothing sharper to give a 780 px phone capture - and the
+# page offers it through srcset, so a phone never downloads it.
 TIERS = [
-    ("stage", 1400, 900, 120 * 1024),
-    ("thumbs", 880, 520, 60 * 1024),
+    ("hd", 2560, 0, 220 * 1024, 1400),
+    ("stage", 1400, 900, 120 * 1024, 0),
+    ("thumbs", 880, 520, 60 * 1024, 0),
 ]
 
 
@@ -78,20 +87,23 @@ def build(force: bool = False, src: Path = SRC) -> int:
         return 1
 
     total_src = total_out = 0
-    for name, wide_w, tall_w, cap in TIERS:
+    for name, wide_w, tall_w, cap, min_src in TIERS:
         out_dir = SRC / name
         out_dir.mkdir(exist_ok=True)
         built = kept = tier_bytes = 0
         print(f"\n{name}/")
 
         for path in sorted(src.glob("*.png")):
-            dest = out_dir / (path.stem + ".webp")
+            stem = path.stem
+            dest = out_dir / (stem + ".webp")
             if not force and dest.exists() and dest.stat().st_mtime >= path.stat().st_mtime:
                 kept += 1
                 tier_bytes += dest.stat().st_size
                 continue
 
             with Image.open(path) as im:
+                if im.width <= min_src or (im.height > im.width and not tall_w):
+                    continue
                 # Decide by the capture's own shape rather than by a list of
                 # names: a landscape capture squeezed into the portrait width
                 # loses the text the tile exists to show.
@@ -109,7 +121,7 @@ def build(force: bool = False, src: Path = SRC) -> int:
             dest.write_bytes(data)
             built += 1
             tier_bytes += len(data)
-            print(f"  {path.name:26s} {path.stat().st_size/1024:7.0f} KB -> {len(data)/1024:6.0f} KB")
+            print(f"  {stem + '.png':26s} {path.stat().st_size/1024:7.0f} KB -> {len(data)/1024:6.0f} KB")
 
         print(f"  {built} built, {kept} current, {tier_bytes/1024/1024:.2f} MB total")
         total_out += tier_bytes

@@ -58,6 +58,10 @@ jobs:
           mkdir -p _site/shots/thumbs _site/shots/stage
           cp app/docs/screenshots/thumbs/*.webp _site/shots/thumbs/
           cp app/docs/screenshots/stage/*.webp  _site/shots/stage/
+          # 2560 px copies of the wide captures, offered to retina screens only
+          # through srcset; a phone never asks for them.
+          mkdir -p _site/shots/hd
+          cp app/docs/screenshots/hd/*.webp     _site/shots/hd/
           # One 3D scene per journey stage plus the hero, rendered from the real
           # screenshots by pages/scenes/*.py and committed like the thumbs.
           mkdir -p _site/shots/scene
@@ -99,6 +103,13 @@ jobs:
           fail=0
           for ref in $(grep -oE '(src|poster)="[^"h][^"]*"' _site/index.html | cut -d'"' -f2 | sort -u); do
             if [ -f "_site/$ref" ]; then echo "  ok   $ref"; else echo "  MISS $ref"; fail=1; fi
+          done
+          # Every candidate in every srcset. The grep above only sees src, so a
+          # missing hd/ copy would pass it and then break the image on exactly the
+          # retina screens it exists for.
+          for ref in $(grep -oE 'srcset="[^"]+"' _site/index.html | cut -d'"' -f2 | tr ',' '
+' | awk '{print $1}' | sort -u); do
+            if [ -f "_site/$ref" ]; then echo "  ok   $ref (srcset)"; else echo "  MISS $ref (srcset)"; fail=1; fi
           done
           # The journey switcher builds its image URL in script from
           # data-shot, so the grep above never sees those paths. A renamed
