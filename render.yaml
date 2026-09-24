@@ -27,6 +27,10 @@ services:
     dockerfilePath: ./app/Dockerfile
     dockerContext: .           # site/ is outside the npm workspace, served at /media
     healthCheckPath: /health   # answers 503 when the database is unreachable
+    # The platform's public name. Render issues the certificate once the CNAME
+    # at Hostinger (app -> roadassist-u6ba.onrender.com) resolves.
+    domains:
+      - app.roadassistbharat.online
     autoDeployTrigger: commit
 
     # Migrate on boot. migrate.ts is idempotent by design - it applies the
