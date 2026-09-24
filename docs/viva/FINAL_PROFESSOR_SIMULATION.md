@@ -1,5 +1,5 @@
 > Written after inspecting the actual repository on 2026-09-06 and re-measured
-> against it on 2026-09-12 — 56 tables, 65 routes, 650 executed assertions.
+> against it on 2026-09-12 — 56 tables, 65 routes, 653 executed assertions.
 > Nothing here is assumed. This is prep to be spoken aloud, not a dated record:
 > when the code moves, the numbers here move with it.
 >
@@ -317,7 +317,7 @@ Not inflated. This is my estimate as an examiner, given the evidence that exists
 | Project idea | 8 | **7–8** | Genuine, specific problem; clear differentiator | Sounds like an aggregator if pitched badly | Lead with the connectivity failure, not the marketplace |
 | Architecture | 10 | **8–9** | Modular monolith, CI-enforced boundaries, ADRs | Monolith read as unambitious | Say "enforced, not agreed" and run the check |
 | Cloud concepts | 15 | **10–12** | 8 implemented, 5 partial, 8 design | **Highest risk** — 8 are design | Lead with pooling + distribution + scheduling; name blockers precisely |
-| Implementation | 15 | **13–14** | 650 assertions, 6 real bugs found and fixed | Little | Show the row lock |
+| Implementation | 15 | **13–14** | 653 assertions, 6 real bugs found and fixed | Little | Show the row lock |
 | AI | 10 | **6–7** | Rules engine, labelled; trained YOLO11n separate | "Not real AI" | Agree instantly, pivot to asymmetry + CI guard |
 | Database | 10 | **9** | 56 tables, hash-chained audit, PostGIS | Little | Show the append-only RULES |
 | Security | 10 | **8–9** | 101 attacks refused; real CVE fixed | No pentest | Volunteer that before asked |
@@ -389,7 +389,7 @@ CVE class in this release. Payment: the client never decides money arrived. The
 amount is the invoice total, the signature is recomputed server-side, and a
 booking can't be marked paid without a settled payment."
 
-**4:30 — Testing.** "650 assertions across six suites, zero failures, run twice
+**4:30 — Testing.** "653 assertions across six suites, zero failures, run twice
 — once on a fresh database and again after a full reset. Plus a timed demo
 rehearsal that walks all fifteen beats in two browser windows. Six real bugs
 were found by tooling we wrote to attack our own project, including two
@@ -451,7 +451,7 @@ a deployment. AI is 7 for the same reason: correctly labelled, genuinely modest.
 **Strongest areas**
 1. Offline / off-grid resilience — the tab-close demo is unanswerable.
 2. Concurrency and data integrity — row lock, idempotency, hash-chained audit.
-3. Testing honesty — 650 assertions and six self-found bugs.
+3. Testing honesty — 653 assertions and six self-found bugs.
 
 **Weakest areas**
 1. Nothing deployed — eight cloud concepts remain design.
@@ -470,7 +470,7 @@ a deployment. AI is 7 for the same reason: correctly labelled, genuinely modest.
 2. Dispatch score: proximity 60% / rating 34% / newcomer bonus; wave 5; 90 s TTL.
 3. `SELECT … FOR UPDATE` on the booking row, expiry checked inside the transaction.
 4. The offline three-way split: works / queued / needs network.
-5. 650 assertions, six suites, zero failures — and that a seventh needs an account.
+5. 653 assertions, six suites, zero failures — and that a seventh needs an account.
 
 **Must show in the demo**
 1. The `rules-1.0.0` badge.

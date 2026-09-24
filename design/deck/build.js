@@ -278,7 +278,7 @@ const next = () => { const s = pres.addSlide(); base(s); n++; return s; };
   t(s, `${num("assertions", "notExecuted", "paymentSandbox")} Razorpay sandbox checks need a payment account — never run, not counted.`,
     { x: MX + 0.3, y: 5.5, w: 3.8, h: 0.75, fontSize: 12, color: C.ink3 });
   foot(s, n);
-  s.addNotes("650 assertions across unit, end-to-end, concurrency, security, gateway security and browser suites, zero failures. The security suite attempts 74 attacks including cross-tenant reads, role escalation, SQL injection and forged tokens. The 22 payment-sandbox checks need an account we do not have, so they are reported as not run.");
+  s.addNotes(`${num("assertions", "total")} assertions across unit, end-to-end, concurrency, security, gateway security and browser suites, zero failures. The security suite attempts ${num("assertions", "suites", "securityAudit")} attacks including cross-tenant reads, role escalation, SQL injection and forged tokens. The 22 payment-sandbox checks need an account we do not have, so they are reported as not run.`);
 }
 
 // 10 ── honest AI ───────────────────────────────────────────────────────────
