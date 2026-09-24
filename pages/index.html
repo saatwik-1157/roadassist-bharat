@@ -1456,6 +1456,21 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       form.hidden = mode !== "live";
     }
 
+    // Chrome gates a public page reaching the viewer's own machine behind a
+    // permission. Its name has moved between releases, so ask for each one the
+    // browser might know; a browser that knows none of them gates nothing.
+    function networkPermission() {
+      if (!navigator.permissions || !navigator.permissions.query) return Promise.resolve("n/a");
+      var names = ["local-network-access", "loopback-network", "local-network"];
+      return names.reduce(function (p, name) {
+        return p.then(function (found) {
+          if (found !== "n/a") return found;
+          return navigator.permissions.query({ name: name })
+            .then(function (s) { return s.state; }, function () { return "n/a"; });
+        });
+      }, Promise.resolve("n/a"));
+    }
+
     function health(origin) {
       var ctl = "AbortController" in window ? new AbortController() : null;
       // Long, on purpose. Chrome asks the viewer before a public site may reach
@@ -1485,7 +1500,28 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       input.value = origin;
       var mine = ++attempt;
       say("Checking <code>" + esc(origin) + "/health</code>…");
+      var answered = false;
+      networkPermission().then(function (state) {
+        // Too late to matter once the platform has answered, and a page served
+        // from this machine is not gated at all.
+        if (mine !== attempt || answered) return;
+        if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return;
+        // The request below simply waits while Chrome asks, and the question is
+        // a small bubble by the address bar that is easy to miss - the page sat
+        // on "Checking..." with no hint of why. Say what is being waited on.
+        if (state === "prompt") {
+          say("<strong>Chrome is asking for permission.</strong> Look for the prompt by the address bar " +
+              "asking whether this site may reach devices on your network, and choose <strong>Allow</strong>. " +
+              "It only lets this page talk to the platform running on your own computer.");
+        } else if (state === "denied") {
+          say("Chrome is blocking this site from reaching your computer. Click the icon at the left of the " +
+              "address bar, open <strong>Site settings</strong>, set <strong>Local network access</strong> to " +
+              "<strong>Allow</strong>, then reload — or <a href=\"" + esc(origin) + "/app.html\" target=\"_blank\" " +
+              "rel=\"noopener\">open the platform directly</a>.", "bad");
+        }
+      });
       health(origin).then(function (result) {
+        answered = true;
         if (mine !== attempt) return;          // switched away, or a newer attempt
         if (result === "ok") {
           remember(origin);

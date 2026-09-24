@@ -28,6 +28,11 @@ services:
     # PostGIS, not plain Postgres: the schema pins SRIDs, builds GiST indexes
     # and dispatch ranks providers with ST_DWithin. postgres:16 fails migration.
     image: postgis/postgis:16-3.4
+    # Docker Desktop restarts when a laptop sleeps or updates, and a container
+    # with no policy stays down afterwards: the demo was found dead that way,
+    # exit 255, while the page in front of a reviewer said "could not reach".
+    # The one-shot migrate and seed jobs keep "no" - they are meant to finish.
+    restart: unless-stopped
     environment:
       POSTGRES_USER: roadassist
       POSTGRES_PASSWORD: demopassword
@@ -88,6 +93,7 @@ services:
 
   api:
     image: ${IMAGE:-ghcr.io/saatwik-1157/roadassist-bharat:latest}
+    restart: unless-stopped
     ports:
       - "4000:4000"
     environment:
