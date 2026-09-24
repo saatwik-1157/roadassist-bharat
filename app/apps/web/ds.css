@@ -495,6 +495,125 @@ h1, h2, h3 { font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; }
 }
 [hidden] { display: none !important; }
 
+/* ── depth ───────────────────────────────────────────────────────────────
+   The 3D layer every surface shares: a road that runs toward the viewer under
+   the whole page, light that drifts across it, cards that tilt under a mouse,
+   and the beacon on each sign-in screen. All of it is CSS and inline SVG —
+   nothing is fetched, so it survives off-grid exactly as the rest of this file
+   does. It is decoration and nothing else, so the reduced-motion block below
+   freezes every animation here, and depth.js only tilts for a real mouse. */
+:root {
+  --road-grid: rgba(20, 21, 26, 0.09);
+  --road-lane: rgba(168, 122, 34, 0.40);
+  --beacon:    rgba(15, 122, 82, 0.62);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --road-grid: rgba(150, 172, 214, 0.13);
+    --road-lane: rgba(240, 180, 41, 0.38);
+    --beacon:    rgba(31, 199, 126, 0.70);
+  }
+}
+:root[data-theme="dark"] {
+  --road-grid: rgba(150, 172, 214, 0.13);
+  --road-lane: rgba(240, 180, 41, 0.38);
+  --beacon:    rgba(31, 199, 126, 0.70);
+}
+
+/* The ground colour belongs to the root alone. With body painting it too, the
+   body's background covered the fixed .aurora layer and the aurora never
+   showed on any page. */
+body { background: transparent; }
+
+/* Light that drifts. A transform, so the compositor runs it without repaints. */
+.aurora::before {
+  content: ""; position: absolute; inset: -18%;
+  background:
+    radial-gradient(38% 32% at 28% 30%, var(--bg-tint-a), transparent 70%),
+    radial-gradient(34% 30% at 76% 58%, var(--bg-tint-b), transparent 70%);
+  animation: ra-drift 26s ease-in-out infinite alternate;
+}
+@keyframes ra-drift { to { transform: translate3d(5%, 4%, 0) rotate(7deg) scale(1.08); } }
+
+/* The road. .road is the plane, tipped back in perspective and faded toward
+   the horizon; its <i> carries the grid and the lane and slides one cell per
+   loop, which is seamless because every layer repeats on that cell. Sliding
+   the child rather than the background keeps it off the paint path. */
+/* The eye sits above the road (perspective-origin), so the plane runs from
+   the bottom of the screen to a horizon a little above the middle, and the
+   cells shrink toward it the way a real road does. */
+.aurora { perspective: 340px; perspective-origin: 50% 36%; }
+.aurora .road {
+  position: absolute; left: -60%; right: -60%; bottom: 0; height: 115vh; overflow: hidden;
+  transform: rotateX(72deg); transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.5) 34%, transparent 72%);
+          mask-image: linear-gradient(to top, #000 0%, rgba(0,0,0,.5) 34%, transparent 72%);
+}
+.aurora .road i {
+  position: absolute; left: 0; right: 0; top: -160px; bottom: 0;
+  background:
+    linear-gradient(var(--road-lane) 0 46%, transparent 46%) 50% 0 / 10px 160px repeat-y,
+    linear-gradient(90deg, var(--road-grid) 1.5px, transparent 1.5px) 50% 0 / 80px 80px,
+    linear-gradient(var(--road-grid) 1.5px, transparent 1.5px) 0 0 / 80px 80px;
+  animation: ra-road 3s linear infinite;
+}
+@keyframes ra-road { to { transform: translate3d(0, 160px, 0); } }
+
+/* Cards that tilt toward the pointer (depth.js sets --rx/--ry/--mx/--my and
+   [data-tilting] while a mouse is over one). The glare is the light source the
+   aurora implies, reflected off the tilted face. */
+[data-tilting] {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-3px) !important;
+  transition: transform 90ms linear, box-shadow var(--t-3) var(--ease) !important;
+  box-shadow: var(--shadow-3) !important;
+}
+[data-tilting]:not(.feature) {
+  background-image: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,.07), transparent 60%);
+}
+
+/* Primary buttons get a lit top edge, so they read as raised off the page. */
+.btn:not(.ghost):not(.soft) {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), inset 0 -2px 0 rgba(0,0,0,.14), var(--shadow-1);
+}
+.btn:not(.ghost):not(.soft):hover {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 0 rgba(0,0,0,.14), var(--shadow-2);
+}
+.btn:not(.ghost):not(.soft):active { transform: translateY(1px) scale(0.985); }
+.card { box-shadow: inset 0 1px 0 rgba(255,255,255,.035), var(--shadow-1); }
+.btn.gold:not(.ghost):not(.soft) { box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -2px 0 rgba(0,0,0,.12), var(--shadow-brand); }
+.btn:not(.ghost):not(.soft):disabled { box-shadow: none; }
+
+/* The sign-in beacon: the brand shield hovering over a patch of road, sending
+   the same signal the logo draws — help that still gets through. */
+.emblem3d { position: relative; width: 150px; height: 138px; margin: 0 0 14px -8px; perspective: 520px; }
+.emblem3d .e-floor {
+  position: absolute; left: 50%; bottom: 4px; width: 150px; height: 150px; margin-left: -75px;
+  transform: rotateX(76deg); transform-style: preserve-3d;
+}
+.emblem3d .e-floor::before {
+  content: ""; position: absolute; inset: 22%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0,0,0,.5), transparent);
+}
+.emblem3d .e-floor i {
+  position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--beacon);
+  opacity: 0; animation: ra-ring 3s cubic-bezier(.2,.7,.3,1) infinite;
+}
+.emblem3d .e-floor i:nth-child(2) { animation-delay: 1s; }
+.emblem3d .e-floor i:nth-child(3) { animation-delay: 2s; }
+@keyframes ra-ring { 0% { transform: scale(.18); opacity: .95; } 100% { transform: scale(1.2); opacity: 0; } }
+.emblem3d .e-mark {
+  position: absolute; left: 50%; top: 0; width: 92px; height: 92px; margin-left: -46px;
+  filter: drop-shadow(0 16px 14px rgba(0,0,0,.34)) drop-shadow(0 0 26px rgba(240,180,41,.28));
+  animation: ra-float 6s ease-in-out infinite;
+}
+@keyframes ra-float {
+  0%, 100% { transform: translateY(0) rotateY(-16deg) rotateX(4deg); }
+  50%      { transform: translateY(-8px) rotateY(16deg) rotateX(-2deg); }
+}
+.emblem3d.sm { width: 104px; height: 96px; margin: -4px 0 6px -6px; }
+.emblem3d.sm .e-floor { width: 104px; height: 104px; margin-left: -52px; }
+.emblem3d.sm .e-mark { width: 62px; height: 62px; margin-left: -31px; }
+
 /* ── reduced motion ──────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

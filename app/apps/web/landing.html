@@ -15,7 +15,8 @@
     } catch (e) { /* storage blocked — the system preference wins */ }
   })();
 </script>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z' fill='none' stroke='%23e3b96a' stroke-width='2.4' stroke-linejoin='round'/%3E%3Cpath fill='%23e3b96a' fill-rule='evenodd' d='M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z'/%3E%3Ccircle cx='16' cy='7.5' r='2' fill='%23e3b96a'/%3E%3C/svg%3E">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="vendor/fonts.css">
 <link rel="stylesheet" href="ds.css">
 <style>
@@ -97,20 +98,96 @@
   @media (prefers-reduced-motion: reduce) {
     .rise, .stagger > * { animation: none !important; }
   }
+
+  /* The hero's 3D dispatch scene: a tilted city block in CSS 3D, drawn as SVG,
+     with a mechanic travelling the route to an SOS. Illustration only, and
+     captioned as such; nothing in it is data. */
+  .hero-grid { display: grid; gap: var(--s-6); align-items: center; }
+  @media (min-width: 1000px) { .hero-grid { grid-template-columns: 1.02fr .98fr; } }
+  /* The copy always paints over the scene: a tilted corner may reach into
+     the gutter, and it must never sit on top of the words. */
+  .hero-copy { position: relative; z-index: 1; }
+  @media (min-width: 1000px) { .s-scale { transform: scale(.84); } }
+  @media (min-width: 1000px) and (max-width: 1179px) { .s-scale { transform: scale(.72); } }
+  .scene3d { position: relative; height: 470px; perspective: 1500px; margin: 0; }
+  .s-scale { position: absolute; inset: 0; transform-style: preserve-3d; }
+  .s-stage { position: absolute; inset: 0; transform-style: preserve-3d;
+             animation: s-sway 14s ease-in-out infinite alternate; }
+  @keyframes s-sway { from { transform: rotateX(3deg) rotateY(-5deg); } to { transform: rotateX(-2deg) rotateY(5deg); } }
+  .s-plane { position: absolute; left: 50%; top: 50%; width: 560px; height: 410px;
+             margin: -196px 0 0 -280px; border-radius: 26px; transform-style: preserve-3d;
+             transform: rotateX(56deg) rotateZ(-33deg); }
+  .s-map { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 26px;
+           box-shadow: 0 0 0 1px rgba(240,180,41,.28), inset 0 0 40px rgba(0,0,0,.4); }
+  .s-slab { position: absolute; inset: 0; border-radius: 26px; background: #070A10;
+            transform: translateZ(-10px); box-shadow: 0 0 0 1px rgba(240,180,41,.18); }
+  .s-slab.two { transform: translateZ(-20px); background: #04060A; }
+  .s-floor { position: absolute; inset: -12%; border-radius: 50%; transform: translateZ(-80px);
+             background: radial-gradient(closest-side, rgba(0,0,0,.55), transparent); }
+  .s-route { animation: s-march 1.1s linear infinite; }
+  @keyframes s-march { to { stroke-dashoffset: -11; } }
+
+  .s-bld { position: absolute; transform-style: preserve-3d; }
+  .s-bld b { position: absolute; backface-visibility: hidden; }
+  .s-bld .t { inset: 0; transform: translateZ(var(--h)); border-radius: 2px;
+              background: linear-gradient(135deg, #3A4659, #222B3A); box-shadow: inset 0 0 0 1px rgba(160,190,240,.18); }
+  .s-bld .s { left: 0; right: 0; bottom: 0; height: var(--h); transform-origin: bottom; transform: rotateX(-90deg); }
+  .s-bld .n { left: 0; right: 0; top: 0; height: var(--h); transform-origin: top; transform: rotateX(90deg);
+              background: #1A2230; }
+  .s-bld .e { top: 0; bottom: 0; right: 0; width: var(--h); transform-origin: right; transform: rotateY(90deg); }
+  .s-bld .w { top: 0; bottom: 0; left: 0; width: var(--h); transform-origin: left; transform: rotateY(-90deg);
+              background: linear-gradient(270deg, #161D29, #273143); }
+  .s-bld .s { background:
+      repeating-linear-gradient(90deg, transparent 0 5px, rgba(255,214,120,.18) 5px 7px),
+      linear-gradient(#253042, #111722); }
+  .s-bld .e { background:
+      repeating-linear-gradient(transparent 0 5px, rgba(255,214,120,.14) 5px 7px),
+      linear-gradient(90deg, #1B2331, #2C3749); }
+  .s-bld.lit .t { background: linear-gradient(135deg, #F7D57A, #C9901E); box-shadow: 0 0 22px rgba(240,180,41,.45); }
+
+  /* Billboards stand on the plane and face the viewer, by undoing the plane's
+     own rotation in reverse order. */
+  .s-bill { position: absolute; transform-origin: 50% 100%;
+            transform: translate(-50%, -100%) rotateZ(33deg) rotateX(-56deg); }
+  .s-pin svg { filter: drop-shadow(0 10px 10px rgba(0,0,0,.45)); animation: s-bob 2.4s ease-in-out infinite; }
+  @keyframes s-bob { 50% { transform: translateY(-6px); } }
+  .s-card { display: flex; gap: 10px; align-items: center; padding: 10px 14px 11px 10px; min-width: 206px;
+            transform: translate(-50%, -100%) rotateZ(33deg) rotateX(-56deg) translateY(-54px);
+            border-radius: 14px; color: #EEF2F8; background: rgba(18,24,36,.78);
+            border: 1px solid rgba(160,190,240,.22);
+            box-shadow: 0 18px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08); }
+  .s-card b { display: block; font-size: 12.5px; font-weight: 700; }
+  .s-card small { display: block; font-size: 11px; color: #A9B4C6; }
+  .s-card em { display: block; height: 4px; margin-top: 7px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .s-card em i { display: block; height: 100%; width: 100%; border-radius: inherit; transform-origin: left;
+                 background: linear-gradient(90deg, #1FC77E, #7CFFC4); animation: s-eta 8s linear infinite; }
+  @keyframes s-eta { 0% { transform: scaleX(.04); } 82%, 100% { transform: scaleX(1); } }
+  .s-av { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+          font-weight: 800; font-size: 13px; color: #07140E; background: radial-gradient(circle at 35% 30%, #B7FFE0, #1FC77E); }
+  .s-chip { padding: 7px 12px; border-radius: 999px; white-space: nowrap; font-size: 11.5px; font-weight: 650;
+            color: #1A1408; background: linear-gradient(#FFD978, #F0B429); box-shadow: 0 10px 24px rgba(0,0,0,.35); }
+  .scene3d figcaption { position: absolute; left: 0; right: 0; bottom: 0; text-align: center;
+                        font-size: 11.5px; color: var(--text-3); }
+  @media (max-width: 999px) {
+    .scene3d { height: 400px; }
+    .s-scale { transform: scale(.8); }
+  }
+  @media (max-width: 560px) {
+    .scene3d { height: 270px; margin-top: calc(-1 * var(--s-6)); }
+    .s-scale { transform: scale(.6); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .s-stage, .s-route, .s-pin svg, .s-card em i { animation: none !important; }
+  }
 </style>
 </head>
 <body>
-<div class="aurora" aria-hidden="true"></div>
+<div class="aurora" aria-hidden="true"><div class="road"><i></i></div></div>
 
 <header class="nav">
   <div class="wrap">
     <a class="brand" href="/" aria-label="RoadAssist home">
-      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z"
-              fill="none" stroke="var(--brand)" stroke-width="2.4" stroke-linejoin="round"/>
-        <path fill="var(--brand)" fill-rule="evenodd" d="M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z"/>
-        <circle cx="16" cy="7.5" r="2" fill="var(--brand)"/>
-      </svg>
+      <svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><defs><linearGradient id="raMkGold-1" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#FFD978"/><stop offset="0.55" stop-color="#F0B429"/><stop offset="1" stop-color="#C97A12"/></linearGradient><linearGradient id="raMkRoad-1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A2130"/><stop offset="1" stop-color="#07090D"/></linearGradient><radialGradient id="raMkPulse-1" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#7CFFC4"/><stop offset="1" stop-color="#1FC77E"/></radialGradient></defs><path d="M64 5 L113 23 V58 C113 91 92 113.5 64 123 C36 113.5 15 91 15 58 V23 Z" fill="url(#raMkGold-1)"/><path d="M64 12 L106 27.5 V58 C106 86.5 88 106.5 64 115.5 C40 106.5 22 86.5 22 58 V27.5 Z" fill="none" stroke="#FFF1C2" stroke-opacity="0.45" stroke-width="1.5"/><path d="M34 106 L58.5 42 C60 38.3 68 38.3 69.5 42 L94 106 C85 110.5 74.5 113 64 113 C53.5 113 43 110.5 34 106 Z" fill="url(#raMkRoad-1)"/><rect x="61.6" y="95" width="4.8" height="11" rx="1.6" fill="#F0B429"/><rect x="62.1" y="80" width="3.8" height="8.5" rx="1.4" fill="#F0B429"/><rect x="62.5" y="67.5" width="3" height="6.5" rx="1.2" fill="#F0B429"/><rect x="62.9" y="57.5" width="2.2" height="4.8" rx="1" fill="#F0B429"/><path d="M52.5 30.5 A16 16 0 0 1 75.5 30.5" fill="none" stroke="#0B0E14" stroke-width="3.2" stroke-linecap="round"/><path d="M57.3 35.2 A9.4 9.4 0 0 1 70.7 35.2" fill="none" stroke="#0B0E14" stroke-width="3.2" stroke-linecap="round"/><circle cx="64" cy="42.5" r="5.2" fill="url(#raMkPulse-1)" stroke="#0B0E14" stroke-width="2"/></svg>
       <span class="wordmark">Road<i>Assist</i></span>
     </a>
     <nav class="nav-links" aria-label="Sections">
@@ -125,24 +202,77 @@
 
 <main>
   <section class="hero">
-    <div class="wrap rise">
-      <span class="eyebrow">Offline-first roadside assistance · India</span>
-      <h1 class="display">Help reaches you. <em>Even where the signal does not.</em></h1>
-      <p class="lede">
-        A breakdown rarely happens where the coverage is good. RoadAssist dispatches a
-        verified mechanic, raises an emergency, and keeps working when the network is
-        gone — holding what you did on the device and sending it the moment a bar comes
-        back. On a feature phone it works over plain SMS, with no app at all.
-      </p>
-      <div class="cta">
-        <a class="btn" href="/app.html">Open the app</a>
-        <a class="btn ghost" href="/index.html">See the live request console</a>
+    <div class="wrap rise hero-grid">
+      <div class="hero-copy">
+        <span class="eyebrow">Offline-first roadside assistance · India</span>
+        <h1 class="display">Help reaches you. <em>Even where the signal does not.</em></h1>
+        <p class="lede">
+          A breakdown rarely happens where the coverage is good. RoadAssist dispatches a
+          verified mechanic, raises an emergency, and keeps working when the network is
+          gone — holding what you did on the device and sending it the moment a bar comes
+          back. On a feature phone it works over plain SMS, with no app at all.
+        </p>
+        <div class="cta">
+          <a class="btn" href="/app.html">Open the app</a>
+          <a class="btn ghost" href="/index.html">See the live request console</a>
+        </div>
+        <div class="trust">
+          <span class="chip">Works with no data — over SMS</span>
+          <span class="chip">GPS fix held on the device</span>
+          <span class="chip">A human always confirms an emergency</span>
+        </div>
       </div>
-      <div class="trust">
-        <span class="chip">Works with no data — over SMS</span>
-        <span class="chip">GPS fix held on the device</span>
-        <span class="chip">A human always confirms an emergency</span>
-      </div>
+      <figure class="scene3d" aria-labelledby="scene-cap">
+        <div class="s-scale"><div class="s-stage"><div class="s-plane">
+          <i class="s-slab"></i><i class="s-slab two"></i><i class="s-floor"></i>
+          <svg class="s-map" viewBox="0 0 600 440" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="smGround" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#141B28"/><stop offset="1" stop-color="#0A0E16"/></linearGradient>
+              <pattern id="smGrid" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#8FA3C8" stroke-opacity=".07"/></pattern>
+              <radialGradient id="smHalo"><stop offset="0" stop-color="#FF5A50" stop-opacity=".55"/><stop offset="1" stop-color="#FF5A50" stop-opacity="0"/></radialGradient>
+              <radialGradient id="smMech"><stop offset="0" stop-color="#7CFFC4" stop-opacity=".7"/><stop offset="1" stop-color="#1FC77E" stop-opacity="0"/></radialGradient>
+            </defs>
+            <rect width="600" height="440" rx="26" fill="url(#smGround)"/>
+            <rect width="600" height="440" rx="26" fill="url(#smGrid)"/>
+            <path d="M-10 398C120 378 200 418 320 394S520 356 610 378V450H-10Z" fill="#12304A" fill-opacity=".55"/>
+            <ellipse cx="505" cy="292" rx="62" ry="34" fill="#123A2A" fill-opacity=".6"/>
+            <ellipse cx="120" cy="330" rx="44" ry="24" fill="#123A2A" fill-opacity=".5"/>
+            <g fill="none" stroke="#222B3B" stroke-linecap="round" stroke-width="9">
+              <path d="M60-10C70 30 80 50 88 70"/><path d="M205 250C230 310 250 370 262 450"/>
+              <path d="M300-10C310 80 330 150 382 196"/><path d="M382 196C430 260 500 300 610 318"/>
+              <path d="M88 70C110 150 150 205 205 250"/>
+            </g>
+            <path d="M-10 330C90 300 150 270 205 250C260 238 330 222 382 196C420 177 448 160 470 150C520 126 560 100 610 70" fill="none" stroke="#2B3547" stroke-width="20" stroke-linecap="round"/>
+            <path d="M-10 330C90 300 150 270 205 250C260 238 330 222 382 196C420 177 448 160 470 150C520 126 560 100 610 70" fill="none" stroke="#F0B429" stroke-opacity=".75" stroke-width="1.6" stroke-dasharray="10 12"/>
+            <path id="smRoute" d="M88 70C110 150 150 205 205 250C260 238 330 222 382 196C420 177 448 160 470 150" fill="none" stroke="#1FC77E" stroke-opacity=".35" stroke-width="12" stroke-linecap="round"/>
+            <path class="s-route" d="M88 70C110 150 150 205 205 250C260 238 330 222 382 196C420 177 448 160 470 150" fill="none" stroke="#7CFFC4" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/>
+            <g><circle cx="470" cy="150" r="40" fill="url(#smHalo)"/>
+              <circle cx="470" cy="150" r="10" fill="none" stroke="#FF5A50" stroke-width="2"><animate attributeName="r" values="8;46" dur="2.4s" repeatCount="indefinite"/><animate attributeName="stroke-opacity" values=".9;0" dur="2.4s" repeatCount="indefinite"/></circle>
+              <circle cx="470" cy="150" r="10" fill="none" stroke="#FF5A50" stroke-width="2"><animate attributeName="r" values="8;46" dur="2.4s" begin="1.2s" repeatCount="indefinite"/><animate attributeName="stroke-opacity" values=".9;0" dur="2.4s" begin="1.2s" repeatCount="indefinite"/></circle>
+            </g>
+            <g><circle r="22" fill="url(#smMech)"/><circle r="7.5" fill="#1FC77E" stroke="#E9FFF5" stroke-width="2.5"/>
+              <animateMotion dur="8s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;.82;1" calcMode="linear"><mpath href="#smRoute"/></animateMotion></g>
+            <circle cx="88" cy="70" r="5" fill="#0A0E16" stroke="#7CFFC4" stroke-width="2"/>
+          </svg>
+          <div class="s-bld" style="left:5%;top:50%;width:8%;height:10%;--h:42px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
+          <div class="s-bld" style="left:15%;top:64%;width:6%;height:7%;--h:24px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
+          <div class="s-bld lit" style="left:40%;top:6%;width:8%;height:11%;--h:56px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
+          <div class="s-bld" style="left:51%;top:12%;width:6%;height:7%;--h:30px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
+          <div class="s-bld" style="left:60%;top:60%;width:9%;height:8%;--h:40px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
+          <div class="s-bld" style="left:73%;top:71%;width:6%;height:8%;--h:26px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
+          <div class="s-bld lit" style="left:86%;top:44%;width:7%;height:9%;--h:62px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
+          <div class="s-bld" style="left:27%;top:76%;width:7%;height:8%;--h:30px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
+          <div class="s-bill s-pin" style="left:78.3%;top:34.1%">
+            <svg viewBox="0 0 48 64" width="46" height="61" aria-hidden="true"><defs><linearGradient id="smPin" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7A72"/><stop offset="1" stop-color="#C21F2F"/></linearGradient></defs><path d="M24 62C24 62 3 38 3 23a21 21 0 0 1 42 0C45 38 24 62 24 62Z" fill="url(#smPin)" stroke="#FFD2CE" stroke-opacity=".6"/><text x="24" y="28" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11.5" font-weight="800" fill="#fff">SOS</text></svg>
+          </div>
+          <div class="s-bill s-card" style="left:40%;top:44%">
+            <span class="s-av">M</span>
+            <span><b>Verified mechanic</b><small>En route to your SOS</small><em><i></i></em></span>
+          </div>
+          <div class="s-bill s-chip" style="left:16%;top:88%">Off-grid · held on the device</div>
+        </div></div></div>
+        <figcaption id="scene-cap">How a dispatch plays out. An illustration, not live data.</figcaption>
+      </figure>
     </div>
   </section>
 
@@ -339,15 +469,12 @@
 <footer>
   <div class="wrap foot">
     <a class="brand" href="/" aria-label="RoadAssist home">
-      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z"
-              fill="none" stroke="var(--brand)" stroke-width="2.4" stroke-linejoin="round"/>
-        <circle cx="16" cy="7.5" r="2" fill="var(--brand)"/>
-      </svg>
+      <svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><defs><linearGradient id="raMkGold-2" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#FFD978"/><stop offset="0.55" stop-color="#F0B429"/><stop offset="1" stop-color="#C97A12"/></linearGradient><linearGradient id="raMkRoad-2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A2130"/><stop offset="1" stop-color="#07090D"/></linearGradient><radialGradient id="raMkPulse-2" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#7CFFC4"/><stop offset="1" stop-color="#1FC77E"/></radialGradient></defs><path d="M64 5 L113 23 V58 C113 91 92 113.5 64 123 C36 113.5 15 91 15 58 V23 Z" fill="url(#raMkGold-2)"/><path d="M64 12 L106 27.5 V58 C106 86.5 88 106.5 64 115.5 C40 106.5 22 86.5 22 58 V27.5 Z" fill="none" stroke="#FFF1C2" stroke-opacity="0.45" stroke-width="1.5"/><path d="M34 106 L58.5 42 C60 38.3 68 38.3 69.5 42 L94 106 C85 110.5 74.5 113 64 113 C53.5 113 43 110.5 34 106 Z" fill="url(#raMkRoad-2)"/><rect x="61.6" y="95" width="4.8" height="11" rx="1.6" fill="#F0B429"/><rect x="62.1" y="80" width="3.8" height="8.5" rx="1.4" fill="#F0B429"/><rect x="62.5" y="67.5" width="3" height="6.5" rx="1.2" fill="#F0B429"/><rect x="62.9" y="57.5" width="2.2" height="4.8" rx="1" fill="#F0B429"/><path d="M52.5 30.5 A16 16 0 0 1 75.5 30.5" fill="none" stroke="#0B0E14" stroke-width="3.2" stroke-linecap="round"/><path d="M57.3 35.2 A9.4 9.4 0 0 1 70.7 35.2" fill="none" stroke="#0B0E14" stroke-width="3.2" stroke-linecap="round"/><circle cx="64" cy="42.5" r="5.2" fill="url(#raMkPulse-2)" stroke="#0B0E14" stroke-width="2"/></svg>
       <span class="wordmark">Road<i>Assist</i></span>
     </a>
     <p class="hint">Offline-first roadside assistance for India · demonstration build</p>
   </div>
 </footer>
+<script src="depth.js"></script>
 </body>
 </html>

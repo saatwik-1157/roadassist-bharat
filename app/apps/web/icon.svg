@@ -1,14 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="512" height="512">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="RoadAssist Bharat">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f7e4bb"/><stop offset=".5" stop-color="#e3b96a"/><stop offset="1" stop-color="#a87a22"/>
+    <linearGradient id="ra-gold" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#FFD978"/>
+      <stop offset="0.55" stop-color="#F0B429"/>
+      <stop offset="1" stop-color="#C97A12"/>
     </linearGradient>
+    <linearGradient id="ra-road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A2130"/>
+      <stop offset="1" stop-color="#07090D"/>
+    </linearGradient>
+    <radialGradient id="ra-pulse" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7CFFC4"/>
+      <stop offset="1" stop-color="#1FC77E"/>
+    </radialGradient>
   </defs>
-  <rect width="32" height="32" rx="0" fill="#0b0a08"/>
-  <g transform="translate(0.96 0.96) scale(0.940)">
-    <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z" fill="url(#g)" opacity=".18"/>
-    <path d="M16 1.6 28.6 6.2v10.1c0 7.1-5.3 12.8-12.6 15.1C8.7 29.1 3.4 23.4 3.4 16.3V6.2z" fill="none" stroke="url(#g)" stroke-width="1.7" stroke-linejoin="round"/>
-    <path d="M10.4 25.2 14.5 11.8h3l4.1 13.4zM15.05 21.3h1.9v2.5h-1.9zM15.35 17.2h1.3v2.1h-1.3zM15.6 13.8h.8v1.7h-.8z" fill="url(#g)" fill-rule="evenodd"/>
-    <circle cx="16" cy="7.5" r="1.9" fill="url(#g)"/>
-  </g>
+  <!-- shield: safety -->
+  <path d="M64 5 L113 23 V58 C113 91 92 113.5 64 123 C36 113.5 15 91 15 58 V23 Z" fill="url(#ra-gold)"/>
+  <!-- inner bevel so the shield reads as a solid object, not a flat badge -->
+  <path d="M64 12 L106 27.5 V58 C106 86.5 88 106.5 64 115.5 C40 106.5 22 86.5 22 58 V27.5 Z" fill="none" stroke="#FFF1C2" stroke-opacity="0.45" stroke-width="1.5"/>
+  <!-- the road, converging to an apex: the A of Assist -->
+  <path d="M34 106 L58.5 42 C60 38.3 68 38.3 69.5 42 L94 106 C85 110.5 74.5 113 64 113 C53.5 113 43 110.5 34 106 Z" fill="url(#ra-road)"/>
+  <!-- lane markings, shrinking with distance -->
+  <rect x="61.6" y="95" width="4.8" height="11" rx="1.6" fill="#F0B429"/>
+  <rect x="62.1" y="80" width="3.8" height="8.5" rx="1.4" fill="#F0B429"/>
+  <rect x="62.5" y="67.5" width="3" height="6.5" rx="1.2" fill="#F0B429"/>
+  <rect x="62.9" y="57.5" width="2.2" height="4.8" rx="1" fill="#F0B429"/>
+  <!-- the signal at the apex: help that still reaches you off-grid -->
+  <path d="M52.5 30.5 A16 16 0 0 1 75.5 30.5" fill="none" stroke="#0B0E14" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M57.3 35.2 A9.4 9.4 0 0 1 70.7 35.2" fill="none" stroke="#0B0E14" stroke-width="3.2" stroke-linecap="round"/>
+  <circle cx="64" cy="42.5" r="5.2" fill="url(#ra-pulse)" stroke="#0B0E14" stroke-width="2"/>
 </svg>

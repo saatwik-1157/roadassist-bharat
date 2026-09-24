@@ -467,9 +467,86 @@ def brand():
     return svg(W, H, "".join(b), "RoadAssist Bharat — Brand")
 
 
+# ── app UI · 3D ────────────────────────────────────────────────────────────
+# The platform's own screens after the depth layer (ds.css, depth.js) landed.
+# Captured from the local demo stack by app/scripts/capture-screens.mjs and
+# kept in design/captures/, so this board rebuilds from committed files.
+CAPS = ROOT / "design" / "captures"
+
+
+def app_3d():
+    W, X = 1920, 96
+    cap = lambda n, w: img_data(CAPS / f"{n}.jpg", w, 86)[0]
+    b = [rect(0, 0, W, 3000, BG, name="Background"),
+         glow(420, 260, 520, 320, GOLD, 0.15), glow(1500, 1300, 560, 420, BLUE, 0.10), glow(700, 2400, 600, 380, GREEN, 0.07)]
+    b.append(lockup(X, 56, 1.0))
+    b.append(text(X, 190, "App UI — the 3D depth layer", 56, 800, INK, ls=-1.6))
+    b.append(text(X, 232, "Every screen below is a capture of the running platform, not a mock-up. The road, the tilt and the beacon are one shared layer.", 19, 400, INK2))
+    p, pw = pill(X, 262, "CAPTURED FROM THE LOCAL DEMO STACK", SURF, INK2, 11, 800, 13, 28, dot=GREEN)
+    b.append(p)
+
+    # landing, in a browser, beside the spec for the layer
+    y = 330
+    dev, h = browser(X, y, 1120, 38 + round(1118 * 1290 / 1920), cap("15-landing", 1600), "Landing", address="localhost:4000", live=False)
+    b.append(dev)
+    sx, sw = X + 1170, W - X - (X + 1170)
+    b.append(rect(sx, y, sw, h, SURF, r=24, stroke="#FFFFFF", so=0.07, name="Depth system"))
+    b.append(text(sx + 32, y + 52, "DEPTH SYSTEM", 12, 800, GOLD, ls=2))
+    # the sign-in beacon, as vectors: rings on the floor, the mark above them
+    bx, by = sx + sw / 2, y + 250
+    for i, (rx, op) in enumerate([(150, 0.18), (108, 0.32), (66, 0.55)]):
+        b.append(f'<ellipse cx="{bx}" cy="{by}" rx="{rx}" ry="{rx * 0.24:.1f}" fill="none" stroke="{GREEN}" stroke-opacity="{op}" stroke-width="2"/>')
+    b.append(f'<ellipse cx="{bx}" cy="{by}" rx="54" ry="11" fill="#000000" fill-opacity="0.45"/>')
+    b.append(mark(bx - 62, by - 150, 124, "Sign-in beacon"))
+    rows = [("Road floor", "A 72° plane seen from 36% down the screen. The lane moves one 160 px cycle every 3 s."),
+            ("Tilt", "Cards tip up to 7° toward a mouse and catch a glare. Touch screens never tilt."),
+            ("Beacon", "The shield sways ±16° over three signal rings on every sign-in screen."),
+            ("Reduced motion", "Every animation stops, including the SVG ones, which depth.js pauses."),
+            ("Off-grid", "Pure CSS and one small script, both in the offline shell (ra-v6).")]
+    ry = y + 340
+    for t, d in rows:
+        b.append(f'<circle cx="{sx + 40}" cy="{ry - 5}" r="5" fill="{GOLD}"/>')
+        b.append(text(sx + 58, ry, t, 17, 700, INK))
+        b.append(text(sx + 58, ry + 24, wrap(d, 14, sw - 100), 14, 400, INK2, lh=20))
+        ry += 76
+
+    # five phone screens
+    y = y + h + 90
+    b.append(text(X, y, "CITIZEN APP", 12, 800, GOLD, ls=2))
+    b.append(text(X, y + 44, "Sign in, home, dispatch, tracking and an off-grid SOS", 30, 800, INK, ls=-0.8))
+    y += 90
+    names = [("01-login", "Sign in · beacon"), ("02-home", "Home"), ("05-dispatch", "Dispatch offers"),
+             ("06-tracking", "Tracking"), ("09-offgrid-sos", "Off-grid SOS")]
+    pw_, gap = 312, (W - 2 * X - 5 * 312) / 4
+    ph = 0
+    for i, (n, label) in enumerate(names):
+        px = X + i * (pw_ + gap)
+        dev, ph = phone(px, y, pw_, cap(n, 700), label, screen_h=round((pw_ - 2 * round(pw_ * 0.035)) * 1688 / 780))
+        b.append(dev)
+        b.append(text(px + pw_ / 2, y + ph + 38, label, 17, 700, INK, "middle"))
+    y += ph + 110
+
+    # RAKSHA and the mechanic console
+    b.append(text(X, y, "AUTHORITY AND MECHANIC", 12, 800, GOLD, ls=2))
+    b.append(text(X, y + 44, "RAKSHA corridor dashboard, and the mechanic console on a desktop", 30, 800, INK, ls=-0.8))
+    y += 90
+    dev, h = browser(X, y, 1120, 38 + round(1118 * 1290 / 1920), cap("14-authority", 1600), "RAKSHA", address="localhost:4000/raksha.html", live=False)
+    b.append(dev)
+    mw = W - X - (X + 1160)
+    dev, mh = browser(X + 1160, y, mw, 38 + round((mw - 2) * 1290 / 1920), cap("13-mechanic-login", 1000), "Mechanic console", address="localhost:4000/mechanic.html", live=False)
+    b.append(dev)
+    b.append(text(X + 1160, y + mh + 44, wrap("RAKSHA's data is simulated and says so on screen. Its counts, bars and markers come from the seeded corridor, not from a real deployment.", 15, mw), 15, 400, INK3, lh=22))
+    y += h + 90
+    b.append(rect(0, y, W, 1, "#FFFFFF", fo=0.07))
+    b.append(lockup(X, y + 34, 0.9))
+    H = y + 120
+    b[0] = rect(0, 0, W, H, BG, name="Background")
+    return svg(W, H, "".join(b), "RoadAssist Bharat — App UI, 3D depth layer")
+
+
 if __name__ == "__main__":
     OUT.mkdir(parents=True, exist_ok=True)
-    for name, fn in [("brand", brand), ("desktop", desktop), ("mobile", mobile)]:
+    for name, fn in [("brand", brand), ("desktop", desktop), ("mobile", mobile), ("app-3d", app_3d)]:
         s = fn()
         (OUT / f"{name}.svg").write_text(s, encoding="utf-8")
         print(f"{name}.svg  {len(s) / 1024 / 1024:.2f} MB")
