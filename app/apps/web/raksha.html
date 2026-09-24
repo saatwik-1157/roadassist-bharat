@@ -599,6 +599,17 @@
     segLayer = L.layerGroup().addTo(map);
     detLayer = L.layerGroup().addTo(map);
     devLayer = L.layerGroup().addTo(map);
+    // Leaflet measures its container once, when the map is created. Opened
+    // inside a frame that was still being laid out, it measured about 40 px
+    // and drew a single tile in the corner for good. Re-measure whenever the
+    // container actually changes size - a frame, a rotated tablet, a window
+    // dragged narrower - rather than trusting the first number.
+    if ("ResizeObserver" in window) {
+      new ResizeObserver(function () { map.invalidateSize({ pan: false }); })
+        .observe(document.getElementById("map"));
+    } else {
+      window.addEventListener("resize", function () { map.invalidateSize({ pan: false }); });
+    }
   }
 
   /** 3D-styled sphere pin. pulse = open + severe; fresh = drop-in animation. */
