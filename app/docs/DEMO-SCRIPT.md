@@ -251,7 +251,7 @@ one of them, live, if there is time.
 
 > An AI-powered, cloud-connected, network-resilient emergency mobility platform
 > that keeps protecting people when connectivity becomes unreliable.
-> 667 assertions executed across six suites, no failures (a seventh needs a
+> 672 assertions executed across six suites, no failures (a seventh needs a
 > payment-gateway account). Three real vulnerabilities found by
 > our own security suite during the audit, and fixed. Nothing on that list is a
 > claim I cannot show you.
