@@ -37,8 +37,9 @@ services:
     # journal, pins SRIDs, rebuilds the GiST indexes and re-asserts the
     # append-only audit RULES, all of which are safe to repeat - so a restart
     # costs a second and a first deploy needs no separate step. It does NOT
-    # seed: seeding needs @faker-js/faker, which is a devDependency and is
-    # deliberately absent here. See DEPLOYMENT.md for seeding the demo once.
+    # run the full seed: that needs @faker-js/faker, which is a devDependency
+    # and is deliberately absent here. See DEPLOYMENT.md for seeding the demo
+    # once. The one boot-time seed is the small demo fleet (SEED_DEMO_FLEET).
     dockerCommand: ./docker-start.sh
 
     envVars:
@@ -90,6 +91,15 @@ services:
         value: console
       - key: PAYMENTS_PROVIDER
         value: mock
+
+      # 24 SIMULATED mechanics on the Gurugram / NH-48 corridor, added on boot
+      # by docker-start.sh (+919600000000 ... +919600000023, partner "Demo Fleet
+      # (simulated)"). Without them every dispatch on this demo ends in
+      # NO_SUPPLY. Idempotent, so every restart after the first is a no-op; a
+      # failure is logged and the API starts anyway; and the script refuses
+      # NODE_ENV=production, so copying this line to a live service adds nobody.
+      - key: SEED_DEMO_FLEET
+        value: "true"
 
       # DELIBERATE, and the one setting to think about before sharing the URL:
       # with no SMS provider, this returns the OTP in the response so anyone
