@@ -298,6 +298,25 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .journey-hero{margin:0 0 26px;position:relative;border:1px solid var(--line);
               border-radius:var(--r);overflow:hidden;background:var(--bg-2)}
 .journey-hero img{width:100%;max-height:460px;object-fit:cover;object-position:center 22%}
+/* 3D stage scenes. The renders fade to the page colour at their own edges, so
+   the frame is a stage rather than a box; the pointer steers a gentle tilt. */
+.scene3d{perspective:1400px;background:radial-gradient(120% 90% at 50% 40%,#0f1624,var(--bg-2) 70%)}
+.scene-layers{position:relative;aspect-ratio:16/10;transform-style:preserve-3d;
+              transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform}
+.scene3d .scene-img{position:absolute;inset:0;width:100%;height:100%;max-height:none;
+              object-fit:contain;opacity:0;transform:scale(1.035) translateZ(0);
+              transition:opacity .7s ease,transform 1.1s cubic-bezier(.2,.7,.2,1)}
+.scene3d .scene-img.is-on{opacity:1;transform:none}
+.scene-step{font-family:var(--mono);color:var(--accent);margin-right:6px}
+.scene-auto{color:var(--ink-3)}
+.hero-3d{border:0;background:none;box-shadow:none;overflow:visible;perspective:1400px}
+.hero-3d img{transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform;
+             animation:hero-float 7s ease-in-out infinite}
+@keyframes hero-float{50%{translate:0 -8px}}
+@media (prefers-reduced-motion:reduce){
+  .scene3d .scene-img{transition:none;transform:none}
+  .scene-layers,.hero-3d img{transition:none;transform:none!important;animation:none}
+}
 .journey-hero figcaption,.arch-devices figcaption{color:var(--ink-3);font-size:.84rem;
               padding:12px 18px;border-top:1px solid var(--line-soft)}
 .arch-devices{margin:26px 0 0;border:1px solid var(--line);border-radius:var(--r);
@@ -389,7 +408,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
    rather than collapsing into its phone breakpoint inside a small box. */
 .live-vp{position:relative;overflow:hidden;background:#0b0d12}
 .device.phone .live-vp{border-radius:18px}
-.live-vp iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0;background:#fff}
+.live-vp iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0;background:#0b0d12}
 .live-open{display:flex;justify-content:center;gap:6px;margin:12px 0 16px;font-size:.84rem;font-weight:650}
 .live-open[hidden]{display:none}
 
@@ -397,7 +416,11 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
    desktop dashboard gets the full width, big enough to read and use. */
 .surf.is-live{grid-template-columns:repeat(2,1fr)}
 .surf.is-live article.is-desk{grid-column:1/-1;order:2}
-.surf.is-live article.is-phone{order:1}
+.surf.is-live article.is-phone{order:1;grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center}
+.surf.is-live article.is-phone .stagebox{border-bottom:0;border-right:1px solid var(--line-soft);padding-bottom:22px}
+@media (max-width:720px){.surf.is-live article.is-phone{display:flex}.surf.is-live article.is-phone .stagebox{border-right:0}}
+.surf.is-live article.is-link{order:3;grid-column:auto}
+.surf.is-live article.is-link .device img{max-height:220px}
 .surf.is-live .device.phone{max-width:330px}
 .surf.is-live .tilt:hover .device{transform:none}
 @media (max-width:720px){
@@ -518,11 +541,11 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       </div>
     </div>
     <div>
-      <figure class="hero-fig">
-        <img src="visuals/vis_products.png" width="1900" height="900"
-             alt="Three phone screens from the running app: home with the SOS control, live job tracking, and mechanic dispatch with ranked offers">
+      <figure class="hero-fig hero-3d tilt3d">
+        <img src="shots/scene/hero.webp" width="1600" height="1200" fetchpriority="high"
+             alt="The platform in 3D: the RAKSHA authority dashboard on a monitor, the citizen app and the mechanic dispatch screen on phones, linked as one process">
       </figure>
-      <p class="hero-note">Real screenshots of the running system, set into device frames — not mockups.</p>
+      <p class="hero-note">Real screenshots of the running system, set into 3D devices — not mockups.</p>
     </div>
   </div>
 </header>
@@ -655,7 +678,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 
       <article class="tilt">
         <div class="stagebox">
-          <div class="device" data-live-path="/mechanic.html" data-live-kind="desktop" data-live-title="Mechanic console">
+          <div class="device" data-live-path="/mechanic.html" data-live-kind="desktop" data-live-title="Mechanic console" data-live-embed="link">
             <div class="bar"><i></i><i></i><i></i>
               <span>localhost:4000</span>
               <span class="dot-live is-shot"><b></b><em>SCREENSHOT</em></span>
@@ -687,7 +710,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 
       <article class="tilt">
         <div class="stagebox">
-          <div class="device phone" data-live-path="/map.html" data-live-kind="phone" data-live-title="Live operational map">
+          <div class="device phone" data-live-path="/map.html" data-live-kind="phone" data-live-title="Live operational map" data-live-embed="link">
             <span class="notch"></span>
             <img src="shots/stage/18-live-map.webp" width="860" height="1800" loading="lazy" alt="Live operational map with clustered mechanics, responders and detections">
           </div>
@@ -742,10 +765,16 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         <span class="i">08</span> RAKSHA</button>
     </div>
 
-    <figure class="journey-hero">
-      <img src="visuals/vis_closing.png" width="1180" height="1520" loading="lazy"
-           alt="The citizen app tracking a live rescue, set into a device frame over a routed map">
-      <figcaption>A live job on the citizen app — the state machine driving the client over an event stream.</figcaption>
+    <!-- One 3D scene per stage, built from that stage's real screenshot. Two
+         stacked images so a change cross-fades instead of flashing empty. -->
+    <figure class="journey-hero scene3d tilt3d" id="sceneFig" aria-live="polite">
+      <div class="scene-layers">
+        <img class="scene-img is-on" src="shots/scene/02-home.webp" width="1600" height="1000" loading="lazy"
+             alt="Request or escalate, in 3D: the real home screen with the SOS control">
+        <img class="scene-img" alt="" width="1600" height="1000" aria-hidden="true">
+      </div>
+      <figcaption><span class="scene-step" id="sceneStep">01 / 08</span> <span id="sceneCap">Request or escalate</span>
+        <span class="scene-auto" id="sceneAuto" hidden>· advancing on its own — select a stage to stop</span></figcaption>
     </figure>
 
     <div class="panel">
@@ -1277,6 +1306,32 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   var sTitle = document.getElementById("stageTitle");
   var sBody = document.getElementById("stageBody");
   var sShot = document.getElementById("stageShot");
+  var sceneFig = document.getElementById("sceneFig");
+  var sceneImgs = sceneFig ? [].slice.call(sceneFig.querySelectorAll(".scene-img")) : [];
+  var sceneFront = 0;
+  function showScene(btn) {
+    if (sceneImgs.length !== 2) return;
+    var i = stages.indexOf(btn);
+    document.getElementById("sceneStep").textContent =
+      String(i + 1).padStart(2, "0") + " / " + String(stages.length).padStart(2, "0");
+    document.getElementById("sceneCap").textContent = btn.dataset.title;
+    var src = "shots/scene/" + btn.dataset.shot + ".webp";
+    var cur = sceneImgs[sceneFront], back = sceneImgs[1 - sceneFront];
+    if (cur.getAttribute("src") === src) return;
+    // Swap only once the next render has decoded, so a slow connection shows
+    // the previous scene rather than an empty stage.
+    back.onload = function () {
+      back.onload = null;
+      back.alt = btn.dataset.title + ", in 3D, built from the real screen";
+      back.removeAttribute("aria-hidden"); cur.setAttribute("aria-hidden", "true");
+      back.classList.add("is-on"); cur.classList.remove("is-on");
+      sceneFront = 1 - sceneFront;
+      // Warm the one after, so the next change is instant too.
+      var nb = stages[(i + 1) % stages.length];
+      new Image().src = "shots/scene/" + nb.dataset.shot + ".webp";
+    };
+    back.src = src;
+  }
   function selectStage(btn) {
     stages.forEach(function (b) { b.setAttribute("aria-selected", String(b === btn)); });
     sTitle.textContent = btn.dataset.title;
@@ -1284,16 +1339,70 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     var next = "shots/stage/" + btn.dataset.shot + ".webp";
     sShot.src = next;
     sShot.alt = btn.dataset.title;
+    showScene(btn);
   }
+
+  /* The journey plays itself while it is on screen, one stage every few
+     seconds, and stops for good the moment somebody chooses a stage - after
+     that the page is theirs. Off screen, or with reduced motion, it waits. */
+  var autoTimer = null, autoOn = !reduced, autoSeen = false;
+  var autoNote = document.getElementById("sceneAuto");
+  function stopAuto() {
+    autoOn = false; clearInterval(autoTimer); autoTimer = null;
+    if (autoNote) autoNote.hidden = true;
+  }
+  function tickAuto() {
+    if (document.hidden) return;
+    var cur = stages.findIndex(function (b) { return b.getAttribute("aria-selected") === "true"; });
+    selectStage(stages[(cur + 1) % stages.length]);
+  }
+  if (autoOn && sceneFig && "IntersectionObserver" in window) {
+    new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (!autoOn) return;
+        if (e.isIntersecting && !autoTimer) {
+          if (autoNote) autoNote.hidden = false;
+          // First sight holds on stage 01 a moment before moving on.
+          autoTimer = setInterval(tickAuto, autoSeen ? 5200 : 6000);
+          autoSeen = true;
+        } else if (!e.isIntersecting && autoTimer) {
+          clearInterval(autoTimer); autoTimer = null;
+        }
+      });
+    }, { threshold: 0.35 }).observe(sceneFig);
+  }
+
   stages.forEach(function (b) {
-    b.addEventListener("click", function () { selectStage(b); });
+    b.addEventListener("click", function () { stopAuto(); selectStage(b); });
     b.addEventListener("keydown", function (e) {
       var i = stages.indexOf(b), n = null;
       if (e.key === "ArrowRight") n = stages[(i + 1) % stages.length];
       if (e.key === "ArrowLeft") n = stages[(i - 1 + stages.length) % stages.length];
-      if (n) { e.preventDefault(); n.focus(); selectStage(n); }
+      if (n) { e.preventDefault(); stopAuto(); n.focus(); selectStage(n); }
     });
   });
+
+  /* Pointer-steered 3D tilt on the hero and the journey stage. Eased toward the
+     pointer each frame and settled back on leave; a touch screen has no hover,
+     so it simply stays flat there. */
+  if (!reduced && matchMedia("(hover: hover)").matches) {
+    [].slice.call(document.querySelectorAll(".tilt3d")).forEach(function (host) {
+      var el = host.querySelector(".scene-layers") || host.querySelector("img");
+      if (!el) return;
+      var tx = 0, ty = 0, x = 0, y = 0, raf = null;
+      function step() {
+        x += (tx - x) * 0.09; y += (ty - y) * 0.09;
+        el.style.transform = "rotateY(" + x.toFixed(2) + "deg) rotateX(" + y.toFixed(2) + "deg)";
+        raf = (Math.abs(tx - x) > 0.01 || Math.abs(ty - y) > 0.01) ? requestAnimationFrame(step) : null;
+      }
+      function aim(nx, ny) { tx = nx; ty = ny; if (!raf) raf = requestAnimationFrame(step); }
+      host.addEventListener("pointermove", function (e) {
+        var r = host.getBoundingClientRect();
+        aim(((e.clientX - r.left) / r.width - 0.5) * 7, ((e.clientY - r.top) / r.height - 0.5) * -5);
+      });
+      host.addEventListener("pointerleave", function () { aim(0, 0); });
+    });
+  }
 
   /* live platform
      The four frames can show the platform itself instead of screenshots of it.
@@ -1325,7 +1434,8 @@ docker compose -f docker-compose.demo.yml up</code></pre>
 
     devices.forEach(function (d) {
       var art = d.closest("article");
-      art.classList.add(d.dataset.liveKind === "phone" ? "is-phone" : "is-desk");
+      art.classList.add(d.dataset.liveEmbed === "link" ? "is-link"
+        : d.dataset.liveKind === "phone" ? "is-phone" : "is-desk");
       d._img = d.querySelector("img");
       d._badge = d.querySelector(".dot-live") || art.querySelector(".runline .dot-live");
       d._addr = d.querySelector(".bar span:not(.dot-live)");
@@ -1430,6 +1540,16 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       surf.classList.add("is-live");
       devices.forEach(function (d) {
         var url = origin + d.dataset.livePath;
+        // Two surfaces are embedded live - the citizen app and RAKSHA, the two
+        // a reviewer asks to see working. Four live applications in one page
+        // halved its frame rate; the other two keep their screenshot, still
+        // badged as one, with a link to the live page beside it.
+        if (d.dataset.liveEmbed === "link") {
+          d._open.href = url;
+          d._open.textContent = "Screenshot — open it live ↗";
+          d._open.hidden = false;
+          return;
+        }
         if (!d._vp) {
           var vp = document.createElement("div");
           vp.className = "live-vp";
@@ -1440,6 +1560,8 @@ docker compose -f docker-compose.demo.yml up</code></pre>
           // of their own - the viewer's browser asked once, for this page.
           fr.setAttribute("allow", "geolocation");
           fr.setAttribute("referrerpolicy", "no-referrer");
+          // Nothing below the fold is fetched until it is about to be seen.
+          fr.loading = "lazy";
           vp.appendChild(fr);
           d.insertBefore(vp, d._img);
           d._vp = vp;
