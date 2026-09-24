@@ -1,0 +1,1 @@
+ALTER TABLE "raksha_detections" ADD COLUMN "location_accuracy_m" double precision;

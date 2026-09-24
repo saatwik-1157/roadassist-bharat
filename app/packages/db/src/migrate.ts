@@ -156,6 +156,9 @@ async function main() {
   const checkPairs: Array<[string, string, string]> = [
     ["raksha_detections", "raksha_severity_range", "CHECK (severity BETWEEN 1 AND 5)"],
     ["raksha_detections", "raksha_confidence_range", "CHECK (confidence >= 0 AND confidence <= 1)"],
+    // A GPS radius is a distance: never negative. NULL (not reported) stays
+    // legal, which is what every row written before migration 0005 holds.
+    ["raksha_detections", "raksha_location_accuracy_nonneg", "CHECK (location_accuracy_m IS NULL OR location_accuracy_m >= 0)"],
     ["road_health_scores", "road_health_score_range", "CHECK (score BETWEEN 0 AND 100)"],
     // Ratings must be 1..5 and money is never negative — CHECKs the ORM does not generate.
     ["reviews", "reviews_rating_range", "CHECK (rating BETWEEN 1 AND 5)"],

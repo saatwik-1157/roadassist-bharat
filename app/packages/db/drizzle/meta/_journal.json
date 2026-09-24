@@ -36,6 +36,13 @@
       "when": 1788033600000,
       "tag": "0004_offgrid_incident",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790272067077,
+      "tag": "0005_raksha_location_accuracy",
+      "breakpoints": true
     }
   ]
 }

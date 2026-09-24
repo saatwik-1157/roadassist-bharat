@@ -114,8 +114,8 @@
 <div class="panel legend">
   <div><span class="dot" style="background:#e3b96a"></span>Verified mechanic</div>
   <div><span class="dot" style="background:#4aa3ff"></span>Responder unit</div>
-  <div><span class="dot" style="background:#ff9f43"></span>Road detection</div>
-  <div><span class="dot" style="background:#ff9f43;box-shadow:0 0 0 2px #fff"></span>Citizen report</div>
+  <div><span class="dot" style="background:#ff9f43"></span>Road detection · location simulated</div>
+  <div><span class="dot" style="background:#ff9f43;box-shadow:0 0 0 2px #fff"></span>Citizen report · phone GPS</div>
 </div>
 
 <button class="panel ctrl" id="locate" title="Locate me" aria-label="Locate me">
@@ -416,7 +416,11 @@
           color: cit ? "#ffffff" : c, fillColor: c, fillOpacity: 0.85, weight: cit ? 2.5 : 1,
         })
           .bindPopup("<b>" + esc(String(x.detection_type).replace(/_/g, " ")) + "</b> · severity " + esc(x.severity) +
-            "<br>" + esc(x.status) + "<br>" + src)
+            "<br>" + esc(x.status) + "<br>" + src +
+            // Where the point came from, in the API's own words: a phone's
+            // measured fix, or a SIMULATED placement. Absent on an old snapshot.
+            (x.position_label ? "<br><small>" + esc(x.position_label) +
+              (x.created_at ? " · " + esc(new Date(x.created_at).toLocaleString()) : "") + "</small>" : ""))
           .addTo(layer);
       });
       var counts = d.mechanics.length + " mechanics · " + d.responders.length +
