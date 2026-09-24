@@ -484,9 +484,8 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .surf.is-live article.is-desk{grid-column:1/-1;order:2}
 .surf.is-live article.is-phone{order:1;grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center}
 .surf.is-live article.is-phone .stagebox{border-bottom:0;border-right:1px solid var(--line-soft);padding-bottom:22px}
-@media (max-width:720px){.surf.is-live article.is-phone{display:flex}.surf.is-live article.is-phone .stagebox{border-right:0}}
+@media (max-width:720px){.surf.is-live article.is-phone{display:flex;align-items:stretch}.surf.is-live article.is-phone .stagebox{border-right:0}}
 .surf.is-live article.is-link{order:3;grid-column:auto}
-.surf.is-live article.is-link .device img{max-height:220px}
 .surf.is-live .device.phone{max-width:330px}
 .surf.is-live .tilt:hover .device{transform:none}
 @media (max-width:720px){
@@ -560,6 +559,8 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   /* The measured stragglers on a 390 px phone: the ADR links were 21 px tall,
      the footer links 20, the brand 25 and the menu button 35. */
   .card .adr,.foot a,.brand{display:inline-flex;align-items:center;min-height:44px}
+  .live-open{min-height:44px;align-items:center}
+  .foot a{min-width:44px}
   .nav-toggle{min-height:44px;min-width:44px}
   .btn,.chip-q,.stage{display:inline-flex;align-items:center}
   .chip-q{padding:0 16px}
