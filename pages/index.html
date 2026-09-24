@@ -1458,7 +1458,11 @@ docker compose -f docker-compose.demo.yml up</code></pre>
 
     function health(origin) {
       var ctl = "AbortController" in window ? new AbortController() : null;
-      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 6000);
+      // Long, on purpose. Chrome asks the viewer before a public site may reach
+      // their own machine, and the request waits on that prompt - a short
+      // timeout gave up while the question was still on screen. A platform
+      // that is simply not running refuses at once, so this costs nothing.
+      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 30000);
       return fetch(origin + "/health", {
         mode: "cors", credentials: "omit", cache: "no-store", signal: ctl ? ctl.signal : undefined,
       }).then(function (r) {
@@ -1502,7 +1506,8 @@ docker compose -f docker-compose.demo.yml up</code></pre>
         } else {
           say("Could not reach <code>" + esc(origin) + "</code>. Start it with " +
               "<code>docker compose -f docker-compose.demo.yml up</code> and press Connect again. " +
-              "If it is running, your browser may be asking permission to reach devices on your network.", "bad");
+              "If it is running, allow this site to reach devices on your network when the browser " +
+              "asks - or <a href=\"" + esc(origin) + "/app.html\" target=\"_blank\" rel=\"noopener\">open it directly</a>.", "bad");
         }
       });
     }
