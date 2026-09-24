@@ -44,6 +44,9 @@ jobs:
           # The public address of a running platform, if there is one. Empty
           # means the page shows screenshots; see the comment where it is read.
           cp pages/live.json _site/
+          # The logo, favicon and home-screen icons the page's <head> and nav use.
+          mkdir -p _site/brand
+          cp pages/brand/* _site/brand/
           # A custom domain would go here as pages/CNAME, copied into the
           # artefact. It is deliberately absent: setting one BEFORE the
           # domain's DNS points at GitHub makes the working github.io URL
