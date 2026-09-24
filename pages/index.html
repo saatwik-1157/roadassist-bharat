@@ -354,6 +354,55 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .runline .dot-live b{width:5px;height:5px;border-radius:50%;background:var(--ok);
   animation:pulse 2s ease-in-out infinite}
 
+/* A screenshot says it is one. Only a frame showing the platform itself,
+   connected and answering, is allowed the green pulsing LIVE badge. */
+.dot-live em{font-style:normal}
+.dot-live.is-shot{color:var(--ink-3)}
+.dot-live.is-shot b{background:var(--ink-3);animation:none}
+
+/* ── live platform ──────────────────────────────────────────── */
+.livebar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;margin-top:22px;
+  padding:14px 16px;border:1px solid var(--line-soft);border-radius:var(--r);background:var(--surface)}
+.seg{display:inline-flex;padding:4px;border-radius:999px;background:var(--bg);border:1px solid var(--line)}
+.seg button{font:inherit;font-size:.84rem;font-weight:650;color:var(--ink-2);background:none;border:0;
+  padding:8px 16px;border-radius:999px;cursor:pointer;transition:background .15s,color .15s}
+.seg button[aria-checked="true"]{background:var(--accent);color:#16110a}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (hover:none),(max-width:720px){.seg button{min-height:44px}.live-origin input{min-height:44px}}
+.live-origin{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.live-origin[hidden]{display:none}
+.live-origin label{font-size:.78rem;color:var(--ink-3)}
+.live-origin input{font-family:var(--mono);font-size:.84rem;color:var(--ink);background:var(--bg);
+  border:1px solid var(--line);border-radius:10px;padding:8px 12px;min-width:0;width:230px}
+.live-origin input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.live-status{flex:1 1 320px;margin:0;font-size:.85rem;color:var(--ink-2)}
+.live-status.ok{color:var(--ok)}
+.live-status.bad{color:#f08a7a}
+.live-status code{font-size:.8rem}
+
+/* The frame renders the real page at the size it was built for, then scales
+   the whole thing to fit - so a 1280 px dashboard stays a 1280 px layout
+   rather than collapsing into its phone breakpoint inside a small box. */
+.live-vp{position:relative;overflow:hidden;background:#0b0d12}
+.device.phone .live-vp{border-radius:18px}
+.live-vp iframe{position:absolute;top:0;left:0;border:0;transform-origin:0 0;background:#fff}
+.live-open{display:flex;justify-content:center;gap:6px;margin:12px 0 16px;font-size:.84rem;font-weight:650}
+.live-open[hidden]{display:none}
+
+/* Live, the frames are the point: the phones sit side by side and each
+   desktop dashboard gets the full width, big enough to read and use. */
+.surf.is-live{grid-template-columns:repeat(2,1fr)}
+.surf.is-live article.is-desk{grid-column:1/-1;order:2}
+.surf.is-live article.is-phone{order:1}
+.surf.is-live .device.phone{max-width:330px}
+.surf.is-live .tilt:hover .device{transform:none}
+@media (max-width:720px){
+  .livebar{padding:12px}
+  .live-origin input{width:100%}
+  .live-origin{width:100%}
+  .surf.is-live{grid-template-columns:1fr}
+}
+
 /* ── reveal ─────────────────────────────────────────────────── */
 /* Scoped to .js, set by an inline script before first paint. Without it a
    reader with JavaScript disabled or blocked would get a page whose every
@@ -563,17 +612,36 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     <h2>Four dashboards, one process</h2>
     <p class="lead">
       Each role gets its own surface, and all four are served by the same Fastify process
-      (ADR-0001). The paths below are exactly where they live once the platform is running.
+      (ADR-0001). They are screenshots until you switch to <strong>Live platform</strong>; then
+      each frame is the running platform itself, and you can sign in and use it.
     </p>
+
+    <div class="livebar" id="livebar">
+      <div class="seg" role="radiogroup" aria-label="What the four frames show">
+        <button type="button" role="radio" aria-checked="true"  data-mode="shots">Screenshots</button>
+        <button type="button" role="radio" aria-checked="false" data-mode="live">Live platform</button>
+      </div>
+      <form class="live-origin" id="liveForm" hidden>
+        <label for="liveOrigin">Platform address</label>
+        <input id="liveOrigin" type="url" inputmode="url" spellcheck="false" autocomplete="off"
+               value="http://localhost:4000" aria-describedby="liveStatus">
+        <button class="btn btn-primary btn-sm" type="submit">Connect</button>
+      </form>
+      <p class="live-status" id="liveStatus" role="status" aria-live="polite">
+        These are screenshots of the running system. Start the platform with
+        <a href="#run">one command</a>, then switch to <strong>Live platform</strong> to use the
+        real thing inside these frames.
+      </p>
+    </div>
 
     <div class="surf">
       <article class="tilt">
         <div class="stagebox">
-          <div class="device phone">
+          <div class="device phone" data-live-path="/app.html" data-live-kind="phone" data-live-title="Citizen app">
             <span class="notch"></span>
             <img src="shots/stage/02-home.webp" width="780" height="1688" loading="lazy" alt="Citizen app home screen with the hold-to-escalate SOS control">
           </div>
-          <p class="runline">localhost:4000 <span class="dot-live"><b></b>RUNNING</span></p>
+          <p class="runline">localhost:4000 <span class="dot-live is-shot"><b></b><em>SCREENSHOT</em></span></p>
         </div>
         <div class="body">
           <h3>Citizen app</h3>
@@ -583,10 +651,10 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 
       <article class="tilt">
         <div class="stagebox">
-          <div class="device">
+          <div class="device" data-live-path="/mechanic.html" data-live-kind="desktop" data-live-title="Mechanic console">
             <div class="bar"><i></i><i></i><i></i>
               <span>localhost:4000</span>
-              <span class="dot-live"><b></b>RUNNING</span>
+              <span class="dot-live is-shot"><b></b><em>SCREENSHOT</em></span>
             </div>
             <img src="shots/stage/13-mechanic-login.webp" width="1400" height="941" loading="lazy" alt="Mechanic console running in a browser">
           </div>
@@ -599,10 +667,10 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 
       <article class="tilt">
         <div class="stagebox">
-          <div class="device">
+          <div class="device" data-live-path="/raksha.html" data-live-kind="desktop" data-live-title="RAKSHA authority dashboard">
             <div class="bar"><i></i><i></i><i></i>
               <span>localhost:4000</span>
-              <span class="dot-live"><b></b>RUNNING</span>
+              <span class="dot-live is-shot"><b></b><em>SCREENSHOT</em></span>
             </div>
             <img src="shots/stage/14-authority.webp" width="1400" height="941" loading="lazy" alt="RAKSHA authority dashboard with live map, road health scoring and detections">
           </div>
@@ -615,11 +683,11 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 
       <article class="tilt">
         <div class="stagebox">
-          <div class="device phone">
+          <div class="device phone" data-live-path="/map.html" data-live-kind="phone" data-live-title="Live operational map">
             <span class="notch"></span>
             <img src="shots/stage/18-live-map.webp" width="860" height="1800" loading="lazy" alt="Live operational map with clustered mechanics, responders and detections">
           </div>
-          <p class="runline">localhost:4000 <span class="dot-live"><b></b>RUNNING</span></p>
+          <p class="runline">localhost:4000 <span class="dot-live is-shot"><b></b><em>SCREENSHOT</em></span></p>
         </div>
         <div class="body">
           <h3>Live operational map</h3>
@@ -627,83 +695,20 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         </div>
       </article>
     </div>
-      <div class="card">
-        <h3>Feature phone</h3>
-        <p>A complete booking over SMS with no app at all, in eight languages,
-           switched by texting <code>LANG TA</code>.</p>
-      </div>
-    </div>
+
+    <p class="sub" style="margin-top:18px">
+      A fifth surface has no screen at all: <code>POST /v1/telecom/sms</code> completes a booking
+      from a feature phone with no app, in any of the eight languages, switched by texting
+      <code>LANG TA</code>.
+    </p>
     <div class="note">
       <p><strong>Showcase, not the live application.</strong> This page is static: screenshots,
-      recordings and measured evidence. The platform itself needs a long-lived process — it
+      recordings and measured evidence. The frames above show the platform itself only while
+      you connect them to one that is running; this page never pretends to be it. The platform needs a long-lived process — it
       holds open event streams and runs an offer-expiry sweeper — plus PostgreSQL with PostGIS.
       <a href="#run">One command runs the whole thing locally</a>, and it is the same image
       published from this repository.</p>
     </div>
-  </div>
-</section>
-
-<!-- ═══ SURFACES ═══ -->
-<section id="surfaces" class="rv">
-  <div class="wrap">
-    <p class="eyebrow">The surfaces</p>
-    <h2>Four dashboards, one process</h2>
-    <p class="lead">
-      Each role gets its own surface, and all four are served by the same Fastify process
-      (ADR-0001). The paths below are exactly where they live once the platform is running.
-    </p>
-
-    <div class="surf">
-      <article>
-        <div class="frame"><img src="shots/stage/02-home.webp" width="780" height="1688" loading="lazy"
-             alt="Citizen app home screen with the hold-to-escalate SOS control"></div>
-        <div class="body">
-          <span class="path">/app.html</span>
-          <h3>Citizen app</h3>
-          <p>Request assistance, hold to raise an SOS, track the job, pay and review. Works
-             off-grid: an SOS with no signal becomes a real incident on the device.</p>
-        </div>
-      </article>
-
-      <article>
-        <div class="frame"><img src="shots/stage/13-mechanic-login.webp" width="1400" height="941" loading="lazy"
-             alt="Mechanic console sign-in screen"></div>
-        <div class="body">
-          <span class="path">/mechanic.html</span>
-          <h3>Mechanic console</h3>
-          <p>Availability toggle, rating and job history, the active job, and a dispatch inbox
-             of ranked offers with distance and ETA that expire if not accepted. Shown here at
-             sign-in; the console itself is in the recording below.</p>
-        </div>
-      </article>
-
-      <article>
-        <div class="frame"><img src="shots/stage/14-authority.webp" width="1400" height="941" loading="lazy"
-             alt="RAKSHA authority dashboard with live map, road health scoring and detections"></div>
-        <div class="body">
-          <span class="path">/raksha.html</span>
-          <h3>RAKSHA authority dashboard</h3>
-          <p>Detection triage, road-health scoring per segment, edge-device status, and the
-             confirmation queue where a model-raised incident waits for a person (ADR-0005).</p>
-        </div>
-      </article>
-
-      <article>
-        <div class="frame"><img src="shots/stage/18-live-map.webp" width="860" height="1800" loading="lazy"
-             alt="Live operational map with clustered mechanics, responders and detections"></div>
-        <div class="body">
-          <span class="path">/map.html</span>
-          <h3>Live operational map</h3>
-          <p>Clustered mechanics, responders and detections over PostGIS geometry, with basemap
-             tiles proxied and cached server-side so no visitor address reaches the tile host.</p>
-        </div>
-      </article>
-    </div>
-
-    <p class="sub" style="margin-top:18px">
-      A fifth surface has no screen at all: <code>POST /v1/telecom/sms</code> completes a booking
-      from a feature phone with no app, in any of the eight languages.
-    </p>
   </div>
 </section>
 
@@ -1285,6 +1290,257 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       if (n) { e.preventDefault(); n.focus(); selectStage(n); }
     });
   });
+
+  /* live platform
+     The four frames can show the platform itself instead of screenshots of it.
+     This page is static and has no server of its own, so "live" means the real
+     platform running somewhere the viewer can reach - on a review laptop that is
+     http://localhost:4000 after one docker command.
+
+     Nothing connects until the viewer asks: a public page that quietly probes
+     every visitor's localhost is a fingerprinting trick, not a feature. The
+     choice is remembered per browser, so a laptop set up for a demo opens live
+     every time and nobody else's does.
+
+     Before a single frame is swapped, /health must answer as RoadAssist -
+     application and database both "ok". A port that happens to be open is not
+     the platform, and a frame labelled LIVE over somebody else's page, or over
+     an error, would be exactly the claim this page exists not to make. */
+  (function () {
+    var bar = document.getElementById("livebar");
+    if (!bar) return;
+    var surf = document.querySelector("#surfaces .surf");
+    var form = document.getElementById("liveForm");
+    var input = document.getElementById("liveOrigin");
+    var status = document.getElementById("liveStatus");
+    var modes = Array.prototype.slice.call(bar.querySelectorAll("[data-mode]"));
+    var devices = Array.prototype.slice.call(surf.querySelectorAll(".device[data-live-path]"));
+    var KEY = "ra.showcase.live";
+    var initialStatus = status.innerHTML;
+    var attempt = 0;
+
+    devices.forEach(function (d) {
+      var art = d.closest("article");
+      art.classList.add(d.dataset.liveKind === "phone" ? "is-phone" : "is-desk");
+      d._img = d.querySelector("img");
+      d._badge = d.querySelector(".dot-live") || art.querySelector(".runline .dot-live");
+      d._addr = d.querySelector(".bar span:not(.dot-live)");
+      var run = art.querySelector(".runline");
+      d._run = run && run.firstChild && run.firstChild.nodeType === 3 ? run.firstChild : null;
+      var open = document.createElement("a");
+      open.className = "live-open";
+      open.target = "_blank";
+      open.rel = "noopener";
+      open.hidden = true;
+      open.textContent = "Open full size ↗";
+      d.parentNode.appendChild(open);
+      d._open = open;
+    });
+
+    function remember(v) {
+      try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) { /* per-page only */ }
+    }
+    function recalled() {
+      try { return localStorage.getItem(KEY); } catch (e) { return null; }
+    }
+
+    // Any http(s) origin the viewer types is theirs to choose. One arriving in
+    // a link is not: ?live=https://elsewhere would put a stranger's page -
+    // sign-in form and all - inside a frame on this domain. So a link may only
+    // name the viewer's own machine.
+    function toOrigin(v, fromLink) {
+      try {
+        var u = new URL(String(v).trim());
+        if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+        if (fromLink && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname)) return null;
+        return u.origin;
+      } catch (e) { return null; }
+    }
+
+    function setBadge(d, live) {
+      if (!d._badge) return;
+      d._badge.classList.toggle("is-shot", !live);
+      d._badge.querySelector("em").textContent = live ? "LIVE" : "SCREENSHOT";
+    }
+
+    function address(d, text) {
+      if (d._addr) d._addr.textContent = text;
+      if (d._run) d._run.nodeValue = text + " ";
+    }
+
+    function say(html, cls) {
+      status.className = "live-status" + (cls ? " " + cls : "");
+      status.innerHTML = html;
+    }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+      });
+    }
+
+    // The size each surface was designed for, rendered at that size and then
+    // scaled - not reflowed. Except a desktop dashboard in a frame narrower
+    // than 600 px: at 1280 it would shrink to a fifth of its size and be
+    // unreadable, so there it gets the layout it really has on a phone.
+    function sizeFor(d, width) {
+      var phone = d.dataset.liveKind === "phone";
+      if (phone) return [390, 780];
+      return width < 600 ? [390, 760] : [1280, 800];
+    }
+
+    function fit(d) {
+      var vp = d._vp;
+      if (!vp) return;
+      var fr = vp.firstChild;
+      var size = sizeFor(d, vp.clientWidth);
+      if (+fr.dataset.w !== size[0] || +fr.dataset.h !== size[1]) {
+        fr.dataset.w = size[0];
+        fr.dataset.h = size[1];
+        fr.style.width = size[0] + "px";
+        fr.style.height = size[1] + "px";
+      }
+      var k = vp.clientWidth / size[0];
+      if (!k) return;
+      fr.style.transform = "scale(" + k + ")";
+      vp.style.height = Math.round(+fr.dataset.h * k) + "px";
+    }
+    var ro = "ResizeObserver" in window ? new ResizeObserver(function (entries) {
+      entries.forEach(function (e) { devices.forEach(function (d) { if (d._vp === e.target) fit(d); }); });
+    }) : null;
+    window.addEventListener("resize", function () { devices.forEach(fit); });
+
+    function showShots() {
+      attempt++;
+      surf.classList.remove("is-live");
+      devices.forEach(function (d) {
+        if (d._vp) { if (ro) ro.unobserve(d._vp); d._vp.remove(); d._vp = null; }
+        d._img.hidden = false;
+        d._open.hidden = true;
+        address(d, "localhost:4000");
+        setBadge(d, false);
+      });
+    }
+
+    function showLive(origin) {
+      surf.classList.add("is-live");
+      devices.forEach(function (d) {
+        var url = origin + d.dataset.livePath;
+        if (!d._vp) {
+          var vp = document.createElement("div");
+          vp.className = "live-vp";
+          var fr = document.createElement("iframe");
+          fr.title = d.dataset.liveTitle + " — the running platform";
+          // Only geolocation is delegated. The framed pages live on the platform's own
+          // origin and call it from there, so they need no network permission
+          // of their own - the viewer's browser asked once, for this page.
+          fr.setAttribute("allow", "geolocation");
+          fr.setAttribute("referrerpolicy", "no-referrer");
+          vp.appendChild(fr);
+          d.insertBefore(vp, d._img);
+          d._vp = vp;
+          if (ro) ro.observe(vp);
+        }
+        if (d._vp.firstChild.getAttribute("src") !== url) d._vp.firstChild.src = url;
+        d._img.hidden = true;
+        d._open.href = url;
+        d._open.hidden = false;
+        address(d, origin.replace(/^https?:\/\//, ""));
+        setBadge(d, true);
+        fit(d);
+      });
+    }
+
+    function select(mode) {
+      modes.forEach(function (b) { b.setAttribute("aria-checked", String(b.dataset.mode === mode)); });
+      form.hidden = mode !== "live";
+    }
+
+    function health(origin) {
+      var ctl = "AbortController" in window ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 6000);
+      return fetch(origin + "/health", {
+        mode: "cors", credentials: "omit", cache: "no-store", signal: ctl ? ctl.signal : undefined,
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          clearTimeout(timer);
+          var d = j && j.data;
+          if (d && d.application === "ok" && d.database === "ok") return "ok";
+          if (d && d.application === "ok") return "nodb";
+          return "notus";
+        }, function () { clearTimeout(timer); return "notus"; });
+      }, function () { clearTimeout(timer); return "down"; });
+    }
+
+    function connect(raw, fromLink) {
+      var origin = toOrigin(raw, fromLink);
+      if (!origin) {
+        say("That is not an address this page can connect to. Use one like <code>http://localhost:4000</code>.", "bad");
+        return;
+      }
+      input.value = origin;
+      var mine = ++attempt;
+      say("Checking <code>" + esc(origin) + "/health</code>…");
+      health(origin).then(function (result) {
+        if (mine !== attempt) return;          // switched away, or a newer attempt
+        if (result === "ok") {
+          remember(origin);
+          showLive(origin);
+          say("<strong>Live.</strong> Connected to <code>" + esc(origin) + "</code> — application and database " +
+              "answering. These frames are the platform itself: sign in with a demo number and the " +
+              "code fills in by itself.", "ok");
+          return;
+        }
+        showShots();
+        attempt = mine;
+        if (result === "nodb") {
+          say("<code>" + esc(origin) + "</code> is RoadAssist, but its database is not answering, so the " +
+              "dashboards would only show errors. Still showing screenshots.", "bad");
+        } else if (result === "notus") {
+          say("Something answered at <code>" + esc(origin) + "</code>, but it is not RoadAssist. " +
+              "Still showing screenshots.", "bad");
+        } else {
+          say("Could not reach <code>" + esc(origin) + "</code>. Start it with " +
+              "<code>docker compose -f docker-compose.demo.yml up</code> and press Connect again. " +
+              "If it is running, your browser may be asking permission to reach devices on your network.", "bad");
+        }
+      });
+    }
+
+    modes.forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (b.dataset.mode === "live") {
+          select("live");
+          connect(input.value, false);
+        } else {
+          select("shots");
+          remember(null);
+          showShots();
+          say(initialStatus);
+        }
+      });
+      b.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+        e.preventDefault();
+        var other = modes[1 - modes.indexOf(b)];
+        other.focus();
+        other.click();
+      });
+    });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      connect(input.value, false);
+    });
+
+    // ?live or ?live=http://localhost:4100 opens straight into the platform -
+    // the link to put on a review laptop's desktop.
+    var q = new URLSearchParams(location.search);
+    var start = q.has("live") ? (q.get("live") || input.value) : recalled();
+    if (start) {
+      select("live");
+      connect(start, q.has("live"));
+    }
+  })();
 
   /* lightbox */
   var lb = document.getElementById("lightbox");
