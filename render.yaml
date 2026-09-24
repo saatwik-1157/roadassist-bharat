@@ -72,10 +72,13 @@ services:
       - key: TRUST_PROXY
         value: "true"
 
-      # Same-origin: the surfaces are served by this very process. Listed
-      # explicitly anyway, because an unset value reflects any Origin.
+      # The surfaces are served by this very process, so they are same-origin.
+      # The one cross-origin caller is the showcase at roadassistbharat.online,
+      # whose live view reads /health before it frames the platform - refused,
+      # it would show screenshots forever. Listed explicitly, because an unset
+      # value reflects any Origin.
       - key: CORS_ORIGINS
-        value: https://roadassist.dpdns.org
+        value: https://roadassistbharat.online,https://app.roadassistbharat.online
 
       # A demo has no SMS route and no payment gateway, and the platform says
       # so on screen rather than pretending (non-negotiable #5).

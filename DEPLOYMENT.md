@@ -1,6 +1,7 @@
 # Deploying RoadAssist Bharat
 
-Target: **https://roadassist.dpdns.org**
+Target: **https://app.roadassistbharat.online** (the platform), beside the
+showcase at **https://roadassistbharat.online** (GitHub Pages).
 
 Everything below has been verified against the real production image on a real
 PostGIS, except the three steps that need an account only you can open. Those
@@ -102,27 +103,34 @@ server. To fill it, point the simulator at the deployed API:
 
 ```bash
 cd app
-API=https://roadassist.dpdns.org npm run demo:raksha
+API=https://app.roadassistbharat.online npm run demo:raksha
 ```
 
 ## 3 · Point the domain — **YOU**
 
-In Render: **Settings → Custom Domains → Add** `roadassist.dpdns.org`. Render
-shows the exact target host; it looks like `roadassist-xxxx.onrender.com`.
+In Render: **Settings → Custom Domains → Add** `app.roadassistbharat.online`.
+Render shows the exact target host; it looks like `roadassist-xxxx.onrender.com`.
 
-Then in the DigitalPlat dashboard for `roadassist.dpdns.org`, add:
+Then in Hostinger, **Domains → roadassistbharat.online → DNS / Nameservers →
+DNS records**, add one record and leave the existing ones alone - the four `A`
+records and the `www` CNAME are what keep the showcase on GitHub Pages:
 
-| Type | Name | Value | Proxy |
+| Type | Name | Target | TTL |
 |---|---|---|---|
-| CNAME | `@` (or `roadassist`) | the `*.onrender.com` host Render shows | **DNS only** |
+| CNAME | `app` | the `*.onrender.com` host Render shows | 300 |
 
-Leave Cloudflare proxying **off** until the certificate is issued — Render needs
-to reach the record to validate it. TLS is issued automatically once DNS
-resolves, usually within a few minutes.
+Render issues the certificate by itself once the record resolves, usually
+within minutes; its Custom Domains page turns green when it has.
 
-`CORS_ORIGINS` in `render.yaml` is already set to `https://roadassist.dpdns.org`.
-If you deploy under a different name, change it there — an unset value reflects
-any Origin, which is why it is pinned rather than omitted.
+The showcase finds the platform through `pages/live.json`. Once
+`https://app.roadassistbharat.online/health` answers, set its `origin` to that
+address and push; every visitor's frames then connect to it with no browser
+permission, because it is a public https address rather than their localhost.
+
+`CORS_ORIGINS` in `render.yaml` allows `https://roadassistbharat.online` (the
+showcase reads `/health` before it frames the platform) and the platform's own
+address. If you deploy under a different name, change it there - an unset value
+reflects any Origin, which is why it is pinned rather than omitted.
 
 ---
 
@@ -207,7 +215,7 @@ that lets anyone sign in as the authority:
 
 ```bash
 cd app
-npm run verify:deployment https://roadassist.dpdns.org
+npm run verify:deployment https://app.roadassistbharat.online
 ```
 
 It fails on: unreachable or suspended, a database the app cannot see, any
