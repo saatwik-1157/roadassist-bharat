@@ -198,6 +198,15 @@ export const env = {
     baseUrl: process.env.EMAIL_BASE_URL ?? "",
     from: process.env.EMAIL_FROM ?? "RoadAssist <no-reply@roadassist.in>",
   },
+  // Operator alerts (alerts.ts). Off unless ALERT_EMAIL_TO is set; delivered
+  // through the email provider above, so EMAIL_PROVIDER=http is what makes them
+  // real mail rather than console lines.
+  alerts: {
+    to: process.env.ALERT_EMAIL_TO ?? "",
+    signinsPerHour: Number(process.env.ALERT_SIGNINS_PER_HOUR ?? 6),
+    otpBurst: Number(process.env.ALERT_OTP_BURST ?? 5),
+    label: process.env.ALERT_LABEL ?? "the RoadAssist API",
+  },
 
   exposeDevOtp: bool(process.env.EXPOSE_DEV_OTP, true),
 
@@ -240,6 +249,8 @@ export function validateEnv(): void {
     ["ACCESS_TTL_SECONDS", env.accessTtlSeconds, "seconds, e.g. 600"],
     ["REFRESH_TTL_DAYS", env.refreshTtlDays, "days, e.g. 30"],
     ["OTP_MAX_ATTEMPTS", env.otpMaxAttempts, "a small integer, e.g. 5"],
+    ["ALERT_SIGNINS_PER_HOUR", env.alerts.signinsPerHour, "emails an hour, e.g. 6"],
+    ["ALERT_OTP_BURST", env.alerts.otpBurst, "wrong codes before an alert, e.g. 5"],
     ["OTP_WINDOW_MINUTES", env.otpWindowMinutes, "minutes, e.g. 15"],
     ["OTP_IP_MAX", env.otpIpMax, "requests per window, e.g. 30"],
     ["OFFER_TTL_SECONDS", env.offerTtlSeconds, "seconds, e.g. 90"],

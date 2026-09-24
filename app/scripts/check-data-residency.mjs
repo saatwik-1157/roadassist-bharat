@@ -55,6 +55,11 @@ const DECLARED_EGRESS = {
     "server-side (no visitor IP) and degrades to null, but the position is real. Coarsening the " +
     "coordinates before the call, or dropping the feature, is an open decision - see ADR-0011 " +
     "for the shape of that argument.",
+  "api.resend.com":
+    "OUTSIDE INDIA (USA) - OPTIONAL operator alerts, off unless ALERT_EMAIL_TO is set, and sent " +
+    "SERVER-SIDE so no visitor address reaches it. Each email carries a phone number MASKED to its " +
+    "last three digits, a role, an event and a time, addressed to the project owner. Never a name, " +
+    "a position, an IP address or a device - apps/api/test/alerts.test.ts fails if the number leaks.",
   "api.twilio.com":
     "OUTSIDE INDIA (USA) - an OPTIONAL fallback SMS provider, selected only by setting " +
     "SMS_PROVIDER=twilio. Carries a phone number and message body, so enabling it for Indian " +

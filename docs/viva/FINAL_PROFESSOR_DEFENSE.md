@@ -28,10 +28,10 @@
 | A booking cannot be PAID without a settled payment | 409 `payment_required` | `apps/api/src/server.ts:1036` | Payment, 5:30 | M2 service tech |
 | History cannot be edited | Postgres RULES make UPDATE/DELETE no-ops | `apps/api/src/audit.ts:107` `audit()`, `:148` `verifyAuditChain()` | `/v1/ops/overview` | M3 monitoring |
 | Readiness is real | DB down → `/health` 503, `/v1/ping` 200, auto-recovery | `apps/api/src/server.ts:360` | Chaos, optional | **M4 dynamic scalability** |
-| Production refuses unsafe config | Boots refused on 8 settings | `apps/api/src/env.ts:347` `assertProductionSafe()` | Terminal | M1 boundaries |
+| Production refuses unsafe config | Boots refused on 8 settings | `apps/api/src/env.ts:358` `assertProductionSafe()` | Terminal | M1 boundaries |
 | Module boundaries are enforced, not agreed | Cross-module import fails CI | `app/scripts/check-boundaries.mjs` | Terminal | M1 roles/boundaries |
 | Virtualization is real | Suite passes **against the image** | `app/Dockerfile` | Terminal | **M2 virtualization** |
-| 654 assertions, 0 failures | Six suites, executed twice | `FINAL_REPOSITORY_STATUS.md` | Terminal | — |
+| 662 assertions, 0 failures | Six suites, executed twice | `FINAL_REPOSITORY_STATUS.md` | Terminal | — |
 
 ## The three files to have open before you walk in
 

@@ -111,3 +111,24 @@ services:
       #   disk: { name: uploads, mountPath: /repo/app/var, sizeGB: 1 }
       - key: UPLOAD_DIR
         value: /repo/app/var/uploads
+
+      # Operator alerts (apps/api/src/alerts.ts): sign-ins, first sign-ins,
+      # confirmed and off-grid SOS, wrong-code bursts and admin sign-ins, emailed
+      # to the owner. Sent from the SERVER through Resend, so the key never
+      # reaches a browser; each email carries a masked number, a role, an event
+      # and a time - never a name, position, IP or device. Resend's free plan
+      # sends from onboarding@resend.dev to the account's own address, which is
+      # exactly this use. Both values below are set by hand in the dashboard;
+      # with ALERT_EMAIL_TO empty, alerts are off and the boot log says so.
+      - key: EMAIL_PROVIDER
+        value: http
+      - key: EMAIL_BASE_URL
+        value: https://api.resend.com/emails
+      - key: EMAIL_FROM
+        value: RoadAssist Alerts <onboarding@resend.dev>
+      - key: EMAIL_API_KEY
+        sync: false
+      - key: ALERT_EMAIL_TO
+        sync: false
+      - key: ALERT_LABEL
+        value: roadassist on Render

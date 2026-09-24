@@ -28,5 +28,5 @@
 | Audit | `apps/api/src/audit.ts:107` / `:148` | `audit()` / `verifyAuditChain()` | Hash-chained append-only log | "Each entry carries the previous digest; Postgres RULES make UPDATE and DELETE no-ops." |
 | Database schema | `packages/db/src/schema/` | 6 modules | 56 tables | "Money is integer paise. A unit test enforces it." |
 | Monitoring | `apps/api/src/server.ts:360` + `observability.ts` | `/health`, `/v1/ops/overview` | Readiness, live counts, chain verification | "Health separates application from database — that is the readiness gate." |
-| Config guard | `apps/api/src/env.ts:347` | `assertProductionSafe()` | Refuses eight unsafe production settings | "Production will not boot on a development secret or a mock gateway." |
+| Config guard | `apps/api/src/env.ts:358` | `assertProductionSafe()` | Refuses eight unsafe production settings | "Production will not boot on a development secret or a mock gateway." |
 | Boundaries | `app/scripts/check-boundaries.mjs` | — | Fails CI on a cross-module import | "Enforced, not agreed." |

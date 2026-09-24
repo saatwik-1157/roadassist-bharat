@@ -106,6 +106,31 @@ cd app
 API=https://app.roadassistbharat.online npm run demo:raksha
 ```
 
+## Optional · Email alerts to the owner — **YOU**
+
+The API can email you when something worth knowing happens: every sign-in
+(capped at six an hour, with the rest counted into the next email), the first
+sign-in of a new number, an admin or authority sign-in, a burst of wrong OTP
+codes for one number, a confirmed SOS, and an off-grid SOS that reaches the
+server late, with how long it waited on the device.
+
+It is sent from the server through [Resend](https://resend.com), so the key is
+never in a page and no visitor's IP address leaves India. Every email carries a
+number masked to its last three digits, a role, an event and a time; never a
+name, a position, an IP address or a device.
+
+1. Create a free Resend account with the address you want alerts at, and create
+   an API key (**API Keys → Create**, "Sending access").
+2. In Render → **roadassist → Environment**, set `EMAIL_API_KEY` to that key and
+   `ALERT_EMAIL_TO` to the same address you signed up with. The free plan only
+   delivers to that address, which is exactly this use.
+3. Save and deploy. The boot log prints `alerts: to a…@example.com via http`, or
+   `alerts: off (ALERT_EMAIL_TO unset)`, so the state is never a guess.
+
+Web3Forms was considered and not used: its API only allows server-side sending
+on a paid plan with a whitelisted server IP, and sending from the browser
+would put a key in the page and every visitor's IP address abroad.
+
 ## 3 · Point the domain — **YOU**
 
 In Render: **Settings → Custom Domains → Add** `app.roadassistbharat.online`.

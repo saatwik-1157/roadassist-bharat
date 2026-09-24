@@ -39,6 +39,7 @@ import {
 } from "./domain/incident-machine.js";
 import { describeProviderState } from "./domain/provider-state.js";
 import { reference } from "./domain/reference.js";
+import { alertsStatus } from "./alerts.js";
 import {
   closeAllStreams, MAX_STREAMS_PER_USER, openStream, publish, publishMany,
   realtimeStats, subscribe, type RealtimeEvent,
@@ -1840,6 +1841,7 @@ process.on("SIGTERM", close);
 
 await app.listen({ port: env.port, host: env.host });
 app.log.info({ providers: providerSummary() }, "RoadAssist API ready");
+app.log.info(alertsStatus());
 
 // Trusting *every* hop means any client that can reach this port may set
 // X-Forwarded-For itself, mint a fresh address per request, and walk straight

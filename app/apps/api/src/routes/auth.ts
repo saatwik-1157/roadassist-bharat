@@ -20,6 +20,7 @@ import { db } from "../db.js";
 import { env } from "../env.js";
 import { ok, msisdnSchema } from "../http.js";
 import { audit } from "../audit.js";
+import { alerts } from "../alerts.js";
 import { sms } from "../providers.js";
 import { t, resolveLocale } from "../i18n.js";
 import { otpPolicy } from "../domain/otp-policy.js";
@@ -104,9 +105,9 @@ export async function authRoutes(app: FastifyInstance) {
       .where(and(eq(S.otpChallenges.msisdn, msisdn), isNull(S.otpChallenges.consumedAt)))
       .orderBy(desc(S.otpChallenges.createdAt)).limit(1);
 
-    const invalid = () => reply.code(401).send({
+    const invalid = () => (alerts.otpFailure(msisdn), reply.code(401).send({
       error: { code: "otp_invalid", title: "That code is not right. Check it and try again.", retryable: true },
-    });
+    }));
 
     if (!challenge) return invalid();
     if (challenge.expiresAt.getTime() < Date.now()) {
@@ -115,6 +116,7 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
     if (challenge.attempts >= env.otpMaxAttempts) {
+      alerts.otpFailure(msisdn);
       return reply.code(429).send({
         error: { code: "otp_locked", title: "Too many wrong attempts. Request a new code.", retryable: true },
       });
@@ -155,6 +157,7 @@ export async function authRoutes(app: FastifyInstance) {
       ip: req.ip,
     });
 
+    alerts.signin(msisdn, session.roles, created);
     return ok({ ...session, user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName } }, { newAccount: created });
   });
 

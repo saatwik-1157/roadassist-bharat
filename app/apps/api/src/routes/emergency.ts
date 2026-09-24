@@ -27,6 +27,7 @@ import * as S from "@roadassist/db";
 import { db } from "../db.js";
 import { ok } from "../http.js";
 import { audit } from "../audit.js";
+import { alerts } from "../alerts.js";
 import { limit } from "../ratelimit.js";
 import { sms } from "../providers.js";
 import { publish } from "../realtime.js";
@@ -384,6 +385,8 @@ export async function emergencyRoutes(app: FastifyInstance) {
       contactsAlerted: contacts.length, responderFound: Boolean(responders[0]),
     });
 
+    alerts.sosConfirmed(id, contacts.length);
+
     return ok({
       id, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
       contactsAlerted: contacts.length,
@@ -615,6 +618,9 @@ export async function emergencyRoutes(app: FastifyInstance) {
     });
 
     const created = results.filter((r) => r.status === "created").length;
+    if (created) {
+      alerts.sosSynced(created, Math.max(0, ...results.map((r) => ("storedOfflineForMs" in r ? Number(r.storedOfflineForMs) || 0 : 0))));
+    }
     return ok({ results }, {
       created,
       duplicates: results.filter((r) => r.status === "duplicate").length,
