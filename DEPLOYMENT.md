@@ -127,6 +127,13 @@ name, a position, an IP address or a device.
 3. Save and deploy. The boot log prints `alerts: to a…@example.com via http`, or
    `alerts: off (ALERT_EMAIL_TO unset)`, so the state is never a guess.
 
+**More than one recipient.** `ALERT_EMAIL_TO` takes a comma-separated list
+(up to 50). Resend's free sender, `onboarding@resend.dev`, only delivers to the
+account's own address, so a team list needs a verified domain first: in Resend,
+**Domains → Add domain**, add the DNS records it shows (at the domain's DNS
+host), wait for **Verified**, then set `EMAIL_FROM` to an address on that
+domain, e.g. `RoadAssist Alerts <alerts@roadassistbharat.online>`.
+
 Web3Forms was considered and not used: its API only allows server-side sending
 on a paid plan with a whitelisted server IP, and sending from the browser
 would put a key in the page and every visitor's IP address abroad.

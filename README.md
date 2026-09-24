@@ -151,7 +151,7 @@ database migrated from empty and seeded.
 
 | | |
 |---|---|
-| **662 assertions**, six suites, zero failures | 134 unit · 189 e2e · 75 concurrency · 74 attacks · 27 gateway security · 163 browser |
+| **663 assertions**, six suites, zero failures | 135 unit · 189 e2e · 75 concurrency · 74 attacks · 27 gateway security · 163 browser |
 | Android | 66 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not run** | 22 Razorpay sandbox checks — they need an account, and are never counted or described as passing |

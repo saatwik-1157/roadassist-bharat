@@ -120,6 +120,8 @@ services:
       # sends from onboarding@resend.dev to the account's own address, which is
       # exactly this use. Both values below are set by hand in the dashboard;
       # with ALERT_EMAIL_TO empty, alerts are off and the boot log says so.
+      # ALERT_EMAIL_TO may be a comma-separated list; anyone but the Resend
+      # account's own address needs a verified domain and an EMAIL_FROM on it.
       - key: EMAIL_PROVIDER
         value: http
       - key: EMAIL_BASE_URL

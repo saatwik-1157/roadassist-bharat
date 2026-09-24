@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { AlertGate, maskMsisdn, type Alert } from "../src/alerts.js";
+import { AlertGate, maskMsisdn, recipients, type Alert } from "../src/alerts.js";
 
 const NUMBER = "+919876543210";
 
@@ -84,6 +84,15 @@ test("wrong codes spread wider than the window never add up to a burst", () => {
   const { g, sent, advance } = gate({ otpBurst: 3, otpWindowMs: 10 * 60_000 });
   for (let i = 0; i < 6; i++) { g.otpFailure(NUMBER); advance(6 * 60_000); }
   assert.equal(sent.length, 0);
+});
+
+test("ALERT_EMAIL_TO takes a list: trimmed, de-duplicated, junk dropped", () => {
+  assert.deepEqual(
+    recipients(" owner@example.com, team.a@college.ac.in;team.b@college.ac.in ,OWNER@example.com, not-an-address, ,"),
+    ["owner@example.com", "team.a@college.ac.in", "team.b@college.ac.in"],
+  );
+  assert.deepEqual(recipients(""), []);
+  assert.equal(recipients(Array.from({ length: 60 }, (_, i) => `u${i}@x.io`).join(",")).length, 50);
 });
 
 test("an off-grid SOS alert says how long it waited on the device", () => {

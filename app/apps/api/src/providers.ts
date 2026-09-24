@@ -211,14 +211,14 @@ export async function diagnoseWithFallback(input: {
 // ── EMAIL ─────────────────────────────────────────────────────────────────
 export interface EmailProvider {
   readonly name: string;
-  send(to: string, subject: string, body: string, opts?: { html?: string }): Promise<{ id: string; delivered: boolean }>;
+  send(to: string | string[], subject: string, body: string, opts?: { html?: string }): Promise<{ id: string; delivered: boolean }>;
 }
 
 /** Logs instead of sending — the default, and what the email path is tested against. */
 const consoleEmail: EmailProvider = {
   name: "console",
   async send(to, subject, body) {
-    console.log(`[email:console] → ${to}\n  subject: ${subject}\n  ${body.replace(/\n/g, "\n  ")}`);
+    console.log(`[email:console] → ${[to].flat().join(", ")}\n  subject: ${subject}\n  ${body.replace(/\n/g, "\n  ")}`);
     return { id: `dev-${Date.now()}`, delivered: true };
   },
 };

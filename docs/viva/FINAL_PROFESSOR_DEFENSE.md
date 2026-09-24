@@ -31,7 +31,7 @@
 | Production refuses unsafe config | Boots refused on 8 settings | `apps/api/src/env.ts:358` `assertProductionSafe()` | Terminal | M1 boundaries |
 | Module boundaries are enforced, not agreed | Cross-module import fails CI | `app/scripts/check-boundaries.mjs` | Terminal | M1 roles/boundaries |
 | Virtualization is real | Suite passes **against the image** | `app/Dockerfile` | Terminal | **M2 virtualization** |
-| 662 assertions, 0 failures | Six suites, executed twice | `FINAL_REPOSITORY_STATUS.md` | Terminal | — |
+| 663 assertions, 0 failures | Six suites, executed twice | `FINAL_REPOSITORY_STATUS.md` | Terminal | — |
 
 ## The three files to have open before you walk in
 

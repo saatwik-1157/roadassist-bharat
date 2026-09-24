@@ -136,14 +136,31 @@ export class AlertGate {
   }
 }
 
+/**
+ * ALERT_EMAIL_TO as a list: comma- or semicolon-separated, trimmed, anything
+ * that is not an address dropped, duplicates removed however they are cased,
+ * and capped at 50, the most one Resend request accepts.
+ */
+export function recipients(raw: string): string[] {
+  const seen = new Set<string>(), out: string[] = [];
+  for (const part of raw.split(/[,;]/)) {
+    const addr = part.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr) || seen.has(addr.toLowerCase())) continue;
+    seen.add(addr.toLowerCase());
+    out.push(addr);
+  }
+  return out.slice(0, 50);
+}
+
 // ── wiring ────────────────────────────────────────────────────────────────
 const stats = { sent: 0, failed: 0, lastError: "" };
+const TO = recipients(env.alerts.to);
 
 function deliver(a: Alert) {
   const body = [...a.lines, "",
     "Phone numbers are masked. These emails never carry a name, a location, an IP address or a device.",
     `Sent by ${env.alerts.label}.`].join("\n");
-  email.send(env.alerts.to, `[RoadAssist] ${a.subject}`, body)
+  email.send(TO, `[RoadAssist] ${a.subject}`, body)
     .then(() => { stats.sent++; })
     .catch((err: unknown) => {
       stats.failed++;
@@ -153,14 +170,14 @@ function deliver(a: Alert) {
 }
 
 export const alerts = new AlertGate(
-  (a) => { if (env.alerts.to) deliver(a); },
+  (a) => { if (TO.length) deliver(a); },
   { signinsPerHour: env.alerts.signinsPerHour, otpBurst: env.alerts.otpBurst, otpWindowMs: 10 * 60_000 },
 );
 
 /** One line for the boot log, so "on" and "off" are never a guess. */
 export function alertsStatus(): string {
-  if (!env.alerts.to) return "alerts: off (ALERT_EMAIL_TO unset)";
-  const to = env.alerts.to.replace(/^(.).*(@.*)$/, "$1…$2");
+  if (!TO.length) return env.alerts.to ? "alerts: off (ALERT_EMAIL_TO has no valid address)" : "alerts: off (ALERT_EMAIL_TO unset)";
+  const to = TO.length === 1 ? TO[0].replace(/^(.).*(@.*)$/, "$1…$2") : `${TO.length} recipients`;
   return email.name === "console"
     ? `alerts: to ${to} via console - LOGGED ONLY, nothing is emailed (set EMAIL_PROVIDER=http)`
     : `alerts: to ${to} via ${email.name}`;
