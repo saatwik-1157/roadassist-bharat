@@ -1457,18 +1457,38 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     }
 
     // Chrome gates a public page reaching the viewer's own machine behind a
-    // permission. Its name has moved between releases, so ask for each one the
-    // browser might know; a browser that knows none of them gates nothing.
-    function networkPermission() {
+    // permission, and since it split that permission in two, "devices on your
+    // network" and "apps on this device" (loopback) are separate settings.
+    // localhost is loopback. Checked in Chrome 153 with local-network at
+    // "prompt" and loopback-network at "denied": asking only the first name
+    // reported a prompt that would never come while the one that mattered said
+    // no. So ask the one that governs the target first, and let a denial from
+    // any of them win. A browser that knows none of these names gates nothing.
+    function networkPermission(origin) {
       if (!navigator.permissions || !navigator.permissions.query) return Promise.resolve("n/a");
-      var names = ["local-network-access", "loopback-network", "local-network"];
-      return names.reduce(function (p, name) {
-        return p.then(function (found) {
-          if (found !== "n/a") return found;
-          return navigator.permissions.query({ name: name })
-            .then(function (s) { return s.state; }, function () { return "n/a"; });
-        });
-      }, Promise.resolve("n/a"));
+      var host = "";
+      try { host = new URL(origin).hostname; } catch (e) { /* toOrigin already checked it */ }
+      var loopback = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(host);
+      var names = loopback
+        ? ["loopback-network", "local-network-access", "local-network"]
+        : ["local-network", "local-network-access"];
+      return Promise.all(names.map(function (name) {
+        return navigator.permissions.query({ name: name })
+          .then(function (s) { return s.state; }, function () { return "n/a"; });
+      })).then(function (states) {
+        if (states.indexOf("denied") !== -1) return "denied";
+        for (var i = 0; i < states.length; i++) if (states[i] !== "n/a") return states[i];
+        return "n/a";
+      });
+    }
+
+    function deniedMessage(origin) {
+      return "<strong>Chrome is blocking this site from reaching your computer.</strong> Click the icon at the " +
+        "left of the address bar, open <strong>Site settings</strong>, and set the permission for " +
+        "<strong>apps on this device</strong> (it may be called <em>Loopback network</em> &mdash; separate " +
+        "from <em>Local network</em>) to <strong>Allow</strong>, then reload. Or " +
+        "<a href=\"" + esc(origin) + "/showcase.html\" target=\"_blank\" rel=\"noopener\">open the " +
+        "platform&rsquo;s own showcase</a>, which needs no permission.";
     }
 
     function health(origin) {
@@ -1500,30 +1520,32 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       input.value = origin;
       var mine = ++attempt;
       say("Checking <code>" + esc(origin) + "/health</code>…");
-      var answered = false;
-      networkPermission().then(function (state) {
-        // Too late to matter once the platform has answered, and a page served
-        // from this machine is not gated at all.
-        if (mine !== attempt || answered) return;
+      var answered = false, blocked = false, connected = false;
+      networkPermission(origin).then(function (state) {
+        if (mine !== attempt || connected) return;
+        // A page served from this machine is not gated at all.
         if (/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return;
-        // The request below simply waits while Chrome asks, and the question is
-        // a small bubble by the address bar that is easy to miss - the page sat
+        // A refused request fails in milliseconds, often before this answers,
+        // so a denial is shown whenever it arrives - it is the real reason.
+        if (state === "denied") {
+          blocked = true;
+          say(deniedMessage(origin), "bad");
+          return;
+        }
+        // The request simply waits while Chrome asks, and the question is a
+        // small bubble by the address bar that is easy to miss - the page sat
         // on "Checking..." with no hint of why. Say what is being waited on.
-        if (state === "prompt") {
+        if (state === "prompt" && !answered) {
           say("<strong>Chrome is asking for permission.</strong> Look for the prompt by the address bar " +
-              "asking whether this site may reach devices on your network, and choose <strong>Allow</strong>. " +
+              "asking whether this site may reach apps on this device, and choose <strong>Allow</strong>. " +
               "It only lets this page talk to the platform running on your own computer.");
-        } else if (state === "denied") {
-          say("Chrome is blocking this site from reaching your computer. Click the icon at the left of the " +
-              "address bar, open <strong>Site settings</strong>, set <strong>Local network access</strong> to " +
-              "<strong>Allow</strong>, then reload — or <a href=\"" + esc(origin) + "/app.html\" target=\"_blank\" " +
-              "rel=\"noopener\">open the platform directly</a>.", "bad");
         }
       });
       health(origin).then(function (result) {
         answered = true;
         if (mine !== attempt) return;          // switched away, or a newer attempt
         if (result === "ok") {
+          connected = true;
           remember(origin);
           showLive(origin);
           say("<strong>Live.</strong> Connected to <code>" + esc(origin) + "</code> — application and database " +
@@ -1539,6 +1561,8 @@ docker compose -f docker-compose.demo.yml up</code></pre>
         } else if (result === "notus") {
           say("Something answered at <code>" + esc(origin) + "</code>, but it is not RoadAssist. " +
               "Still showing screenshots.", "bad");
+        } else if (blocked) {
+          say(deniedMessage(origin), "bad");
         } else {
           say("Could not reach <code>" + esc(origin) + "</code>. Start it with " +
               "<code>docker compose -f docker-compose.demo.yml up</code> and press Connect again. " +
