@@ -88,6 +88,10 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
 }
 .nav-links a:hover{color:var(--ink);background:var(--surface);text-decoration:none}
 .nav-links a[aria-current="true"]{color:var(--ink);background:var(--surface-2)}
+/* `.nav-links a` outranks `.btn-primary`, so the nav's call to action took the
+   link grey on the gold fill and was close to unreadable. */
+.nav-links a.btn-primary,.nav-links a.btn-primary:hover{color:#16110a;background:var(--accent)}
+.nav-links a.btn-primary:hover{background:#ffc94a}
 .btn{
   display:inline-flex;align-items:center;gap:8px;font-size:.88rem;font-weight:600;
   padding:12px 22px;border-radius:999px;border:1px solid transparent;
@@ -1513,7 +1517,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       }, function () { clearTimeout(timer); return "down"; });
     }
 
-    function connect(raw, fromLink) {
+    function connect(raw, fromLink, published) {
       var origin = toOrigin(raw, fromLink);
       if (!origin) {
         say("That is not an address this page can connect to. Use one like <code>http://localhost:4000</code>.", "bad");
@@ -1565,6 +1569,13 @@ docker compose -f docker-compose.demo.yml up</code></pre>
               "Still showing screenshots.", "bad");
         } else if (blocked) {
           say(deniedMessage(origin), "bad");
+        } else if (published) {
+          // A visitor did not start anything and cannot; telling them to run
+          // docker would be noise. Say plainly what they are looking at.
+          select("shots");
+          say("The public deployment of the platform is not answering right now, so these are " +
+              "screenshots of it. Switch to <strong>Live platform</strong> to connect to one running " +
+              "on your own computer instead.");
         } else {
           say("Could not reach <code>" + esc(origin) + "</code>. Start it with " +
               "<code>docker compose -f docker-compose.demo.yml up</code> and press Connect again. " +
@@ -1606,6 +1617,27 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     if (start) {
       select("live");
       connect(start, q.has("live"));
+    }
+
+    // live.json, published beside this page, names a PUBLIC deployment of the
+    // platform when one is up. Then every visitor sees it running with no
+    // setup: a public https address needs none of the permissions a public
+    // page needs to reach somebody's localhost, so connecting to it is an
+    // ordinary request rather than a probe. It is this site's own file, so the
+    // address in it is trusted where a ?live= link is not. Empty, missing or
+    // unreachable, and the page stays on screenshots - the same health check
+    // decides, and a dead deployment never gets a LIVE badge.
+    if (!q.has("live") && !recalled()) {
+      fetch("live.json", { cache: "no-store" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (cfg) {
+          var origin = cfg && toOrigin(cfg.origin || "", false);
+          if (!origin || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(new URL(origin).hostname)) return;
+          input.value = origin;
+          select("live");
+          connect(origin, false, true);
+        })
+        .catch(function () { /* no published deployment - screenshots it is */ });
     }
   })();
 
