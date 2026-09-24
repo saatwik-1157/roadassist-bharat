@@ -25,7 +25,7 @@ in this phase.
 | **Replication** | Slide 21 | **PARTIAL — labelled CONCEPTUAL** | *"Not built. The API is stateless, but three in-process components would break it."* |
 | **Load balancing** | Slide 22 | **PARTIAL** | *"No infrastructure balancer. Workload distribution across a provider pool is real."* |
 | **Satellite** | Slide 28 | **PARTIAL — labelled FUTURE** | Correct as-is. If asked offline: *"No satellite link exists."* |
-| **653 assertions** | Slide 24 | **TRUE** *(was FALSE)* | Corrected from "600 across seven suites". Volunteer that a seventh suite needs a Razorpay account. |
+| **654 assertions** | Slide 24 | **TRUE** *(was FALSE)* | Corrected from "600 across seven suites". Volunteer that a seventh suite needs a Razorpay account. |
 
 ## Corrected in this phase — root README
 

@@ -51,6 +51,15 @@ export function checkDatabaseUrl(value: string): string {
       "only the password. (The value is not shown here, because it may contain one.)",
     );
   }
+  // Neon's copy button appends channel_binding=require. That is a libpq option;
+  // postgres.js has no such option, forwards every unknown query parameter to
+  // the server as a run-time setting, and Postgres refuses the connection over
+  // an unrecognised parameter. Dropping it gives up nothing this driver ever
+  // enforced: the connection is still TLS under sslmode=require.
+  if (parsed.searchParams.has("channel_binding")) {
+    parsed.searchParams.delete("channel_binding");
+    return parsed.toString();
+  }
   return trimmed;
 }
 

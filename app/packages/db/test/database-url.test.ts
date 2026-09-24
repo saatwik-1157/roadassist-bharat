@@ -29,6 +29,12 @@ test("a URL of another scheme is rejected without echoing it", () => {
   assert.throws(() => checkDatabaseUrl(value), (err: Error) => !err.message.includes(SECRET));
 });
 
+test("Neon's channel_binding is dropped, because postgres.js would send it to the server", () => {
+  const url = "postgresql://owner:pw@ep-example.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+  assert.equal(checkDatabaseUrl(url),
+    "postgresql://owner:pw@ep-example.us-east-2.aws.neon.tech/neondb?sslmode=require");
+});
+
 test("a postgres connection string is accepted, trimmed", () => {
   const url = "postgresql://owner:pw@ep-example.us-east-2.aws.neon.tech/neondb?sslmode=require";
   assert.equal(checkDatabaseUrl(`  ${url}\n`), url);
