@@ -206,7 +206,10 @@ npm run verify               # typecheck · lint · boundaries · claims · cita
 ```
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (66
-tests). Build on **JDK 21** — Gradle 8.13 rejects 25.
+tests). Build on **JDK 21** — Gradle 8.13 rejects 25. A fresh install talks to
+the live platform, `https://app.roadassistbharat.online`; to use a local API,
+long-press the wordmark on the sign-in screen and type its address (for example
+`10.0.2.2:4000` from the emulator). That choice is saved and outranks the default.
 
 [ENGINEERING-NOTES.md](ENGINEERING-NOTES.md) carries everything that cost time to find out: the
 toolchain traps, the migration rules, how to count things in the database

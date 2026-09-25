@@ -128,7 +128,8 @@ class ApiBaseTest {
         val cases = listOf(
             // home and college LAN, which is the ordinary case
             "192.168.1.8:4000" to "http://192.168.1.8:4000/v1/ping",
-            // the emulator alias, still the default
+            // the emulator alias: a developer's own API, no longer the default
+            // (see ApiDefaultTest)
             "10.0.2.2:4000" to "http://10.0.2.2:4000/v1/ping",
             // the other private ranges — 172.16/12 is common behind campus NAT
             "172.16.0.5:4000" to "http://172.16.0.5:4000/v1/ping",

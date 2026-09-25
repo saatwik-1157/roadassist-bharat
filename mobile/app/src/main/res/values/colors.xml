@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- The launcher plate stays dark in both themes: an adaptive icon has one
-         background, and the gold mark reads best on it. -->
-    <color name="launcher_bg">#0B0A08</color>
+         background, and the gold shield reads best on it. #0B0E14 is the web's
+         dark brand ground, and the same ink the mark's signal arcs are drawn
+         in, so the plate and the mark agree. -->
+    <color name="launcher_bg">#0B0E14</color>
 </resources>

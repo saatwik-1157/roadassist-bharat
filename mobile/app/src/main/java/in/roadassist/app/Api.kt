@@ -22,16 +22,49 @@ import java.net.URL
  * never flash "session expired" mid-use. The map WebView shares the same fresh
  * token through [currentToken] / [refreshBlocking].
  */
-class ApiException(message: String) : Exception(message)
+class ApiException(
+    message: String,
+    /**
+     * The envelope's machine-readable `error.code`, when the server sent one.
+     *
+     * The title is for people and may be reworded or translated; the code is
+     * what a screen can branch on. The sign-in screen needs exactly that: a
+     * phone number whose owner moved it behind email sign-in comes back 403
+     * `email_signin_required`, and the useful response is to open the email
+     * option, not merely to print the sentence and leave the user to find it.
+     */
+    val code: String? = null,
+    /** The HTTP status, or 0 when no response was read. */
+    val status: Int = 0,
+) : Exception(message)
 
 object Api {
     /**
-     * 10.0.2.2 is the emulator's alias for the dev machine's localhost. It
-     * means nothing on a real handset, so the sign-in screen offers this as an
-     * editable field and MainActivity restores the last value used. See
-     * [normalizeBase] for what a hand-typed address needs before it is a URL.
+     * The live platform, and the address a fresh install talks to.
+     *
+     * It used to be `http://10.0.2.2:4000`, the emulator's alias for the dev
+     * machine's localhost. That made every first run on a real handset a dead
+     * end: the app opened on a sign-in screen pointed at nothing, and the only
+     * way out was a long-press nobody would guess. The live API has a valid
+     * certificate, so the default is HTTPS and a phone's first request is the
+     * same one the web makes.
+     *
+     * A developer still points the app at a laptop or an emulator host through
+     * the hidden field on the sign-in screen (long-press the wordmark) or the
+     * Server card in More. That choice is persisted and restored in
+     * MainActivity.onCreate, so it outranks this default until changed back.
      */
-    @Volatile var base: String = "http://10.0.2.2:4000"
+    const val DEFAULT_BASE = "https://app.roadassistbharat.online"
+
+    /** The live host on its own, for recognising it when it is typed by hand. */
+    private const val LIVE_HOST = "app.roadassistbharat.online"
+
+    /**
+     * The address every request goes to. See [DEFAULT_BASE] for why it starts
+     * at the live platform, and [normalizeBase] for what a hand-typed address
+     * needs before it can replace it.
+     */
+    @Volatile var base: String = DEFAULT_BASE
     @Volatile var token: String? = null
     @Volatile var refreshToken: String? = null
 
@@ -63,7 +96,15 @@ object Api {
             else "http://$typed"
         val trimmed = schemed.trimEnd('/')
         // A scheme and nothing else is not an address; keep what already works.
-        return if (trimmed.endsWith(":")) base else trimmed
+        if (trimmed.endsWith(":")) return base
+        // The live platform is only ever reached over HTTPS. The bare-host rule
+        // above guesses http:// because that is right for a laptop on the LAN,
+        // but for the live host it would send a phone number, a sign-in code
+        // and then a bearer token in cleartext to a server that is meant to be
+        // spoken to on 443. So the live host, typed any way at all, becomes
+        // the default address exactly.
+        val host = trimmed.substringAfter("://").substringBefore('/')
+        return if (host.equals(LIVE_HOST, ignoreCase = true)) DEFAULT_BASE else trimmed
     }
 
     /**
@@ -144,12 +185,24 @@ object Api {
             if (refresh()) {
                 val (code2, json2) = raw(method, path, body)
                 if (code2 in 200..299) return json2
-                throw ApiException(errorTitle(json2) ?: "Request failed ($code2)")
+                throw failure(code2, json2)
             }
         }
-        if (code !in 200..299) throw ApiException(errorTitle(json) ?: "Request failed ($code)")
+        if (code !in 200..299) throw failure(code, json)
         return json
     }
+
+    /**
+     * The exception for a non-2xx answer: the server's own title, which is the
+     * sentence written for the person holding the phone, and its error code for
+     * a screen that has to act on it rather than only show it.
+     */
+    private fun failure(status: Int, json: JSONObject): ApiException =
+        ApiException(
+            errorTitle(json) ?: "Request failed ($status)",
+            code = json.optJSONObject("error")?.optString("code")?.takeIf { it.isNotBlank() },
+            status = status,
+        )
 
     /**
      * Rotate the refresh token; returns true if a fresh access token was obtained.

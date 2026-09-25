@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Who this app may talk to in cleartext.
+
+     The default server is the live platform over HTTPS (Api.DEFAULT_BASE).
+     Plain HTTP is still needed for development: the API on a laptop is
+     reached as 10.0.2.2 from an emulator or as whatever LAN address a phone is
+     handed (192.168.x.x, 172.16.x.x, a hotspot gateway, a CGNAT address). A
+     network security config cannot list "any private address", so the base
+     stays as permissive as android:usesCleartextTraffic="true" already was —
+     no wider.
+
+     What this file ADDS is one refusal: the live host can never be spoken to
+     in cleartext, whatever is typed into the server field. Api.normalizeBase
+     already upgrades it to HTTPS; this makes the platform enforce the same
+     thing, so a future change to that function cannot quietly send a phone
+     number, a sign-in code or a bearer token over plain HTTP to production. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">roadassistbharat.online</domain>
+    </domain-config>
+</network-security-config>

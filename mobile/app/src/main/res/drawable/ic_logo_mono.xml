@@ -1,22 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Themed-icon (Android 13+) monochrome layer. The system recolours it,
-     so it is drawn flat in white. -->
+<!-- Themed-icon (Android 13+) monochrome layer. The system keeps only the
+     alpha channel and paints it in the wallpaper's colour, so the full mark's
+     meaning has to survive with one colour and no gradients.
+
+     The colour mark says "dark road on a gold shield"; a single tint cannot
+     say dark-on-gold, so this redraws the same geometry as line art:
+       · the shield as an outline over a faint (18%) body,
+       · the road solid, with the lane dashes cut OUT of it (evenOdd), which is
+         what keeps the A readable,
+       · the two signal arcs as strokes and the signal dot solid.
+     In the colour mark the dot is ringed in dark ink to lift it off the
+     road's apex. There is no dark ink here, so at this size the dot and apex
+     read as one rounded tip. That is a deliberate simplification, not a
+     rendering fault.
+
+     Same 128-unit coordinates and the same 0.6 safe-zone scale as
+     ic_logo_fg.xml, so the themed and colour icons sit in the same place. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
-    android:viewportWidth="32" android:viewportHeight="32">
-    <group android:scaleX="0.58" android:scaleY="0.58" android:pivotX="16" android:pivotY="16">
-    <path
-        android:fillColor="#FFFFFF" android:fillAlpha="0.18"
-        android:pathData="M16,1.6 L28.6,6.2 L28.6,16.3 C28.6,23.4 23.3,29.1 16,31.4 C8.7,29.1 3.4,23.4 3.4,16.3 L3.4,6.2 Z" />
-    <path
-        android:strokeColor="#FFFFFF" android:strokeWidth="1.7"
-        android:strokeLineJoin="round"
-        android:pathData="M16,1.6 L28.6,6.2 L28.6,16.3 C28.6,23.4 23.3,29.1 16,31.4 C8.7,29.1 3.4,23.4 3.4,16.3 L3.4,6.2 Z" />
-    <path
-        android:fillColor="#FFFFFF" android:fillType="evenOdd"
-        android:pathData="M10.4,25.2 L14.5,11.8 L17.5,11.8 L21.6,25.2 Z M15.05,21.3 L16.95,21.3 L16.95,23.8 L15.05,23.8 Z M15.35,17.2 L16.65,17.2 L16.65,19.3 L15.35,19.3 Z M15.6,13.8 L16.4,13.8 L16.4,15.5 L15.6,15.5 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M14.1,7.5 a1.9,1.9 0 1,0 3.8,0 a1.9,1.9 0 1,0 -3.8,0" />
+    android:viewportWidth="128" android:viewportHeight="128">
+    <group android:scaleX="0.6" android:scaleY="0.6" android:pivotX="64" android:pivotY="64">
+        <path
+            android:fillColor="#FFFFFF" android:fillAlpha="0.18"
+            android:pathData="M64,5 L113,23 V58 C113,91 92,113.5 64,123 C36,113.5 15,91 15,58 V23 Z" />
+        <path
+            android:strokeColor="#FFFFFF" android:strokeWidth="6" android:strokeLineJoin="round"
+            android:pathData="M64,8 L110,25 V58 C110,89 90.5,110.3 64,119.8 C37.5,110.3 18,89 18,58 V25 Z" />
+        <path
+            android:fillColor="#FFFFFF" android:fillType="evenOdd"
+            android:pathData="M34,106 L58.5,42 C60,38.3 68,38.3 69.5,42 L94,106 C85,110.5 74.5,113 64,113 C53.5,113 43,110.5 34,106 Z
+                M63.2,95 h1.6 a1.6,1.6 0 0 1 1.6,1.6 v7.8 a1.6,1.6 0 0 1 -1.6,1.6 h-1.6 a1.6,1.6 0 0 1 -1.6,-1.6 v-7.8 a1.6,1.6 0 0 1 1.6,-1.6 Z
+                M63.5,80 h1 a1.4,1.4 0 0 1 1.4,1.4 v5.7 a1.4,1.4 0 0 1 -1.4,1.4 h-1 a1.4,1.4 0 0 1 -1.4,-1.4 v-5.7 a1.4,1.4 0 0 1 1.4,-1.4 Z
+                M63.7,67.5 h0.6 a1.2,1.2 0 0 1 1.2,1.2 v4.1 a1.2,1.2 0 0 1 -1.2,1.2 h-0.6 a1.2,1.2 0 0 1 -1.2,-1.2 v-4.1 a1.2,1.2 0 0 1 1.2,-1.2 Z
+                M63.9,57.5 h0.2 a1,1 0 0 1 1,1 v2.8 a1,1 0 0 1 -1,1 h-0.2 a1,1 0 0 1 -1,-1 v-2.8 a1,1 0 0 1 1,-1 Z" />
+        <path
+            android:strokeColor="#FFFFFF" android:strokeWidth="3.6" android:strokeLineCap="round"
+            android:pathData="M52.5,30.5 A16,16 0 0,1 75.5,30.5" />
+        <path
+            android:strokeColor="#FFFFFF" android:strokeWidth="3.6" android:strokeLineCap="round"
+            android:pathData="M57.3,35.2 A9.4,9.4 0 0,1 70.7,35.2" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M58.8,42.5 a5.2,5.2 0 1,0 10.4,0 a5.2,5.2 0 1,0 -10.4,0 Z" />
     </group>
 </vector>
