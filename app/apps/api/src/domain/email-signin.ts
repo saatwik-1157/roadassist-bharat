@@ -26,22 +26,28 @@ export interface EmailSignin {
   accounts: Map<string, string>;
   /** numbers that must use email while the phone code is shown on screen */
   protectedNumbers: Set<string>;
-  /** entries dropped, with the reason - reported at boot, never silently */
+  /**
+   * entries dropped, with the reason - reported at boot, never silently. By
+   * position only: a malformed entry is exactly the one whose parts cannot be
+   * told apart to mask, and the boot log is no place for a phone number.
+   */
   rejected: string[];
 }
 
 export function parseEmailSignin(raw: string): EmailSignin {
   const accounts = new Map<string, string>(), protectedNumbers = new Set<string>(), rejected: string[] = [];
+  let n = 0;
   for (const part of raw.split(/[,;\n]/)) {
     const entry = part.trim();
     if (!entry) continue;
+    n++;
     const [left, right, extra] = entry.split("=").map((s) => s.trim());
     const email = (left ?? "").toLowerCase(), msisdn = right ?? "";
     if (extra !== undefined || !EMAIL.test(email) || !MSISDN.test(msisdn)) {
-      rejected.push(`"${entry.replace(/^(.).*(@.*)$/, "$1…$2")}" is not email=+91XXXXXXXXXX`);
+      rejected.push(`entry ${n} is not email=+91XXXXXXXXXX`);
       continue;
     }
-    if (accounts.has(email)) { rejected.push(`${email.replace(/^(.).*(@)/, "$1…$2")} is listed twice`); continue; }
+    if (accounts.has(email)) { rejected.push(`entry ${n} repeats an address listed earlier`); continue; }
     accounts.set(email, msisdn);
     protectedNumbers.add(msisdn);
   }
@@ -62,10 +68,13 @@ export function emailChallengeKey(email: string): string {
 }
 
 /**
- * Whether a phone sign-in must be refused. Only while the phone code is echoed
- * to the screen: with a real SMS gateway the code reaches the handset, and the
- * phone path is as good as the email one.
+ * Whether a phone sign-in must be refused: whenever the phone code is not a
+ * random one that only the handset receives. Echoed to the screen is the
+ * obvious case, but EXPOSE_DEV_OTP=false does not close it - with no SMS
+ * gateway the code is still the fixed DEV_OTP, just not printed. With a real
+ * gateway the code reaches the handset, and the phone path is as good as the
+ * email one.
  */
-export function phoneSignInBlocked(msisdn: string, cfg: EmailSignin, codeIsShownOnScreen: boolean): boolean {
-  return codeIsShownOnScreen && cfg.protectedNumbers.has(msisdn);
+export function phoneSignInBlocked(msisdn: string, cfg: EmailSignin, policy: { random: boolean }): boolean {
+  return !policy.random && cfg.protectedNumbers.has(msisdn);
 }

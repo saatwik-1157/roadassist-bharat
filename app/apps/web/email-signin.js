@@ -6,15 +6,15 @@
  * onSession callback - the same shape the phone verify returns, so the page's
  * existing "signed in" path runs unchanged.
  *
- * The code is emailed and is never shown here. The one exception is a local
- * development server with no email provider (EMAIL_PROVIDER=console), which
- * says so in its response; the same rule the phone code follows.
+ * The code is emailed and is never shown here, not even by a development
+ * server with no email provider: that one prints it to its own log. These
+ * accounts have no on-screen code by design (otp-policy.ts, guardsAccount).
  */
 (function () {
   "use strict";
 
-  function post(path, body) {
-    return fetch(path, {
+  function post(base, path, body) {
+    return fetch(base + path, {
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
     }).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (json) {
@@ -29,6 +29,10 @@
   function mount(after, opts) {
     if (!after || !after.parentNode) return;
     var say = opts.toast || function () {};
+    // The page's API origin. Each page resolves its own (localhost:4000 when
+    // the files are served from another port or from disk), and a bare path
+    // sent the code request to whatever served the HTML instead.
+    var api = opts.api || "";
     var box = el(
       '<div class="em-signin">' +
         '<button type="button" class="btn ghost em-toggle" aria-expanded="false">Sign in with email</button>' +
@@ -69,18 +73,17 @@
     q(".em-send").addEventListener("click", busy(q(".em-send"), function () {
       email = q(".em-email").value.trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { say("Enter the email address your account uses.", "bad"); return; }
-      return post("/v1/auth/email/request", { email: email }).then(function (r) {
+      return post(api, "/v1/auth/email/request", { email: email }).then(function () {
         q(".em-step2").hidden = false;
         q(".em-code").focus();
-        if (r.meta && r.meta.devOtp) { q(".em-code").value = r.meta.devOtp; say("Local development: code filled in", "ok"); }
-        else say("If that address has an account, a code is on its way. Check your inbox and spam.", "ok");
+        say("If that address has an account, a code is on its way. Check your inbox and spam.", "ok");
       });
     }));
 
     q(".em-verify").addEventListener("click", busy(q(".em-verify"), function () {
       var code = q(".em-code").value.trim();
       if (!/^\d{6}$/.test(code)) { say("Enter the 6-digit code from the email.", "bad"); return; }
-      return post("/v1/auth/email/verify", { email: email, code: code }).then(function (r) {
+      return post(api, "/v1/auth/email/verify", { email: email, code: code }).then(function (r) {
         return opts.onSession(r.data);
       });
     }));

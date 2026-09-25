@@ -40,8 +40,18 @@ export interface OtpPolicy {
 export function otpPolicy(opts: {
   smsProvider: string;
   exposeDevOtp: boolean;
+  /**
+   * The code is the only way into an account that was taken off the demo path
+   * (EMAIL_SIGNIN). Such a code is always random and never echoed, whatever the
+   * provider: with the console one it reaches the server log and nowhere else.
+   * The fixed development code here would let anyone who knows the address in.
+   */
+  guardsAccount?: boolean;
 }): OtpPolicy {
   const canDeliver = opts.smsProvider !== LOCAL_ONLY_PROVIDER;
+  if (opts.guardsAccount) {
+    return { random: true, echo: false, channel: canDeliver ? opts.smsProvider : LOCAL_ONLY_PROVIDER };
+  }
   return {
     random: canDeliver,
     // `exposeDevOtp` can only ever loosen this for the provider that cannot

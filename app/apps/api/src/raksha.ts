@@ -489,8 +489,9 @@ export async function rakshaRoutes(app: FastifyInstance) {
       ...latLng,
       // The phone's own radius for this fix (Geolocation coords.accuracy, in
       // metres). Optional: older app builds never sent it. A malformed value is
-      // dropped by normaliseAccuracyM, never allowed to sink the report.
-      accuracyM: z.number().nullable().optional(),
+      // dropped by normaliseAccuracyM, never allowed to sink the report - so
+      // the schema accepts anything here; z.number() refused the whole report.
+      accuracyM: z.unknown().optional(),
     }).parse(req.body);
 
     const userId = req.user!.sub;

@@ -8,7 +8,7 @@
  * and it stays untouched by this addition.
  */
 import type { FastifyInstance } from "fastify";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { randomInt } from "node:crypto";
 
@@ -41,20 +41,27 @@ export async function emailAuthRoutes(app: FastifyInstance) {
         title: `Too many codes requested from this connection. Try again in ${env.otpWindowMinutes} minutes.`, retryable: true } });
     }
 
-    // Same rule as the phone code (otp-policy.ts), keyed on the email provider:
-    // a code that can reach an inbox is random and never echoed.
-    const policy = otpPolicy({ smsProvider: mail.name, exposeDevOtp: env.exposeDevOtp });
+    // Stricter than the phone code (otp-policy.ts): this code is the only way
+    // into an account whose phone path is closed, so it is random and never
+    // echoed even with the console provider - which prints it to the server
+    // log. The fixed development code here opened the account to anyone who
+    // knew its address.
+    const policy = otpPolicy({ smsProvider: mail.name, exposeDevOtp: env.exposeDevOtp, guardsAccount: true });
     const accepted = ok({ sent: true, expiresInSeconds: 300, channel: "email" });
-
-    // An address nobody listed gets the same answer and no email, so the
-    // endpoint cannot be used to find out which addresses are registered.
-    if (!emailSignin.accounts.has(email)) return accepted;
 
     const code = policy.random ? String(randomInt(100000, 1000000)) : env.devOtp;
     const [challenge] = await db.insert(S.otpChallenges).values({
       msisdn: key, codeHash: sha256(code), ip: req.ip, channel: "email",
       expiresAt: new Date(Date.now() + 5 * 60_000),
     }).returning({ id: S.otpChallenges.id });
+
+    // An address nobody listed gets the same answer and no email, so the
+    // endpoint cannot be used to find out which addresses are registered. Its
+    // challenge is still recorded (with a code nobody is sent, and verify
+    // refuses an unlisted address before it looks), because the two limits
+    // above count these rows: skipping it meant only a listed address ever
+    // answered 429, which told anyone which addresses were listed.
+    if (!emailSignin.accounts.has(email)) return accepted;
 
     try {
       await mail.send(email, "Your RoadAssist-Bharat sign-in code",
@@ -94,16 +101,19 @@ export async function emailAuthRoutes(app: FastifyInstance) {
     if (challenge.expiresAt.getTime() < Date.now()) {
       return reply.code(401).send({ error: { code: "otp_expired", title: "That code has expired. Request a new one.", retryable: true } });
     }
-    if (challenge.attempts >= env.otpMaxAttempts) {
+    // Take the attempt BEFORE comparing, in one conditional statement. Read,
+    // compare, then write attempts + 1 let simultaneous guesses all read the
+    // same count: 60 wrong codes sent together were all compared against a
+    // cap of 5. Now each guess must win a slot under the cap first.
+    const [slot] = await db.update(S.otpChallenges)
+      .set({ attempts: sql`${S.otpChallenges.attempts} + 1`, updatedAt: new Date() })
+      .where(and(eq(S.otpChallenges.id, challenge.id), lt(S.otpChallenges.attempts, env.otpMaxAttempts)))
+      .returning({ id: S.otpChallenges.id });
+    if (!slot) {
       alerts.otpFailure(msisdn);
       return reply.code(429).send({ error: { code: "otp_locked", title: "Too many wrong attempts. Request a new code.", retryable: true } });
     }
-    if (!constantTimeEquals(sha256(code), challenge.codeHash)) {
-      await db.update(S.otpChallenges)
-        .set({ attempts: challenge.attempts + 1, updatedAt: new Date() })
-        .where(eq(S.otpChallenges.id, challenge.id));
-      return invalid();
-    }
+    if (!constantTimeEquals(sha256(code), challenge.codeHash)) return invalid();
     await db.update(S.otpChallenges)
       .set({ consumedAt: new Date(), updatedAt: new Date() })
       .where(eq(S.otpChallenges.id, challenge.id));

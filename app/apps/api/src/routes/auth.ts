@@ -70,8 +70,9 @@ export async function authRoutes(app: FastifyInstance) {
     // credential with a five-minute life and a six-digit space, that is the
     // difference between guessing 1-in-900000 and computing the next one.
     // An account its owner put behind email sign-in cannot be entered with a
-    // code that is printed on the screen - that would make the email pointless.
-    if (phoneSignInBlocked(msisdn, emailSignin, policy.echo)) {
+    // code that is printed on the screen, or with the fixed development code
+    // that is merely not printed - either would make the email pointless.
+    if (phoneSignInBlocked(msisdn, emailSignin, policy)) {
       return reply.code(403).send({
         error: {
           code: "email_signin_required",
