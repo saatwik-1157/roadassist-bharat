@@ -86,7 +86,18 @@ export async function fetchTile(
   const fetchImpl = opts.fetchImpl ?? (fetch as unknown as TileFetch);
   // One deadline for the whole exchange, body included: a server that sends
   // headers and then stalls is as dead to the map as one that never answers.
-  const signal = AbortSignal.timeout(opts.timeoutMs ?? TILE_TIMEOUT_MS);
+  //
+  // A plain timer rather than AbortSignal.timeout(): that one is unref'd, so it
+  // never holds the process open. Inside the server something else always does,
+  // but on its own - a test, a script - Node 22 can exit with the fetch still
+  // pending and the deadline never firing. This one fires everywhere and is
+  // cleared the moment the exchange settles, so it never outlives the request.
+  const ctl = new AbortController();
+  const deadline = setTimeout(
+    () => ctl.abort(new DOMException("tile upstream timed out", "TimeoutError")),
+    opts.timeoutMs ?? TILE_TIMEOUT_MS,
+  );
+  const signal = ctl.signal;
   try {
     const res = await fetchImpl(url, { headers: { "user-agent": opts.userAgent }, signal });
     if (!res.ok) return failure(502, `upstream HTTP ${res.status}`);
@@ -97,5 +108,7 @@ export async function fetchTile(
   } catch (e) {
     const cause = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
     return failure(isTimeout(e) ? 504 : 502, cause);
+  } finally {
+    clearTimeout(deadline);
   }
 }
