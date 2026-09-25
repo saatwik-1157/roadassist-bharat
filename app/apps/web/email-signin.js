@@ -73,7 +73,7 @@
     q(".em-send").addEventListener("click", busy(q(".em-send"), function () {
       email = q(".em-email").value.trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { say("Enter the email address your account uses.", "bad"); return; }
-      return post(api, "/v1/auth/email/request", { email: email }).then(function (r) {
+      return post(api, "/v1/auth/email/request", { email: email }).then(function () {
         q(".em-step2").hidden = false;
         q(".em-code").focus();
         say("If that address has an account, a code is on its way. Check your inbox and spam.", "ok");
