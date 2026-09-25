@@ -134,7 +134,9 @@ const CHECKS = [
   {
     label: "routes",
     expect: String(measured.api.routes),
-    re: /(\d+)\s+(?:routes|endpoints)\b/g,
+    // "API routes" too: the Pages home counter read "65 API routes" after the
+    // count had moved, because the word between number and noun hid it.
+    re: /(\d+)\s+(?:(?:API|HTTP|REST)\s+)?(?:routes|endpoints)\b/g,
     allow: [],
   },
   {
