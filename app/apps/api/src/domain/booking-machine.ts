@@ -41,6 +41,24 @@ const FEE_AFTER: ReadonlySet<Status> = new Set<Status>(["ASSIGNED", "EN_ROUTE", 
 
 export const isTerminal = (s: Status) => s === "PAID" || s === "CANCELLED";
 
+/**
+ * Does entering `to` finish a job for the assigned mechanic's record?
+ *
+ * `mechanics.jobs_completed` is what the console shows a mechanic and what
+ * `rankMechanics` reads for its newcomer bonus, and nothing ever advanced it:
+ * a mechanic stayed at whatever the seed invented however many jobs they did.
+ *
+ * It counts on COMPLETED rather than PAID. The work is done when the mechanic
+ * marks it done; whether and how the customer pays is a separate fact, and a
+ * job paid in cash that is never recorded is still a job the mechanic did.
+ * COMPLETED also has exactly one way in (IN_PROGRESS → work.complete) and no
+ * way back from anything after it, so counting on entry counts each booking
+ * once — booking-machine tests pin that property, because the counter's
+ * idempotency rests on it. PAID has four doors (pay, confirm, webhook and the
+ * payment.settled record), and every one of them would need the same guard.
+ */
+export const finishesJob = (to: Status) => to === "COMPLETED";
+
 export function canApply(from: Status, command: Command): boolean {
   return Boolean(TRANSITIONS[from]?.[command]);
 }

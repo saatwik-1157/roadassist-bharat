@@ -14,7 +14,7 @@ import * as S from "@roadassist/db";
 import {
   authenticate, requireRole, sha256, verifyAccessToken,
 } from "./auth.js";
-import { apply, allowedFrom, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
+import { apply, allowedFrom, finishesJob, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
 import { shrunkRating } from "./domain/ai-rules.js";
 import {
   diagnoseWithFallback, email, maps, providerSummary, sms,
@@ -1057,8 +1057,22 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
     // computed from, so two concurrent commands cannot both win.
     const updated = await tx.update(S.bookings).set(patch)
       .where(and(eq(S.bookings.id, id), eq(S.bookings.status, booking.status)))
-      .returning({ id: S.bookings.id });
+      .returning({ id: S.bookings.id, mechanicId: S.bookings.mechanicId });
     if (!updated.length) return false;
+
+    // The mechanic's record moves in the same transaction as the job, so the
+    // two cannot disagree: if the status write rolls back, so does the count.
+    // Once per booking by construction, not by a check — the guarded update
+    // above lets exactly one request move a booking out of IN_PROGRESS, and a
+    // replayed work.complete is refused by the state machine before it gets
+    // here (see finishesJob). The mechanic comes from the row as updated, not
+    // from the read before it.
+    const mechanicId = updated[0]?.mechanicId;
+    if (finishesJob(to) && mechanicId) {
+      await tx.update(S.mechanics)
+        .set({ jobsCompleted: raw`${S.mechanics.jobsCompleted} + 1`, updatedAt: new Date() })
+        .where(eq(S.mechanics.id, mechanicId));
+    }
 
     await tx.insert(S.bookingEvents).values({
       bookingId: id, fromStatus: booking.status, toStatus: to,
