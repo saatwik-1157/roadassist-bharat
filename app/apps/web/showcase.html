@@ -429,7 +429,8 @@
     var el = document.getElementById(id);
     var from = shown[id] != null ? shown[id] : 0;
     shown[id] = value;
-    if (reduced || from === value) { el.textContent = value + (suffix || ""); return; }
+    // A hidden tab runs no animation frames, so a count-up there sat at 0.
+    if (reduced || from === value || document.hidden) { el.textContent = value + (suffix || ""); return; }
     var t0 = performance.now(), dur = 900;
     (function tick(t) {
       var p = Math.min(1, (t - t0) / dur);
