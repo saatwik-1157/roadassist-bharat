@@ -6,6 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { emailChallengeKey, parseEmailSignin, phoneSignInBlocked } from "../src/domain/email-signin.js";
+import { otpPolicy } from "../src/domain/otp-policy.js";
 
 test("EMAIL_SIGNIN maps addresses to accounts, case-insensitively", () => {
   const cfg = parseEmailSignin(" Owner@Example.com=+919999900001 ;mech@college.ac.in = +919600000000\n");
@@ -30,9 +31,14 @@ test("an email challenge key cannot collide with a phone number and hides the ad
   assert.notEqual(emailChallengeKey("a@b.co"), emailChallengeKey("a@b.cc"));
 });
 
-test("a protected number is refused only while the phone code is shown on screen", () => {
+test("a protected number is refused whenever the phone code is not a random one only the handset gets", () => {
   const cfg = parseEmailSignin("owner@example.com=+919999900001");
-  assert.equal(phoneSignInBlocked("+919999900001", cfg, true), true);
-  assert.equal(phoneSignInBlocked("+919999900001", cfg, false), false, "a real SMS gateway delivers the code");
-  assert.equal(phoneSignInBlocked("+919876543210", cfg, true), false, "unlisted numbers keep the demo path");
+  const shown = otpPolicy({ smsProvider: "console", exposeDevOtp: true });
+  const hiddenButFixed = otpPolicy({ smsProvider: "console", exposeDevOtp: false });
+  const delivered = otpPolicy({ smsProvider: "twilio", exposeDevOtp: true });
+  assert.equal(phoneSignInBlocked("+919999900001", cfg, shown), true);
+  assert.equal(phoneSignInBlocked("+919999900001", cfg, hiddenButFixed), true,
+    "EXPOSE_DEV_OTP=false hides the code, but with no gateway it is still the fixed DEV_OTP");
+  assert.equal(phoneSignInBlocked("+919999900001", cfg, delivered), false, "a real SMS gateway delivers the code");
+  assert.equal(phoneSignInBlocked("+919876543210", cfg, shown), false, "unlisted numbers keep the demo path");
 });
