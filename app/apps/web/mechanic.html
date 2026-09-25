@@ -448,7 +448,15 @@
       else { signOut(true); throw new Error("Your session has ended. Sign in again."); }
     }
     var json = await res.json().catch(function () { return {}; });
-    if (!res.ok) throw new Error((json.error && json.error.title) || ("HTTP " + res.status));
+    if (!res.ok) {
+      // The code travels with the message so a caller can act on WHICH refusal
+      // this was (email_signin_required opens the email form) without parsing
+      // a sentence written for people.
+      var err = new Error((json.error && json.error.title) || ("HTTP " + res.status));
+      err.code = json.error && json.error.code;
+      err.status = res.status;
+      throw err;
+    }
     return json;
   }
 
@@ -506,10 +514,16 @@
       saveSession();
       await enterConsole(v.data.roles);
       toast("Signed in", "ok");
-    } catch (e) { toast(e.message, "bad"); }
+    } catch (e) {
+      toast(e.message, "bad");
+      // An account its owner put behind email sign-in refuses the phone code
+      // with 403 email_signin_required. Open the form that message points to
+      // instead of leaving the mechanic to find it.
+      if (emailSignin && window.RAEmail.isRequired(e)) emailSignin.open({ message: e.message });
+    }
   });
 
-  if (window.RAEmail) RAEmail.mount($("m-signin"), { toast: toast, onSession: async function (d) {
+  var emailSignin = window.RAEmail && RAEmail.mount($("m-signin"), { toast: toast, onSession: async function (d) {
     if (!d.roles.includes("mechanic") && !d.roles.includes("admin")) { toast("That account has no mechanic role", "bad"); return; }
     state.token = d.accessToken; state.refresh = d.refreshToken; state.msisdn = d.user.msisdn;
     saveSession();
