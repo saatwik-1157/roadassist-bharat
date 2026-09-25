@@ -245,7 +245,7 @@
         className: "", iconSize: [s, s] });
     },
   }).addTo(map);
-  var meMarker = null;
+  var meMarker = null, located = false;
   var mechById = {};   // id → {name, lat, lng} so a popup button can book it
 
   // Tap "Request assistance" in a mechanic popup → hand off to the app to book
@@ -261,7 +261,8 @@
   };
   // Force the next refresh to redraw (used after a citizen submits a report).
   window.__refresh = function () { lastSig = ""; load(); };
-  // "Locate me" — fly to the device position (asking for it if needed).
+  // "Locate me" — fly to the device position (asking for it if needed). The
+  // flight ends in a moveend, and that is what loads the mechanics around it.
   window.__locate = function () {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(function (p) {
@@ -273,6 +274,8 @@
   document.getElementById("locate").onclick = window.__locate;
 
   function dropMe() {
+    located = true;
+    lastSig = "";   // popups say "km from you" once there is a "you" - redraw them
     if (meMarker) map.removeLayer(meMarker);
     meMarker = L.marker(center, { icon: L.divIcon({
       className: "", html: '<div class="me"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
@@ -318,12 +321,31 @@
       "<span class='foot'>" + counts + " · snapshot, not live</span>";
   }
 
+  /* ── what the map asks for ────────────────────────────────────────────────
+     The view the user is looking at, not the country. This used to ask for
+     everything within 2,500 km of the centre of India, and the API keeps the
+     150 nearest - nearest to a point near Nagpur. Zoomed to Gurugram with
+     "Locate me" the map drew no mechanics at all, while the same endpoint
+     centred on the user had 35 within 25 km, the one just dispatched among
+     them. So: the centre of the view, and a radius that reaches its corners.
+
+     Capped, because zoomed out to the whole country the corners are ~2,000 km
+     away and a query that size only makes PostGIS measure every row in India
+     to keep the same 150. At the cap the badge says the pins are the nearest
+     to the centre, not all of them. */
+  var MAX_RADIUS_KM = 1000;
+  function viewQuery() {
+    var c = map.getCenter();
+    var km = map.distance(c, map.getBounds().getNorthEast()) / 1000;
+    km = Math.max(1, Math.min(MAX_RADIUS_KM, Math.ceil(km)));
+    return "lat=" + c.lat.toFixed(4) + "&lng=" + c.lng.toFixed(4) + "&radiusKm=" + km;
+  }
+  var loadSeq = 0;   // a slow answer for a view already left must not overwrite a newer one
+
   async function load() {
+    var mine = ++loadSeq;
     try {
-      // Query from the country's centre with a nation-wide radius so all the
-      // seeded cities (Delhi-NCR, Hyderabad, Pune, Jaipur, Bhopal, Coimbatore,
-      // Vijayawada, Guwahati) appear on the India map.
-      var url = BASE + "/v1/map/live?lat=22.6&lng=80.0&radiusKm=2500";
+      var url = BASE + "/v1/map/live?" + viewQuery();
       var tok = authToken();
       var res = await fetch(url, { headers: tok ? { authorization: "Bearer " + tok } : {} });
       // On expiry, ask the app to rotate the token once, then retry silently.
@@ -332,6 +354,7 @@
         res = await fetch(url, { headers: tok ? { authorization: "Bearer " + tok } : {} });
       }
       var j = await res.json();
+      if (mine !== loadSeq) return;
       if (!res.ok) {
         var why = (j.error && j.error.title) || res.status;
         // A bare "Unauthorized" tells a visitor nothing they can act on.
@@ -343,7 +366,7 @@
         return;
       }
       var d = j.data;
-      draw(d, null);
+      draw(d, null, j.meta);
       if (OGStore) {
         OGStore.putSnapshot(SNAPSHOT_KEY, {
           mechanics: (d.mechanics || []).slice(0, 200),
@@ -355,7 +378,7 @@
       // The request never got out. Fall back to the last snapshot rather than
       // to an error message — a map from an hour ago is genuinely useful, and
       // saying so is what keeps it honest.
-      await drawFromCache(e);
+      if (mine === loadSeq) await drawFromCache(e);
     }
   }
 
@@ -374,7 +397,7 @@
     draw(snap.data, snap.at);
   }
 
-  function draw(d, snapshotAt) {
+  function draw(d, snapshotAt, meta) {
       // Cheap fingerprint of the data (counts + a couple of sampled rows); if
       // nothing changed, leave the markers untouched so the map never flickers.
       function samp(a) { var f = a[0] || {}, l = a[a.length - 1] || {};
@@ -393,8 +416,11 @@
       d.mechanics.forEach(function (m) {
         if (m.lat == null) return;
         mechById[m.id] = { name: m.display_name, lat: m.lat, lng: m.lng };
+        // The API's `km` is from the centre of the view it was asked about, so
+        // it is only "away" from anyone once the device has said where it is.
+        var away = located ? (map.distance(center, [m.lat, m.lng]) / 1000).toFixed(1) + " km from you" : "";
         L.marker([m.lat, m.lng], { icon: icon("#e3b96a", "rgba(227,185,106,.6)", 18) })
-          .bindPopup("<b>" + esc(m.display_name) + "</b><br>★ " + esc(m.rating) + " · " + esc(m.km) + " km away" +
+          .bindPopup("<b>" + esc(m.display_name) + "</b><br>★ " + esc(m.rating) + (away ? " · " + esc(away) : "") +
             '<button class="rabook" onclick="raBook(\'' + esc(m.id) + '\')">Request assistance</button>')
           .addTo(cluster);
       });
@@ -430,19 +456,30 @@
         : "<span class='num'>" + d.mechanics.length + "</span> mechanics · " +
           "<span class='num'>" + d.responders.length + "</span> responders · " +
           "<span class='num'>" + d.detections.length + "</span> detections" +
-          "<span class='foot'>live · auto-refresh</span>";
+          "<span class='foot'>around this view · live · auto-refresh" +
+          // Say so when a cap cut the list, rather than let 150 pins pass for all of them.
+          (meta && meta.truncated && meta.truncated.mechanics
+            ? " · nearest " + d.mechanics.length + " mechanics to the centre, zoom in for more" : "") + "</span>";
   }
 
-  // Keep the whole-India view on open. If the device grants location, drop a
-  // "you are here" dot without disturbing the country-wide view — the user can
-  // pinch straight to their spot.
+  // Open on the whole country, then on the user as soon as the device says
+  // where they are: this map exists to show help nearby, and at country zoom
+  // "nearby" is a thousand kilometres. A user who has already started
+  // dragging keeps their view and gets the dot only.
+  var dragged = false;
+  map.on("dragstart", function () { dragged = true; });
   load();
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(function (p) {
       center = [p.coords.latitude, p.coords.longitude];
       dropMe();
+      if (!dragged) map.setView(center, 12);
     }, function () {}, { timeout: 5000 });
   }
+  // Every settled pan or zoom asks about the new view. Debounced, because a
+  // fling or a pinch fires several moveends and only the last view matters.
+  var moveTimer = null;
+  map.on("moveend", function () { clearTimeout(moveTimer); moveTimer = setTimeout(load, 350); });
 
   setInterval(function () { if (!document.hidden) load(); }, 15000);
   // Signing in on another tab or frame of this origin shows up here at once,
