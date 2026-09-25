@@ -91,6 +91,16 @@ test("code-guessing alerts are capped across numbers, and the rest are counted, 
   assert.match(last.lines.join("\n"), /35 more numbers crossed the same threshold since .* not emailed one by one/);
 });
 
+test("the burst bookkeeping does not grow with every number that ever crossed it", () => {
+  const { g, advance } = gate({ otpBurst: 1 });
+  const burstAlerted = (g as unknown as { burstAlerted: Map<string, number> }).burstAlerted;
+  for (let round = 0; round < 3; round++) {
+    for (let n = 0; n < 10_001; n++) g.otpFailure(`+91${7_000_000_000 + round * 100_000 + n}`);
+    advance(10 * 60_000);
+  }
+  assert.ok(burstAlerted.size <= 10_002, `${burstAlerted.size} numbers still held after their window`);
+});
+
 test("wrong codes spread wider than the window never add up to a burst", () => {
   const { g, sent, advance } = gate({ otpBurst: 3, otpWindowMs: 10 * 60_000 });
   for (let i = 0; i < 6; i++) { g.otpFailure(NUMBER); advance(6 * 60_000); }

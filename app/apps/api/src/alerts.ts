@@ -118,7 +118,7 @@ export class AlertGate {
     const recent = (this.otpFailures.get(msisdn) ?? []).filter((x) => t - x < w);
     recent.push(t);
     this.otpFailures.set(msisdn, recent);
-    if (this.otpFailures.size > 10_000) this.prune(t);
+    if (this.otpFailures.size > 10_000 || this.burstAlerted.size > 10_000) this.prune(t);
     const last = this.burstAlerted.get(msisdn);
     if (recent.length >= this.opts.otpBurst && (last === undefined || t - last >= w)) {
       this.burstAlerted.set(msisdn, t);
@@ -158,6 +158,9 @@ export class AlertGate {
 
   private prune(t: number) {
     for (const [k, v] of this.otpFailures) if (!v.some((x) => t - x < this.opts.otpWindowMs)) this.otpFailures.delete(k);
+    // A number alerted a window ago may alert again anyway, so its entry is
+    // spent. Kept, every number that ever crossed the threshold stayed forever.
+    for (const [k, at] of this.burstAlerted) if (t - at >= this.opts.otpWindowMs) this.burstAlerted.delete(k);
   }
 }
 
