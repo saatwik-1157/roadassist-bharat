@@ -17,6 +17,7 @@ import { join } from "node:path";
 
 import { env } from "./env.js";
 import { db } from "./db.js";
+import { withIsoTimestamps } from "./http.js";
 import * as S from "@roadassist/db";
 import { authenticate, constantTimeEquals, issueAccessToken, requireRole, sha256 } from "./auth.js";
 import {
@@ -257,7 +258,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
       SELECT id, name, hardware_ref, status, simulated, battery_percent, storage_percent,
              last_seen_at, ST_Y(location) AS lat, ST_X(location) AS lng
         FROM edge_devices WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 100`);
-    return ok(rows);
+    return ok(rows.map((r) => withIsoTimestamps(r, ["last_seen_at"])));
   });
 
   // ── device token exchange ─────────────────────────────────────────────────
@@ -625,7 +626,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
          AND raw->>'reportedBy' = ${userId}
        ORDER BY created_at DESC
        LIMIT 50`);
-    return ok(rows, { count: rows.length });
+    return ok(rows.map((r) => withIsoTimestamps(r, ["created_at"])), { count: rows.length });
   });
 
   // ── reads for the dashboard ───────────────────────────────────────────────
@@ -657,7 +658,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
     // Every row says where its point came from: a phone's measured fix, or a
     // simulated placement. The dashboard prints this; it never infers it.
     const withPosition = rows.map((r) => ({
-      ...r,
+      ...withIsoTimestamps(r, ["captured_at", "created_at"]),
       position: describePosition({
         source: r.source as string, simulated: r.simulated as boolean | null,
         modelVersion: r.model_version as string, accuracyM: r.location_accuracy_m as number | null,
@@ -749,7 +750,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
            WHERE segment_id = rs.id ORDER BY computed_at DESC LIMIT 1) h ON true
        WHERE rs.deleted_at IS NULL
        ORDER BY rs.code`);
-    return ok(rows);
+    return ok(rows.map((r) => withIsoTimestamps(r, ["computed_at"])));
   });
 
   // ── Road Health Score (Phase 8 — transparent, rule-based v1) ─────────────

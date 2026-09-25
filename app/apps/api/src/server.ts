@@ -19,7 +19,7 @@ import { ratingBaseline, ratingPrior, shrunkRating } from "./domain/ai-rules.js"
 import {
   diagnoseWithFallback, email, maps, providerSummary, sms,
 } from "./providers.js";
-import { ok, msisdnSchema } from "./http.js";
+import { isoTimestamp, ok, msisdnSchema } from "./http.js";
 import { rakshaRoutes, describePosition } from "./raksha.js";
 import { authRoutes } from "./routes/auth.js";
 import { emailAuthRoutes, emailSignin } from "./routes/email-auth.js";
@@ -1349,7 +1349,7 @@ app.get("/v1/bookings/:id", { preHandler: authenticate }, async (req, reply) => 
           // when a provider's device actually reports one.
           lat: mechanic.lat, lng: mechanic.lng,
           locationKnown: mechanic.lat != null && mechanic.lng != null,
-          lastLocationAt: mechanic.last_location_at,
+          lastLocationAt: isoTimestamp(mechanic.last_location_at),
           distanceKm: mechanic.km == null ? null : Number(mechanic.km),
           // What the provider is actually doing, derived from live state rather
           // than from a column that could be stale (see domain/provider-state.ts).
@@ -1853,7 +1853,7 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
     const position = describePosition({
       source: d.source, simulated, modelVersion: model_version, accuracyM: d.location_accuracy_m,
     });
-    return { ...d, position_label: position.label };
+    return { ...d, created_at: isoTimestamp(d.created_at), position_label: position.label };
   });
 
   return ok({ center: { lat: q.lat, lng: q.lng }, mechanics, responders, detections },
