@@ -61,7 +61,15 @@
     font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
     transition: all var(--t-2) var(--ease), transform var(--t-2) var(--spring);
   }
-  .net:active { transform: scale(0.94); }
+  .net:active, .lang-btn:active { transform: scale(0.94); }
+  /* Language: the status pill's shape, not its dot (a control, not a state). */
+  .lang-btn {
+    flex: none; padding: 5px 11px; min-height: 28px; border-radius: var(--r-full);
+    border: 1px solid var(--line); background: var(--surface); color: var(--text-2);
+    font-size: 12px; font-weight: 650; white-space: nowrap;
+  }
+  .topbar .brand { overflow: hidden; }
+  @media (max-width: 374px) { .topbar .wordmark { display: none; } }
   .net::before {
     content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green);
     box-shadow: 0 0 0 3px var(--green-soft); transition: all var(--t-2) var(--ease);
@@ -396,6 +404,10 @@
       <svg class="mark"><use href="#raMark"/></svg>
       <span class="wordmark">Road<i>Assist</i></span>
     </span>
+    <!-- Here, not in settings: who needs it most is least likely to hunt a menu;
+         labelled in the language it switches TO. It used to float, and on a
+         390px phone sat on the Trip Guardian card and the invoice total. -->
+    <button class="lang-btn" id="lang-toggle" type="button" aria-label="Change language">हिंदी</button>
     <button class="net" id="net" title="Toggle simulated offline mode">Online</button>
     <button class="theme-btn" id="theme" title="Switch theme" aria-label="Switch colour theme">
       <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
@@ -441,6 +453,7 @@
         <div id="offline-banner" style="margin-top:16px" hidden></div>
 
         <!-- The current task leads: track a live rescue, or start one. -->
+        <div id="home-sos" style="margin-top:16px" hidden></div>
         <div id="home-task" style="margin-top:16px"></div>
 
         <div class="sos-wrap">
@@ -945,6 +958,7 @@
 </div>
 
 <script src="email-signin.js"></script>
+<script src="journey.js"></script>
 <script>
 (function () {
   "use strict";
@@ -1310,7 +1324,9 @@
     }
 
     var json = await res.json().catch(function () { return {}; });
-    if (!res.ok) throw new Error((json.error && json.error.title) || ("HTTP " + res.status));
+    // Status and allowed commands ride along: a 409 allowing nothing = closed elsewhere.
+    if (!res.ok) throw Object.assign(new Error((json.error && json.error.title) || ("HTTP " + res.status)),
+      { status: res.status, allowed: json.error && json.error.allowed });
     return json;
   }
 
@@ -1396,6 +1412,7 @@
     streamStop();
     state.token = null; state.refresh = null; state.bookingId = null;
     clearSession();
+    Object.keys(sosOpen).forEach(function (id) { trackIncident(id, null); });   // the next user's are not these
     $("tabs").hidden = true;
     nav("auth");
   }
@@ -1652,8 +1669,8 @@
     }
     if (ev.type === "sos.status") {
       if (ev.status === "RESPONDING") toast("Responders alerted for your emergency", "ok");
+      trackIncident(ev.incidentId, ev.status);   // redraws Home and off-grid; closed = controls go
       refreshReadiness();
-      renderOffGrid();
       return;
     }
     if (ev.type === "booking.status") {
@@ -1687,18 +1704,22 @@
   var POLL_MS_STREAMING = 60000;
 
   function stopBookingPoll() {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (pollTimer) { clearInterval(pollTimer.id); pollTimer = null; }
     pollStatus = null;
   }
 
   function startBookingPoll() {
+    var ms = stream.alive ? POLL_MS_STREAMING : POLL_MS;
+    // Already ticking at this cadence? Then leave it: every failed reconnect and
+    // redraw re-arming it kept postponing the no-stream poll past six seconds.
+    if (pollTimer && pollTimer.ms === ms && state.bookingId && state.online) return;
     // Keep the last known status across a re-arm: clearing it would make the
     // next tick look like a fresh subscription and re-announce the same state.
     var remembered = pollStatus;
     stopBookingPoll();
     pollStatus = remembered;
     if (!state.bookingId || !state.online) return;
-    pollTimer = setInterval(pollBooking, stream.alive ? POLL_MS_STREAMING : POLL_MS);
+    pollTimer = { id: setInterval(pollBooking, ms), ms: ms };
   }
 
   /**
@@ -1726,25 +1747,20 @@
       // Only redraw on a real change: repainting the DOM every six seconds
       // fights the user's scroll position and their half-typed review.
       if (b.status !== pollStatus) {
-        if (pollStatus !== null) {
-          toast(STATUS_NEWS[b.status] || ("Booking is now " + String(b.status).replace(/_/g, " ").toLowerCase()), "ok");
-          buzz(12);
-        }
-        pollStatus = b.status;
         // The commands the new state permits travel in meta, not in data, so
         // they have to be carried across exactly as refreshBooking does. Without
         // this line trackView redrew with an empty command list every time the
         // poll noticed a change — which is the normal path — so the customer
         // watched the job reach COMPLETED and never got the Pay button.
         b._next = r.meta.nextCommands;
-        trackView(b);
-        loadTimeline(state.bookingId);
+        var prev = pollStatus;
+        pollStatus = b.status;
+        showBooking(b, prev, false);
       } else {
         // Same state, but the mechanic has moved — refresh distance and ETA
         // in place without rebuilding the card.
         updateEta(b);
       }
-      if (b.status === "PAID" || b.status === "CANCELLED") stopBookingPoll();
     } catch (e) {
       // A failed poll is not worth a toast every six seconds; the next tick
       // retries and the visible state simply stays as it was.
@@ -1884,6 +1900,7 @@
     saveQueue();
     syncSteps();
     await resumeActiveBooking();
+    renderSosOpen();
     // A shortcut target (from the installed app's long-press menu) wins over
     // the default landing screen; otherwise home.
     if (!routeFromHash()) nav("home");
@@ -1918,8 +1935,7 @@
       }
       state.bookingId = live.id;
       saveSession();
-      var full = await refreshBooking();
-      renderHomeTask(full);
+      await refreshBooking();                 // draws Home as well as tracking
     } catch (e) { renderHomeTask(null); }
   }
 
@@ -2541,6 +2557,9 @@
       if (!r) { $("b-offers").innerHTML = ""; return; }   // queued offline
       bookingKey = null;
       state.bookingId = r.data.id;
+      // A new booking's own history, not the last one's final status. MATCHING:
+      // dispatch reaches it before its reply does, and the screen says so already.
+      pollStatus = "MATCHING";
       saveSession();
       toast("Booking " + r.data.reference + " created" + (pos.demo ? " (demo location)" : ""), "ok");
 
@@ -2548,6 +2567,9 @@
       var d = await api("POST", "/v1/bookings/" + state.bookingId + "/dispatch",
         { radiusKm: state.radiusKm, limit: 5 });
       $("b-offers").innerHTML = "";
+      // Home, tracking and the fallback poll (a phone with no stream has nothing
+      // else to hear an acceptance by) learn of the booking now, not at next boot.
+      refreshBooking().catch(function () { /* the stream or the poll will catch up */ });
       if (!d.data.offers.length) { noSupply(d.meta.message); return; }
       toast(d.data.offers.length === 1 ? "Mechanic found." : d.data.offers.length + " mechanics found.", "ok");
       renderOffers(d.data.offers);
@@ -2577,6 +2599,7 @@
       offers.forEach(function (o) {
         var c = document.createElement("div");
         c.className = "card lift rise";
+        c.setAttribute("data-offer", o.id);   // how showBooking() knows offers are on screen
         c.style.display = "flex";
         c.style.alignItems = "center";
         c.style.gap = "12px";
@@ -2593,11 +2616,9 @@
           try {
             var a = await api("POST", "/v1/offers/" + o.id + "/accept", {});
             if (!a) return;
-            box.innerHTML = "";
-            toast("Mechanic found — " + o.mechanic.displayName + " accepted", "ok"); buzz([10, 40, 10]);
-            setStep("mechanic", true);
+            // showBooking() closes the offers, names the mechanic and moves to
+            // tracking — the same path a console-side acceptance takes.
             await refreshBooking();
-            nav("track");
           } catch (e) { toast(e.message, "bad"); }
         });
         c.appendChild(b);
@@ -2661,7 +2682,7 @@
     "tow.required": "Needs tow", "tow.assigned": "Tow assigned", "retry.widen": "Widen search",
   };
   /** The journey, so the customer sees where they are rather than a bare status. */
-  var JOURNEY = ["REQUESTED", "MATCHING", "ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS", "COMPLETED", "PAID"];
+  var JOURNEY = RAJourney.JOURNEY;
   function statusPill(s) {
     if (s === "PAID" || s === "COMPLETED") return "ok";
     if (s === "CANCELLED" || s === "NO_SUPPLY" || s === "ESCALATED") return "bad";
@@ -2689,14 +2710,16 @@
 
   function journeyHtml(status, hasReview) {
     var at = JOURNEY.indexOf(status);
-    if (at < 0) {
+    // journey.js (unit-tested) decides: once PAID, every step is done, none "Now".
+    var marks = RAJourney.journeyMarks(status);
+    if (!marks) {
       // NO_SUPPLY, ESCALATED, AWAITING_PARTS and CANCELLED sit off the happy
       // path. Saying so is more honest than drawing an empty timeline.
       return "<p class='hint' style='margin-top:12px'>This booking is off the standard journey — " +
         esc(String(status).replace(/_/g, " ").toLowerCase()) + ".</p>";
     }
     var steps = JOURNEY_STEPS.map(function (s, i) {
-      var done = i < at, now = i === at;
+      var done = marks[i] === "done", now = marks[i] === "now";
       var mark = done ? "&#10003;" : now ? "&#9679;" : "&#9675;";
       var colour = done ? "var(--green)" : now ? "var(--brand)" : "var(--text-3)";
       var weight = now ? "650" : "500";
@@ -2999,12 +3022,38 @@
     if (!state.bookingId) return null;
     var r = await api("GET", "/v1/bookings/" + state.bookingId, null, { force: true });
     r.data._next = r.meta.nextCommands;
+    var prev = pollStatus;
     pollStatus = r.data.status;
-    trackView(r.data);
-    loadTimeline(state.bookingId);
-    if (r.data.status === "PAID" || r.data.status === "CANCELLED") stopBookingPoll();
-    else startBookingPoll();
+    showBooking(r.data, prev, true);
     return r.data;
+  }
+
+  /**
+   * Every screen that shows the booking, redrawn from one server read. Home
+   * was drawn once, at boot, and a console-side accept left the offers and
+   * their Accept buttons up (a tap earned 409 offer_closed) with no way to
+   * tracking short of a reload. Stream, fallback poll and the customer's own
+   * taps all land here; journey.js says what the move means. `quiet`: own tap.
+   */
+  function showBooking(b, prev, quiet) {
+    var ch = RAJourney.bookingChange(prev, b.status), offers = $("b-offers");
+    trackView(b); loadTimeline(b.id); renderHomeTask(b);
+    if (ch.accepted) {
+      var who = b.mechanic ? b.mechanic.displayName : "Your mechanic"; setStep("mechanic", true);
+      offers.innerHTML = "<div class='card rise' style='margin-top:13px'>" +
+        "<h3 class='title'>" + esc(who) + " accepted — on the way</h3>" +
+        "<p class='meta' style='margin-top:4px'>" + (b.etaMinutes ? "ETA about " + esc(b.etaMinutes) + " min. " : "") + "Follow them live.</p>" +
+        "<button class='btn' data-nav='track' style='margin-top:13px'>Open live tracking</button></div>";
+      toast(who + " accepted — on the way", "ok"); buzz([10, 40, 10]); nav("track");
+    } else if (!ch.offersLive && (offers.querySelector("[data-offer]") || TERMINAL[b.status])) {
+      // Offers that outlived their state could only fail; a finished booking
+      // leaves nothing behind that still says "on the way".
+      if (b.status === "NO_SUPPLY") noSupply(STATUS_NEWS.NO_SUPPLY); else offers.innerHTML = "";
+    }
+    if (ch.announce && !ch.accepted && !quiet) {
+      toast(STATUS_NEWS[b.status] || ("Booking is now " + String(b.status).replace(/_/g, " ").toLowerCase()), "ok"); buzz(12);
+    }
+    if (TERMINAL[b.status]) stopBookingPoll(); else startBookingPoll();
   }
 
   /**
@@ -3236,6 +3285,7 @@
       }, { force: true });
       sosId = r.data.id;
       sosPos = pos;
+      trackIncident(sosId, r.data.status);
       openSos(r.data.status);
     } catch (e) {
       // The connection died between the tier check and the request — which is
@@ -3497,6 +3547,7 @@
           "<button class='btn ghost' id='sos-done'>Close</button></div>";
       $("sos-done").onclick = closeSos;
       $("sos-map").onclick = function () { closeSos(); nav("map"); };
+      trackIncident(sosId, c.data.status); sosExitButtons($("sos-out"), sosId);
       buzz([40, 80, 40]);
     } catch (e) {
       $("sos-out").innerHTML = "<div class='card'><p class='meta'>Escalation failed: " +
@@ -3522,9 +3573,53 @@
     try {
       var r = await api("POST", "/v1/sos/" + sosId + "/cancel", {}, { force: true });
       toast("Cancelled — " + (r.meta.note || "false alarm recorded"), "ok");
+      trackIncident(sosId, r.data.status);
     } catch (e) { toast("Could not cancel: " + e.message, "bad"); }
     closeSos();
   };
+
+  /* ── open emergencies, until they are closed ─────────────────────────────
+     With no "my incidents" read, the app remembers each one it raised or synced
+     and follows it on the stream. Once the sheet closed, an escalated one (an
+     off-grid SOS synced later above all) left its owner no way to call it off. */
+  var sosOpen = {};
+  try { sosOpen = JSON.parse(localStorage.getItem("ra.app.sos")) || {}; } catch (e) { /* none kept */ }
+  function trackIncident(id, status) {
+    if (!id) return;
+    if (RAJourney.sosActive(status)) sosOpen[id] = status; else delete sosOpen[id];
+    try { localStorage.setItem("ra.app.sos", JSON.stringify(sosOpen)); } catch (e) { /* this session only */ }
+    renderSosOpen(); renderOffGrid();
+  }
+  /** "I'm safe now" and/or "Cancel — false alarm": whatever the state allows (journey.js). */
+  function sosExitButtons(parent, id) {
+    var row = parent.appendChild(document.createElement("div"));
+    row.className = "btn-row"; row.style.marginTop = "12px";
+    RAJourney.sosExits(sosOpen[id]).forEach(function (x) {
+      var b = row.appendChild(document.createElement("button"));
+      b.className = x.command === "cancel" ? "btn ghost" : "btn"; b.textContent = x.label;
+      b.onclick = busy(b, async function () {
+        try {
+          var r = await api("POST", "/v1/sos/" + id + x.path, x.body, { force: true });
+          toast(x.command === "cancel" ? "Cancelled — false alarm recorded" : "Glad you are safe — emergency closed", "ok");
+          if (id === sosId) closeSos();
+          trackIncident(id, r.data.status);
+        } catch (e) {   // a 409 says why, in the server's words; allowing nothing = closed elsewhere
+          toast(e.message, "bad");
+          if (e.status === 409 && e.allowed && !e.allowed.length) trackIncident(id, null);
+        }
+      });
+    });
+  }
+  function renderSosOpen() {
+    var box = $("home-sos"), ids = Object.keys(sosOpen);
+    box.hidden = !ids.length;
+    box.innerHTML = ids.map(function (id) {
+      return "<div class='card' style='border-color:var(--red);margin-bottom:12px' data-sos='" + esc(id) + "'>" +
+        "<p class='eyebrow'>Active emergency · " + esc(sosOpen[id].toLowerCase()) + "</p><p class='meta' " +
+        "style='margin-top:4px'>Incident " + esc(id.slice(0, 8)) + ". If you are safe, say so: it frees the responder.</p></div>";
+    }).join("");
+    ids.forEach(function (id) { sosExitButtons(box.querySelector("[data-sos='" + id + "']"), id); });
+  }
 
   // ── live map ──────────────────────────────────────────────────────────────
   function openMap() {
@@ -4011,8 +4106,9 @@
             // rule 4). This is the explicit step that hands the incident to
             // dispatch, and it reuses the same ladder an online SOS runs.
             if (out.id && out.status === "created") {
+              trackIncident(out.id, out.incidentStatus);
               try {
-                await api("POST", "/v1/sos/" + out.id + "/confirm", {}, { force: true });
+                trackIncident(out.id, (await api("POST", "/v1/sos/" + out.id + "/confirm", {}, { force: true })).data.status);
                 escalated++;
               } catch (e) {
                 // The incident is safely on the server; only the alerting
@@ -4209,6 +4305,7 @@
       if (active.status === Store.STATUS_SYNCED) {
         ogProgress("<b>SOS synchronized.</b> RoadAssist dispatch can now process your incident." +
           (active.serverId ? " Platform reference " + esc(String(active.serverId).slice(0, 8)) + "." : ""));
+        if (sosOpen[active.serverId]) sosExitButtons(body.querySelector(".og-hero"), active.serverId); // still open
       } else if (state.tier === RA_OFFLINE) {
         ogProgress("<b>Waiting for a connection.</b> Nothing has been transmitted. This incident sends " +
           "itself automatically the moment this device reaches a network.");
@@ -4586,17 +4683,7 @@
   })();
 })();
 </script>
-<!-- ══ language ══════════════════════════════════════════════════════
-     A floating switch rather than a settings screen: the audience that
-     most needs it is the one least likely to go looking for a menu, and
-     the label is always written in the language it switches TO, so it is
-     legible to someone who cannot read the current one. -->
-<button id="lang-toggle" type="button"
-        style="position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 72px);
-               z-index:60;border:1px solid var(--line,#d8d8d8);border-radius:999px;
-               background:var(--surface,#fff);color:inherit;font:inherit;font-size:12px;
-               padding:7px 13px;box-shadow:0 2px 10px rgba(0,0,0,.12);cursor:pointer"
-        aria-label="Change language">भाषा: हिंदी</button>
+<!-- ══ language — the switch itself is #lang-toggle in the top bar ═══ -->
 <script src="i18n.js"></script>
 <script>
   // Re-apply after any dynamic render: most of this app builds its DOM in
