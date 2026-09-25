@@ -109,7 +109,10 @@
   .hero-copy { position: relative; z-index: 1; }
   @media (min-width: 1000px) { .s-scale { transform: scale(.84); } }
   @media (min-width: 1000px) and (max-width: 1179px) { .s-scale { transform: scale(.72); } }
-  .scene3d { position: relative; height: 470px; perspective: 1500px; margin: 0; }
+  /* clip, not hidden: it trims the tilted plane's overhang sideways without
+     making a scroll box or cutting the billboards that rise above it. Unclipped,
+     the overhang widened a phone's layout viewport (320 px rendered at 417). */
+  .scene3d { position: relative; height: 470px; perspective: 1500px; margin: 0; overflow-x: clip; }
   .s-scale { position: absolute; inset: 0; transform-style: preserve-3d; }
   .s-stage { position: absolute; inset: 0; transform-style: preserve-3d;
              animation: s-sway 14s ease-in-out infinite alternate; }
