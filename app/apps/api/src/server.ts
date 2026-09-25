@@ -32,6 +32,7 @@ import { audit, verifyAuditChain } from "./audit.js";
 import { limit } from "./ratelimit.js";
 import { ApiError, fail } from "./errors.js";
 import { logOp } from "./observability.js";
+import { fetchTile, sendTileFailure } from "./tile-upstream.js";
 import {
   escalate, providerRoster, providerStateFor, sendWave, startOfferSweeper, stopOfferSweeper,
 } from "./dispatch.js";
@@ -240,13 +241,13 @@ app.get("/tiles/:z/:x/:file", async (req, reply) => {
 
   let buf = tileCache.get(key);
   if (!buf) {
-    const res = await fetch(`https://tile.openstreetmap.org/${key}.png`, {
-      headers: { "user-agent": "RoadAssistDemo/0.1 (student project; trip-guardian prefetch)" },
+    // An upstream that fails or stalls is a 502/504 with seconds of cache,
+    // never a thrown 500 - see tile-upstream.ts.
+    const got = await fetchTile(`https://tile.openstreetmap.org/${key}.png`, {
+      userAgent: "RoadAssistDemo/0.1 (student project; trip-guardian prefetch)",
     });
-    if (!res.ok) {
-      return reply.code(502).send({ error: { code: "tile_unavailable", title: "Map tile could not be fetched", retryable: true } });
-    }
-    buf = Buffer.from(await res.arrayBuffer());
+    if (!got.ok) return sendTileFailure(req, reply, key, got);
+    buf = got.body;
     if (tileCache.size > 600) tileCache.clear();   // tiny corridor cache, never grows unbounded
     tileCache.set(key, buf);
   }
@@ -284,13 +285,12 @@ app.get("/basemap/:z/:x/:file", async (req, reply) => {
 
   let buf = baseCache.get(key);
   if (!buf) {
-    const res = await fetch(`https://tile.openstreetmap.org/${key}.png`, {
-      headers: { "user-agent": "RoadAssistDemo/0.1 (student project; map basemap)" },
+    // The same rule as the corridor proxy: an upstream failure is answered as one.
+    const got = await fetchTile(`https://tile.openstreetmap.org/${key}.png`, {
+      userAgent: "RoadAssistDemo/0.1 (student project; map basemap)",
     });
-    if (!res.ok) {
-      return reply.code(502).send({ error: { code: "tile_unavailable", title: "Map tile could not be fetched", retryable: true } });
-    }
-    buf = Buffer.from(await res.arrayBuffer());
+    if (!got.ok) return sendTileFailure(req, reply, key, got);
+    buf = got.body;
     if (baseCache.size > 2000) baseCache.clear();
     baseCache.set(key, buf);
   }
