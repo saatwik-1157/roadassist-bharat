@@ -14,10 +14,10 @@
   "measuredOn": "2026-09-12",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 705,
+    "total": 749,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 177,
+      "unit": 221,
       "e2e": 189,
       "concurrency": 75,
       "gatewaySecurity": 27,
@@ -52,7 +52,7 @@
     "uniqueIndexes": 84,
     "gistIndexes": 5,
     "checkConstraints": 5,
-    "migrations": 5,
+    "migrations": 7,
     "how": [
       "Count through pg_depend, NEVER bare information_schema.",
       "CREATE EXTENSION postgis installs spatial_ref_sys into public, which",

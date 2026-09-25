@@ -9,7 +9,7 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://roadassistbharat.online/">
 <meta property="og:title" content="RoadAssist Bharat — Offline-First Roadside Assistance">
-<meta property="og:description" content="Roadside assistance for the roads where coverage is worst. 705 assertions, 74 refused attacks, and a trained YOLO11 detector — every number measured, not estimated.">
+<meta property="og:description" content="Roadside assistance for the roads where coverage is worst. 749 assertions, 74 refused attacks, and a trained YOLO11 detector — every number measured, not estimated.">
 <meta property="og:image" content="https://roadassistbharat.online/visuals/vis_products.png">
 <meta property="og:image:width" content="1900">
 <meta property="og:image:height" content="900">
@@ -873,7 +873,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 <section id="product" style="padding-top:0;border-top:0">
   <div class="wrap">
     <div class="metrics rv" id="metrics">
-      <div class="metric"><div class="v" data-count="705">705</div><div class="l">Assertions</div></div>
+      <div class="metric"><div class="v" data-count="749">749</div><div class="l">Assertions</div></div>
       <div class="metric"><div class="v" data-count="56">56</div><div class="l">Tables</div></div>
       <div class="metric"><div class="v" data-count="138">138</div><div class="l">Indexes</div></div>
       <div class="metric"><div class="v" data-count="65">65</div><div class="l">API routes</div></div>
@@ -1405,7 +1405,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
            boundary, JWT with role-based access, and server-sent events for real time.</p></div>
       <div class="card"><h3>Data</h3>
         <p>PostgreSQL 16 with PostGIS. 56 tables, 138 indexes, 5 GiST indexes for geospatial
-           dispatch, 5 migrations, and an append-only audit log.</p></div>
+           dispatch, 7 migrations, and an append-only audit log.</p></div>
     </div>
 
     <div class="x3d" id="arch3d" data-x3d data-step="0">
@@ -1544,21 +1544,21 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     <h2>Every suite, and the one that never ran</h2>
     <div class="tbl-scroll" style="margin-top:18px"><table class="tbl tbl-suites">
       <tr><th>Suite</th><th>What it covers</th><th class="num">Assertions</th><th>Status</th></tr>
-      <tr><td>Unit</td><td>No I/O; the only suite that runs standalone</td><td class="num">177</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Unit</td><td>No I/O; the only suite that runs standalone</td><td class="num">221</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>End-to-end</td><td>Full citizen and mechanic journeys against a live API</td><td class="num">189</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Concurrency</td><td>Races settled by Postgres rather than by timing</td><td class="num">75</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Security</td><td>Attacks that must every one be refused</td><td class="num">74</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Gateway security</td><td>Telecom path, audit hash chain, OTP limits</td><td class="num">27</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Browser</td><td>Real Chrome driven over CDP</td><td class="num">163</td><td><span class="badge badge-ok">PASS</span></td></tr>
-      <tr class="total"><td><strong>Total</strong></td><td>Six suites, zero failures</td><td class="num"><strong>705</strong></td><td><span class="badge badge-ok">PASS</span></td></tr>
-      <tr class="sub"><th colspan="4">Run separately &mdash; not part of the 705</th></tr>
+      <tr class="total"><td><strong>Total</strong></td><td>Six suites, zero failures</td><td class="num"><strong>749</strong></td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr class="sub"><th colspan="4">Run separately &mdash; not part of the 749</th></tr>
       <tr><td>Android</td><td>Kotlin unit tests; 21 cover the SOS ladder alone</td><td class="num">87</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>CV pipeline</td><td>Standard library only, no model download needed</td><td class="num">39</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Razorpay sandbox</td><td>Needs a payment account; has never been executed</td><td class="num">22</td><td><span class="badge badge-no">NOT RUN</span></td></tr>
     </table></div>
     <div class="note">
       <p><strong>Tested is not the same as claimed.</strong> The 22 Razorpay sandbox checks need a
-      KYC-verified account. They have never run, they are not part of the 705, and they are never
+      KYC-verified account. They have never run, they are not part of the 749, and they are never
       described as passing. Android lint reports zero errors and the release APK builds under R8.</p>
     </div>
   </div>
@@ -2434,12 +2434,12 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     {id:"llm",q:"Does it use an LLM or ChatGPT?",k:"no llm gpt chatgpt language model ai generated openai anthropic claude gemini wrapper bot",a:"<p><strong>No.</strong> There is no LLM or GPT dependency in any manifest and no chat endpoint called from any source file &mdash; not in the API, the Android client, the web surfaces or the CV pipeline.</p><p>That is enforced rather than promised: <code>npm run no-llm</code> fails the build on an LLM package in any manifest or a chat endpoint in any source file, and it runs in CI on every push. Even this answer panel is a lookup over a fixed index, not a model.</p>",src:"app/scripts/check-no-llm.mjs"},
     {id:"ai-what",q:"What is the AI in this project, then?",k:"ai artificial intelligence model yolo raksha detection kind machine learning vision",a:"<p>Two things, and neither is a language model. <strong>RAKSHA road-damage detection is a YOLO11 model trained in this repository</strong> on RDD2022 across four countries. <strong>The roadside diagnosis is a deterministic rule table</strong> (ADR-0006) returning <code>rules-1.0.0</code>, and every screen showing it says it is a rules engine.</p>",src:"app/docs/adr/0006-ai-rules-first.md"},
     {id:"map",q:"How accurate is the model?",k:"accuracy accurate map map50 metrics precision recall performance good benchmark",a:"<p><strong>mAP50 0.471 and mAP50-95 0.226</strong> on held-out validation, for <code>yolo11s-multi-rich</code> &mdash; four classes, 3.2k images across four countries, 13 epochs. Per-class mAP50: pothole 0.242, road damage 0.431.</p><p>Those are validation figures from the training run, not production accuracy. The model has never run against live Indian road imagery at scale, and the project does not claim it has.</p>",src:"ai/README.md"},
-    {id:"tests",q:"How many tests are there?",k:"tests test testing assertions suites coverage many proof evidence verified",a:"<p><strong>705 assertions across six suites, zero failures:</strong> 177 unit, 189 end-to-end, 75 concurrency, 74 security, 27 gateway security, 163 browser. Android adds 87 tests with zero lint errors; the CV pipeline adds 39.</p><p>22 Razorpay sandbox checks need a payment account, have never run, and are not counted in that total.</p>",src:"app/docs/measured.json"},
+    {id:"tests",q:"How many tests are there?",k:"tests test testing assertions suites coverage many proof evidence verified",a:"<p><strong>749 assertions across six suites, zero failures:</strong> 221 unit, 189 end-to-end, 75 concurrency, 74 security, 27 gateway security, 163 browser. Android adds 87 tests with zero lint errors; the CV pipeline adds 39.</p><p>22 Razorpay sandbox checks need a payment account, have never run, and are not counted in that total.</p>",src:"app/docs/measured.json"},
     {id:"security",q:"What does the security testing actually do?",k:"security attacks penetration vulnerabilities auth injection jwt refused hacking safe",a:"<p>74 attacks that must every one be refused: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and <code>alg:none</code> tokens, unsigned webhooks, oversized input and error-body leakage.</p><p>A green run means the attack was attempted and failed, which is a stronger statement than &ldquo;the code looks right&rdquo;.</p>",src:"app/scripts/security-audit.mjs"},
     {id:"offline",q:"What happens with no network?",k:"offline off-grid network signal connectivity sos emergency disconnected airplane coverage",a:"<p>Off-Grid Mode is the architecture, not a fallback (ADR-0009). An SOS raised with no signal becomes a real incident stored on the device with its own reference and GPS fix &mdash; and the screen says <em>stored on this device</em> rather than pretending it was sent.</p><p>Diagnosis runs on-device against the same rule table the server uses. When connectivity returns the journal replays idempotently, so a retry never becomes a second ambulance.</p>",src:"app/docs/adr/0009-offgrid-mode.md"},
     {id:"dispatch",q:"How does dispatch choose a mechanic?",k:"dispatch mechanic offers ranking nearest matching assign scheduling allocate choose",a:"<p>Dynamic scheduling: work is assigned at run time from a live pool by a score computed from distance, ETA and rating, using PostGIS <code>ST_DWithin</code> over a GiST index.</p><p>Two mechanics accepting one job is settled by <code>SELECT &hellip; FOR UPDATE</code> on the booking row, with offer expiry re-checked under the lock &mdash; not by timing.</p>",src:"app/apps/api/src/dispatch.ts"},
     {id:"model-dispatch",q:"Can the AI dispatch an ambulance by itself?",k:"model dispatch ambulance automatic human confirmation autonomous decide responder",a:"<p><strong>No, and that is structural.</strong> A model-detected crash lands in <code>AWAITING_CONFIRMATION</code> and there is no transition out of it that does not pass through a human (ADR-0005). A false positive that dispatches is worse than a false negative that asks.</p><p>ADR-0011 bounds the mirror failure &mdash; nobody arriving &mdash; with a review deadline per severity that escalates <em>attention</em>, never responders.</p>",src:"app/docs/adr/0011-unconfirmed-incident-review.md"},
-    {id:"db",q:"What database does it use?",k:"database postgres postgresql postgis schema tables indexes sql storage data",a:"<p>PostgreSQL 16 with PostGIS &mdash; required, not optional. <strong>56 tables, 138 indexes</strong> (84 unique, 5 GiST), 62 foreign keys, 5 check constraints and 5 migrations.</p><p>The audit log is hash-chained and append-only: Postgres <code>RULES</code> make <code>UPDATE</code> and <code>DELETE</code> on it no-ops.</p>",src:"app/docs/adr/0003-postgres-postgis.md"},
+    {id:"db",q:"What database does it use?",k:"database postgres postgresql postgis schema tables indexes sql storage data",a:"<p>PostgreSQL 16 with PostGIS &mdash; required, not optional. <strong>56 tables, 138 indexes</strong> (84 unique, 5 GiST), 62 foreign keys, 5 check constraints and 7 migrations.</p><p>The audit log is hash-chained and append-only: Postgres <code>RULES</code> make <code>UPDATE</code> and <code>DELETE</code> on it no-ops.</p>",src:"app/docs/adr/0003-postgres-postgis.md"},
     {id:"arch",q:"What is the architecture?",k:"architecture design monolith microservices structure stack backend built system",a:"<p>A modular monolith (ADR-0001). The Fastify API and every web surface ship in one process, because the surfaces are plain HTML, CSS and JavaScript with no build step &mdash; a second deployment unit would add a network hop and a CORS boundary in exchange for nothing.</p><p>65 routes under a versioned <code>/v1</code> contract, Zod validation at every boundary, JWT with role-based access, and server-sent events for real time.</p>",src:"app/docs/adr/0001-modular-monolith.md"},
     {id:"realtime",q:"How does real-time work?",k:"realtime websocket sse live updates streaming push events tracking",a:"<p>Server-sent events, not WebSocket &mdash; reasoned in ADR-0010. The stream is never the source of truth, so a dropped connection loses nothing: the client re-reads state from the API.</p>",src:"app/docs/adr/0010-realtime-and-concurrency.md"},
     {id:"sms",q:"Does it work on a feature phone?",k:"sms feature phone telecom ussd basic keypad text message without app dumbphone",a:"<p>Yes. <code>POST /v1/telecom/sms</code> is a complete booking path with no app at all, in all eight languages, switched by texting <code>LANG TA</code>.</p><p>Every script but English is outside GSM 03.38, so those seven are UCS-2 and one segment holds 70 characters rather than 160 &mdash; the message catalogue is held to that budget by a test.</p>",src:"app/apps/api/src/routes/telecom.ts"},

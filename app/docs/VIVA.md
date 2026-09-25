@@ -461,7 +461,7 @@ claimed a running autoscaler. It was corrected — see `CLAIMS-AUDIT.md`.)*
 labels it as such. The road-damage model is a genuinely trained YOLO11n with
 measured metrics. I will not call the first one AI.
 
-**"Did you actually test it, or does it just look right?"** — 705 assertions
+**"Did you actually test it, or does it just look right?"** — 749 assertions
 across six suites, all executed with no failures, including 74 attacks that must
 fail and a concurrency suite that fires ten simultaneous accepts. A seventh
 suite of 22 payment-gateway checks needs a Razorpay sandbox account, so it is

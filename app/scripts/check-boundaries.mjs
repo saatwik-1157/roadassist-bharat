@@ -147,7 +147,11 @@ function checkAppShell() {
   // headroom so ordinary maintenance does not trip it. Raising one is fine and
   // expected — do it in the same commit that grows the page, so the growth is a
   // decision somebody made rather than a drift nobody noticed.
-  const CEILING = { "/app.html": 4700, "/mechanic.html": 1200, "/map.html": 500 };
+  // app.html 4700 -> 4760 (25 Sep 2026): email sign-in, live booking updates and
+  // SOS stand-down landed together. Their pure logic already moved out to
+  // journey.js and email-signin.js; what remains is wiring that belongs in the
+  // shell. The next growth should split the page, not raise this again.
+  const CEILING = { "/app.html": 4760, "/mechanic.html": 1200, "/map.html": 500 };
 
   for (const page of cached) {
     let html;

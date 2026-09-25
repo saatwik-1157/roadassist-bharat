@@ -26,7 +26,7 @@ data residency. **Nothing is deployed.**
 
 ### Database
 56 tables · 62 FKs · 138 indexes (5 GiST) · 5 checks · 84 unique indexes ·
-5 migrations. Money in **integer paise**. Audit log **hash-chained and
+7 migrations. Money in **integer paise**. Audit log **hash-chained and
 append-only** — Postgres RULES make UPDATE/DELETE change nothing.
 
 ### AI
