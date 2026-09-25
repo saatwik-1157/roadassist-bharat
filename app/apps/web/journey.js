@@ -3,8 +3,9 @@
  * Pure functions over a status string: no DOM, no network, no storage. They
  * live outside app.html for one reason — so apps/api/test/journey.test.ts can
  * pin them. Every rule here answers a screen that disagreed with the server:
- * a PAID booking still marking "Payment" as the step happening now, and a
- * mechanic's acceptance that never reached the person waiting for it.
+ * a PAID booking still marking "Payment" as the step happening now, a
+ * mechanic's acceptance that never reached the person waiting for it, and an
+ * escalated SOS its owner had no way to call off.
  *
  * A classic script (no import/export), so app.html can load it with a plain
  * <script src> ahead of its inline IIFE — which stays a classic script — and
@@ -59,5 +60,32 @@
     };
   }
 
-  global.RAJourney = { JOURNEY: JOURNEY, journeyMarks: journeyMarks, bookingChange: bookingChange };
+  /**
+   * The ways out of an emergency its owner may take, per the incident state
+   * machine (apps/api/src/domain/incident-machine.ts):
+   *
+   *   cancel  — "false alarm". Legal from every open state; the server records
+   *             it as a false positive.
+   *   resolve — "I'm safe now". Only once someone stood behind the emergency
+   *             (CONFIRMED or RESPONDING): an unconfirmed detection is not an
+   *             emergency that was resolved, it is one that never was.
+   *
+   * RESOLVED and CANCELLED are terminal and offer nothing.
+   */
+  var CANCEL = { command: "cancel", path: "/cancel", label: "Cancel — false alarm", body: {} };
+  var RESOLVE = { command: "resolve", path: "/resolve", label: "I'm safe now", body: { outcome: "self_resolved" } };
+  var SOS_EXITS = {
+    DETECTED: [CANCEL],
+    AWAITING_CONFIRMATION: [CANCEL],
+    CONFIRMED: [RESOLVE, CANCEL],
+    RESPONDING: [RESOLVE, CANCEL],
+  };
+
+  function sosExits(status) { return (SOS_EXITS[status] || []).slice(); }
+  function sosActive(status) { return sosExits(status).length > 0; }
+
+  global.RAJourney = {
+    JOURNEY: JOURNEY, journeyMarks: journeyMarks, bookingChange: bookingChange,
+    sosExits: sosExits, sosActive: sosActive,
+  };
 })(globalThis);

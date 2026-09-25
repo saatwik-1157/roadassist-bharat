@@ -10,12 +10,17 @@ import { describe, it } from "node:test";
 
 import "../../web/journey.js";
 import { STATUSES } from "../src/domain/booking-machine.js";
+import {
+  INCIDENT_STATUSES, allowedIncidentCommands, applyIncident, type IncidentStatus,
+} from "../src/domain/incident-machine.js";
 
 type Mark = "done" | "now" | "todo";
 interface Journey {
   JOURNEY: string[];
   journeyMarks(status: string): Mark[] | null;
   bookingChange(prev: string | null, next: string): { announce: boolean; accepted: boolean; offersLive: boolean };
+  sosExits(status: string | null): Array<{ command: string; path: string; label: string; body: Record<string, unknown> }>;
+  sosActive(status: string | null): boolean;
 }
 const J = (globalThis as unknown as { RAJourney: Journey }).RAJourney;
 
@@ -88,5 +93,50 @@ describe("a booking that moves under the citizen's screen", () => {
       assert.equal(c.accepted, false, s);
       assert.equal(c.offersLive, false, s);
     }
+  });
+});
+
+describe("standing down an emergency", () => {
+  it("offers only what the incident state machine will accept, in every state", () => {
+    // The app must never show a button the server is certain to refuse.
+    for (const s of INCIDENT_STATUSES) {
+      for (const x of J.sosExits(s)) {
+        assert.ok(allowedIncidentCommands(s as IncidentStatus).includes(x.command as "cancel" | "resolve"),
+          `${x.command} from ${s}`);
+        assert.doesNotThrow(() => applyIncident(s as IncidentStatus, x.command as "cancel" | "resolve"));
+      }
+    }
+  });
+
+  it("an escalated incident (a synced off-grid SOS) can be called off or closed as safe", () => {
+    for (const s of ["CONFIRMED", "RESPONDING"]) {
+      assert.deepEqual(J.sosExits(s).map((x) => x.command), ["resolve", "cancel"], s);
+      assert.equal(J.sosActive(s), true, s);
+    }
+    const safe = J.sosExits("RESPONDING").find((x) => x.command === "resolve")!;
+    assert.equal(safe.path, "/resolve");
+    assert.equal(safe.label, "I'm safe now");
+    assert.deepEqual(safe.body, { outcome: "self_resolved" }, "the owner closing it is not an assisted rescue");
+    const cancel = J.sosExits("RESPONDING").find((x) => x.command === "cancel")!;
+    assert.equal(cancel.path, "/cancel");
+    assert.match(cancel.label, /false alarm/i);
+  });
+
+  it("an unconfirmed detection can only be cancelled, never 'resolved'", () => {
+    for (const s of ["DETECTED", "AWAITING_CONFIRMATION"]) {
+      assert.deepEqual(J.sosExits(s).map((x) => x.command), ["cancel"], s);
+    }
+  });
+
+  it("a closed emergency offers nothing and is not active", () => {
+    for (const s of ["RESOLVED", "CANCELLED", null, "nonsense"]) {
+      assert.deepEqual(J.sosExits(s), [], String(s));
+      assert.equal(J.sosActive(s), false, String(s));
+    }
+  });
+
+  it("hands out copies, so a caller cannot rewrite the table", () => {
+    J.sosExits("RESPONDING").pop();
+    assert.equal(J.sosExits("RESPONDING").length, 2);
   });
 });

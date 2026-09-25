@@ -453,6 +453,7 @@
         <div id="offline-banner" style="margin-top:16px" hidden></div>
 
         <!-- The current task leads: track a live rescue, or start one. -->
+        <div id="home-sos" style="margin-top:16px" hidden></div>
         <div id="home-task" style="margin-top:16px"></div>
 
         <div class="sos-wrap">
@@ -1322,7 +1323,9 @@
     }
 
     var json = await res.json().catch(function () { return {}; });
-    if (!res.ok) throw new Error((json.error && json.error.title) || ("HTTP " + res.status));
+    // Status and allowed commands ride along: a 409 allowing nothing = closed elsewhere.
+    if (!res.ok) throw Object.assign(new Error((json.error && json.error.title) || ("HTTP " + res.status)),
+      { status: res.status, allowed: json.error && json.error.allowed });
     return json;
   }
 
@@ -1408,6 +1411,7 @@
     streamStop();
     state.token = null; state.refresh = null; state.bookingId = null;
     clearSession();
+    Object.keys(sosOpen).forEach(function (id) { trackIncident(id, null); });   // the next user's are not these
     $("tabs").hidden = true;
     nav("auth");
   }
@@ -1664,8 +1668,8 @@
     }
     if (ev.type === "sos.status") {
       if (ev.status === "RESPONDING") toast("Responders alerted for your emergency", "ok");
+      trackIncident(ev.incidentId, ev.status);   // redraws Home and off-grid; closed = controls go
       refreshReadiness();
-      renderOffGrid();
       return;
     }
     if (ev.type === "booking.status") {
@@ -1895,6 +1899,7 @@
     saveQueue();
     syncSteps();
     await resumeActiveBooking();
+    renderSosOpen();
     // A shortcut target (from the installed app's long-press menu) wins over
     // the default landing screen; otherwise home.
     if (!routeFromHash()) nav("home");
@@ -3279,6 +3284,7 @@
       }, { force: true });
       sosId = r.data.id;
       sosPos = pos;
+      trackIncident(sosId, r.data.status);
       openSos(r.data.status);
     } catch (e) {
       // The connection died between the tier check and the request — which is
@@ -3540,6 +3546,7 @@
           "<button class='btn ghost' id='sos-done'>Close</button></div>";
       $("sos-done").onclick = closeSos;
       $("sos-map").onclick = function () { closeSos(); nav("map"); };
+      trackIncident(sosId, c.data.status); sosExitButtons($("sos-out"), sosId);
       buzz([40, 80, 40]);
     } catch (e) {
       $("sos-out").innerHTML = "<div class='card'><p class='meta'>Escalation failed: " +
@@ -3565,9 +3572,53 @@
     try {
       var r = await api("POST", "/v1/sos/" + sosId + "/cancel", {}, { force: true });
       toast("Cancelled — " + (r.meta.note || "false alarm recorded"), "ok");
+      trackIncident(sosId, r.data.status);
     } catch (e) { toast("Could not cancel: " + e.message, "bad"); }
     closeSos();
   };
+
+  /* ── open emergencies, until they are closed ─────────────────────────────
+     With no "my incidents" read, the app remembers each one it raised or synced
+     and follows it on the stream. Once the sheet closed, an escalated one (an
+     off-grid SOS synced later above all) left its owner no way to call it off. */
+  var sosOpen = {};
+  try { sosOpen = JSON.parse(localStorage.getItem("ra.app.sos")) || {}; } catch (e) { /* none kept */ }
+  function trackIncident(id, status) {
+    if (!id) return;
+    if (RAJourney.sosActive(status)) sosOpen[id] = status; else delete sosOpen[id];
+    try { localStorage.setItem("ra.app.sos", JSON.stringify(sosOpen)); } catch (e) { /* this session only */ }
+    renderSosOpen(); renderOffGrid();
+  }
+  /** "I'm safe now" and/or "Cancel — false alarm": whatever the state allows (journey.js). */
+  function sosExitButtons(parent, id) {
+    var row = parent.appendChild(document.createElement("div"));
+    row.className = "btn-row"; row.style.marginTop = "12px";
+    RAJourney.sosExits(sosOpen[id]).forEach(function (x) {
+      var b = row.appendChild(document.createElement("button"));
+      b.className = x.command === "cancel" ? "btn ghost" : "btn"; b.textContent = x.label;
+      b.onclick = busy(b, async function () {
+        try {
+          var r = await api("POST", "/v1/sos/" + id + x.path, x.body, { force: true });
+          toast(x.command === "cancel" ? "Cancelled — false alarm recorded" : "Glad you are safe — emergency closed", "ok");
+          if (id === sosId) closeSos();
+          trackIncident(id, r.data.status);
+        } catch (e) {   // a 409 says why, in the server's words; allowing nothing = closed elsewhere
+          toast(e.message, "bad");
+          if (e.status === 409 && e.allowed && !e.allowed.length) trackIncident(id, null);
+        }
+      });
+    });
+  }
+  function renderSosOpen() {
+    var box = $("home-sos"), ids = Object.keys(sosOpen);
+    box.hidden = !ids.length;
+    box.innerHTML = ids.map(function (id) {
+      return "<div class='card' style='border-color:var(--red);margin-bottom:12px' data-sos='" + esc(id) + "'>" +
+        "<p class='eyebrow'>Active emergency · " + esc(sosOpen[id].toLowerCase()) + "</p><p class='meta' " +
+        "style='margin-top:4px'>Incident " + esc(id.slice(0, 8)) + ". If you are safe, say so: it frees the responder.</p></div>";
+    }).join("");
+    ids.forEach(function (id) { sosExitButtons(box.querySelector("[data-sos='" + id + "']"), id); });
+  }
 
   // ── live map ──────────────────────────────────────────────────────────────
   function openMap() {
@@ -4054,8 +4105,9 @@
             // rule 4). This is the explicit step that hands the incident to
             // dispatch, and it reuses the same ladder an online SOS runs.
             if (out.id && out.status === "created") {
+              trackIncident(out.id, out.incidentStatus);
               try {
-                await api("POST", "/v1/sos/" + out.id + "/confirm", {}, { force: true });
+                trackIncident(out.id, (await api("POST", "/v1/sos/" + out.id + "/confirm", {}, { force: true })).data.status);
                 escalated++;
               } catch (e) {
                 // The incident is safely on the server; only the alerting
@@ -4252,6 +4304,7 @@
       if (active.status === Store.STATUS_SYNCED) {
         ogProgress("<b>SOS synchronized.</b> RoadAssist dispatch can now process your incident." +
           (active.serverId ? " Platform reference " + esc(String(active.serverId).slice(0, 8)) + "." : ""));
+        if (sosOpen[active.serverId]) sosExitButtons(body.querySelector(".og-hero"), active.serverId); // still open
       } else if (state.tier === RA_OFFLINE) {
         ogProgress("<b>Waiting for a connection.</b> Nothing has been transmitted. This incident sends " +
           "itself automatically the moment this device reaches a network.");
