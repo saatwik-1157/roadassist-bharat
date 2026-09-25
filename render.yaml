@@ -137,13 +137,13 @@ services:
       # send.roadassistbharat.online is verified in Resend (DKIM + SPF records at
       # Hostinger), so mail can reach any address, not only the account owner's.
       - key: EMAIL_FROM
-        value: RoadAssist Alerts <alerts@send.roadassistbharat.online>
+        value: RoadAssist-Bharat <alerts@send.roadassistbharat.online>
       - key: EMAIL_API_KEY
         sync: false
       - key: ALERT_EMAIL_TO
         sync: false
       - key: ALERT_LABEL
-        value: roadassist on Render
+        value: RoadAssist-Bharat on Render
 
       # Email sign-in (apps/api/src/domain/email-signin.ts): "email=+91XXXXXXXXXX"
       # pairs, comma-separated, set by hand. Each listed account signs in with a

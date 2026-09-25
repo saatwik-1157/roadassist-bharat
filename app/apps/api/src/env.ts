@@ -208,7 +208,7 @@ export const env = {
     to: process.env.ALERT_EMAIL_TO ?? "",
     signinsPerHour: Number(process.env.ALERT_SIGNINS_PER_HOUR ?? 6),
     otpBurst: Number(process.env.ALERT_OTP_BURST ?? 5),
-    label: process.env.ALERT_LABEL ?? "the RoadAssist API",
+    label: process.env.ALERT_LABEL ?? "the RoadAssist-Bharat API",
   },
 
   exposeDevOtp: bool(process.env.EXPOSE_DEV_OTP, true),

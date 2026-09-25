@@ -160,7 +160,7 @@ function deliver(a: Alert) {
   const body = [...a.lines, "",
     "Phone numbers are masked. These emails never carry a name, a location, an IP address or a device.",
     `Sent by ${env.alerts.label}.`].join("\n");
-  email.send(TO, `[RoadAssist] ${a.subject}`, body)
+  email.send(TO, `[RoadAssist-Bharat] ${a.subject}`, body)
     .then(() => { stats.sent++; })
     .catch((err: unknown) => {
       stats.failed++;

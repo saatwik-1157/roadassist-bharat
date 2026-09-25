@@ -132,7 +132,7 @@ name, a position, an IP address or a device.
 account's own address, so a team list needs a verified domain first: in Resend,
 **Domains → Add domain**, add the DNS records it shows (at the domain's DNS
 host), wait for **Verified**, then set `EMAIL_FROM` to an address on that
-domain, e.g. `RoadAssist Alerts <alerts@send.roadassistbharat.online>` (this project's verified sending domain).
+domain, e.g. `RoadAssist-Bharat <alerts@send.roadassistbharat.online>` (this project's verified sending domain).
 
 Web3Forms was considered and not used: its API only allows server-side sending
 on a paid plan with a whitelisted server IP, and sending from the browser

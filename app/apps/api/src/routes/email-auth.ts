@@ -57,8 +57,8 @@ export async function emailAuthRoutes(app: FastifyInstance) {
     }).returning({ id: S.otpChallenges.id });
 
     try {
-      await mail.send(email, "Your RoadAssist sign-in code",
-        [`Your RoadAssist sign-in code is ${code}.`, "",
+      await mail.send(email, "Your RoadAssist-Bharat sign-in code",
+        [`Your RoadAssist-Bharat sign-in code is ${code}.`, "",
           "It expires in 5 minutes and works once.",
           "If you did not ask to sign in, ignore this email: nobody can sign in without the code."].join("\n"));
     } catch (err) {
