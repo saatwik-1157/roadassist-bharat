@@ -58,15 +58,28 @@ function banner(msg) { console.log(`\n═══ ${msg} ${"═".repeat(Math.max(0
 banner("RAKSHA EDGE SIMULATOR — ALL DATA SIMULATED");
 
 // ── 1. ensure we have a registered device (admin registers; hash-only server side)
-let state = null;
-try { state = JSON.parse(readFileSync(STATE_FILE, "utf8")); } catch { /* first run */ }
+//
+// Two ways in. A device already registered on RAKSHA (by an officer, from the
+// dashboard) can be named with RAKSHA_DEVICE_ID / RAKSHA_DEVICE_SECRET, and then
+// no admin session is needed at all - which is the only way against a
+// deployment where the admin signs in by email and the phone code is refused.
+// Otherwise the demo admin signs in with the dev OTP and registers one.
+const fromEnv = process.env.RAKSHA_DEVICE_ID && process.env.RAKSHA_DEVICE_SECRET
+  ? { deviceId: process.env.RAKSHA_DEVICE_ID.trim(), deviceSecret: process.env.RAKSHA_DEVICE_SECRET.trim() }
+  : null;
+let state = fromEnv;
+if (!state) { try { state = JSON.parse(readFileSync(STATE_FILE, "utf8")); } catch { /* first run */ } }
 
-const otp = await call("POST", "/v1/auth/otp/request", { body: { msisdn: ADMIN_MSISDN } });
-const verified = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: ADMIN_MSISDN, code: otp.meta.devOtp } });
-const adminToken = verified.data.accessToken;
-if (!verified.data.roles.includes("admin")) {
-  console.error("✗ %s is not admin — run `npm run db:seed:raksha` first", ADMIN_MSISDN);
-  process.exit(1);
+let adminTokenCache = null;
+async function adminToken() {
+  if (adminTokenCache) return adminTokenCache;
+  const otp = await call("POST", "/v1/auth/otp/request", { body: { msisdn: ADMIN_MSISDN } });
+  const verified = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: ADMIN_MSISDN, code: otp.meta.devOtp } });
+  if (!verified.data.roles.includes("admin")) {
+    console.error("✗ %s is not admin — run `npm run db:seed:raksha` first", ADMIN_MSISDN);
+    process.exit(1);
+  }
+  return (adminTokenCache = verified.data.accessToken);
 }
 
 let deviceToken = null;
@@ -76,12 +89,15 @@ if (state?.deviceId && state?.deviceSecret) {
       body: { deviceId: state.deviceId, deviceSecret: state.deviceSecret },
     });
     deviceToken = t.data.accessToken;
-    console.log(`→ reusing device ${state.deviceId} (credential from local state file)`);
-  } catch { console.log("→ stored credential rejected — registering a fresh device"); }
+    console.log(`→ using device ${state.deviceId} (${fromEnv ? "credential from the environment" : "credential from local state file"})`);
+  } catch (e) {
+    if (fromEnv) { console.error("✗ RAKSHA_DEVICE_ID / RAKSHA_DEVICE_SECRET were rejected: " + e.message); process.exit(1); }
+    console.log("→ stored credential rejected — registering a fresh device");
+  }
 }
 if (!deviceToken) {
   const reg = await call("POST", "/v1/raksha/devices", {
-    token: adminToken,
+    token: await adminToken(),
     body: { name: "SIM-EDGE-NH48 [SIMULATED]", lat: TRACK[0][1], lng: TRACK[0][0], hardwareRef: "SIMULATED rpi-class" },
   });
   state = { deviceId: reg.data.id, deviceSecret: reg.data.deviceSecret };
@@ -183,9 +199,15 @@ console.log("→ heartbeat sent (battery, storage, position)");
 
 // ── 4. road health after the patrol
 banner("ROAD HEALTH (rule-based v1 — not an official standard)");
-const health = await call("POST", "/v1/raksha/road-health/recompute", { token: adminToken });
-for (const s of health.data) {
-  console.log(`  ${s.code}  score ${String(s.score).padStart(3)}  ${s.level.toUpperCase().padEnd(8)}  potholes:${s.factors.potholes} damage:${s.factors.roadDamage} obstructions:${s.factors.obstructions}`);
+// Recomputing is an officer's action. With a device credential from the
+// environment there is no admin session to do it with, so say how instead.
+if (fromEnv) {
+  console.log("  Sign in to RAKSHA and click “Recompute” to score the corridor with these detections.");
+} else {
+  const health = await call("POST", "/v1/raksha/road-health/recompute", { token: await adminToken() });
+  for (const s of health.data) {
+    console.log(`  ${s.code}  score ${String(s.score).padStart(3)}  ${s.level.toUpperCase().padEnd(8)}  potholes:${s.factors.potholes} damage:${s.factors.roadDamage} obstructions:${s.factors.obstructions}`);
+  }
 }
 
 banner("DONE");
