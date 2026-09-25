@@ -1925,6 +1925,13 @@ app.log.info(emailSignin.accounts.size
   ? `email sign-in: ${emailSignin.accounts.size} account(s), via ${providerSummary().email}`
   : "email sign-in: off (EMAIL_SIGNIN unset)");
 for (const r of emailSignin.rejected) app.log.warn(`EMAIL_SIGNIN entry ignored: ${r}`);
+// Demo only: an empty RAKSHA receives the project's real detections through its
+// own ingest route (demo/raksha-demo-seed.ts). Imported here, at the end, so
+// nothing above moves; never awaited, so it cannot hold up or fail the boot.
+void import("./demo/raksha-demo-seed.js")
+  .then(({ seedRakshaDemo }) => seedRakshaDemo(app))
+  .then((m) => app.log.info(m))
+  .catch((e: unknown) => app.log.warn({ err: e instanceof Error ? e.message : String(e) }, "raksha demo seed failed"));
 
 // Trusting *every* hop means any client that can reach this port may set
 // X-Forwarded-For itself, mint a fresh address per request, and walk straight
