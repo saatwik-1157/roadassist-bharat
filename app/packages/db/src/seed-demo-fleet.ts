@@ -111,6 +111,26 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
  * The fleet, as plain data. No I/O, no clock, no global state — two calls
  * return equal arrays, which is what the unit test pins.
  */
+/**
+ * Responder units near the demo corridor.
+ *
+ * An escalated SOS asks for the nearest active responder (routes/emergency.ts),
+ * and a hosted database that never finished the full seed had none, so every
+ * escalation reported "no responder found" and the live map showed 0. These are
+ * few, fixed and labelled simulated in their names, and they carry NO phone
+ * number: a made-up number on an emergency responder is exactly the kind of
+ * detail that must never look real.
+ */
+export interface DemoResponderSpec { name: string; kind: "police" | "ambulance" | "tow"; lng: number; lat: number }
+export const DEMO_RESPONDERS: readonly DemoResponderSpec[] = [
+  { name: "NH-48 Highway Patrol, Rajiv Chowk (simulated)", kind: "police", lng: 77.0310, lat: 28.4620 },
+  { name: "108 Ambulance, Gurugram Civil Lines (simulated)", kind: "ambulance", lng: 77.0170, lat: 28.4700 },
+  { name: "108 Ambulance, Manesar (simulated)", kind: "ambulance", lng: 76.9350, lat: 28.3600 },
+  { name: "NH-48 Highway Patrol, Kherki Daula (simulated)", kind: "police", lng: 76.9990, lat: 28.4230 },
+  { name: "Recovery Unit, Panchgaon (simulated)", kind: "tow", lng: 76.9640, lat: 28.3930 },
+  { name: "Recovery Unit, Sohna Road (simulated)", kind: "tow", lng: 77.0450, lat: 28.4100 },
+];
+
 export function buildDemoFleet(): DemoMechanicSpec[] {
   const rand = mulberry32(FLEET_SEED);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)];
@@ -271,6 +291,24 @@ export async function seedDemoFleet(env: NodeJS.ProcessEnv = process.env): Promi
       });
       tally[outcome]++;
     }
+
+    // Responders: by name, so a rerun adds only what is missing and never a duplicate.
+    const O = await import("./schema/ops.js");
+    let respondersAdded = 0;
+    for (const r of DEMO_RESPONDERS) {
+      const [have] = await db.select({ id: O.responderUnits.id }).from(O.responderUnits)
+        .where(eq(O.responderUnits.name, r.name)).limit(1);
+      if (have) continue;
+      await db.transaction(async (tx) => {
+        const [row] = await tx.insert(O.responderUnits).values({ name: r.name, kind: r.kind, msisdn: null, active: true })
+          .returning({ id: O.responderUnits.id });
+        await tx.execute(sql`
+          UPDATE responder_units SET last_location = ST_SetSRID(ST_MakePoint(${r.lng}, ${r.lat}), 4326)
+           WHERE id = ${row.id}`);
+      });
+      respondersAdded++;
+    }
+    console.log(`✓ demo responders — ${respondersAdded} added, ${DEMO_RESPONDERS.length - respondersAdded} already present`);
 
     console.log(`✓ demo fleet seed complete — ${tally.created} mechanic(s) created, ` +
                 `${tally.attached} attached to an existing account, ${tally.skipped} already present ` +

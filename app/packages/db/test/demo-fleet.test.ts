@@ -12,7 +12,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildDemoFleet, seedDemoFleet, DEMO_BOUNDS, DEMO_FLEET_SIZE,
+  buildDemoFleet, seedDemoFleet, DEMO_BOUNDS, DEMO_FLEET_SIZE, DEMO_RESPONDERS,
 } from "../src/seed-demo-fleet.js";
 
 test("24 mechanics, each with a unique msisdn in the documented range", () => {
@@ -53,4 +53,18 @@ test("it refuses to run with NODE_ENV=production, before touching a database", a
     () => seedDemoFleet({ NODE_ENV: "production" }),
     /refuses to run with NODE_ENV=production/,
   );
+});
+
+test("demo responders sit on the corridor, say they are simulated, and carry no phone number", () => {
+  assert.ok(DEMO_RESPONDERS.length >= 3);
+  const kinds = new Set(DEMO_RESPONDERS.map((r) => r.kind));
+  for (const k of ["police", "ambulance", "tow"]) assert.ok(kinds.has(k as never), `no ${k} responder`);
+  const names = new Set<string>();
+  for (const r of DEMO_RESPONDERS) {
+    assert.match(r.name, /\(simulated\)$/, `${r.name} is not labelled simulated`);
+    assert.ok(!names.has(r.name), `duplicate name ${r.name}`); names.add(r.name);
+    assert.ok(r.lng >= DEMO_BOUNDS.minLng && r.lng <= DEMO_BOUNDS.maxLng && r.lat >= DEMO_BOUNDS.minLat && r.lat <= DEMO_BOUNDS.maxLat,
+      `${r.name} is outside the demo corridor`);
+    assert.ok(!("msisdn" in r), "a demo responder must not carry a phone number");
+  }
 });
