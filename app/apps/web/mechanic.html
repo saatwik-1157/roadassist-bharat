@@ -485,7 +485,7 @@
     } catch (e) { toast(e.message, "bad"); }
   });
 
-  if (window.RAEmail) RAEmail.mount($("m-signin"), { toast: toast, onSession: async function (d) {
+  if (window.RAEmail) RAEmail.mount($("m-signin"), { api: API, toast: toast, onSession: async function (d) {
     if (!d.roles.includes("mechanic") && !d.roles.includes("admin")) { toast("That account has no mechanic role", "bad"); return; }
     state.token = d.accessToken; state.refresh = d.refreshToken; state.msisdn = d.user.msisdn;
     saveSession();

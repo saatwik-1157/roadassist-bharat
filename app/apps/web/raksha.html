@@ -1049,7 +1049,7 @@
     finally { btn.classList.remove("is-busy"); }
   };
 
-  if (window.RAEmail) RAEmail.mount($("login-btn"), { toast: function (m) { status(m); }, onSession: async function (d) {
+  if (window.RAEmail) RAEmail.mount($("login-btn"), { api: API, toast: function (m) { status(m); }, onSession: async function (d) {
     token = d.accessToken; refreshToken = d.refreshToken; sessionMsisdn = d.user.msisdn;
     saveSession();
     await enterConsole(d.roles, d.user.msisdn);

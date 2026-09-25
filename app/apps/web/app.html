@@ -1833,7 +1833,7 @@
   });
 
   // Email sign-in (email-signin.js) lands on the same path as the phone code.
-  if (window.RAEmail) RAEmail.mount($("a-step2"), { toast: toast, onSession: async function (d) {
+  if (window.RAEmail) RAEmail.mount($("a-step2"), { api: API, toast: toast, onSession: async function (d) {
     state.token = d.accessToken; state.refresh = d.refreshToken; state.msisdn = d.user.msisdn;
     saveSession();
     await enterApp(d.roles, "signed in by email");
