@@ -87,16 +87,24 @@ object Api {
      * Pure, so it is tested off-device rather than by retyping addresses into
      * a running app.
      */
-    fun normalizeBase(input: String): String {
+    fun normalizeBase(input: String): String = normalizeOr(input, base)
+
+    /**
+     * [normalizeBase] with the fallback made explicit. Typing into a field
+     * falls back to the address in use; restoring at launch (see
+     * [restoreBase]) falls back to [DEFAULT_BASE], and must not depend on
+     * whatever [base] happens to hold when it runs.
+     */
+    private fun normalizeOr(input: String, fallback: String): String {
         val typed = input.trim()
-        if (typed.isEmpty()) return base
+        if (typed.isEmpty()) return fallback
         val schemed =
             if (typed.startsWith("http://", ignoreCase = true) ||
                 typed.startsWith("https://", ignoreCase = true)) typed
             else "http://$typed"
         val trimmed = schemed.trimEnd('/')
         // A scheme and nothing else is not an address; keep what already works.
-        if (trimmed.endsWith(":")) return base
+        if (trimmed.endsWith(":")) return fallback
         // The live platform is only ever reached over HTTPS. The bare-host rule
         // above guesses http:// because that is right for a laptop on the LAN,
         // but for the live host it would send a phone number, a sign-in code
@@ -120,6 +128,55 @@ object Api {
      * reason [normalizeBase] exists at all.
      */
     fun isCurrentBase(input: String): Boolean = normalizeBase(input) == base
+
+    /**
+     * The address every install used before [DEFAULT_BASE] existed: the
+     * emulator's alias for the dev machine.
+     *
+     * It was the BUILT-IN default, not a choice. But the server field on the
+     * sign-in screen is pre-filled with the address in use and is saved on
+     * every sign-in attempt while it is open, so an install where somebody
+     * merely looked at that field carries this exact string in preferences
+     * without anybody ever having picked it.
+     * Restored as-is, it would keep those installs pointed at nothing on a real
+     * phone for ever, and the move to the live platform would reach only fresh
+     * installs.
+     */
+    const val LEGACY_DEFAULT_BASE = "http://10.0.2.2:4000"
+
+    /** What to do with a saved address at launch: use [base]; clear the saved one if [forget]. */
+    data class Restored(val base: String, val forget: Boolean)
+
+    /**
+     * Turn the address saved in preferences into the one to use, once.
+     *
+     * - Nothing saved (or nothing usable): the live default.
+     * - EXACTLY the old built-in default, after the same normalisation a typed
+     *   address gets: treated as nothing saved, and [Restored.forget] tells the
+     *   caller to delete it, so this is decided once and not on every launch.
+     *   Scheme and host compare case-insensitively, because URLs do.
+     * - Anything else — a LAN address, a tunnel, the live URL, even the
+     *   emulator alias on another port — is somebody's choice and is kept.
+     *   It goes through the same normalisation onCreate always applied, which
+     *   leaves an address commitApiBase saved exactly as it was.
+     *
+     * [migrated] is the one-time part. Once the old default has been cleared,
+     * a developer who later types 10.0.2.2:4000 on purpose has CHOSEN it, and
+     * silently moving them to production on the next launch would be the same
+     * mistake in the other direction. So after the first launch of this
+     * version the legacy rule no longer applies at all.
+     *
+     * Pure: the preferences are read and written by the caller, so every case
+     * is tested off-device.
+     */
+    fun restoreBase(saved: String?, migrated: Boolean): Restored {
+        if (saved.isNullOrBlank()) return Restored(DEFAULT_BASE, forget = false)
+        val address = normalizeOr(saved, DEFAULT_BASE)
+        if (!migrated && address.equals(LEGACY_DEFAULT_BASE, ignoreCase = true)) {
+            return Restored(DEFAULT_BASE, forget = true)
+        }
+        return Restored(address, forget = false)
+    }
 
     /**
      * Does a RoadAssist API answer at this address?

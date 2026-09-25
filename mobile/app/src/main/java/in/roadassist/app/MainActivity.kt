@@ -83,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
+import androidx.core.content.edit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -104,13 +105,25 @@ val Alarm: Color    @Composable get() = LocalRa.current.alarm
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // On a real handset the API address is typed by hand: 10.0.2.2 is an
-        // emulator alias and means nothing there. Without this it resets to
-        // that default on every launch and has to be retyped. Restored before
-        // anything composes, because the map WebView reads Api.base too.
-        getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE)
-            .getString("apiBase", null)
-            ?.let { Api.base = Api.normalizeBase(it) }
+        // A developer's server address (a LAN IP, the emulator alias) is typed
+        // by hand and kept, so it is not retyped on every launch. Restored
+        // before anything composes, because the map WebView reads Api.base too.
+        //
+        // Api.restoreBase also moves installs that only ever saved the OLD
+        // built-in default (http://10.0.2.2:4000) to the live platform, once:
+        // the stale value is deleted and the migration is recorded, so a
+        // developer who picks 10.0.2.2:4000 deliberately afterwards keeps it.
+        val uiPrefs = getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE)
+        val migrated = uiPrefs.getBoolean("apiBaseMigrated", false)
+        val restored = Api.restoreBase(uiPrefs.getString("apiBase", null), migrated)
+        Api.base = restored.base
+        if (!migrated) {
+            // core-ktx's edit {}, which applies on exit (already a dependency).
+            uiPrefs.edit {
+                if (restored.forget) remove("apiBase")
+                putBoolean("apiBaseMigrated", true)
+            }
+        }
         setContent {
             val ctx = LocalContext.current
             val prefs = remember { ctx.getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE) }

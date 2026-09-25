@@ -71,6 +71,62 @@ class ApiDefaultTest {
         assertTrue(Api.isCurrentBase("app.roadassistbharat.online"))
     }
 
+    // ── installs that saved the OLD built-in default ─────────────────────────
+    // http://10.0.2.2:4000 was the built-in default, not a user's choice, but
+    // the sign-in screen could save it. Those installs must move to the live
+    // platform once; every address somebody actually chose must survive.
+
+    @Test
+    fun `the old built-in default migrates to the live platform and is forgotten`() {
+        for (saved in listOf(
+            "http://10.0.2.2:4000",
+            "http://10.0.2.2:4000/",
+            "10.0.2.2:4000",
+            "  HTTP://10.0.2.2:4000  ",
+        )) {
+            assertEquals(saved, Api.Restored(Api.DEFAULT_BASE, forget = true),
+                Api.restoreBase(saved, migrated = false))
+        }
+    }
+
+    @Test
+    fun `addresses somebody chose are kept exactly`() {
+        for (saved in listOf(
+            "http://10.0.2.2:4001",
+            "http://192.168.1.8:4000",
+            "https://app.roadassistbharat.online",
+        )) {
+            assertEquals(saved, Api.Restored(saved, forget = false),
+                Api.restoreBase(saved, migrated = false))
+        }
+    }
+
+    @Test
+    fun `nothing saved gives the live default`() {
+        for (saved in listOf(null, "", "   ")) {
+            assertEquals(Api.Restored(Api.DEFAULT_BASE, forget = false),
+                Api.restoreBase(saved, migrated = false))
+        }
+    }
+
+    @Test
+    fun `restoring does not depend on the address currently in memory`() {
+        // normalizeBase falls back to Api.base; restoring must fall back to the
+        // live default whatever a previous screen or test left in base.
+        Api.base = "http://192.168.1.8:4000"
+        assertEquals(Api.DEFAULT_BASE, Api.restoreBase("http://", migrated = false).base)
+        assertEquals(Api.DEFAULT_BASE, Api.restoreBase("", migrated = false).base)
+    }
+
+    @Test
+    fun `after the one-time migration the emulator address is a deliberate choice`() {
+        // A developer who types 10.0.2.2:4000 AFTER the old default was cleared
+        // chose it. Moving them to production on every launch would be the same
+        // mistake as the one being fixed, in the other direction.
+        assertEquals(Api.Restored("http://10.0.2.2:4000", forget = false),
+            Api.restoreBase("http://10.0.2.2:4000", migrated = true))
+    }
+
     @Test
     fun `a look-alike host is not mistaken for the live one`() {
         // Only the exact live host is upgraded. Anything else is somebody's own
