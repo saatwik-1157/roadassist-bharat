@@ -51,6 +51,15 @@ export const mechanics = pgTable("mechanics", {
   displayName: varchar("display_name", { length: 120 }).notNull(),
   verified: boolean("verified").notNull().default(false),
   rating: doublePrecision("rating").notNull().default(0),
+  /**
+   * The rating this mechanic carried before their first platform review — an
+   * onboarding record, or the seed's stand-in for one. Reviews are shrunk
+   * toward it instead of the platform-wide mean (see shrunkRating in the API),
+   * so one 5★ no longer drags a 4.9 down to 4.33 by forgetting where they
+   * started. NULL means there was nothing to keep, and the platform mean is
+   * the prior. Captured once, on the first review, and never rewritten.
+   */
+  ratingBaseline: doublePrecision("rating_baseline"),
   jobsCompleted: integer("jobs_completed").notNull().default(0),
   isAvailable: boolean("is_available").notNull().default(false),
   lastLocation: geoPoint("last_location"),

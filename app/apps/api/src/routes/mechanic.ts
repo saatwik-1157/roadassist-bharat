@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import * as S from "@roadassist/db";
 import { db } from "../db.js";
-import { ok } from "../http.js";
+import { isoTimestamp, ok } from "../http.js";
 import { audit } from "../audit.js";
 import { authenticate, requireRole } from "../auth.js";
 
@@ -102,8 +102,8 @@ export async function mechanicRoutes(app: FastifyInstance) {
       },
       activeBookingId: active?.id ?? null,
       history: rows.filter((r) => r.id !== active?.id).map((r) => ({
-        id: r.id, reference: r.reference, status: r.status, createdAt: r.created_at,
-        completedAt: r.completed_at, registrationNo: r.registration_no,
+        id: r.id, reference: r.reference, status: r.status, createdAt: isoTimestamp(r.created_at),
+        completedAt: isoTimestamp(r.completed_at), registrationNo: r.registration_no,
         serviceLabel: r.service_label, symptoms: r.symptoms,
         totalPaise: r.total_paise == null ? null : Number(r.total_paise),
         rating: r.rating == null ? null : Number(r.rating),

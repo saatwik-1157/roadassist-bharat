@@ -157,16 +157,62 @@ export function diagnose(input: { symptoms?: string; dtcCodes?: string[]; vehicl
  * One 2★ then lands at 3.8 rather than 2.0, while a mechanic with fifty reviews
  * is governed almost entirely by their own record. This is the standard
  * Bayesian-average treatment for sparse ratings, and it is deterministic and
- * reproducible from the review rows — same contract as everything else here.
+ * reproducible from the review rows and the mechanic's baseline — same
+ * contract as everything else here.
  */
 export const PRIOR_MEAN = 4.2;
 export const PRIOR_WEIGHT = 5;
 
-export function shrunkRating(sum: number, count: number): number {
-  if (count <= 0) return PRIOR_MEAN;
-  const value = (PRIOR_WEIGHT * PRIOR_MEAN + sum) / (PRIOR_WEIGHT + count);
+/**
+ * `prior` is where the shrinkage points. It is the platform mean for a
+ * mechanic we know nothing about — and the mechanic's own baseline when they
+ * arrived with one (see `ratingPrior`).
+ *
+ * The prior used to be the platform mean for everybody, and the stored rating
+ * was simply overwritten. A seeded 4.9 with 436 jobs behind it then took one
+ * 5★ and landed on (5 × 4.2 + 5) / 6 = 4.33: the review was averaged against
+ * five imaginary 4.2s while the mechanic's actual record was thrown away, and
+ * a glowing review demoted them in dispatch. The prior's weight is unchanged,
+ * so a baseline gets exactly the benefit of the doubt the platform mean did —
+ * and is washed out by a real record just as surely.
+ */
+export function shrunkRating(sum: number, count: number, prior: number = PRIOR_MEAN): number {
+  if (count <= 0) return Number(prior.toFixed(2));
+  const value = (PRIOR_WEIGHT * prior + sum) / (PRIOR_WEIGHT + count);
   return Number(value.toFixed(2));
 }
+
+/** A rating on the 1–5 scale, as opposed to the column's 0 "never rated" default. */
+const onScale = (v: number | null | undefined): v is number =>
+  typeof v === "number" && Number.isFinite(v) && v >= 1 && v <= 5;
+
+/**
+ * The baseline a mechanic's reviews are shrunk toward, decided when a review
+ * lands.
+ *
+ * An existing baseline is kept: it was captured once and is never rewritten,
+ * which is what keeps the stored rating reproducible from the review rows.
+ * Otherwise, a mechanic with no earlier reviews still carries the rating they
+ * arrived with (onboarding, or the seed standing in for it), and that becomes
+ * the baseline. A mechanic who already had reviews without one was rated
+ * against the platform mean, so they stay on it — capturing their current,
+ * already-shrunk rating would count those reviews twice.
+ *
+ * Returns null for "no baseline": the platform mean applies.
+ */
+export function ratingBaseline(
+  existing: number | null | undefined,
+  storedRating: number | null | undefined,
+  earlierReviews: number,
+): number | null {
+  if (onScale(existing)) return existing;
+  if (earlierReviews === 0 && onScale(storedRating)) return storedRating;
+  return null;
+}
+
+/** The prior `shrunkRating` should use for a mechanic with this baseline. */
+export const ratingPrior = (baseline: number | null | undefined): number =>
+  onScale(baseline) ? baseline : PRIOR_MEAN;
 
 export function rankMechanics<T extends { distanceKm: number; rating: number; jobsCompleted: number }>(
   candidates: T[],

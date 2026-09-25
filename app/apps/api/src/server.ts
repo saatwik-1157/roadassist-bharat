@@ -14,12 +14,12 @@ import * as S from "@roadassist/db";
 import {
   authenticate, requireRole, sha256, verifyAccessToken,
 } from "./auth.js";
-import { apply, allowedFrom, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
-import { shrunkRating } from "./domain/ai-rules.js";
+import { apply, allowedFrom, finishesJob, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
+import { ratingBaseline, ratingPrior, shrunkRating } from "./domain/ai-rules.js";
 import {
   diagnoseWithFallback, email, maps, providerSummary, sms,
 } from "./providers.js";
-import { ok, msisdnSchema } from "./http.js";
+import { isoTimestamp, ok, msisdnSchema } from "./http.js";
 import { rakshaRoutes, describePosition } from "./raksha.js";
 import { authRoutes } from "./routes/auth.js";
 import { emailAuthRoutes, emailSignin } from "./routes/email-auth.js";
@@ -1057,8 +1057,22 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
     // computed from, so two concurrent commands cannot both win.
     const updated = await tx.update(S.bookings).set(patch)
       .where(and(eq(S.bookings.id, id), eq(S.bookings.status, booking.status)))
-      .returning({ id: S.bookings.id });
+      .returning({ id: S.bookings.id, mechanicId: S.bookings.mechanicId });
     if (!updated.length) return false;
+
+    // The mechanic's record moves in the same transaction as the job, so the
+    // two cannot disagree: if the status write rolls back, so does the count.
+    // Once per booking by construction, not by a check — the guarded update
+    // above lets exactly one request move a booking out of IN_PROGRESS, and a
+    // replayed work.complete is refused by the state machine before it gets
+    // here (see finishesJob). The mechanic comes from the row as updated, not
+    // from the read before it.
+    const mechanicId = updated[0]?.mechanicId;
+    if (finishesJob(to) && mechanicId) {
+      await tx.update(S.mechanics)
+        .set({ jobsCompleted: raw`${S.mechanics.jobsCompleted} + 1`, updatedAt: new Date() })
+        .where(eq(S.mechanics.id, mechanicId));
+    }
 
     await tx.insert(S.bookingEvents).values({
       bookingId: id, fromStatus: booking.status, toStatus: to,
@@ -1147,36 +1161,55 @@ app.post("/v1/bookings/:id/review", { preHandler: authenticate }, async (req, re
     });
   }
 
-  const [review] = await db.insert(S.reviews).values({
-    bookingId: id, userId: req.user!.sub, mechanicId: booking.mechanicId,
-    rating: body.rating, comment: body.comment,
-  }).onConflictDoNothing().returning();
+  // Recompute from the reviews themselves rather than nudging a running
+  // average: the stored value is then always reproducible from the source rows
+  // and the mechanic's baseline, with no rounding drift across reviews. Shrunk
+  // toward that baseline — the rating the mechanic arrived with, or the
+  // platform mean if there was none — so one rating cannot decide a livelihood
+  // in either direction. See shrunkRating and ratingBaseline.
+  //
+  // One transaction, behind a lock on the mechanic's row: the baseline is
+  // decided by whether this is their FIRST review, and two customers rating
+  // the same mechanic at once must not both believe they are first, nor each
+  // compute an average that misses the other's review.
+  const mechanicId = booking.mechanicId;
+  const outcome = await db.transaction(async (tx) => {
+    const [mechanic] = await tx.select({ rating: S.mechanics.rating, ratingBaseline: S.mechanics.ratingBaseline })
+      .from(S.mechanics).where(eq(S.mechanics.id, mechanicId)).for("update");
 
-  if (!review) {
+    const [review] = await tx.insert(S.reviews).values({
+      bookingId: id, userId: req.user!.sub, mechanicId,
+      rating: body.rating, comment: body.comment,
+    }).onConflictDoNothing().returning();
+    if (!review) return null;
+
+    const [agg] = await tx.select({
+      total: raw<string>`coalesce(sum(${S.reviews.rating}), 0)`,
+      count: raw<string>`count(*)`,
+    }).from(S.reviews).where(and(eq(S.reviews.mechanicId, mechanicId), isNull(S.reviews.deletedAt)));
+
+    const count = Number(agg?.count ?? 1);
+    const baseline = ratingBaseline(mechanic?.ratingBaseline, mechanic?.rating, count - 1);
+    const average = shrunkRating(Number(agg?.total ?? body.rating), count, ratingPrior(baseline));
+    await tx.update(S.mechanics)
+      .set({ rating: average, ratingBaseline: baseline, updatedAt: new Date() })
+      .where(eq(S.mechanics.id, mechanicId));
+    return { review, average, count, before: mechanic?.rating ?? null };
+  });
+
+  if (!outcome) {
     return reply.code(409).send({
       error: { code: "already_reviewed", title: "You have already rated this job", retryable: false },
     });
   }
-
-  // Recompute from the reviews themselves rather than nudging a running
-  // average: the stored value is then always reproducible from the source rows.
-  // Shrunk toward the platform mean so one rating cannot decide a livelihood —
-  // see shrunkRating.
-  const mechanicId = booking.mechanicId;
-  const [agg] = await db.select({
-    total: raw<string>`coalesce(sum(${S.reviews.rating}), 0)`,
-    count: raw<string>`count(*)`,
-  }).from(S.reviews).where(and(eq(S.reviews.mechanicId, mechanicId), isNull(S.reviews.deletedAt)));
-
-  const count = Number(agg?.count ?? 1);
-  const average = shrunkRating(Number(agg?.total ?? body.rating), count);
-  await db.update(S.mechanics)
-    .set({ rating: average, updatedAt: new Date() })
-    .where(eq(S.mechanics.id, mechanicId));
+  const { review, average, count } = outcome;
 
   await audit({
     actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
     action: "review.created", entity: "booking", entityId: id,
+    // The rating before as well as after: an overwritten rating is otherwise
+    // unrecoverable, which is exactly what made the old rule's damage permanent.
+    before: { mechanicRating: outcome.before == null ? null : String(outcome.before) },
     after: { rating: body.rating, mechanicId, mechanicRatingNow: String(average) },
     ip: req.ip,
   });
@@ -1316,7 +1349,7 @@ app.get("/v1/bookings/:id", { preHandler: authenticate }, async (req, reply) => 
           // when a provider's device actually reports one.
           lat: mechanic.lat, lng: mechanic.lng,
           locationKnown: mechanic.lat != null && mechanic.lng != null,
-          lastLocationAt: mechanic.last_location_at,
+          lastLocationAt: isoTimestamp(mechanic.last_location_at),
           distanceKm: mechanic.km == null ? null : Number(mechanic.km),
           // What the provider is actually doing, derived from live state rather
           // than from a column that could be stale (see domain/provider-state.ts).
@@ -1839,7 +1872,7 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
     const position = describePosition({
       source: d.source, simulated, modelVersion: model_version, accuracyM: d.location_accuracy_m,
     });
-    return { ...d, position_label: position.label };
+    return { ...d, created_at: isoTimestamp(d.created_at), position_label: position.label };
   });
 
   return ok({ center: { lat: q.lat, lng: q.lng }, mechanics, responders, detections },

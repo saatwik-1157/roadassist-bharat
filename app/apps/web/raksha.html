@@ -581,7 +581,15 @@
       else { signOut(true); throw new Error("Your session has ended. Sign in again."); }
     }
     var json = await res.json().catch(function () { return {}; });
-    if (!res.ok) throw new Error((json.error && json.error.title) || res.status);
+    if (!res.ok) {
+      // The code travels with the message so a caller can act on WHICH refusal
+      // this was (email_signin_required opens the email form) without parsing
+      // a sentence written for people.
+      var err = new Error((json.error && json.error.title) || res.status);
+      err.code = json.error && json.error.code;
+      err.status = res.status;
+      throw err;
+    }
     return json;
   }
 
@@ -1034,11 +1042,17 @@
       sessionMsisdn = msisdn;
       saveSession();
       await enterConsole(v.data.roles, msisdn);
-    } catch (e) { status("✗ " + e.message); }
+    } catch (e) {
+      status("✗ " + e.message);
+      // The pre-filled demo admin is right for a local demo, but on the hosted
+      // instance it is an email-only account and the phone path answers 403
+      // email_signin_required. Say so, and open the form it points to.
+      if (emailSignin && window.RAEmail.isRequired(e)) emailSignin.open({ message: e.message });
+    }
     finally { btn.classList.remove("is-busy"); }
   };
 
-  if (window.RAEmail) RAEmail.mount($("login-btn"), { api: API, toast: function (m) { status(m); }, onSession: async function (d) {
+  var emailSignin = window.RAEmail && RAEmail.mount($("login-btn"), { api: API, toast: function (m) { status(m); }, onSession: async function (d) {
     token = d.accessToken; refreshToken = d.refreshToken; sessionMsisdn = d.user.msisdn;
     saveSession();
     await enterConsole(d.roles, d.user.msisdn);

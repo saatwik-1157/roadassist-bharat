@@ -37,6 +37,7 @@
       '<div class="em-signin">' +
         '<button type="button" class="btn ghost em-toggle" aria-expanded="false">Sign in with email</button>' +
         '<div class="em-form" hidden>' +
+          '<p class="hint em-why" role="status" hidden style="margin-top:12px"></p>' +
           '<label class="field"><span>Email address</span>' +
             '<input class="em-email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@example.com"></label>' +
           '<button type="button" class="btn em-send" style="margin-top:14px">Email me a code</button>' +
@@ -87,7 +88,33 @@
         return opts.onSession(r.data);
       });
     }));
+
+    /**
+     * Open the form from the page, with the reason it was opened.
+     *
+     * An account its owner put behind email sign-in refuses the phone code
+     * with 403 email_signin_required. The page used to print that and stop,
+     * leaving the person to find a collapsed button below the one they had
+     * just pressed. On the hosted RAKSHA that was every first sign-in, because
+     * the pre-filled demo admin is exactly such an account. The page now hands
+     * the server's message here and the form opens on it, ready for an address.
+     */
+    function open(options) {
+      options = options || {};
+      var why = q(".em-why");
+      why.textContent = options.message || "";
+      why.hidden = !options.message;
+      q(".em-form").hidden = false;
+      q(".em-toggle").setAttribute("aria-expanded", "true");
+      if (box.scrollIntoView) box.scrollIntoView({ block: "nearest" });
+      q(".em-email").focus();
+    }
+
+    return { open: open };
   }
 
-  window.RAEmail = { mount: mount };
+  /** Is this error the API saying "this account signs in by email"? */
+  function isRequired(err) { return Boolean(err && err.code === "email_signin_required"); }
+
+  window.RAEmail = { mount: mount, isRequired: isRequired };
 })();

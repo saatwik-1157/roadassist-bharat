@@ -696,6 +696,8 @@ const outOfRange = await call("POST", `/v1/bookings/${bookingId}/review`, { toke
 ok("a rating outside 1–5 is rejected", outOfRange.status === 400, `got ${outOfRange.status}`);
 
 const mechanicBefore = (await call("GET", `/v1/bookings/${bookingId}`, { token })).data?.mechanicId;
+const ratingBefore = (await call("GET", `/v1/mechanics/${mechanicBefore}/reviews`, { token }))
+  .data?.mechanic?.rating;
 const review = await call("POST", `/v1/bookings/${bookingId}/review`, {
   token, body: { rating: 2, comment: "Took a while, but sorted it." },
 });
@@ -703,12 +705,18 @@ ok("the customer can review a paid job", review.status === 201 && review.data?.r
    `got ${review.status}`);
 // Bounds rather than an exact figure: this suite shares a database, so the
 // mechanic dispatch picks may already carry reviews from earlier runs. Both
-// bounds hold for any history — shrinkage toward the 4.2 prior keeps the score
-// strictly above the 2★ just given, and the 2★ still costs them something.
+// bounds hold for any history — shrinkage toward the mechanic's prior keeps the
+// score strictly above the 2★ just given, and the 2★ never raises it. The
+// comparison is with the mechanic's OWN rating before the review, not with the
+// platform mean: this used to assert "< 4.2", which only held while every
+// review was shrunk toward 4.2 and the mechanic's existing rating was thrown
+// away — the bug that took a 4.9 to 4.33 on a 5★. (Not strictly lower: a
+// mechanic with a long record can move by less than the 2-decimal rounding.)
 // The exact formula is pinned in apps/api/test/rating.test.ts.
 ok("one harsh review dents the mechanic's rating without destroying it",
-   review.data?.mechanicRating > 2 && review.data?.mechanicRating < 4.2,
-   `rating=${review.data?.mechanicRating} across ${review.data?.mechanicReviewCount} review(s)`);
+   review.data?.mechanicRating > 2 && typeof ratingBefore === "number" &&
+   review.data?.mechanicRating <= ratingBefore,
+   `rating ${ratingBefore} → ${review.data?.mechanicRating} across ${review.data?.mechanicReviewCount} review(s)`);
 
 const reviewTwice = await call("POST", `/v1/bookings/${bookingId}/review`, { token, body: { rating: 5 } });
 ok("the same job cannot be reviewed twice",

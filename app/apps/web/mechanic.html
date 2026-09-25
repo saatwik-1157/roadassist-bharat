@@ -283,6 +283,30 @@
   var ESC_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
   var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; }); };
 
+  // A timestamp from the API, as a Date, or null when there is none worth
+  // showing. The API sends ISO 8601; this also accepts Postgres's own text
+  // ("2026-09-25 08:26:43.59901+00"), which an older API returned from raw
+  // queries. History used to swap the space for a "T" and hand it to Date,
+  // which left an hour-only "+00" offset no parser accepts — every job read
+  // "Invalid Date". Normalising the offset and trimming microseconds makes
+  // both shapes strict ISO, so the parse is the same in every browser.
+  function parseTime(v) {
+    if (v == null || v === "") return null;
+    if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+    var s = String(v).trim()
+      .replace(/^(\d{4}-\d{2}-\d{2}) /, "$1T")
+      .replace(/(\.\d{3})\d+/, "$1")
+      .replace(/(\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?)([+-]\d{2}):?(\d{2})?$/, function (_, t, h, m) {
+        return t + h + ":" + (m || "00");
+      });
+    var d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  // A date for a person to read; a dash rather than "Invalid Date" if the
+  // value is missing or unreadable.
+  function showDate(v) { var d = parseTime(v); return d ? d.toLocaleDateString() : "—"; }
+  function showTime(v) { var d = parseTime(v); return d ? d.toLocaleTimeString() : "—"; }
+
   var state = {
     token: null, refresh: null, msisdn: null,
     bookingId: null, mechanic: null, online: navigator.onLine,
@@ -413,7 +437,15 @@
       else { signOut(true); throw new Error("Your session has ended. Sign in again."); }
     }
     var json = await res.json().catch(function () { return {}; });
-    if (!res.ok) throw new Error((json.error && json.error.title) || ("HTTP " + res.status));
+    if (!res.ok) {
+      // The code travels with the message so a caller can act on WHICH refusal
+      // this was (email_signin_required opens the email form) without parsing
+      // a sentence written for people.
+      var err = new Error((json.error && json.error.title) || ("HTTP " + res.status));
+      err.code = json.error && json.error.code;
+      err.status = res.status;
+      throw err;
+    }
     return json;
   }
 
@@ -471,10 +503,16 @@
       saveSession();
       await enterConsole(v.data.roles);
       toast("Signed in", "ok");
-    } catch (e) { toast(e.message, "bad"); }
+    } catch (e) {
+      toast(e.message, "bad");
+      // An account its owner put behind email sign-in refuses the phone code
+      // with 403 email_signin_required. Open the form that message points to
+      // instead of leaving the mechanic to find it.
+      if (emailSignin && window.RAEmail.isRequired(e)) emailSignin.open({ message: e.message });
+    }
   });
 
-  if (window.RAEmail) RAEmail.mount($("m-signin"), { api: API, toast: toast, onSession: async function (d) {
+  var emailSignin = window.RAEmail && RAEmail.mount($("m-signin"), { api: API, toast: toast, onSession: async function (d) {
     if (!d.roles.includes("mechanic") && !d.roles.includes("admin")) { toast("That account has no mechanic role", "bad"); return; }
     state.token = d.accessToken; state.refresh = d.refreshToken; state.msisdn = d.user.msisdn;
     saveSession();
@@ -1001,7 +1039,7 @@
             return "<div class='row'><span class='grow'><b>" +
               esc(CMD_LABEL[e.command] || e.command) + "</b>" +
               "<small>" + esc(e.fromStatus || "start") + " → " + esc(e.toStatus) + " · " +
-              new Date(e.createdAt).toLocaleTimeString() + "</small></span></div>";
+              esc(showTime(e.createdAt)) + "</small></span></div>";
           }).join("") + "</div>"
         : "");
 
@@ -1070,7 +1108,7 @@
       return "<div class='row'><span class='grow'><b>" +
         esc((h.serviceLabel || "Job") + " · " + h.registrationNo) + "</b>" +
         "<small>" + esc(h.reference) + " · " +
-        new Date(h.createdAt.replace(" ", "T")).toLocaleDateString() +
+        esc(showDate(h.createdAt)) +
         (h.totalPaise ? " · ₹" + (h.totalPaise / 100).toFixed(0) : "") +
         (h.rating ? " · ★" + h.rating : "") + "</small></span>" +
         "<span class='pill " + pillFor(h.status) + "'>" +
