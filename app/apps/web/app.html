@@ -1687,18 +1687,22 @@
   var POLL_MS_STREAMING = 60000;
 
   function stopBookingPoll() {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (pollTimer) { clearInterval(pollTimer.id); pollTimer = null; }
     pollStatus = null;
   }
 
   function startBookingPoll() {
+    var ms = stream.alive ? POLL_MS_STREAMING : POLL_MS;
+    // Already ticking at this cadence? Then leave it: every failed reconnect and
+    // redraw re-arming it kept postponing the no-stream poll past six seconds.
+    if (pollTimer && pollTimer.ms === ms && state.bookingId && state.online) return;
     // Keep the last known status across a re-arm: clearing it would make the
     // next tick look like a fresh subscription and re-announce the same state.
     var remembered = pollStatus;
     stopBookingPoll();
     pollStatus = remembered;
     if (!state.bookingId || !state.online) return;
-    pollTimer = setInterval(pollBooking, stream.alive ? POLL_MS_STREAMING : POLL_MS);
+    pollTimer = { id: setInterval(pollBooking, ms), ms: ms };
   }
 
   /**
@@ -1726,25 +1730,20 @@
       // Only redraw on a real change: repainting the DOM every six seconds
       // fights the user's scroll position and their half-typed review.
       if (b.status !== pollStatus) {
-        if (pollStatus !== null) {
-          toast(STATUS_NEWS[b.status] || ("Booking is now " + String(b.status).replace(/_/g, " ").toLowerCase()), "ok");
-          buzz(12);
-        }
-        pollStatus = b.status;
         // The commands the new state permits travel in meta, not in data, so
         // they have to be carried across exactly as refreshBooking does. Without
         // this line trackView redrew with an empty command list every time the
         // poll noticed a change — which is the normal path — so the customer
         // watched the job reach COMPLETED and never got the Pay button.
         b._next = r.meta.nextCommands;
-        trackView(b);
-        loadTimeline(state.bookingId);
+        var prev = pollStatus;
+        pollStatus = b.status;
+        showBooking(b, prev, false);
       } else {
         // Same state, but the mechanic has moved — refresh distance and ETA
         // in place without rebuilding the card.
         updateEta(b);
       }
-      if (b.status === "PAID" || b.status === "CANCELLED") stopBookingPoll();
     } catch (e) {
       // A failed poll is not worth a toast every six seconds; the next tick
       // retries and the visible state simply stays as it was.
@@ -1918,8 +1917,7 @@
       }
       state.bookingId = live.id;
       saveSession();
-      var full = await refreshBooking();
-      renderHomeTask(full);
+      await refreshBooking();                 // draws Home as well as tracking
     } catch (e) { renderHomeTask(null); }
   }
 
@@ -2541,6 +2539,9 @@
       if (!r) { $("b-offers").innerHTML = ""; return; }   // queued offline
       bookingKey = null;
       state.bookingId = r.data.id;
+      // A new booking's own history, not the last one's final status. MATCHING:
+      // dispatch reaches it before its reply does, and the screen says so already.
+      pollStatus = "MATCHING";
       saveSession();
       toast("Booking " + r.data.reference + " created" + (pos.demo ? " (demo location)" : ""), "ok");
 
@@ -2548,6 +2549,9 @@
       var d = await api("POST", "/v1/bookings/" + state.bookingId + "/dispatch",
         { radiusKm: state.radiusKm, limit: 5 });
       $("b-offers").innerHTML = "";
+      // Home, tracking and the fallback poll (a phone with no stream has nothing
+      // else to hear an acceptance by) learn of the booking now, not at next boot.
+      refreshBooking().catch(function () { /* the stream or the poll will catch up */ });
       if (!d.data.offers.length) { noSupply(d.meta.message); return; }
       toast(d.data.offers.length === 1 ? "Mechanic found." : d.data.offers.length + " mechanics found.", "ok");
       renderOffers(d.data.offers);
@@ -2577,6 +2581,7 @@
       offers.forEach(function (o) {
         var c = document.createElement("div");
         c.className = "card lift rise";
+        c.setAttribute("data-offer", o.id);   // how showBooking() knows offers are on screen
         c.style.display = "flex";
         c.style.alignItems = "center";
         c.style.gap = "12px";
@@ -2593,11 +2598,9 @@
           try {
             var a = await api("POST", "/v1/offers/" + o.id + "/accept", {});
             if (!a) return;
-            box.innerHTML = "";
-            toast("Mechanic found — " + o.mechanic.displayName + " accepted", "ok"); buzz([10, 40, 10]);
-            setStep("mechanic", true);
+            // showBooking() closes the offers, names the mechanic and moves to
+            // tracking — the same path a console-side acceptance takes.
             await refreshBooking();
-            nav("track");
           } catch (e) { toast(e.message, "bad"); }
         });
         c.appendChild(b);
@@ -3001,12 +3004,38 @@
     if (!state.bookingId) return null;
     var r = await api("GET", "/v1/bookings/" + state.bookingId, null, { force: true });
     r.data._next = r.meta.nextCommands;
+    var prev = pollStatus;
     pollStatus = r.data.status;
-    trackView(r.data);
-    loadTimeline(state.bookingId);
-    if (r.data.status === "PAID" || r.data.status === "CANCELLED") stopBookingPoll();
-    else startBookingPoll();
+    showBooking(r.data, prev, true);
     return r.data;
+  }
+
+  /**
+   * Every screen that shows the booking, redrawn from one server read. Home
+   * was drawn once, at boot, and a console-side accept left the offers and
+   * their Accept buttons up (a tap earned 409 offer_closed) with no way to
+   * tracking short of a reload. Stream, fallback poll and the customer's own
+   * taps all land here; journey.js says what the move means. `quiet`: own tap.
+   */
+  function showBooking(b, prev, quiet) {
+    var ch = RAJourney.bookingChange(prev, b.status), offers = $("b-offers");
+    trackView(b); loadTimeline(b.id); renderHomeTask(b);
+    if (ch.accepted) {
+      var who = b.mechanic ? b.mechanic.displayName : "Your mechanic"; setStep("mechanic", true);
+      offers.innerHTML = "<div class='card rise' style='margin-top:13px'>" +
+        "<h3 class='title'>" + esc(who) + " accepted — on the way</h3>" +
+        "<p class='meta' style='margin-top:4px'>" + (b.etaMinutes ? "ETA about " + esc(b.etaMinutes) + " min. " : "") + "Follow them live.</p>" +
+        "<button class='btn' data-nav='track' style='margin-top:13px'>Open live tracking</button></div>";
+      toast(who + " accepted — on the way", "ok"); buzz([10, 40, 10]); nav("track");
+    } else if (!ch.offersLive && (offers.querySelector("[data-offer]") || TERMINAL[b.status])) {
+      // Offers that outlived their state could only fail; a finished booking
+      // leaves nothing behind that still says "on the way".
+      if (b.status === "NO_SUPPLY") noSupply(STATUS_NEWS.NO_SUPPLY); else offers.innerHTML = "";
+    }
+    if (ch.announce && !ch.accepted && !quiet) {
+      toast(STATUS_NEWS[b.status] || ("Booking is now " + String(b.status).replace(/_/g, " ").toLowerCase()), "ok"); buzz(12);
+    }
+    if (TERMINAL[b.status]) stopBookingPoll(); else startBookingPoll();
   }
 
   /**

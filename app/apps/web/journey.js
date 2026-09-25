@@ -2,8 +2,9 @@
  *
  * Pure functions over a status string: no DOM, no network, no storage. They
  * live outside app.html for one reason — so apps/api/test/journey.test.ts can
- * pin them. Every rule here answers a screen that disagreed with the server,
- * like a PAID booking still marking "Payment" as the step happening now.
+ * pin them. Every rule here answers a screen that disagreed with the server:
+ * a PAID booking still marking "Payment" as the step happening now, and a
+ * mechanic's acceptance that never reached the person waiting for it.
  *
  * A classic script (no import/export), so app.html can load it with a plain
  * <script src> ahead of its inline IIFE — which stays a classic script — and
@@ -33,5 +34,30 @@
     });
   }
 
-  global.RAJourney = { JOURNEY: JOURNEY, journeyMarks: journeyMarks };
+  /** Before a mechanic is committed — the only states in which offers are live. */
+  var PRE_ASSIGN = { REQUESTED: true, MATCHING: true, NO_SUPPLY: true };
+
+  /**
+   * What the citizen's screen should do when its own booking moves.
+   *
+   * `prev` is the last status the screen showed, or null when it has shown
+   * none (a fresh load): a first sighting is not news, so nothing is announced
+   * and nobody is moved between screens on the strength of it.
+   *
+   *   announce   — say it out loud (a toast): something happened since last look
+   *   accepted   — a mechanic has just committed: close the offers, say who,
+   *                and take the person to tracking
+   *   offersLive — offers can still be accepted; otherwise any listed offer is
+   *                stale, and an Accept tap would only earn a 409
+   */
+  function bookingChange(prev, next) {
+    var moved = prev !== next;
+    return {
+      announce: moved && prev != null,
+      accepted: moved && PRE_ASSIGN[prev] === true && !PRE_ASSIGN[next] && next !== "CANCELLED",
+      offersLive: next === "REQUESTED" || next === "MATCHING",
+    };
+  }
+
+  global.RAJourney = { JOURNEY: JOURNEY, journeyMarks: journeyMarks, bookingChange: bookingChange };
 })(globalThis);
