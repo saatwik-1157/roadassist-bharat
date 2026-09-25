@@ -43,6 +43,13 @@
       "when": 1790272067077,
       "tag": "0005_raksha_location_accuracy",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790326547271,
+      "tag": "0006_mechanic_rating_baseline",
+      "breakpoints": true
     }
   ]
 }

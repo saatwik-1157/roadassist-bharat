@@ -15,7 +15,7 @@ import {
   authenticate, requireRole, sha256, verifyAccessToken,
 } from "./auth.js";
 import { apply, allowedFrom, finishesJob, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
-import { shrunkRating } from "./domain/ai-rules.js";
+import { ratingBaseline, ratingPrior, shrunkRating } from "./domain/ai-rules.js";
 import {
   diagnoseWithFallback, email, maps, providerSummary, sms,
 } from "./providers.js";
@@ -1161,36 +1161,55 @@ app.post("/v1/bookings/:id/review", { preHandler: authenticate }, async (req, re
     });
   }
 
-  const [review] = await db.insert(S.reviews).values({
-    bookingId: id, userId: req.user!.sub, mechanicId: booking.mechanicId,
-    rating: body.rating, comment: body.comment,
-  }).onConflictDoNothing().returning();
+  // Recompute from the reviews themselves rather than nudging a running
+  // average: the stored value is then always reproducible from the source rows
+  // and the mechanic's baseline, with no rounding drift across reviews. Shrunk
+  // toward that baseline — the rating the mechanic arrived with, or the
+  // platform mean if there was none — so one rating cannot decide a livelihood
+  // in either direction. See shrunkRating and ratingBaseline.
+  //
+  // One transaction, behind a lock on the mechanic's row: the baseline is
+  // decided by whether this is their FIRST review, and two customers rating
+  // the same mechanic at once must not both believe they are first, nor each
+  // compute an average that misses the other's review.
+  const mechanicId = booking.mechanicId;
+  const outcome = await db.transaction(async (tx) => {
+    const [mechanic] = await tx.select({ rating: S.mechanics.rating, ratingBaseline: S.mechanics.ratingBaseline })
+      .from(S.mechanics).where(eq(S.mechanics.id, mechanicId)).for("update");
 
-  if (!review) {
+    const [review] = await tx.insert(S.reviews).values({
+      bookingId: id, userId: req.user!.sub, mechanicId,
+      rating: body.rating, comment: body.comment,
+    }).onConflictDoNothing().returning();
+    if (!review) return null;
+
+    const [agg] = await tx.select({
+      total: raw<string>`coalesce(sum(${S.reviews.rating}), 0)`,
+      count: raw<string>`count(*)`,
+    }).from(S.reviews).where(and(eq(S.reviews.mechanicId, mechanicId), isNull(S.reviews.deletedAt)));
+
+    const count = Number(agg?.count ?? 1);
+    const baseline = ratingBaseline(mechanic?.ratingBaseline, mechanic?.rating, count - 1);
+    const average = shrunkRating(Number(agg?.total ?? body.rating), count, ratingPrior(baseline));
+    await tx.update(S.mechanics)
+      .set({ rating: average, ratingBaseline: baseline, updatedAt: new Date() })
+      .where(eq(S.mechanics.id, mechanicId));
+    return { review, average, count, before: mechanic?.rating ?? null };
+  });
+
+  if (!outcome) {
     return reply.code(409).send({
       error: { code: "already_reviewed", title: "You have already rated this job", retryable: false },
     });
   }
-
-  // Recompute from the reviews themselves rather than nudging a running
-  // average: the stored value is then always reproducible from the source rows.
-  // Shrunk toward the platform mean so one rating cannot decide a livelihood —
-  // see shrunkRating.
-  const mechanicId = booking.mechanicId;
-  const [agg] = await db.select({
-    total: raw<string>`coalesce(sum(${S.reviews.rating}), 0)`,
-    count: raw<string>`count(*)`,
-  }).from(S.reviews).where(and(eq(S.reviews.mechanicId, mechanicId), isNull(S.reviews.deletedAt)));
-
-  const count = Number(agg?.count ?? 1);
-  const average = shrunkRating(Number(agg?.total ?? body.rating), count);
-  await db.update(S.mechanics)
-    .set({ rating: average, updatedAt: new Date() })
-    .where(eq(S.mechanics.id, mechanicId));
+  const { review, average, count } = outcome;
 
   await audit({
     actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
     action: "review.created", entity: "booking", entityId: id,
+    // The rating before as well as after: an overwritten rating is otherwise
+    // unrecoverable, which is exactly what made the old rule's damage permanent.
+    before: { mechanicRating: outcome.before == null ? null : String(outcome.before) },
     after: { rating: body.rating, mechanicId, mechanicRatingNow: String(average) },
     ip: req.ip,
   });
