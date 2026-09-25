@@ -641,7 +641,7 @@ footer(s); page_no(s, 23)
 
 # ── 24 · TESTING ───────────────────────────────────────────────────────────
 s = new_slide()
-title_block(s, "686 assertions, all executed", eyebrow="TESTING",
+title_block(s, "705 assertions, all executed", eyebrow="TESTING",
             sub="Against a real PostgreSQL + PostGIS and a real Chrome. Every number here is from a run, not an estimate.")
 suites = [("Unit", "101", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
           ("End-to-end", "189", "the whole API journey against real Postgres"),
@@ -841,7 +841,7 @@ panel(s, 0.85, 5.05, 11.6, 1.0, fill=INK_2, line_col=RED, line_w=1.75)
 txt(s, 1.1, 5.28, 11.1, 0.55, "“RoadAssist doesn't stop when the network stops.”",
     size=22, color=WHITE, bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.3, 11.6, 0.35,
-    "686 assertions · 6 suites · 0 failures  •  56 tables · 65 routes · 10 ADRs  •  every claim on these slides is testable",
+    "705 assertions · 6 suites · 0 failures  •  56 tables · 65 routes · 10 ADRs  •  every claim on these slides is testable",
     size=10.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 footer(s)
 notes(s, """Close on the promise, then stop talking. If there is time, offer to run
