@@ -67,6 +67,19 @@ describe("otpPolicy", () => {
     }
   });
 
+  it("a code guarding an account is never the fixed one and never echoed, even on the console provider", () => {
+    // The email code is the only way into an account EMAIL_SIGNIN took off the
+    // demo path. With the console provider it used to be the fixed 000000 and
+    // echoed, so anyone who knew the address signed in as that account.
+    for (const provider of [LOCAL_ONLY_PROVIDER, ...REAL]) {
+      for (const exposeDevOtp of [true, false]) {
+        const p = otpPolicy({ smsProvider: provider, exposeDevOtp, guardsAccount: true });
+        assert.equal(p.random, true, `${provider}/expose=${exposeDevOtp} used the fixed code`);
+        assert.equal(p.echo, false, `${provider}/expose=${exposeDevOtp} echoed the code`);
+      }
+    }
+  });
+
   it("does not depend on NODE_ENV at all", () => {
     // The whole point. Getting a real OTP used to require NODE_ENV=production,
     // which assertProductionSafe refuses without live payment keys among other

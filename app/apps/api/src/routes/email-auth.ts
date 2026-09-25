@@ -41,9 +41,12 @@ export async function emailAuthRoutes(app: FastifyInstance) {
         title: `Too many codes requested from this connection. Try again in ${env.otpWindowMinutes} minutes.`, retryable: true } });
     }
 
-    // Same rule as the phone code (otp-policy.ts), keyed on the email provider:
-    // a code that can reach an inbox is random and never echoed.
-    const policy = otpPolicy({ smsProvider: mail.name, exposeDevOtp: env.exposeDevOtp });
+    // Stricter than the phone code (otp-policy.ts): this code is the only way
+    // into an account whose phone path is closed, so it is random and never
+    // echoed even with the console provider - which prints it to the server
+    // log. The fixed development code here opened the account to anyone who
+    // knew its address.
+    const policy = otpPolicy({ smsProvider: mail.name, exposeDevOtp: env.exposeDevOtp, guardsAccount: true });
     const accepted = ok({ sent: true, expiresInSeconds: 300, channel: "email" });
 
     // An address nobody listed gets the same answer and no email, so the

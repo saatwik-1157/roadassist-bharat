@@ -6,9 +6,9 @@
  * onSession callback - the same shape the phone verify returns, so the page's
  * existing "signed in" path runs unchanged.
  *
- * The code is emailed and is never shown here. The one exception is a local
- * development server with no email provider (EMAIL_PROVIDER=console), which
- * says so in its response; the same rule the phone code follows.
+ * The code is emailed and is never shown here, not even by a development
+ * server with no email provider: that one prints it to its own log. These
+ * accounts have no on-screen code by design (otp-policy.ts, guardsAccount).
  */
 (function () {
   "use strict";
@@ -72,8 +72,7 @@
       return post("/v1/auth/email/request", { email: email }).then(function (r) {
         q(".em-step2").hidden = false;
         q(".em-code").focus();
-        if (r.meta && r.meta.devOtp) { q(".em-code").value = r.meta.devOtp; say("Local development: code filled in", "ok"); }
-        else say("If that address has an account, a code is on its way. Check your inbox and spam.", "ok");
+        say("If that address has an account, a code is on its way. Check your inbox and spam.", "ok");
       });
     }));
 
