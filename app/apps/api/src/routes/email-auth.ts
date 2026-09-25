@@ -8,7 +8,7 @@
  * and it stays untouched by this addition.
  */
 import type { FastifyInstance } from "fastify";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { randomInt } from "node:crypto";
 
@@ -101,16 +101,19 @@ export async function emailAuthRoutes(app: FastifyInstance) {
     if (challenge.expiresAt.getTime() < Date.now()) {
       return reply.code(401).send({ error: { code: "otp_expired", title: "That code has expired. Request a new one.", retryable: true } });
     }
-    if (challenge.attempts >= env.otpMaxAttempts) {
+    // Take the attempt BEFORE comparing, in one conditional statement. Read,
+    // compare, then write attempts + 1 let simultaneous guesses all read the
+    // same count: 60 wrong codes sent together were all compared against a
+    // cap of 5. Now each guess must win a slot under the cap first.
+    const [slot] = await db.update(S.otpChallenges)
+      .set({ attempts: sql`${S.otpChallenges.attempts} + 1`, updatedAt: new Date() })
+      .where(and(eq(S.otpChallenges.id, challenge.id), lt(S.otpChallenges.attempts, env.otpMaxAttempts)))
+      .returning({ id: S.otpChallenges.id });
+    if (!slot) {
       alerts.otpFailure(msisdn);
       return reply.code(429).send({ error: { code: "otp_locked", title: "Too many wrong attempts. Request a new code.", retryable: true } });
     }
-    if (!constantTimeEquals(sha256(code), challenge.codeHash)) {
-      await db.update(S.otpChallenges)
-        .set({ attempts: challenge.attempts + 1, updatedAt: new Date() })
-        .where(eq(S.otpChallenges.id, challenge.id));
-      return invalid();
-    }
+    if (!constantTimeEquals(sha256(code), challenge.codeHash)) return invalid();
     await db.update(S.otpChallenges)
       .set({ consumedAt: new Date(), updatedAt: new Date() })
       .where(eq(S.otpChallenges.id, challenge.id));
