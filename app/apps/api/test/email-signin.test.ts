@@ -23,6 +23,20 @@ test("malformed entries are dropped and reported, never half-applied", () => {
   assert.ok(!cfg.protectedNumbers.has("+919600000002"), "a duplicate address cannot take a second account");
 });
 
+test("a rejected entry is reported by position, never by its contents", () => {
+  // The boot log prints these. A malformed entry cannot be masked reliably:
+  // a missing "=" or a spaced number left the whole number in the log.
+  const cfg = parseEmailSignin("owner@example.com+919999900001, ownerexample.com=+919999900001, " +
+    "owner@example.com=+91 99999 00001, a@b.co=+919600000001, A@b.co=+919600000002");
+  assert.equal(cfg.rejected.length, 4);
+  for (const r of cfg.rejected) {
+    assert.ok(!/\d{5}/.test(r.replace(/\s/g, "")), `a number reached the log: ${r}`);
+    assert.ok(!/owner|example|b\.co/i.test(r), `an address reached the log: ${r}`);
+  }
+  assert.match(cfg.rejected[0], /^entry 1 /);
+  assert.match(cfg.rejected[3], /^entry 5 /);
+});
+
 test("an email challenge key cannot collide with a phone number and hides the address", () => {
   const k = emailChallengeKey(" Owner@Example.com ");
   assert.equal(k, emailChallengeKey("owner@example.com"));

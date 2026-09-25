@@ -26,22 +26,28 @@ export interface EmailSignin {
   accounts: Map<string, string>;
   /** numbers that must use email while the phone code is shown on screen */
   protectedNumbers: Set<string>;
-  /** entries dropped, with the reason - reported at boot, never silently */
+  /**
+   * entries dropped, with the reason - reported at boot, never silently. By
+   * position only: a malformed entry is exactly the one whose parts cannot be
+   * told apart to mask, and the boot log is no place for a phone number.
+   */
   rejected: string[];
 }
 
 export function parseEmailSignin(raw: string): EmailSignin {
   const accounts = new Map<string, string>(), protectedNumbers = new Set<string>(), rejected: string[] = [];
+  let n = 0;
   for (const part of raw.split(/[,;\n]/)) {
     const entry = part.trim();
     if (!entry) continue;
+    n++;
     const [left, right, extra] = entry.split("=").map((s) => s.trim());
     const email = (left ?? "").toLowerCase(), msisdn = right ?? "";
     if (extra !== undefined || !EMAIL.test(email) || !MSISDN.test(msisdn)) {
-      rejected.push(`"${entry.replace(/^(.).*(@.*)$/, "$1…$2")}" is not email=+91XXXXXXXXXX`);
+      rejected.push(`entry ${n} is not email=+91XXXXXXXXXX`);
       continue;
     }
-    if (accounts.has(email)) { rejected.push(`${email.replace(/^(.).*(@)/, "$1…$2")} is listed twice`); continue; }
+    if (accounts.has(email)) { rejected.push(`entry ${n} repeats an address listed earlier`); continue; }
     accounts.set(email, msisdn);
     protectedNumbers.add(msisdn);
   }
