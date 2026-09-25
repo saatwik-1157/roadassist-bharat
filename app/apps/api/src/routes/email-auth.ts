@@ -49,15 +49,19 @@ export async function emailAuthRoutes(app: FastifyInstance) {
     const policy = otpPolicy({ smsProvider: mail.name, exposeDevOtp: env.exposeDevOtp, guardsAccount: true });
     const accepted = ok({ sent: true, expiresInSeconds: 300, channel: "email" });
 
-    // An address nobody listed gets the same answer and no email, so the
-    // endpoint cannot be used to find out which addresses are registered.
-    if (!emailSignin.accounts.has(email)) return accepted;
-
     const code = policy.random ? String(randomInt(100000, 1000000)) : env.devOtp;
     const [challenge] = await db.insert(S.otpChallenges).values({
       msisdn: key, codeHash: sha256(code), ip: req.ip, channel: "email",
       expiresAt: new Date(Date.now() + 5 * 60_000),
     }).returning({ id: S.otpChallenges.id });
+
+    // An address nobody listed gets the same answer and no email, so the
+    // endpoint cannot be used to find out which addresses are registered. Its
+    // challenge is still recorded (with a code nobody is sent, and verify
+    // refuses an unlisted address before it looks), because the two limits
+    // above count these rows: skipping it meant only a listed address ever
+    // answered 429, which told anyone which addresses were listed.
+    if (!emailSignin.accounts.has(email)) return accepted;
 
     try {
       await mail.send(email, "Your RoadAssist-Bharat sign-in code",
