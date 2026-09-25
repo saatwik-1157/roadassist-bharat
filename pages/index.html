@@ -2638,7 +2638,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   var box = document.getElementById("livestrip");
   if (!box || !window.fetch) return;
   var q = function (k) { return box.querySelector('[data-ls="' + k + '"]'); };
-  var origin = "", timer = 0;
+  var origin = "", timer = 0, lastRead = "";
 
   function get(path) {
     var ctl = "AbortController" in window ? new AbortController() : null;
@@ -2656,13 +2656,17 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       q("open").textContent = typeof s.open === "number" ? String(s.open) : "—";
       q("avg").textContent = typeof s.avg_health === "number" ? String(Math.round(s.avg_health)) : "—";
       q("svc").textContent = Array.isArray(svc) ? String(svc.length) : "—";
-      q("when").textContent = "Live · last read " + clock();
+      lastRead = clock();
+      q("when").textContent = "Live · last read " + lastRead;
       box.classList.remove("stale");
       box.hidden = false;
     }).catch(function () {
       box.classList.add("stale");
+      // From the remembered time, not re-parsed from the line: after one
+      // failure the line no longer says "last read", and each further failure
+      // nested the whole sentence inside itself again.
       if (!box.hidden) q("when").textContent = "The platform is not answering right now; showing the reading from " +
-        (q("when").textContent.replace(/^.*last read /, "") || "earlier");
+        (lastRead || "earlier");
     });
   }
 
