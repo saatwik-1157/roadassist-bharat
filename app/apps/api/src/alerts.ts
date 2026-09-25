@@ -37,6 +37,15 @@ export interface Alert { kind: AlertKind; subject: string; lines: string[] }
 const PRIVILEGED = new Set(["admin", "authority", "ops", "operator"]);
 
 /**
+ * Code-guessing alerts across ALL numbers, per hour. The per-number rule alone
+ * let one visitor mint an email per made-up number - five wrong codes each,
+ * and the phone verify counts a wrong code even for a number with no code
+ * pending - enough to spend the provider's daily quota and bury the SOS
+ * alerts it exists to deliver. The rest are counted into the next one.
+ */
+const BURST_ALERTS_PER_HOUR = 5;
+
+/**
  * "+919876543210" -> "+91 ••••••• 210". Only the last three digits survive,
  * and the mask is a fixed width so it does not give away the length either.
  */
@@ -63,6 +72,10 @@ export class AlertGate {
   private suppressedSince = 0;
   private readonly otpFailures = new Map<string, number[]>();
   private readonly burstAlerted = new Map<string, number>();
+  private burstWindowStart = 0;
+  private burstsSent = 0;
+  private burstsSuppressed = 0;
+  private burstsSuppressedSince = 0;
 
   constructor(
     private readonly send: (a: Alert) => void,
@@ -109,11 +122,23 @@ export class AlertGate {
     const last = this.burstAlerted.get(msisdn);
     if (recent.length >= this.opts.otpBurst && (last === undefined || t - last >= w)) {
       this.burstAlerted.set(msisdn, t);
+      if (t - this.burstWindowStart >= 3_600_000) { this.burstWindowStart = t; this.burstsSent = 0; }
+      if (this.burstsSent >= BURST_ALERTS_PER_HOUR) {
+        if (!this.burstsSuppressed) this.burstsSuppressedSince = t;
+        this.burstsSuppressed++;
+        return;
+      }
+      this.burstsSent++;
       const who = maskMsisdn(msisdn);
-      this.send({ kind: "otp-burst", subject: `Possible code guessing · ${who}`,
-        lines: [`${recent.length} wrong sign-in codes for one number in ${Math.round(w / 60000)} minutes.`,
-          `Account: ${who}`, `Time: ${when(t)}`,
-          "Each code is still capped at a few attempts; this is a heads-up, not a breach."] });
+      const lines = [`${recent.length} wrong sign-in codes for one number in ${Math.round(w / 60000)} minutes.`,
+        `Account: ${who}`, `Time: ${when(t)}`,
+        "Each code is still capped at a few attempts; this is a heads-up, not a breach."];
+      if (this.burstsSuppressed) {
+        lines.push(`Also: ${this.burstsSuppressed} more number${this.burstsSuppressed === 1 ? "" : "s"} crossed the same threshold since ` +
+          `${when(this.burstsSuppressedSince)} and were not emailed one by one (limit ${BURST_ALERTS_PER_HOUR} an hour).`);
+        this.burstsSuppressed = 0;
+      }
+      this.send({ kind: "otp-burst", subject: `Possible code guessing · ${who}`, lines });
     }
   }
 

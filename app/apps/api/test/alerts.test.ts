@@ -80,6 +80,17 @@ test("a burst of wrong codes alerts once per number per window", () => {
   assert.equal(sent.length, 3, "a new window can alert again");
 });
 
+test("code-guessing alerts are capped across numbers, and the rest are counted, not dropped", () => {
+  // One visitor, five wrong codes for each of forty made-up numbers.
+  const { g, sent, advance } = gate({ otpBurst: 5 });
+  for (let n = 0; n < 40; n++) for (let i = 0; i < 5; i++) g.otpFailure(`+9198765${String(n).padStart(5, "0")}`);
+  assert.ok(sent.length <= 5, `${sent.length} emails for one burst of made-up numbers`);
+  advance(3_600_000);
+  for (let i = 0; i < 5; i++) g.otpFailure("+919999900001");
+  const last = sent[sent.length - 1];
+  assert.match(last.lines.join("\n"), /35 more numbers crossed the same threshold since .* not emailed one by one/);
+});
+
 test("wrong codes spread wider than the window never add up to a burst", () => {
   const { g, sent, advance } = gate({ otpBurst: 3, otpWindowMs: 10 * 60_000 });
   for (let i = 0; i < 6; i++) { g.otpFailure(NUMBER); advance(6 * 60_000); }
