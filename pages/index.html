@@ -772,6 +772,23 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 @media (max-width:560px){#rk3d .x3d-scale{transform:scale(.58)}#au3d .x3d-scale{transform:scale(.62)}}
 @media (max-width:360px){#rk3d .x3d-scale{transform:scale(.5)}#au3d .x3d-scale{transform:scale(.54)}}
 @media (prefers-reduced-motion:reduce){#rk3d .x3d-scale{animation:none}.ls-dot{animation:none}}
+
+/* ── team ─────────────────────────────────────────────────────────────── */
+.team-grid{display:grid;gap:14px;margin-top:24px;grid-template-columns:1fr}
+@media (min-width:640px){.team-grid{grid-template-columns:repeat(2,1fr)}}
+@media (min-width:1000px){.team-grid{grid-template-columns:repeat(4,1fr)}}
+.tm{position:relative;padding:22px 20px 20px;border-radius:18px;background:linear-gradient(160deg,var(--surface-2),var(--surface) 60%);
+  border:1px solid var(--line);transition:transform .35s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .35s}
+.tm:hover{transform:translateY(-4px);border-color:#3a4252;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.tm-av{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;font:800 17px var(--sans);color:#0b0e14;
+  background:radial-gradient(circle at 30% 25%,#fff8,transparent 45%),linear-gradient(135deg,var(--a),var(--b));
+  box-shadow:0 10px 24px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.tm h3{margin:14px 0 2px;font-size:17px}
+.tm-id{margin:0;font:600 12px var(--mono);color:var(--ink-3)}
+.tm-role{margin:10px 0 6px;font-weight:700;color:var(--accent);font-size:14px}
+.tm-what{margin:0;color:var(--ink-2);font-size:14px;line-height:1.6}
+.tm-k{display:inline-block;margin-right:4px;font:700 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){.tm{transition:none}.tm:hover{transform:none}}
 </style>
 <script>
 (function (d) {
@@ -1113,12 +1130,13 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       <code>LANG TA</code>.
     </p>
     <div class="note">
-      <p><strong>Showcase, not the live application.</strong> This page is static: screenshots,
-      recordings and measured evidence. The frames above show the platform itself only while
-      you connect them to one that is running; this page never pretends to be it. The platform needs a long-lived process — it
-      holds open event streams and runs an offer-expiry sweeper — plus PostgreSQL with PostGIS.
-      <a href="#run">One command runs the whole thing locally</a>, and it is the same image
-      published from this repository.</p>
+      <p><strong>Live when it is live, and honest when it is not.</strong> While the hosted platform at
+      <a href="https://app.roadassistbharat.online/">app.roadassistbharat.online</a> answers its health
+      check, the frames above are that platform: sign in and use it. If it stops answering they fall
+      back to screenshots on their own, and a deployment that is not running never gets a LIVE badge.
+      The platform needs a long-lived process (it holds open event streams and runs an offer-expiry
+      sweeper) plus PostgreSQL with PostGIS; it runs on Render with its database on Neon, and
+      <a href="#run">one command runs the whole thing locally</a> from the same published image.</p>
     </div>
   </div>
 </section>
@@ -1643,17 +1661,17 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       <div class="card"><h3>Mechanic</h3><p><code>+919600000000</code></p></div>
     </div>
     <p class="sub" style="margin-top:12px">
-      These are seeded demo accounts in a throwaway local database. In demo mode the one-time code
-      is returned by the API and fills itself in, so there is no password to publish — and nothing
-      here is a credential for any deployed system.
+      These are seeded demo accounts. In demo mode the one-time code is returned by the API and
+      fills itself in, so there is no password to publish.
     </p>
 
     <div class="note">
-      <p><strong>Why there is no hosted demo link.</strong> The image is built and published, and
-      CI boots it against a real PostGIS and runs the end-to-end and security suites against the
-      running container before publishing. A hosted instance additionally needs a managed PostGIS
-      database wired to it; that is configuration, not code, and until it is in place this page
-      will not link to a URL that does not answer.</p>
+      <p><strong>Or use the hosted instance.</strong> The same image runs at
+      <a href="https://app.roadassistbharat.online/">app.roadassistbharat.online</a>, against a
+      managed PostGIS database. There, the accounts the team uses (the authority account among
+      them) sign in with <em>Sign in with email</em>: the code goes to that person's inbox and is
+      never shown on screen, so typing the number above gets you nowhere. Any other number signs in
+      as an ordinary citizen with the on-screen demo code.</p>
     </div>
   </div>
 </section>
@@ -1684,6 +1702,33 @@ docker compose -f docker-compose.demo.yml up</code></pre>
 
 </main>
 
+<!-- ═══ TEAM ═══ -->
+<section id="team" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">The team</p>
+    <h2>Four people, four layers of one platform</h2>
+    <div class="team-grid">
+      <article class="tm"><span class="tm-av" style="--a:#f0b429;--b:#c97a12">VS</span>
+        <h3>V. Saatwik Sairaam</h3><p class="tm-id">24MIC7131</p>
+        <p class="tm-role">Backend and cloud database</p>
+        <p class="tm-what"><span class="tm-k">Area</span> The Fastify API, PostGIS schema and migrations, dispatch, and the hosted deployment.</p></article>
+      <article class="tm"><span class="tm-av" style="--a:#5fd0d8;--b:#1d7f86">PN</span>
+        <h3>P. Sai Nirisha Chowdary</h3><p class="tm-id">24MIC7122</p>
+        <p class="tm-role">Frontend and mobile</p>
+        <p class="tm-what"><span class="tm-k">Area</span> The citizen app, mechanic console and RAKSHA surfaces, and the Android client.</p></article>
+      <article class="tm"><span class="tm-av" style="--a:#49c97e;--b:#1f7a4a">TJ</span>
+        <h3>T. V. S. Jignesh</h3><p class="tm-id">24MIC7190</p>
+        <p class="tm-role">AI and data services</p>
+        <p class="tm-what"><span class="tm-k">Area</span> The YOLO11 road-damage detector on RDD2022, and the rule-based diagnosis.</p></article>
+      <article class="tm"><span class="tm-av" style="--a:#4da3ff;--b:#2a5fb8">GP</span>
+        <h3>G. Parthavi</h3><p class="tm-id">24MIC7145</p>
+        <p class="tm-role">DevOps, QA and cloud security</p>
+        <p class="tm-what"><span class="tm-k">Area</span> CI, the test and security suites, containers, and the release checks.</p></article>
+    </div>
+    <p class="sub" style="margin-top:16px">Faculty guide: Dr. Nagendra Panini Challa · SWE4004 Cloud Computing and Applications, VIT-AP University.</p>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <div class="foot">
@@ -1705,15 +1750,16 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       </div>
       <div>
         <h4>Team</h4>
-        <p class="team">V. Saatwik Sairaam</p>
-        <p class="team">P. Nirisha Chowdary</p>
-        <p class="team">T. V. S. Jignesh</p>
-        <p class="team">G. Parthavi</p>
+        <p class="team"><a href="#team">V. Saatwik Sairaam</a></p>
+        <p class="team"><a href="#team">P. Sai Nirisha Chowdary</a></p>
+        <p class="team"><a href="#team">T. V. S. Jignesh</a></p>
+        <p class="team"><a href="#team">G. Parthavi</a></p>
       </div>
     </div>
     <p class="legal">
-      SWE4004 — Cloud Computing and Applications. This page is a project showcase; it is not the
-      running application. Every figure on it is measured and reproducible from the repository.
+      SWE4004 — Cloud Computing and Applications. This page is the project's showcase; the running
+      platform is at app.roadassistbharat.online. Every figure on it is measured and reproducible
+      from the repository.
     </p>
   </div>
 </footer>
