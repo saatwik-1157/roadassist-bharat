@@ -126,9 +126,7 @@ services:
       # confirmed and off-grid SOS, wrong-code bursts and admin sign-ins, emailed
       # to the owner. Sent from the SERVER through Resend, so the key never
       # reaches a browser; each email carries a masked number, a role, an event
-      # and a time - never a name, position, IP or device. Resend's free plan
-      # sends from onboarding@resend.dev to the account's own address, which is
-      # exactly this use. Both values below are set by hand in the dashboard;
+      # and a time - never a name, position, IP or device. Both values below are set by hand in the dashboard;
       # with ALERT_EMAIL_TO empty, alerts are off and the boot log says so.
       # ALERT_EMAIL_TO may be a comma-separated list; anyone but the Resend
       # account's own address needs a verified domain and an EMAIL_FROM on it.
@@ -136,8 +134,10 @@ services:
         value: http
       - key: EMAIL_BASE_URL
         value: https://api.resend.com/emails
+      # send.roadassistbharat.online is verified in Resend (DKIM + SPF records at
+      # Hostinger), so mail can reach any address, not only the account owner's.
       - key: EMAIL_FROM
-        value: RoadAssist Alerts <onboarding@resend.dev>
+        value: RoadAssist Alerts <alerts@send.roadassistbharat.online>
       - key: EMAIL_API_KEY
         sync: false
       - key: ALERT_EMAIL_TO
