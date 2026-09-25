@@ -1253,64 +1253,67 @@ app.get("/v1/bookings/:id", { preHandler: authenticate }, async (req, reply) => 
   // admin. Without the mechanic clause the write path was strictly more
   // permissive than the read path — the assigned mechanic could drive a job
   // they were not allowed to look at.
-  if (!(await bookingAudience(booking, req.user!)).allowed) {
+  const audience = await bookingAudience(booking, req.user!);
+  if (!audience.allowed) {
     return reply.code(403).send({ error: notYours });
   }
-  const events = await db.select().from(S.bookingEvents)
-    .where(eq(S.bookingEvents.bookingId, id)).orderBy(S.bookingEvents.createdAt);
 
   // ── everything a tracking screen needs, in the one call it already makes ──
   // This used to return `mechanicId` and nothing else about the mechanic, so a
   // client could name who was assigned but never show where they were, how far
   // off, or how to reach them — it had to be invented client-side or omitted.
-  const audience = await bookingAudience(booking, req.user!);
-  const [vehicle] = await db.select({
-    registrationNo: S.vehicles.registrationNo, nickname: S.vehicles.nickname,
-    vehicleClass: S.vehicles.vehicleClass, fuel: S.vehicles.fuel,
-  }).from(S.vehicles).where(eq(S.vehicles.id, booking.vehicleId)).limit(1);
-
-  const [serviceType] = booking.serviceTypeId
-    ? await db.select({ code: S.serviceTypes.code, label: S.serviceTypes.label,
-                        etaMinutes: S.serviceTypes.etaMinutes })
-        .from(S.serviceTypes).where(eq(S.serviceTypes.id, booking.serviceTypeId)).limit(1)
-    : [];
-
-  // Distance is computed in PostGIS against the booking's own point rather than
-  // trusted from the offer row: an offer's distance is a snapshot from dispatch
-  // time, and the mechanic has been driving since.
-  const [mechanic] = booking.mechanicId
-    ? await db.execute<{
-        id: string; display_name: string; rating: number; jobs_completed: number;
-        msisdn: string | null; lat: number | null; lng: number | null; km: number | null;
-        last_location_at: string | null;
-      }>(raw`
-        SELECT m.id, m.display_name, m.rating, m.jobs_completed, u.msisdn,
-               ST_Y(m.last_location) AS lat, ST_X(m.last_location) AS lng,
-               m.last_location_at,
-               round((ST_Distance(m.last_location::geography, b.location::geography)
-                      / 1000)::numeric, 1) AS km
-          FROM mechanics m
-          JOIN users u ON u.id = m.user_id
-          JOIN bookings b ON b.id = ${id}
-         WHERE m.id = ${booking.mechanicId}`)
-    : [];
-
-  // Derived, never stored — a status column would drift from the booking state
-  // machine and the offer table, and be wrong at exactly the wrong moment.
-  const providerState = booking.mechanicId ? await providerStateFor(booking.mechanicId) : null;
-
-  // The customer's own number, for the mechanic who has to find them. Each side
-  // sees exactly one number — the other party's — and only once a mechanic is
-  // actually assigned. An admin reading the booking gets neither.
-  const [customer] = audience.isAssignedMechanic
-    ? await db.select({ msisdn: S.users.msisdn, fullName: S.users.fullName })
-        .from(S.users).where(eq(S.users.id, booking.userId)).limit(1)
-    : [];
-
-  const [invoice] = await db.select().from(S.invoices)
-    .where(and(eq(S.invoices.bookingId, id), isNull(S.invoices.deletedAt))).limit(1);
-  const [review] = await db.select({ rating: S.reviews.rating })
-    .from(S.reviews).where(eq(S.reviews.bookingId, id)).limit(1);
+  //
+  // The reads below depend only on the booking, so they run together. They used
+  // to run one after another - with the audience check done twice - and on the
+  // hosted demo, where every query crosses an ocean (~210 ms), that serial chain
+  // made this read take ~4.4 s: the live update reached the citizen instantly
+  // and then waited on this. One round trip for the batch, not ten.
+  const [events, [vehicle], [serviceType], [mechanic], providerState, [customer], [invoice], [review]] = await Promise.all([
+    db.select().from(S.bookingEvents)
+      .where(eq(S.bookingEvents.bookingId, id)).orderBy(S.bookingEvents.createdAt),
+    db.select({
+      registrationNo: S.vehicles.registrationNo, nickname: S.vehicles.nickname,
+      vehicleClass: S.vehicles.vehicleClass, fuel: S.vehicles.fuel,
+    }).from(S.vehicles).where(eq(S.vehicles.id, booking.vehicleId)).limit(1),
+    booking.serviceTypeId
+      ? db.select({ code: S.serviceTypes.code, label: S.serviceTypes.label,
+                    etaMinutes: S.serviceTypes.etaMinutes })
+          .from(S.serviceTypes).where(eq(S.serviceTypes.id, booking.serviceTypeId)).limit(1)
+      : Promise.resolve([]),
+    // Distance is computed in PostGIS against the booking's own point rather than
+    // trusted from the offer row: an offer's distance is a snapshot from dispatch
+    // time, and the mechanic has been driving since.
+    booking.mechanicId
+      ? db.execute<{
+          id: string; display_name: string; rating: number; jobs_completed: number;
+          msisdn: string | null; lat: number | null; lng: number | null; km: number | null;
+          last_location_at: string | null;
+        }>(raw`
+          SELECT m.id, m.display_name, m.rating, m.jobs_completed, u.msisdn,
+                 ST_Y(m.last_location) AS lat, ST_X(m.last_location) AS lng,
+                 m.last_location_at,
+                 round((ST_Distance(m.last_location::geography, b.location::geography)
+                        / 1000)::numeric, 1) AS km
+            FROM mechanics m
+            JOIN users u ON u.id = m.user_id
+            JOIN bookings b ON b.id = ${id}
+           WHERE m.id = ${booking.mechanicId}`)
+      : Promise.resolve([]),
+    // Derived, never stored — a status column would drift from the booking state
+    // machine and the offer table, and be wrong at exactly the wrong moment.
+    booking.mechanicId ? providerStateFor(booking.mechanicId) : Promise.resolve(null),
+    // The customer's own number, for the mechanic who has to find them. Each side
+    // sees exactly one number — the other party's — and only once a mechanic is
+    // actually assigned. An admin reading the booking gets neither.
+    audience.isAssignedMechanic
+      ? db.select({ msisdn: S.users.msisdn, fullName: S.users.fullName })
+          .from(S.users).where(eq(S.users.id, booking.userId)).limit(1)
+      : Promise.resolve([]),
+    db.select().from(S.invoices)
+      .where(and(eq(S.invoices.bookingId, id), isNull(S.invoices.deletedAt))).limit(1),
+    db.select({ rating: S.reviews.rating })
+      .from(S.reviews).where(eq(S.reviews.bookingId, id)).limit(1),
+  ]);
 
   // A geometry column comes back as {x, y}; every client then has to remember
   // which one is the latitude. Name them.

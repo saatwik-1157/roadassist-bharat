@@ -35,6 +35,11 @@ node packages/db/dist/src/migrate.js
 # container that dies at boot shows nothing at all. `|| echo` is also what keeps
 # `set -e` from ending the script here. $? in the echo is the seed's exit code.
 if [ "${SEED_DEMO_FLEET:-}" = "true" ]; then
+  # The RAKSHA admin and the NH-48 segments first: seed-raksha.ts is faker-free
+  # and idempotent too. A fresh hosted database otherwise has no admin role, so
+  # the first email sign-in for the authority account would create a citizen.
+  echo "→ seeding RAKSHA admin and corridor"
+  node packages/db/dist/src/seed-raksha.js        || echo "⚠ RAKSHA seed failed (exit $?) - starting the api without it"
   echo "→ seeding demo fleet"
   node packages/db/dist/src/seed-demo-fleet.js     || echo "⚠ demo fleet seed failed (exit $?) - starting the api without it"
 fi
