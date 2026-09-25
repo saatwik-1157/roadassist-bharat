@@ -346,6 +346,15 @@
     try {
       var url = BASE + "/v1/map/live?" + viewQuery();
       var tok = authToken();
+      // No session at all: the answer is a known 401, so it is not asked for.
+      // Asking anyway put a red "Failed to load resource" in every page that
+      // embeds this map, for a visitor who had simply not signed in yet.
+      if (!tok) {
+        signedOut = true;
+        document.getElementById("badge").innerHTML = "⚠ " +
+          esc("Sign in on the citizen app, mechanic console or RAKSHA in this browser to see the live map");
+        return;
+      }
       var res = await fetch(url, { headers: tok ? { authorization: "Bearer " + tok } : {} });
       // On expiry, ask the app to rotate the token once, then retry silently.
       if (res.status === 401 && tryRefresh()) {
