@@ -12,7 +12,7 @@
  */
 // Bump whenever SHELL_ASSETS changes: the old cache is dropped on activate, so
 // a viewer who already installed v1 does not keep a shell missing the new files.
-const VERSION = "ra-v8";
+const VERSION = "ra-v9";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -110,7 +110,26 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Shell: serve instantly from cache, refresh in the background.
+  // A page itself: the network first, the cache when it is slow or gone.
+  // Cache-first served a returning visitor the previous release of every page
+  // once - a fixed map kept making the request the fix removed. A deploy now
+  // shows on the next load; three seconds of dead air falls back to the copy.
+  if (req.mode === "navigate") {
+    event.respondWith(
+      caches.open(SHELL).then(async (cache) => {
+        const fresh = fetch(req).then((res) => { if (res.ok) cache.put(req, res.clone()); return res; });
+        const slow = new Promise((resolve) => setTimeout(resolve, 3000, null));
+        const res = await Promise.race([fresh.catch(() => null), slow]);
+        if (res) return res;
+        return (await cache.match(req)) ?? (await fresh.catch(() => null)) ??
+          (await cache.match("/app.html")) ??
+          new Response("Offline and this page was never cached.", { status: 503, headers: { "content-type": "text/plain" } });
+      }),
+    );
+    return;
+  }
+
+  // Shell assets: serve instantly from cache, refresh in the background.
   event.respondWith(
     caches.open(SHELL).then(async (cache) => {
       const hit = await cache.match(req);
