@@ -945,6 +945,7 @@
 </div>
 
 <script src="email-signin.js"></script>
+<script src="journey.js"></script>
 <script>
 (function () {
   "use strict";
@@ -2660,7 +2661,7 @@
     "tow.required": "Needs tow", "tow.assigned": "Tow assigned", "retry.widen": "Widen search",
   };
   /** The journey, so the customer sees where they are rather than a bare status. */
-  var JOURNEY = ["REQUESTED", "MATCHING", "ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS", "COMPLETED", "PAID"];
+  var JOURNEY = RAJourney.JOURNEY;
   function statusPill(s) {
     if (s === "PAID" || s === "COMPLETED") return "ok";
     if (s === "CANCELLED" || s === "NO_SUPPLY" || s === "ESCALATED") return "bad";
@@ -2688,14 +2689,16 @@
 
   function journeyHtml(status, hasReview) {
     var at = JOURNEY.indexOf(status);
-    if (at < 0) {
+    // journey.js (unit-tested) decides: once PAID, every step is done, none "Now".
+    var marks = RAJourney.journeyMarks(status);
+    if (!marks) {
       // NO_SUPPLY, ESCALATED, AWAITING_PARTS and CANCELLED sit off the happy
       // path. Saying so is more honest than drawing an empty timeline.
       return "<p class='hint' style='margin-top:12px'>This booking is off the standard journey — " +
         esc(String(status).replace(/_/g, " ").toLowerCase()) + ".</p>";
     }
     var steps = JOURNEY_STEPS.map(function (s, i) {
-      var done = i < at, now = i === at;
+      var done = marks[i] === "done", now = marks[i] === "now";
       var mark = done ? "&#10003;" : now ? "&#9679;" : "&#9675;";
       var colour = done ? "var(--green)" : now ? "var(--brand)" : "var(--text-3)";
       var weight = now ? "650" : "500";
