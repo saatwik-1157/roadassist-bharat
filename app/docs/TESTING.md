@@ -164,7 +164,7 @@ that reach the people with the worst connections and the cheapest phones, first.
 | Surface | Covered | Not covered |
 |---|---|---|
 | API (SMS + OTP) | **Everything the platform sends**, in all 8 — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
-| Android | **The user-facing UI**, in all 8 — 95 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer and the user-facing toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | Seven literals remain, all of them diagnostics or wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
+| Android | **The user-facing UI**, in all 8 — 101 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer and the user-facing toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | Seven literals remain, all of them diagnostics or wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
 | Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 30 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 
@@ -256,7 +256,7 @@ now samples 25 times so its p95 is a percentile.
 | `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
 | `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
 | `boundaries` | four fitness functions: module boundaries, the offline-shell completeness check, the documented-claims check and the code-citation check |
-| `android` | lint, 66 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
+| `android` | lint, 87 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
 | `ai` | syntax-checks every CV script and runs the pipeline unit tests |
 
 `android` and `ai` were added because `mobile/` and `ai/` ship as real artefacts

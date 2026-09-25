@@ -63,3 +63,6 @@ review1-ppt/*.pre-audit.pdf
 
 # Assistant skill state, same category as .claude/ — not part of the project
 skills-lock.json
+
+# Release APKs are build output, handed over by path, never committed.
+mobile/*.apk

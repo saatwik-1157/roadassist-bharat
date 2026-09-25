@@ -106,7 +106,7 @@ docker compose -f docker-compose.demo.yml up -d
 without one. It is **not** part of the 636 and must never be described as
 passing.
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (66
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (87
 tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
 
 ## Toolchain traps
@@ -167,9 +167,10 @@ first screen.
 
 **Long-press the RoadAssist wordmark on the sign-in screen** to show the API
 base URL field, and long-press again to hide it. This is the only way in on a
-handset that has never signed in, because the built-in default `10.0.2.2` is an
-emulator alias that means nothing on real hardware, and the Server card that
-normally changes it lives in **More**, behind sign-in.
+developer who wants a local server instead of the live one. A fresh install
+talks to https://app.roadassistbharat.online; an install that had saved the old
+built-in default, the emulator alias `10.0.2.2:4000`, is moved to it once on
+launch. The Server card in **More** changes it after sign-in.
 
 It is written here rather than drawn on the screen, which is the whole point —
 so it has to be written here. The field is only committed when it is visible, so
