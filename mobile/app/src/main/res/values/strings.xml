@@ -67,6 +67,17 @@
     <string name="field_otp_code">6-digit code</string>
     <string name="action_send_otp">Send OTP</string>
     <string name="action_verify_sign_in">Verify &amp; sign in</string>
+    <!-- Sign in with email: the second way in, under the phone flow. Worded
+         like the web's email-signin.js so the two surfaces say the same thing.
+         toast_email_code_requested says "if that address has an account"
+         because the server answers identically for addresses it does not
+         know — it must not read as a promise that an email is coming. -->
+    <string name="action_email_signin">Sign in with email</string>
+    <string name="field_email">Email address</string>
+    <string name="action_email_code">Email me a code</string>
+    <string name="field_email_code">6-digit code from the email</string>
+    <string name="email_signin_note">For accounts the project owner has set up. The code arrives in your inbox and is never shown on this screen.</string>
+    <string name="toast_email_code_requested">If that address has an account, a code is on its way. Check your inbox and spam.</string>
     <string name="sos_alert_now">Alert now</string>
     <string name="sos_5s_to_cancel">5s to cancel</string>
     <string name="vehicle_add_title">Add your vehicle</string>

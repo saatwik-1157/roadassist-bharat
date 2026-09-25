@@ -57,6 +57,16 @@
     <string name="field_otp_code">6 అంకెల కోడ్</string>
     <string name="action_send_otp">OTP పంపు</string>
     <string name="action_verify_sign_in">ధృవీకరించి సైన్ ఇన్</string>
+    <!-- Sign in with email. ENGLISH, NOT YET TRANSLATED: these six arrived
+         with the email sign-in and were not translated with confidence, so
+         they are the English text on purpose rather than a guess. Replace
+         them when a speaker has reviewed a translation. -->
+    <string name="action_email_signin">Sign in with email</string>
+    <string name="field_email">Email address</string>
+    <string name="action_email_code">Email me a code</string>
+    <string name="field_email_code">6-digit code from the email</string>
+    <string name="email_signin_note">For accounts the project owner has set up. The code arrives in your inbox and is never shown on this screen.</string>
+    <string name="toast_email_code_requested">If that address has an account, a code is on its way. Check your inbox and spam.</string>
     <string name="sos_alert_now">ఇప్పుడే పంపు</string>
     <string name="sos_5s_to_cancel">రద్దుకు 5 సెకన్లు</string>
     <string name="vehicle_add_title">మీ వాహనాన్ని జోడించండి</string>

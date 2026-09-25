@@ -1,21 +1,82 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The RoadAssist mark: a shield formed around a road running to the
-     horizon, with a beacon above it. Drawn in white and tinted at the call
-     site (BrandMark) so it takes the active theme's gold. -->
+<!-- The RoadAssist mark, converted from brand/logo-mark.svg (same 128-unit
+     canvas, same coordinates, so the two can be diffed by eye):
+       · a gold gradient shield (safety), with a pale inner bevel so it reads
+         as a solid object rather than a flat badge;
+       · a dark road converging to an apex, which is the A of Assist, with
+         gold lane dashes shrinking into the distance;
+       · a green signal dot and two arcs at the apex: help that still reaches
+         you off-grid.
+     It carries its own colours now, so BrandMark draws it untinted. The old
+     mark was white and tinted gold at the call site; a gradient cannot be
+     tinted without flattening it back into a silhouette.
+
+     Gradients use aapt:attr, which VectorDrawable supports from API 24;
+     minSdk is 26. One honest difference from the SVG: the shield gradient
+     there is in objectBoundingBox units, which skews its angle across a
+     non-square box. Android gradients are in path units, so the direction is
+     the same but the bands sit perpendicular to it. It is not visible at
+     icon sizes. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="24dp" android:height="24dp"
-    android:viewportWidth="32" android:viewportHeight="32">
+    android:viewportWidth="128" android:viewportHeight="128">
+
+    <!-- shield -->
+    <path android:pathData="M64,5 L113,23 V58 C113,91 92,113.5 64,123 C36,113.5 15,91 15,58 V23 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear"
+                android:startX="15" android:startY="5"
+                android:endX="49.3" android:endY="123">
+                <item android:offset="0" android:color="#FFFFD978" />
+                <item android:offset="0.55" android:color="#FFF0B429" />
+                <item android:offset="1" android:color="#FFC97A12" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- inner bevel -->
     <path
-        android:fillColor="#FFFFFF" android:fillAlpha="0.18"
-        android:pathData="M16,1.6 L28.6,6.2 L28.6,16.3 C28.6,23.4 23.3,29.1 16,31.4 C8.7,29.1 3.4,23.4 3.4,16.3 L3.4,6.2 Z" />
+        android:strokeColor="#FFF1C2" android:strokeAlpha="0.45" android:strokeWidth="1.5"
+        android:pathData="M64,12 L106,27.5 V58 C106,86.5 88,106.5 64,115.5 C40,106.5 22,86.5 22,58 V27.5 Z" />
+
+    <!-- the road, converging to an apex -->
+    <path android:pathData="M34,106 L58.5,42 C60,38.3 68,38.3 69.5,42 L94,106 C85,110.5 74.5,113 64,113 C53.5,113 43,110.5 34,106 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear"
+                android:startX="64" android:startY="39.2"
+                android:endX="64" android:endY="113">
+                <item android:offset="0" android:color="#FF1A2130" />
+                <item android:offset="1" android:color="#FF07090D" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- lane markings, shrinking with distance (the SVG's rounded rects) -->
     <path
-        android:strokeColor="#FFFFFF" android:strokeWidth="1.7"
-        android:strokeLineJoin="round"
-        android:pathData="M16,1.6 L28.6,6.2 L28.6,16.3 C28.6,23.4 23.3,29.1 16,31.4 C8.7,29.1 3.4,23.4 3.4,16.3 L3.4,6.2 Z" />
+        android:fillColor="#F0B429"
+        android:pathData="M63.2,95 h1.6 a1.6,1.6 0 0 1 1.6,1.6 v7.8 a1.6,1.6 0 0 1 -1.6,1.6 h-1.6 a1.6,1.6 0 0 1 -1.6,-1.6 v-7.8 a1.6,1.6 0 0 1 1.6,-1.6 Z
+            M63.5,80 h1 a1.4,1.4 0 0 1 1.4,1.4 v5.7 a1.4,1.4 0 0 1 -1.4,1.4 h-1 a1.4,1.4 0 0 1 -1.4,-1.4 v-5.7 a1.4,1.4 0 0 1 1.4,-1.4 Z
+            M63.7,67.5 h0.6 a1.2,1.2 0 0 1 1.2,1.2 v4.1 a1.2,1.2 0 0 1 -1.2,1.2 h-0.6 a1.2,1.2 0 0 1 -1.2,-1.2 v-4.1 a1.2,1.2 0 0 1 1.2,-1.2 Z
+            M63.9,57.5 h0.2 a1,1 0 0 1 1,1 v2.8 a1,1 0 0 1 -1,1 h-0.2 a1,1 0 0 1 -1,-1 v-2.8 a1,1 0 0 1 1,-1 Z" />
+
+    <!-- the signal at the apex -->
     <path
-        android:fillColor="#FFFFFF" android:fillType="evenOdd"
-        android:pathData="M10.4,25.2 L14.5,11.8 L17.5,11.8 L21.6,25.2 Z M15.05,21.3 L16.95,21.3 L16.95,23.8 L15.05,23.8 Z M15.35,17.2 L16.65,17.2 L16.65,19.3 L15.35,19.3 Z M15.6,13.8 L16.4,13.8 L16.4,15.5 L15.6,15.5 Z" />
+        android:strokeColor="#0B0E14" android:strokeWidth="3.2" android:strokeLineCap="round"
+        android:pathData="M52.5,30.5 A16,16 0 0,1 75.5,30.5" />
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M14.1,7.5 a1.9,1.9 0 1,0 3.8,0 a1.9,1.9 0 1,0 -3.8,0" />
+        android:strokeColor="#0B0E14" android:strokeWidth="3.2" android:strokeLineCap="round"
+        android:pathData="M57.3,35.2 A9.4,9.4 0 0,1 70.7,35.2" />
+    <path
+        android:strokeColor="#0B0E14" android:strokeWidth="2"
+        android:pathData="M58.8,42.5 a5.2,5.2 0 1,0 10.4,0 a5.2,5.2 0 1,0 -10.4,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial"
+                android:centerX="64" android:centerY="42.5"
+                android:gradientRadius="5.2">
+                <item android:offset="0" android:color="#FF7CFFC4" />
+                <item android:offset="1" android:color="#FF1FC77E" />
+            </gradient>
+        </aapt:attr>
+    </path>
 </vector>

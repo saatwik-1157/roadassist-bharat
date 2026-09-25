@@ -67,7 +67,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -82,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
+import androidx.core.content.edit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -103,13 +105,25 @@ val Alarm: Color    @Composable get() = LocalRa.current.alarm
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // On a real handset the API address is typed by hand: 10.0.2.2 is an
-        // emulator alias and means nothing there. Without this it resets to
-        // that default on every launch and has to be retyped. Restored before
-        // anything composes, because the map WebView reads Api.base too.
-        getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE)
-            .getString("apiBase", null)
-            ?.let { Api.base = Api.normalizeBase(it) }
+        // A developer's server address (a LAN IP, the emulator alias) is typed
+        // by hand and kept, so it is not retyped on every launch. Restored
+        // before anything composes, because the map WebView reads Api.base too.
+        //
+        // Api.restoreBase also moves installs that only ever saved the OLD
+        // built-in default (http://10.0.2.2:4000) to the live platform, once:
+        // the stale value is deleted and the migration is recorded, so a
+        // developer who picks 10.0.2.2:4000 deliberately afterwards keeps it.
+        val uiPrefs = getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE)
+        val migrated = uiPrefs.getBoolean("apiBaseMigrated", false)
+        val restored = Api.restoreBase(uiPrefs.getString("apiBase", null), migrated)
+        Api.base = restored.base
+        if (!migrated) {
+            // core-ktx's edit {}, which applies on exit (already a dependency).
+            uiPrefs.edit {
+                if (restored.forget) remove("apiBase")
+                putBoolean("apiBaseMigrated", true)
+            }
+        }
         setContent {
             val ctx = LocalContext.current
             val prefs = remember { ctx.getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE) }
@@ -153,15 +167,123 @@ class MainActivity : ComponentActivity() {
 }
 
 // ── app state machine ──────────────────────────────────────────────────────
-/** The RoadAssist mark (res/drawable/ic_mark.xml), tinted to the active gold. */
+/**
+ * The RoadAssist mark (res/drawable/ic_mark.xml), in its own colours.
+ *
+ * It used to be a white silhouette tinted to the active gold here. The brand
+ * mark is now a gradient shield with a dark road and a green signal, and a
+ * tint would flatten all of that back into one colour, so it is drawn as it
+ * is. It carries its own dark road, so it holds up on both the dark and the
+ * paper theme without a per-theme variant.
+ */
 @Composable
 private fun BrandMark(size: Int = 24) {
     Image(
         painter = painterResource(R.drawable.ic_mark),
         contentDescription = "RoadAssist",
         modifier = Modifier.size(size.dp),
-        colorFilter = ColorFilter.tint(Gold),
     )
+}
+
+/**
+ * The sign-in beacon: the brand shield hovering over a patch of road, sending
+ * out the same signal the logo draws. The Compose twin of `.emblem3d` in the
+ * web's ds.css, with the same numbers: a 6 s float that bobs 8dp and sways
+ * ±16° about the vertical axis (with a little counter-tilt about the
+ * horizontal one), over three rings that grow from 18% to 120% and fade, a
+ * second apart, on a 3 s cycle.
+ *
+ * Cheap on purpose, because it sits on the first screen of an app meant for
+ * old phones on bad days:
+ *  · ONE infinite transition drives everything. The shield's phase and each
+ *    ring's phase are derived from that single number.
+ *  · The phase is read only inside `graphicsLayer {}` and the Canvas draw
+ *    lambda. Those are deferred reads, so a frame of animation is a redraw of
+ *    two small layers — nothing recomposes, nothing re-measures.
+ *  · The rings are ellipses on a Canvas, not three animated composables.
+ *
+ * "Remove animations" in the system settings sets ANIMATOR_DURATION_SCALE to
+ * 0. Compose's own animations would then jump straight to their end values,
+ * which for an infinite transition can mean a loop that spins every frame to
+ * no visible effect. So that setting is read directly and the scene is drawn
+ * once, still, at a pose that shows all three rings and a front-facing shield.
+ */
+@Composable
+private fun SignInBeacon(modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val animate = remember {
+        android.provider.Settings.Global.getFloat(
+            ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f,
+        ) != 0f
+    }
+    // 0.25 of the float cycle is the midpoint of the sway: the shield faces
+    // forward, raised half its bob, and the rings sit at three different sizes.
+    val phase: androidx.compose.runtime.State<Float> = if (animate) {
+        androidx.compose.animation.core.rememberInfiniteTransition(label = "beacon").animateFloat(
+            initialValue = 0f, targetValue = 1f,
+            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+                androidx.compose.animation.core.tween(6000, easing = androidx.compose.animation.core.LinearEasing),
+            ),
+            label = "beacon-phase",
+        )
+    } else remember { androidx.compose.runtime.mutableFloatStateOf(0.25f) }
+
+    val ring = LocalRa.current.ok.copy(alpha = 0.7f)
+    Box(modifier.size(width = 150.dp, height = 138.dp), contentAlignment = Alignment.TopCenter) {
+        // The floor: a soft shadow under the shield and the signal rings. The
+        // web lays a circle flat with rotateX(76deg); flattening a circle by
+        // cos(76°) ≈ 0.24 is the same ellipse without a second 3D layer.
+        androidx.compose.foundation.Canvas(
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(150.dp, 36.dp),
+        ) {
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            val rx = size.width / 2f
+            val ry = size.height / 2f
+            drawOval(
+                brush = Brush.radialGradient(
+                    listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent),
+                    center = androidx.compose.ui.geometry.Offset(cx, cy), radius = rx * 0.28f,
+                ),
+                topLeft = androidx.compose.ui.geometry.Offset(cx - rx * 0.56f, cy - ry * 0.56f),
+                size = androidx.compose.ui.geometry.Size(rx * 1.12f, ry * 1.12f),
+            )
+            val t = phase.value
+            for (i in 0 until 3) {
+                // Rings run twice per float cycle (3 s), a third of that apart.
+                val p = ((t * 2f) + i / 3f) % 1f
+                // cubic-bezier(.2,.7,.3,1) on the web: fast out, long settle.
+                // An ease-out cubic is the same shape to the eye.
+                val e = 1f - (1f - p) * (1f - p) * (1f - p)
+                val s = 0.18f + (1.2f - 0.18f) * e
+                val a = 0.95f * (1f - e)
+                if (a <= 0.01f) continue
+                drawOval(
+                    color = ring.copy(alpha = ring.alpha * a),
+                    topLeft = androidx.compose.ui.geometry.Offset(cx - rx * s, cy - ry * s),
+                    size = androidx.compose.ui.geometry.Size(2f * rx * s, 2f * ry * s),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()),
+                )
+            }
+        }
+        Image(
+            painter = painterResource(R.drawable.ic_mark),
+            contentDescription = "RoadAssist",
+            modifier = Modifier
+                .size(92.dp)
+                .graphicsLayer {
+                    // A sine, not a triangle: it eases in and out at both ends
+                    // the way the web's ease-in-out keyframes do.
+                    val sway = (1f - kotlin.math.cos(2f * Math.PI.toFloat() * phase.value)) / 2f
+                    rotationY = -16f + 32f * sway
+                    rotationX = 4f - 6f * sway
+                    translationY = -8.dp.toPx() * sway
+                    // Roughly the web's perspective(520px) on a 92px mark. The
+                    // default camera is close enough that ±16° looks warped.
+                    cameraDistance = 12f * density
+                },
+        )
+    }
 }
 
 /** Mark + wordmark, used in the top bar. */
@@ -1023,11 +1145,17 @@ private fun Sub(text: String) {
 }
 
 @Composable
-private fun Field(value: String, onChange: (String) -> Unit, label: String, enabled: Boolean = true) {
+private fun Field(
+    value: String, onChange: (String) -> Unit, label: String, enabled: Boolean = true,
+    // The keyboard to raise. Text by default, which is what every existing
+    // field had; the email sign-in asks for the @ keyboard and the number pad.
+    keyboard: androidx.compose.ui.text.input.KeyboardType = androidx.compose.ui.text.input.KeyboardType.Text,
+) {
     OutlinedTextField(
         value = value, onValueChange = onChange, enabled = enabled,
         label = { Text(label, color = Muted, style = RaType.caption) },
         singleLine = true,
+        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = keyboard),
         shape = RoundedCornerShape(12.dp),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = Gold, unfocusedBorderColor = Color(0x33E3B96A),
@@ -1073,6 +1201,20 @@ private fun SignInScreen(
     var showServer by remember { mutableStateOf(false) }
     var baseUrl by remember { mutableStateOf(Api.base) }
     var busy by remember { mutableStateOf(false) }
+    // The last refusal on the phone path, shown under the form rather than only
+    // in a toast. A toast lasts 3.2 s; "this account signs in with its email
+    // address" is an instruction the user has to act on, so it stays put.
+    var phoneError by remember { mutableStateOf<String?>(null) }
+
+    // Sign in with email: a second, quieter path under the phone one. Saveable
+    // so a rotation between "email me a code" and typing the code does not
+    // close the form and lose the address. The code itself is not saved — it
+    // is a credential, and saved state is written into the activity's bundle.
+    var emailOpen by rememberSaveable { mutableStateOf(false) }
+    var email by rememberSaveable { mutableStateOf("") }
+    var emailSent by rememberSaveable { mutableStateOf(false) }
+    var emailCode by remember { mutableStateOf("") }
+    var emailError by remember { mutableStateOf<String?>(null) }
 
     // Signing in is a phone number and a six-digit code. The address this app
     // talks to is not a thing a person signing in should be asked about: it is
@@ -1080,27 +1222,47 @@ private fun SignInScreen(
     // in force by the time this composes, and it is changed from the Server card
     // in More once signed in.
     //
-    // But a handset that has NEVER signed in cannot reach that card, and the
-    // built-in default (10.0.2.2) is an emulator alias that means nothing on real
-    // hardware — so without some way in, the app is emulator-only on first run.
-    // Long-pressing the wordmark is that way in. It is deliberately not a button:
-    // the first screen stays a phone number and a code, and the escape hatch is
-    // written down in ENGINEERING-NOTES.md rather than drawn on the screen.
+    // The built-in default is now the live platform (Api.DEFAULT_BASE), so a
+    // real handset signs in on first run with nothing to configure. A developer
+    // running the API on a laptop or behind the emulator still needs a way to
+    // point a never-signed-in handset at it, and cannot reach the Server card
+    // yet. Long-pressing the wordmark is that way in. It is deliberately not a
+    // button: the first screen stays a phone number and a code, and the escape
+    // hatch is written down in ENGINEERING-NOTES.md rather than drawn on the screen.
     fun commitBase() { baseUrl = commitApiBase(ctx, baseUrl) }
 
+    // THE session-saving path, shared by both ways in. The email verify answers
+    // in the same shape as the phone verify — tokens, roles, user.msisdn — so
+    // it is adopted here, exactly as a phone sign-in is, rather than through a
+    // second copy that would drift from this one.
+    //
+    // The phone number shown once signed in is taken from the SERVER's answer.
+    // For a phone sign-in that is the number typed; for an email sign-in it is
+    // the number the account belongs to, which the user never typed at all.
+    suspend fun completeSignIn(session: JSONObject) {
+        Api.adoptSession(session)
+        session.optJSONObject("user")?.optString("msisdn")
+            ?.takeIf { it.isNotBlank() }?.let(onMsisdn)
+        val me = Api.get("/v1/me").getJSONObject("data")
+        val vehicles = me.optJSONArray("vehicles") ?: JSONArray()
+        if (vehicles.length() > 0) {
+            val v = vehicles.getJSONObject(0)
+            onSignedIn(v.getString("id"), v.getString("registrationNo"))
+        } else onSignedIn(null, null)
+        onToast(ctx.getString(R.string.toast_signed_in))
+    }
+
     ScreenColumn {
-        Spacer(Modifier.height(40.dp))
-        Row(
+        Spacer(Modifier.height(12.dp))
+        Column(
             Modifier.fillMaxWidth()
                 .pointerInput(Unit) {
                     detectTapGestures(onLongPress = { showServer = !showServer })
                 },
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            BrandMark(40)
-            Spacer(Modifier.width(12.dp))
-            Row {
+            SignInBeacon()
+            Row(Modifier.padding(top = 6.dp)) {
                 Text("Road", color = Cream, style = RaType.display)
                 Text("Assist", color = Gold, style = RaType.display)
             }
@@ -1109,18 +1271,20 @@ private fun SignInScreen(
             color = Muted, style = RaType.caption, letterSpacing = 1.sp,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Spacer(Modifier.height(34.dp))
+        Spacer(Modifier.height(28.dp))
         Heading(R.string.head_signin_plain, R.string.head_signin_italic)
         Sub(stringResource(R.string.signin_sub))
 
         if (showServer) {
             Field(baseUrl, { baseUrl = it }, stringResource(R.string.field_api_base_url))
         }
-        Field(msisdn, onMsisdn, stringResource(R.string.field_mobile_number))
+        Field(msisdn, { onMsisdn(it); phoneError = null }, stringResource(R.string.field_mobile_number),
+            keyboard = androidx.compose.ui.text.input.KeyboardType.Phone)
 
         if (!otpSent) {
             GoldButton(stringResource(R.string.action_send_otp), enabled = !busy) {
                 busy = true
+                phoneError = null
                 if (showServer) commitBase()
                 scope.launch {
                     try {
@@ -1129,14 +1293,24 @@ private fun SignInScreen(
                         if (dev.isNotBlank()) { code = dev; onToast("Dev OTP auto-filled ($dev)") }
                         else onToast(ctx.getString(R.string.toast_otp_sent))
                         otpSent = true
+                    } catch (e: ApiException) {
+                        // The server's own sentence, always. For a number whose
+                        // owner moved it behind email sign-in it is a 403 that
+                        // says to choose "Sign in with email" — so the option is
+                        // opened for them as well as named.
+                        phoneError = e.message
+                        if (e.code == EmailSignIn.PHONE_REFUSED) emailOpen = true
+                        onToast(e.message ?: "Failed")
                     } catch (e: Exception) { onToast(e.message ?: "Failed") }
                     busy = false
                 }
             }
         } else {
-            Field(code, { code = it }, stringResource(R.string.field_otp_code))
+            Field(code, { code = it }, stringResource(R.string.field_otp_code),
+                keyboard = androidx.compose.ui.text.input.KeyboardType.NumberPassword)
             GoldButton(stringResource(R.string.action_verify_sign_in), enabled = !busy && code.length == 6) {
                 busy = true
+                phoneError = null
                 if (showServer) commitBase()
                 scope.launch {
                     try {
@@ -1144,20 +1318,87 @@ private fun SignInScreen(
                             "/v1/auth/otp/verify",
                             JSONObject().put("msisdn", msisdn.trim()).put("code", code.trim()),
                         )
-                        Api.adoptSession(r.getJSONObject("data"))
-                        val me = Api.get("/v1/me").getJSONObject("data")
-                        val vehicles = me.optJSONArray("vehicles") ?: JSONArray()
-                        if (vehicles.length() > 0) {
-                            val v = vehicles.getJSONObject(0)
-                            onSignedIn(v.getString("id"), v.getString("registrationNo"))
-                        } else onSignedIn(null, null)
-                        onToast(ctx.getString(R.string.toast_signed_in))
+                        completeSignIn(r.getJSONObject("data"))
+                    } catch (e: ApiException) {
+                        phoneError = e.message
+                        onToast(e.message ?: "Failed")
                     } catch (e: Exception) { onToast(e.message ?: "Failed") }
                     busy = false
                 }
             }
         }
+        phoneError?.let {
+            Text(it, color = Alarm, style = RaType.caption, modifier = Modifier.padding(top = 10.dp))
+        }
+
+        // ── sign in with email ────────────────────────────────────────────
+        LineButton(stringResource(R.string.action_email_signin)) { emailOpen = !emailOpen }
+        if (emailOpen) {
+            Field(
+                email,
+                {
+                    // A code belongs to the address it was sent to. Editing the
+                    // address after asking puts the form back to step one rather
+                    // than verifying one inbox's code against another address.
+                    email = it; emailSent = false; emailCode = ""; emailError = null
+                },
+                stringResource(R.string.field_email),
+                keyboard = androidx.compose.ui.text.input.KeyboardType.Email,
+            )
+            if (!emailSent) {
+                GoldButton(
+                    stringResource(R.string.action_email_code),
+                    enabled = !busy && EmailSignIn.isAddress(email),
+                ) {
+                    busy = true
+                    emailError = null
+                    if (showServer) commitBase()
+                    scope.launch {
+                        try {
+                            // Only the expiry comes back. Whatever the server put
+                            // in meta — a console-mode server may echo the code —
+                            // is dropped inside EmailSignIn.request, so the field
+                            // below is only ever filled from the inbox.
+                            EmailSignIn.request(email)
+                            emailSent = true
+                            onToast(ctx.getString(R.string.toast_email_code_requested))
+                        } catch (e: Exception) {
+                            emailError = e.message
+                            onToast(e.message ?: "Failed")
+                        }
+                        busy = false
+                    }
+                }
+            } else {
+                Field(emailCode, { emailCode = it.filter(Char::isDigit).take(6); emailError = null },
+                    stringResource(R.string.field_email_code),
+                    keyboard = androidx.compose.ui.text.input.KeyboardType.NumberPassword)
+                GoldButton(
+                    stringResource(R.string.action_verify_sign_in),
+                    enabled = !busy && EmailSignIn.isCode(emailCode),
+                ) {
+                    busy = true
+                    emailError = null
+                    if (showServer) commitBase()
+                    scope.launch {
+                        try {
+                            completeSignIn(EmailSignIn.verify(email, emailCode))
+                        } catch (e: Exception) {
+                            emailError = e.message
+                            onToast(e.message ?: "Failed")
+                        }
+                        busy = false
+                    }
+                }
+            }
+            emailError?.let {
+                Text(it, color = Alarm, style = RaType.caption, modifier = Modifier.padding(top = 10.dp))
+            }
+            Text(stringResource(R.string.email_signin_note),
+                color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 10.dp))
+        }
         if (busy) Loading()
+        Spacer(Modifier.height(24.dp))
     }
 }
 

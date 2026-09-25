@@ -62,6 +62,13 @@
     <string name="field_otp_code">6 अंकों का कोड</string>
     <string name="action_send_otp">OTP भेजें</string>
     <string name="action_verify_sign_in">जाँचकर साइन इन करें</string>
+    <!-- ईमेल से साइन इन: फ़ोन वाले रास्ते के नीचे दूसरा रास्ता। -->
+    <string name="action_email_signin">ईमेल से साइन इन करें</string>
+    <string name="field_email">ईमेल पता</string>
+    <string name="action_email_code">मुझे ईमेल पर कोड भेजें</string>
+    <string name="field_email_code">ईमेल में आया 6 अंकों का कोड</string>
+    <string name="email_signin_note">उन खातों के लिए जिन्हें प्रोजेक्ट के मालिक ने सेट किया है। कोड आपके इनबॉक्स में आता है और इस स्क्रीन पर कभी नहीं दिखाया जाता।</string>
+    <string name="toast_email_code_requested">अगर उस पते का कोई खाता है, तो कोड भेजा जा रहा है। अपना इनबॉक्स और स्पैम देखें।</string>
     <string name="sos_alert_now">अभी भेजें</string>
     <string name="sos_5s_to_cancel">रद्द करने को 5 सेकंड</string>
     <string name="vehicle_add_title">अपना वाहन जोड़ें</string>
