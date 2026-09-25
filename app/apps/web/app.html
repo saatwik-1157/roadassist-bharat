@@ -952,24 +952,25 @@
    * Where the API is.
    *
    * Normally this page IS served by the API, so location.origin is exactly
-   * right and nothing below fires. Two ways it is wrong, both of which leave a
-   * page that looks completely fine and cannot fetch anything:
+   * right. Opened as a FILE (double-clicked out of the repo) the origin is
+   * 'null' and every call fails with 'Failed to fetch' next to empty dials, so
+   * that one case falls back to the port the API listens on by default.
    *
-   *   · opened as a FILE (double-clicked out of the repo) — origin is 'null',
-   *     and every call fails with 'Failed to fetch' next to empty dials
-   *   · served by some other dev server on another local port
+   * An http(s) page always talks to the server that served it, on ANY port. It
+   * used to redirect every localhost port but 4000 to :4000, for pages served by
+   * a separate static dev server - and that silently pointed a page the API
+   * itself served on :4400 (a second stack), :4101 (the gateway suite) or
+   * PORT=4100 at a different backend: sign-ins, SOS incidents and bookings
+   * landed in whatever happened to be on :4000. A page on a static dev server
+   * now fails loudly with 'Failed to fetch' instead; serve it from the API.
    *
-   * Both fall back to the port the API actually listens on. This is a
-   * convenience for a person opening the file, not a deployment feature: on a
-   * real origin the first branch returns and the rest never runs. The same
-   * expression is in app.html, mechanic.html, raksha.html and index.html — they
-   * are separate classic scripts with no module system between them.
+   * The same expression is in app.html, mechanic.html, raksha.html, index.html
+   * and map.html - separate classic scripts with no module system between them.
+   * test/web-api-origin.test.ts runs all five.
    */
   var API = (function () {
     var http = location.protocol === "http:" || location.protocol === "https:";
     if (!http) return "http://localhost:4000";
-    var local = location.hostname === "localhost" || location.hostname === "127.0.0.1";
-    if (local && location.port !== "4000") return "http://localhost:4000";
     return location.origin;
   })();
   // Read unguarded, this one line took the whole app down wherever storage is
