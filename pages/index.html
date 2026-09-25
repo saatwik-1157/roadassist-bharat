@@ -488,7 +488,6 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .surf.is-live article.is-phone{order:1;grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center}
 .surf.is-live article.is-phone .stagebox{border-bottom:0;border-right:1px solid var(--line-soft);padding-bottom:22px}
 @media (max-width:720px){.surf.is-live article.is-phone{display:flex;align-items:stretch}.surf.is-live article.is-phone .stagebox{border-right:0}}
-.surf.is-live article.is-link{order:3;grid-column:auto}
 .surf.is-live .device.phone{max-width:330px}
 .surf.is-live .tilt:hover .device{transform:none}
 @media (max-width:720px){
@@ -1081,7 +1080,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 
       <article class="tilt">
         <div class="stagebox">
-          <div class="device phone" data-live-path="/mechanic.html" data-live-kind="phone" data-live-title="Mechanic console" data-live-embed="link">
+          <div class="device phone" data-live-path="/mechanic.html" data-live-kind="phone" data-live-title="Mechanic console">
             <span class="notch"></span>
             <img srcset="shots/thumbs/24-mechanic-console.webp 520w, shots/stage/24-mechanic-console.webp 780w" sizes="292px" src="shots/stage/24-mechanic-console.webp" width="780" height="1688" loading="lazy" alt="Mechanic console, signed in: availability toggle, rating, active job and new requests">
           </div>
@@ -1089,7 +1088,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         </div>
         <div class="body">
           <h3>Mechanic console</h3>
-          <p>Availability toggle, rating and job history, the active job, and a dispatch inbox of ranked offers with distance and ETA that expire if not accepted. Captured signed in as a seeded mechanic on the running platform.</p>
+          <p>Availability toggle, rating and job history, the active job, and a dispatch inbox of ranked offers with distance and ETA that expire if not accepted. The screenshot is a seeded mechanic; live, it is whoever signs in.</p>
         </div>
       </article>
 
@@ -1111,7 +1110,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 
       <article class="tilt">
         <div class="stagebox">
-          <div class="device phone" data-live-path="/map.html" data-live-kind="phone" data-live-title="Live operational map" data-live-embed="link">
+          <div class="device phone" data-live-path="/map.html" data-live-kind="phone" data-live-title="Live operational map">
             <span class="notch"></span>
             <img srcset="shots/thumbs/18-live-map.webp 520w, shots/stage/18-live-map.webp 860w" sizes="292px" src="shots/stage/18-live-map.webp" width="860" height="1800" loading="lazy" alt="Live operational map with clustered mechanics, responders and detections">
           </div>
@@ -1986,8 +1985,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
 
     devices.forEach(function (d) {
       var art = d.closest("article");
-      art.classList.add(d.dataset.liveEmbed === "link" ? "is-link"
-        : d.dataset.liveKind === "phone" ? "is-phone" : "is-desk");
+      art.classList.add(d.dataset.liveKind === "phone" ? "is-phone" : "is-desk");
       d._img = d.querySelector("img");
       d._badge = d.querySelector(".dot-live") || art.querySelector(".runline .dot-live");
       d._addr = d.querySelector(".bar span:not(.dot-live)");
@@ -2092,16 +2090,19 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       surf.classList.add("is-live");
       devices.forEach(function (d) {
         var url = origin + d.dataset.livePath;
-        // Two surfaces are embedded live - the citizen app and RAKSHA, the two
-        // a reviewer asks to see working. Four live applications in one page
-        // halved its frame rate; the other two keep their screenshot, still
-        // badged as one, with a link to the live page beside it.
-        if (d.dataset.liveEmbed === "link") {
-          d._open.href = url;
-          d._open.textContent = "Screenshot — open it live ↗";
-          d._open.hidden = false;
-          return;
-        }
+        // All four are embedded. For a while only the citizen app and RAKSHA
+        // were: four live applications through a local tunnel halved this
+        // page's frame rate, so the mechanic console and the map kept a
+        // screenshot - still captioned with the address of a laptop, under a
+        // bar that said the page was live. Against the hosted platform nothing
+        // is tunnelled, every frame is lazy, and the phones stack one per row,
+        // so at most two are ever on screen at once. Scrolling the section in
+        // Chrome, three runs each, four frames and two were within each
+        // other's run-to-run noise (63-140 fps against 86-107). Nothing on either
+        // surface refuses a frame: the platform sends no X-Frame-Options or
+        // frame-ancestors, and a frame on roadassistbharat.online is
+        // same-site, so the map's frame shares the session the citizen app's
+        // frame signs in with.
         if (!d._vp) {
           var vp = document.createElement("div");
           vp.className = "live-vp";

@@ -32,6 +32,7 @@ import { audit, verifyAuditChain } from "./audit.js";
 import { limit } from "./ratelimit.js";
 import { ApiError, fail } from "./errors.js";
 import { logOp } from "./observability.js";
+import { fetchTile, sendTileFailure } from "./tile-upstream.js";
 import {
   escalate, providerRoster, providerStateFor, sendWave, startOfferSweeper, stopOfferSweeper,
 } from "./dispatch.js";
@@ -240,13 +241,13 @@ app.get("/tiles/:z/:x/:file", async (req, reply) => {
 
   let buf = tileCache.get(key);
   if (!buf) {
-    const res = await fetch(`https://tile.openstreetmap.org/${key}.png`, {
-      headers: { "user-agent": "RoadAssistDemo/0.1 (student project; trip-guardian prefetch)" },
+    // An upstream that fails or stalls is a 502/504 with seconds of cache,
+    // never a thrown 500 - see tile-upstream.ts.
+    const got = await fetchTile(`https://tile.openstreetmap.org/${key}.png`, {
+      userAgent: "RoadAssistDemo/0.1 (student project; trip-guardian prefetch)",
     });
-    if (!res.ok) {
-      return reply.code(502).send({ error: { code: "tile_unavailable", title: "Map tile could not be fetched", retryable: true } });
-    }
-    buf = Buffer.from(await res.arrayBuffer());
+    if (!got.ok) return sendTileFailure(req, reply, key, got);
+    buf = got.body;
     if (tileCache.size > 600) tileCache.clear();   // tiny corridor cache, never grows unbounded
     tileCache.set(key, buf);
   }
@@ -284,13 +285,12 @@ app.get("/basemap/:z/:x/:file", async (req, reply) => {
 
   let buf = baseCache.get(key);
   if (!buf) {
-    const res = await fetch(`https://tile.openstreetmap.org/${key}.png`, {
-      headers: { "user-agent": "RoadAssistDemo/0.1 (student project; map basemap)" },
+    // The same rule as the corridor proxy: an upstream failure is answered as one.
+    const got = await fetchTile(`https://tile.openstreetmap.org/${key}.png`, {
+      userAgent: "RoadAssistDemo/0.1 (student project; map basemap)",
     });
-    if (!res.ok) {
-      return reply.code(502).send({ error: { code: "tile_unavailable", title: "Map tile could not be fetched", retryable: true } });
-    }
-    buf = Buffer.from(await res.arrayBuffer());
+    if (!got.ok) return sendTileFailure(req, reply, key, got);
+    buf = got.body;
     if (baseCache.size > 2000) baseCache.clear();
     baseCache.set(key, buf);
   }
@@ -1774,6 +1774,13 @@ app.post("/v1/notify/email", { preHandler: [authenticate, requireRole("admin", "
 // ══ live map — real geolocated data around a point (operational, no PII) ═══
 // Powers the in-app map: nearby verified mechanics, active responder units, and
 // recent RAKSHA road detections, all from PostGIS over the seeded datasets.
+//
+// The caps keep one response small enough for a phone on a weak network. They
+// only stay harmless if what survives the cap is what the caller is looking
+// at, which is why the map sends the centre of its current view and the rows
+// are ordered nearest-first. `meta.truncated` says when a cap was hit, so a
+// client can tell "these are all of them" from "these are the nearest N".
+const MAP_LIMIT = { mechanics: 150, responders: 50, detections: 300 } as const;
 app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
   const q = z.object({
     lat: z.coerce.number().min(-90).max(90),
@@ -1783,21 +1790,33 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
   const r = (q.radiusKm ?? 40) * 1000;
   const pt = raw`ST_SetSRID(ST_MakePoint(${q.lng}, ${q.lat}), 4326)`;
 
-  const mechanics = await db.execute<Record<string, unknown>>(raw`
+  // Nearest-first by the real distance on the ground. `last_location <-> pt`
+  // looked like it, but on geometry it is a distance in raw degrees, and a
+  // degree of longitude shrinks with latitude - it is 12% shorter at Gurugram
+  // than a degree of latitude - so the rows came back visibly out of order and
+  // the cap could drop a mechanic 20 km east in favour of one 22 km north. The
+  // ST_DWithin filter above already makes Postgres compute this distance for
+  // every row in the radius, so ordering by it costs nothing extra.
+  // One row past each cap is read so truncation is known rather than guessed.
+  const mechanicRows = await db.execute<Record<string, unknown>>(raw`
     SELECT id, display_name, rating,
            ST_Y(last_location) AS lat, ST_X(last_location) AS lng,
            round((ST_Distance(last_location::geography, ${pt}::geography) / 1000)::numeric, 1) AS km
       FROM mechanics
      WHERE deleted_at IS NULL AND verified AND is_available AND last_location IS NOT NULL
        AND ST_DWithin(last_location::geography, ${pt}::geography, ${r})
-     ORDER BY last_location <-> ${pt} LIMIT 150`);
+     ORDER BY ST_Distance(last_location::geography, ${pt}::geography), id
+     LIMIT ${MAP_LIMIT.mechanics + 1}`);
+  const mechanics = mechanicRows.slice(0, MAP_LIMIT.mechanics);
 
-  const responders = await db.execute<Record<string, unknown>>(raw`
+  const responderRows = await db.execute<Record<string, unknown>>(raw`
     SELECT name, kind, ST_Y(last_location) AS lat, ST_X(last_location) AS lng
       FROM responder_units
      WHERE deleted_at IS NULL AND active AND last_location IS NOT NULL
        AND ST_DWithin(last_location::geography, ${pt}::geography, ${r})
-     ORDER BY last_location <-> ${pt} LIMIT 50`);
+     ORDER BY ST_Distance(last_location::geography, ${pt}::geography), id
+     LIMIT ${MAP_LIMIT.responders + 1}`);
+  const responders = responderRows.slice(0, MAP_LIMIT.responders);
 
   // The radius and the device's simulated flag travel with each point so the
   // map can say which positions a phone measured and which were placed.
@@ -1815,8 +1834,8 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
      WHERE rd.deleted_at IS NULL AND rd.location IS NOT NULL
        AND rd.status NOT IN ('REJECTED', 'CLOSED')
        AND ST_DWithin(rd.location::geography, ${pt}::geography, ${r})
-     ORDER BY rd.created_at DESC LIMIT 300`);
-  const detections = detectionRows.map(({ simulated, model_version, ...d }) => {
+     ORDER BY rd.created_at DESC LIMIT ${MAP_LIMIT.detections + 1}`);
+  const detections = detectionRows.slice(0, MAP_LIMIT.detections).map(({ simulated, model_version, ...d }) => {
     const position = describePosition({
       source: d.source, simulated, modelVersion: model_version, accuracyM: d.location_accuracy_m,
     });
@@ -1824,7 +1843,15 @@ app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
   });
 
   return ok({ center: { lat: q.lat, lng: q.lng }, mechanics, responders, detections },
-    { counts: { mechanics: mechanics.length, responders: responders.length, detections: detections.length } });
+    {
+      counts: { mechanics: mechanics.length, responders: responders.length, detections: detections.length },
+      limits: MAP_LIMIT,
+      truncated: {
+        mechanics: mechanicRows.length > MAP_LIMIT.mechanics,
+        responders: responderRows.length > MAP_LIMIT.responders,
+        detections: detectionRows.length > MAP_LIMIT.detections,
+      },
+    });
 });
 
 // ══ RAKSHA — autonomous road monitoring (ADR-0007) ═════════════════════════
