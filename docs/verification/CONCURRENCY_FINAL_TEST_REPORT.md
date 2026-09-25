@@ -3,8 +3,9 @@
 
 # Concurrency — final verification
 
-`npm run test:concurrency` — **65 assertions, 65 passed, 0 failed**, executed
-against the live API and a real PostgreSQL. This suite exists to test what a
+`npm run test:concurrency` — **75 assertions, 75 passed, 0 failed** (measured
+2026-09-12, `app/docs/measured.json`), executed against the running API and a
+real PostgreSQL. This suite exists to test what a
 sequential suite structurally cannot.
 
 | Scenario | Expected | Result |

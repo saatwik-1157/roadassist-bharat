@@ -21,7 +21,8 @@
 ## IF DEMO BREAKS
 1. **Database down** → `npm run infra:up`. Or show it deliberately: `/health` 503, `/v1/ping` 200.
 2. **No offers** → widen to 60 km. Still none → show `skippedByState`, then jump to SOS (needs no mechanic).
-3. **Anything else** → say what failed, what it means, move on. `DEMO_FAILURE_BACKUP_PLAN.md`.
+3. **Laptop setup won't come up** → the hosted demo, https://app.roadassistbharat.online (free plan: after 15 min idle the first request takes ~1 min to wake — open it before you start).
+4. **Anything else** → say what failed, what it means, move on. `DEMO_FAILURE_BACKUP_PLAN.md`.
 
 ## DO NOT SAY
 1. "Emergency services were contacted." — **They were not. 112 is a stub.**
@@ -31,4 +32,4 @@
 ## MUST SAY
 1. "Nothing has been transmitted — because nothing has."
 2. "I am not touching the customer window."
-3. "Eight cloud concepts are design, not deployed. I won't show you an animation and call it an autoscaler."
+3. "Eight cloud concepts are design, not provisioned. The demo is live on one Render instance — there is no cluster, and I won't show you an animation and call it an autoscaler."

@@ -505,6 +505,31 @@ ok("twelve genuine SOS in a row are all accepted",
 const escalate = await call("POST", `/v1/sos/${sosBurst[0].data.id}/confirm`, { token: spammer.token });
 ok("escalation itself is never rate limited", escalate.status === 200, `${escalate.status}`);
 
+section("7b. Sign-in codes hold their limits under simultaneous requests");
+
+// Twelve requests for one number at the same instant. Counted then inserted
+// in two steps, every one read a count of 0 and every one sent a code; the
+// count and the insert are now one locked step, so only the cap gets through.
+const flooded = newMsisdn();
+const codeBurst = await Promise.all(Array.from({ length: 12 }, () =>
+  call("POST", "/v1/auth/otp/request", { body: { msisdn: flooded } })));
+const issued = codeBurst.filter((r) => r.status === 200).length;
+ok("twelve simultaneous code requests issue no more than the per-number cap",
+   issued === 5 && codeBurst.every((r) => r.status === 200 || r.status === 429),
+   `${issued} issued, ${codeBurst.filter((r) => r.status === 429).length} refused`);
+
+// The right code, presented eight times at once. Each request passed the
+// compare before any had marked the code used, so each got its own session.
+// A number with exactly one code outstanding: with five, a later request
+// could fairly redeem the next one.
+const once = newMsisdn();
+const devCode = (await call("POST", "/v1/auth/otp/request", { body: { msisdn: once } })).meta?.devOtp;
+const redeem = await Promise.all(Array.from({ length: 8 }, () =>
+  call("POST", "/v1/auth/otp/verify", { body: { msisdn: once, code: devCode } })));
+const sessions = redeem.filter((r) => r.status === 200).length;
+ok("one code redeemed eight times at once opens exactly one session",
+   Boolean(devCode) && sessions === 1, `${sessions} sessions`);
+
 // ══ 8. The live stream ═════════════════════════════════════════════════════
 section("8. State changes reach a connected client in real time");
 

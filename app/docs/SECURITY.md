@@ -34,6 +34,55 @@ The OTP ceilings are counted in **Postgres**, not in process memory. That is
 deliberate: credential stuffing is the one attack where a per-instance ceiling
 would be worth nothing.
 
+### Email sign-in for protected accounts
+
+The hosted demo has no SMS gateway, so the phone code is shown on screen
+(`EXPOSE_DEV_OTP`) — which on its own would let anyone who types the admin's
+number become the admin. Email sign-in closes that for the accounts that matter
+(`apps/api/src/domain/email-signin.ts`, `routes/email-auth.ts`):
+
+- `EMAIL_SIGNIN` maps an address to an **existing** account's number
+  (`email=+91XXXXXXXXXX` pairs). It is set in the host's environment, never in
+  the repository. On the demo it lists the admin, the RAKSHA officer and the
+  listed mechanics.
+- `POST /v1/auth/email/request` emails a **random** 6-digit code (`randomInt`),
+  valid 5 minutes, one use. It is never returned in the response, even with the
+  console provider, and never the fixed development code.
+- A protected number's **phone** path is refused with
+  `403 email_signin_required` whenever the phone code is not a random one only
+  the handset receives — echoed on screen, or the fixed dev code with echo off.
+- An unlisted address gets the same answer and no email, still records a
+  challenge so the per-address and per-IP ceilings answer identically, and a
+  real send happens after the response — so neither the answer, its timing nor a
+  429 reveals which addresses are listed.
+- `POST /v1/auth/email/verify` repeats the phone path's checks: expiry, an
+  attempt slot taken **before** the compare (so simultaneous guesses cannot all
+  slip under the cap), a constant-time hash compare, and a conditional consume
+  so two correct submissions cannot both get a session. A code that failed to
+  send is deleted, so it cannot be redeemed.
+- Challenges are stored under `e:` + 14 hex characters of the address's SHA-256,
+  so the address itself is not in `otp_challenges`.
+
+**Verified by:** `email-signin.test.ts` (mapping, malformed entries reported by
+position, key collision and masking, the phone-refusal rule) and
+`otp-policy.test.ts` (a code guarding an account is never fixed and never
+echoed). The two email routes themselves are **not yet exercised** by the e2e or
+security suites.
+
+### Operator alerts
+
+`apps/api/src/alerts.ts` emails the project owner on sign-ins (capped per hour,
+the rest counted into the next email), a first sign-in, admin/authority
+sign-ins, bursts of wrong codes, a confirmed SOS and an off-grid SOS that synced
+late. Sent **server-side** through Resend (`api.resend.com`, USA) from
+`RoadAssist-Bharat <alerts@send.roadassistbharat.online>`, so the key never
+reaches a browser. Each email carries a number masked to its last three digits,
+a role, an event and a time — never a name, position, IP address or device
+(`alerts.test.ts` fails if the number leaks). Delivery is fire-and-forget, so a
+failing provider cannot delay a sign-in or an SOS. Off unless `ALERT_EMAIL_TO`
+is set. Resend is therefore an email **processor** for alerts and for sign-in
+codes, which go to the listed address.
+
 ## Authorization
 
 Two independent layers, and the second is the one that matters.
@@ -109,9 +158,14 @@ The client never decides that money arrived.
   is conditional on `PENDING`.
 - Production refuses to boot on a real gateway with no webhook secret.
 
-**Tested (22 assertions, local stub of Razorpay's API):** forged signature,
-replayed delivery, wrong amount, wrong order, unconfigured secret — each fails
-closed. **Never run against a real account.**
+**Checks written, not counted (`razorpay-test.mjs`, 22 checks):** forged
+signature, replayed delivery, wrong amount, wrong order, unconfigured secret —
+each must fail closed. The script needs no Razorpay account: it starts a local
+stub of Razorpay's Orders API and signs webhooks with a stub secret. It refuses
+to run unless the API was started with `PAYMENTS_PROVIDER=razorpay` and
+`PAYMENTS_BASE_URL` pointed at that stub, so it is outside the six counted
+suites and was not re-run for the current figures. **Never run against a real
+account**, and the hosted demo uses the `mock` provider.
 
 ## Webhooks
 

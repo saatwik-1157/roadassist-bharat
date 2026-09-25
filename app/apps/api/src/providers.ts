@@ -234,14 +234,23 @@ const httpEmail: EmailProvider = {
     if (!env.email.apiKey || !env.email.baseUrl) {
       throw new Error('Email provider "http" needs EMAIL_API_KEY and EMAIL_BASE_URL');
     }
-    const res = await fetch(env.email.baseUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${env.email.apiKey}` },
-      body: JSON.stringify({ from: env.email.from, to, subject, text: body, html: opts?.html }),
-    });
-    if (!res.ok) throw new Error(`Email send failed: ${res.status} ${await res.text()}`);
-    const json = (await res.json().catch(() => ({}))) as { id?: string };
-    return { id: json.id ?? "unknown", delivered: true };
+    // A vendor that never answers must not hold a sign-in or an SOS alert open
+    // forever. A timer cleared in finally, not AbortSignal.timeout: that one is
+    // unref'd, so on Node 22 a pending send let the test runner cancel the file.
+    const ctl = new AbortController();
+    const deadline = setTimeout(() => ctl.abort(), 10_000);
+    try {
+      const res = await fetch(env.email.baseUrl, {
+        method: "POST", signal: ctl.signal,
+        headers: { "content-type": "application/json", authorization: `Bearer ${env.email.apiKey}` },
+        body: JSON.stringify({ from: env.email.from, to, subject, text: body, html: opts?.html }),
+      });
+      if (!res.ok) throw new Error(`Email send failed: ${res.status} ${await res.text()}`);
+      const json = (await res.json().catch(() => ({}))) as { id?: string };
+      return { id: json.id ?? "unknown", delivered: true };
+    } finally {
+      clearTimeout(deadline);
+    }
   },
 };
 

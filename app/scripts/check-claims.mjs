@@ -18,8 +18,8 @@
  * ── how it works ───────────────────────────────────────────────────────────
  * `docs/measured.json` is the single source of truth, and it records HOW each
  * number was obtained, not just what it is. This script scans every Markdown
- * file and the deck sources for the phrases those numbers appear in, and fails
- * on any that disagrees.
+ * file, the deck sources and the web pages for the phrases those numbers
+ * appear in, and fails on any that disagrees.
  *
  * ── dated evidence is exempt, on purpose ───────────────────────────────────
  * `docs/release/` and `docs/verification/` record what was true for a given
@@ -240,7 +240,7 @@ const CHECKS = [
     //     letters-only class backtracks to the bare "test" script and compares
     //     the e2e count against the unit suite's.
     //   · anchored to a line start — a composite command
-    //     ("npm run verify && npm run test:e2e  # 108 unit + 189 end-to-end")
+    //     ("npm run verify && npm run test:e2e  # 108 unit + 191 end-to-end")
     //     pairs the wrong number with the script, so it is left to the prose
     //     checks above, which read both halves correctly.
     re: /^\s*npm run (test(?::[a-z0-9]+)?)\b[^\n#]*#\s*(\d+)/gm,
@@ -265,6 +265,10 @@ const EXEMPT_FILES = [
   "app/docs/CLAIMS-AUDIT.md",      // documents the corrections, so it quotes both
   "app/scripts/check-claims.mjs",
   "app/docs/measured.json",
+  // The first landing page, from the 52-table build. Never deployed since
+  // pages/ replaced it (pages.yml copies only site/*.mp4 from here), so its
+  // figures are that build's record, not claims about this one.
+  "site/index.html",
 ];
 const EXEMPT_PATTERNS = [
   /^docs\/0\d-.*\.md$/,            // the 18-phase plan
@@ -295,13 +299,15 @@ function files(dir, out = []) {
          ".venv", "venv", "__pycache__", "runs"].includes(entry)) continue;
     const p = join(dir, entry);
     if (statSync(p).isDirectory()) files(p, out);
-    else if (/\.(md|py)$/.test(entry)) out.push(p);
+    else if (/\.(md|py|html)$/.test(entry)) out.push(p);
   }
   return out;
 }
 
 const problems = [];
 let scanned = 0;
+/** Replace everything but newlines with spaces, so offsets and lines survive. */
+const blank = (m) => m.replace(/[^\n]/g, " ");
 
 for (const file of files(ROOT)) {
   const rel = relative(ROOT, file).replaceAll("\\", "/");
@@ -310,7 +316,16 @@ for (const file of files(ROOT)) {
   if (EXEMPT_PATTERNS.some((p) => p.test(rel))) continue;
   if (rel.endsWith(".py") && !rel.startsWith("ppt/")) continue;
 
-  const text = readFileSync(file, "utf8");
+  // A page states its numbers inside markup - "<div class=v>757</div><div
+  // class=k>automated checks" - so tags are blanked (never the newlines, which
+  // keep the line numbers true) and the claim is read as the visitor reads it.
+  // Pages were not scanned at all until the app's home page was found still
+  // saying 626 checks and 64 routes, weeks after every document said otherwise.
+  const raw = readFileSync(file, "utf8");
+  const text = rel.endsWith(".html")
+    ? raw.replace(/<(script|style)\b[^]*?<\/\1>/gi, blank)
+         .replace(/<[^>]*>/g, blank).replace(/&[a-z]+;|&#\d+;/g, " ")
+    : raw;
   scanned++;
 
   for (const check of CHECKS) {

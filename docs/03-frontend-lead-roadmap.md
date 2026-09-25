@@ -1,14 +1,13 @@
 # D2 — Frontend & Mobile Lead · Individual Roadmap
 
-> **A four-person team**, as presented at Review 1 for SWE4004 — Cloud Computing
-> and Applications:
+> **A four-person team** for SWE4004 — Cloud Computing and Applications:
 >
-> | Member | Workstream |
-> |---|---|
-> | V. Saatwik Sairaam | Backend · APIs · Database |
-> | P. Nirisha Chowdary | Auth · Security · Real-time |
-> | T. V. S. Jignesh | Frontend · Customer app |
-> | G. Parthavi | Mechanic & admin surfaces · Cloud DevOps |
+> | Member | Reg. no. | Workstream |
+> |---|---|---|
+> | V. Saatwik Sairaam | 24MIC7131 | Backend & cloud database (D1) |
+> | P. Sai Nirisha Chowdary | 24MIC7122 | Frontend & mobile (D2) |
+> | T. V. S. Jignesh | 24MIC7190 | AI & data services (D3) |
+> | G. Parthavi | 24MIC7145 | DevOps, QA & cloud security (D4) |
 >
 > The D1–D4 roles below are the same four workstreams, in that order. The
 > repository is pushed from one account, so `git log` shows a single committer;

@@ -34,6 +34,20 @@ export async function seedRakshaDemo(app: FastifyInstance): Promise<string> {
   if (process.env.SEED_DEMO_FLEET !== "true") return "raksha demo: off (SEED_DEMO_FLEET unset)";
   if (env.nodeEnv === "production") return "raksha demo: refused (NODE_ENV=production)";
 
+  // Two instances booting on one empty database would each see no detections
+  // and each register a device - and idempotency is per device, so every
+  // detection would appear twice. One transaction holds a lock for the whole
+  // seed; an instance that cannot take it leaves the seeding to the other.
+  return db.transaction(async (tx) => {
+    const [lock] = await tx.execute<{ got: boolean }>(
+      sql`SELECT pg_try_advisory_xact_lock(hashtext('raksha-demo-seed')) AS got`);
+    if (!lock?.got) return "raksha demo: skipped - another instance is seeding";
+    return seed(app);
+  });
+}
+
+async function seed(app: FastifyInstance): Promise<string> {
+
   const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(S.rakshaDetections);
   if (n > 0) return `raksha demo: skipped - ${n} detection(s) already present`;
 

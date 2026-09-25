@@ -1,5 +1,7 @@
 > Executed 2026-09-06 as the final gate. Caches deleted first, database dropped
 > and rebuilt, every suite run. Commands and output are transcribed, not summarised.
+> The test counts in §4 are the current ones, measured 2026-09-12
+> (`app/docs/measured.json`); the suites have grown since the 2026-09-06 run.
 
 # Final build verification
 
@@ -63,20 +65,20 @@ Zero error-level log lines at startup. `/health` → 200 with `database: ok`,
 
 | Suite | Command | Result |
 |---|---|---|
-| Unit | `npm test` | **PASS** — 61 pass, 0 fail |
+| Unit | `npm test` | **PASS** — 223 pass, 0 fail |
 | End-to-end | `npm run test:e2e` | **PASS** — 189 passed, 0 failed |
-| Gateway security | `npm run test:gateway` | **PASS** — 26 passed, 0 failed |
+| Gateway security | `npm run test:gateway` | **PASS** — 27 passed, 0 failed |
 | Security attacks | `npm run test:security` | **PASS** — 74 passed, 0 failed |
-| Concurrency / real-time | `npm run test:concurrency` | **PASS** — 65 passed, 0 failed |
+| Concurrency / real-time | `npm run test:concurrency` | **PASS** — 75 passed, 0 failed |
 | Browser journey | `npm run test:ui` | **PASS** — 163 passed, 0 failed |
-| **Total executed** | | **578 passed, 0 failed** |
+| **Total executed** (measured 2026-09-12, `app/docs/measured.json`) | | **751 passed, 0 failed** |
 | Demo rehearsal | `npm run test:demo` | **PASS** — all 15 beats |
-| Payment sandbox | `npm run test:razorpay` | **NOT RUN** — needs a Razorpay account |
+| Payment suite (outside the total) | `npm run test:razorpay` | **NOT EXECUTED** — 22 checks against its own local stub; needs no Razorpay account, but refuses to run unless the API was started separately with `PAYMENTS_PROVIDER=razorpay` pointed at that stub |
 
 ## One reporting correction
 
 My own summary script printed `unit FAIL`. That was a shell bug — the pattern
 `^. fail 0` could not match the multibyte `ℹ` that Node's test runner prefixes
-its summary with. The log itself reads `ℹ pass 61 / ℹ fail 0`. The tests passed;
+its summary with. The log itself read `ℹ fail 0`. The tests passed;
 my grep did not. Recorded because a wrong FAIL in a verification report is worse
 than no report.

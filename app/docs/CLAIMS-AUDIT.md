@@ -42,18 +42,18 @@ claims that cannot be demonstrated for a list that can be, live, in five minutes
 | SOS works with no internet | `raiseOffGridSos()` → IndexedDB → `/v1/sos/offline-sync` | `ui-journey.mjs` §7b, `e2e-journey.mjs` §12b | **IMPLEMENTED** |
 | "No duplicate incident" on reconnect | `incidents.client_incident_id` UNIQUE + `onConflictDoNothing` | `concurrency-test.mjs` §4, §5 | **IMPLEMENTED** |
 | AI diagnosis works offline | `offline-engine.js`, mirrors the server rule table | `offline-engine.test.ts` divergence guard | **IMPLEMENTED** |
-| "AI-powered" | Deterministic rules engine (ADR-0006) + a trained YOLO11n for road damage in `ai/` | 108 unit tests | **PARTIAL** — the diagnosis "AI" is a rules engine, labelled as such in the UI. A remote model is an env change away and none is configured. |
+| "AI-powered" | Deterministic rules engine (ADR-0006) + a trained YOLO11 road-damage detector in `ai/` (best: YOLO11s `yolo11s-multi-rich`, mAP50 0.472 on held-out validation) | 225 unit tests; 39 AI-pipeline tests | **PARTIAL** — the diagnosis "AI" is a rules engine, labelled as such in the UI. A remote model is an env change away and none is configured. |
 | Two mechanics can't take one job | `SELECT … FOR UPDATE` on the booking row | `concurrency-test.mjs` §1, §2 | **IMPLEMENTED** |
 | Real-time status without refresh | SSE `/v1/events` | `concurrency-test.mjs` §8, `ui-journey.mjs` §7c — measured 65 ms | **IMPLEMENTED** |
-| Payments are gateway-verified | HMAC signature check, webhook, amount match | `razorpay-test.mjs` (22) | **IMPLEMENTED** against a local stub of Razorpay's API. Never run against a real account. |
+| Payments are gateway-verified | HMAC signature check, webhook, amount match | `razorpay-test.mjs` (22 checks, outside the 757) | **IMPLEMENTED in code; checks not counted.** The script needs no account — it stubs Razorpay's Orders API locally — but runs only against an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run and was not re-run for the current figures. Never run against a real account, never described as passing. The hosted demo uses the `mock` provider. |
 | Tamper-evident audit log | Hash chain, append-only Postgres rules | `gateway-security-test.mjs`, `/v1/ops/overview` verifies it live | **IMPLEMENTED** |
 | Break-glass medical access | Role gate + live-incident gate + mandatory reason + audit row | `security-audit.mjs` §2 | **IMPLEMENTED** |
 | "Emergency services contacted" | **Never claimed anywhere.** The string does not exist in the codebase. | `grep` | **CORRECTLY ABSENT** |
 | 112 handoff | Stub. The response says so. | — | **DESIGN** |
 | Feature-phone SMS journey | `POST /v1/telecom/sms` | `e2e-journey.mjs` §13 | **IMPLEMENTED** (inbound); outbound needs a vendor account |
 | Emergency service is an isolated deployable (ADR-0005) | Same process today | — | **DESIGN** |
-| RAKSHA edge detection | Labelled `SIMULATED` in the API response and the device row | `raksha-simulator.mjs` | **PARTIAL, and labelled** |
-| Cloud deployment | Nothing is deployed | — | **DESIGN** |
+| RAKSHA edge detection | Demo detections are **real** YOLO11 output (34, `ai/cv-detections-full.json`, model version `yolo-rdd2022in-best`) at **SIMULATED** NH-48 positions — RDD2022 images carry no GPS — seeded at boot in demo mode through the ingest route (`demo/raksha-demo-seed.ts`); the device is named as simulated. The simulator's own `sim-rules-0.1.0` events are labelled `SIMULATED` | `raksha-simulator.mjs`, e2e | **PARTIAL, and labelled** — no camera on a road, no live inference on the deployment |
+| Cloud deployment | **Corrected 2026-09-25** — was "Nothing is deployed". Live at `app.roadassistbharat.online`: one Render web service (Docker, free plan, Singapore) + Neon Postgres (Singapore); showcase on GitHub Pages. Single instance; no autoscaling, replication or load balancing; free tiers offer no India region, so the demo is hosted outside India | `render.yaml`, `scripts/verify-deployment.mjs` | **PARTIAL** — a real demo deployment, not the target architecture |
 
 ---
 

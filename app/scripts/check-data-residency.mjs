@@ -268,6 +268,9 @@ in this file with the region it lands in, not in a comment somewhere.`);
 
 const declared = Object.keys(DECLARED_EGRESS).filter((h) => seenDeclared.has(h));
 console.log(
-  `✓ data residency: no visitor address leaves India; ` +
+  // What this gate proves is about third parties, not about where the platform
+  // itself runs: the hosted demo is in Singapore (no free tier offers an Indian
+  // region), so "nothing leaves India" would be a claim this check cannot make.
+  `✓ data residency: no page makes a visitor's browser contact a third party; ` +
   `${declared.length} declared server-side egress host${declared.length === 1 ? "" : "s"}` +
   (declared.length ? ` (${declared.join(", ")})` : ""));

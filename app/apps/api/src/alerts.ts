@@ -112,8 +112,15 @@ export class AlertGate {
     this.send({ kind: "signin", subject: `Sign-in · ${who}`, lines });
   }
 
-  /** A wrong or locked-out code. Alerts once per number per window, at the threshold. */
-  otpFailure(msisdn: string) {
+  /**
+   * A wrong or locked-out code. Alerts once per number per window, at the threshold.
+   *
+   * `guarded` marks an account behind email sign-in (admin, officer, listed
+   * mechanics). Its alert skips the hourly cap, as a privileged sign-in does:
+   * otherwise a few wrong codes against made-up numbers use up the hour's
+   * alerts, and guessing at the account that matters then goes unreported.
+   */
+  otpFailure(msisdn: string, guarded = false) {
     const t = this.now(), w = this.opts.otpWindowMs;
     const recent = (this.otpFailures.get(msisdn) ?? []).filter((x) => t - x < w);
     recent.push(t);
@@ -123,12 +130,12 @@ export class AlertGate {
     if (recent.length >= this.opts.otpBurst && (last === undefined || t - last >= w)) {
       this.burstAlerted.set(msisdn, t);
       if (t - this.burstWindowStart >= 3_600_000) { this.burstWindowStart = t; this.burstsSent = 0; }
-      if (this.burstsSent >= BURST_ALERTS_PER_HOUR) {
+      if (!guarded && this.burstsSent >= BURST_ALERTS_PER_HOUR) {
         if (!this.burstsSuppressed) this.burstsSuppressedSince = t;
         this.burstsSuppressed++;
         return;
       }
-      this.burstsSent++;
+      if (!guarded) this.burstsSent++;
       const who = maskMsisdn(msisdn);
       const lines = [`${recent.length} wrong sign-in codes for one number in ${Math.round(w / 60000)} minutes.`,
         `Account: ${who}`, `Time: ${when(t)}`,

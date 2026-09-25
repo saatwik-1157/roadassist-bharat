@@ -3,9 +3,10 @@
 
 # Security final verification
 
-Two suites, **100 assertions**, every one an attack that must fail:
-`npm run test:security` (74) and `npm run test:gateway` (26). Both re-run
-against the final build: **74 passed / 0 failed**, **26 passed / 0 failed**.
+Two suites, **101 assertions**, every one an attack that must fail:
+`npm run test:security` (74) and `npm run test:gateway` (27). Current result,
+measured 2026-09-12 (`app/docs/measured.json`): **74 passed / 0 failed**,
+**27 passed / 0 failed**.
 
 The full control-by-control write-up lives in `app/docs/SECURITY.md` and is
 current; this file records what was *executed* in this phase.
@@ -59,6 +60,6 @@ vulnerabilities.** Five dev-only advisories remain and are accepted — see
 
 ## Not done, and not claimed
 
-**No independent penetration test.** 100 self-written attacks is a different
+**No independent penetration test.** 101 self-written attacks is a different
 thing from an adversary who did not write the code, and this project does not
 pretend otherwise.

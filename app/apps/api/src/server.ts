@@ -1027,9 +1027,8 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
   if (!booking) return reply.code(404).send({ error: { code: "not_found", title: "Booking not found", retryable: false } });
 
   const caller = req.user!;
-  if (!(await bookingAudience(booking, caller)).allowed) {
-    return reply.code(403).send({ error: notYours });
-  }
+  const audience = await bookingAudience(booking, caller);
+  if (!audience.allowed) return reply.code(403).send({ error: notYours });
 
   // The state machine says PAID follows COMPLETED; it cannot say whether the
   // money arrived. Until this check existed any client could post
@@ -1067,8 +1066,14 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
     // replayed work.complete is refused by the state machine before it gets
     // here (see finishesJob). The mechanic comes from the row as updated, not
     // from the read before it.
+    //
+    // Only a completion the mechanic (or an admin) reported counts. A customer
+    // may still step a job through - that is how the demo drives a simulated
+    // mechanic - but a count shown on a public profile and read by dispatch
+    // ranking cannot be raised by the customer marking their own job done.
     const mechanicId = updated[0]?.mechanicId;
-    if (finishesJob(to) && mechanicId) {
+    const reportedByWorkforce = audience.isAssignedMechanic || caller.roles.includes("admin");
+    if (finishesJob(to) && mechanicId && reportedByWorkforce) {
       await tx.update(S.mechanics)
         .set({ jobsCompleted: raw`${S.mechanics.jobsCompleted} + 1`, updatedAt: new Date() })
         .where(eq(S.mechanics.id, mechanicId));

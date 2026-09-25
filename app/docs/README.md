@@ -17,8 +17,8 @@ document itself — never left to be inferred.
 | Document | What it answers |
 |---|---|
 | [`../README.md`](../README.md) | Quick start, scope, feature status |
-| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Deploy, configure, back up, roll back — and exactly what external accounts are still needed |
-| [`TESTING.md`](TESTING.md) | Seven suites, what each proves, and what is deliberately not covered |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Deploy, configure, back up, roll back — the live Render + Neon deployment (Singapore), and exactly what external accounts are still needed |
+| [`TESTING.md`](TESTING.md) | Six executed suites (757 assertions), the 22 Razorpay checks kept outside that total, what each proves, and what is deliberately not covered |
 
 ## The two things this project is actually about
 

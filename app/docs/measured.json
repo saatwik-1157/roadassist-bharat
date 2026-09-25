@@ -14,19 +14,19 @@
   "measuredOn": "2026-09-12",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 751,
+    "total": 757,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 223,
-      "e2e": 189,
-      "concurrency": 75,
+      "unit": 225,
+      "e2e": 191,
+      "concurrency": 77,
       "gatewaySecurity": 27,
       "securityAudit": 74,
       "browser": 163
     },
     "notExecuted": {
       "paymentSandbox": 22,
-      "why": "needs a Razorpay sandbox account and refuses to run without one; never counted in the total, never described as passing"
+      "why": "scripts/razorpay-test.mjs needs NO Razorpay account: it starts its own local stub of the Orders API and signs webhooks with a stub secret. It refuses to run (exit 2) unless the API was started separately with PAYMENTS_PROVIDER=razorpay and PAYMENTS_BASE_URL pointed at that stub, so it is outside every npm test run and was not re-run for this measurement. Never counted in the total, never described as passing"
     },
     "otherRunners": {
       "android": 87,
@@ -36,7 +36,7 @@
       "howSosLadder": [
         "grep -c '@Test' mobile/app/src/test/java/in/roadassist/app/SosLadderTest.kt",
         "",
-        "A subset of the 55, recorded on its own because Non-negotiable #1 quotes",
+        "A subset of the Android suite, recorded on its own because Non-negotiable #1 quotes",
         "it separately in README.md and app/docs/TESTING.md. It was published as",
         "18 and reached 21 without either document noticing — the Android total",
         "beside it was gated and stayed correct, which is the same failure the",
@@ -82,18 +82,25 @@
     ]
   },
   "api": {
-    "routes": 65,
+    "routes": 67,
     "how": [
       "Count app.get/post/patch/put/delete call sites across apps/api/src:",
       "34 in server.ts + 16 in raksha.ts + 3 in routes/auth.ts",
-      "+ 5 in routes/emergency.ts + 1 in routes/telecom.ts",
-      "+ 3 in routes/mechanic.ts + 3 in routes/payments.ts.",
+      "+ 2 in routes/email-auth.ts + 5 in routes/emergency.ts",
+      "+ 1 in routes/telecom.ts + 3 in routes/mechanic.ts + 3 in routes/payments.ts.",
+      "",
+      "  grep -rnE 'app[.](get|post|put|patch|delete)[(]' apps/api/src | wc -l",
+      "",
+      "64 of the 67 are under /v1. The other three are infrastructure, all in",
+      "server.ts: GET /tiles/:z/:x/:file, GET /basemap/:z/:x/:file and GET /health.",
       "",
       "The SPLIT moves whenever a route group is lifted out of server.ts — it was",
       "'49 in server.ts + 15 in raksha.ts' until auth and emergency came out, then",
       "'41 + 15 + 3 + 5' until telecom, mechanic and payments came out too. Each",
       "time the total was unchanged and only the split moved, so a stale split can",
-      "sit behind a correct total for months. Re-derive it; never assume it."
+      "sit behind a correct total for months. Re-derive it; never assume it.",
+      "It was still published as 65 after routes/email-auth.ts added two routes:",
+      "the other half of the same failure, a new file nobody added to the sum."
     ]
   },
   "i18n": {

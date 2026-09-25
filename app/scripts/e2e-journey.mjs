@@ -129,6 +129,9 @@ ok("mechanic accepts", accept.status === 200 && accept.data.status === "ASSIGNED
 const reAccept = await call("POST", `/v1/offers/${first.id}/accept`, { token });
 ok("the same offer cannot be accepted twice", reAccept.status === 409);
 
+const jobsOf = async (mechanicId) =>
+  (await call("GET", `/v1/mechanics/${mechanicId}/reviews`, { token })).data?.mechanic?.jobsCompleted;
+const jobsBefore = await jobsOf(accept.data?.mechanicId);
 for (const [command, expected] of [
   ["mechanic.start_travel", "EN_ROUTE"], ["arrive", "ON_SITE"],
   ["work.start", "IN_PROGRESS"], ["work.complete", "COMPLETED"],
@@ -136,6 +139,11 @@ for (const [command, expected] of [
   const r = await call("POST", `/v1/bookings/${bookingId}/transition`, { token, body: { command } });
   ok(`${command} → ${expected}`, r.data?.status === expected, `got ${r.data?.status}`);
 }
+// The customer just marked its own job done. That may drive a demo, but it
+// must not add a job to the mechanic's public record, which dispatch ranks by.
+const jobsAfter = await jobsOf(accept.data?.mechanicId);
+ok("a customer completing its own job does not add to the mechanic's record",
+   typeof jobsBefore === "number" && jobsAfter === jobsBefore, `${jobsBefore} → ${jobsAfter}`);
 
 const detail = await call("GET", `/v1/bookings/${bookingId}`, { token });
 ok("full event history recorded", (detail.data?.events?.length ?? 0) >= 6,
@@ -916,11 +924,17 @@ console.log("\n24. Booking read/write audience parity");
       // Cash is the common case on an Indian roadside, and it is the one method
       // the platform records rather than charges — so the person holding the
       // money is the only one who may declare it.
+      const mJobs = async () => (await call("GET", `/v1/mechanics/${accepted.data?.mechanicId}/reviews`, { token: mToken }))
+        .data?.mechanic?.jobsCompleted;
+      const mJobsBefore = await mJobs();
       for (const command of ["arrive", "work.start", "work.complete"]) {
         await call("POST", `/v1/bookings/${parityBooking.data.id}/transition`, {
           token: mToken, body: { command },
         });
       }
+      const mJobsAfter = await mJobs();
+      ok("a job the mechanic completes adds exactly one to their record",
+         typeof mJobsBefore === "number" && mJobsAfter === mJobsBefore + 1, `${mJobsBefore} → ${mJobsAfter}`);
       const cash = await call("POST", `/v1/bookings/${parityBooking.data.id}/pay`, {
         token: mToken, body: { method: "cash" },
       });

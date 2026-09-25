@@ -3,6 +3,15 @@
 **Status:** Phase 2 complete · Owner: P1 (Saatwik) · Reviewed by P2, P3, P4
 Course mapping: this document is the Module 1–5 evidence for Review 1.
 
+> **Target, not as-built.** The diagrams below are the Phase 2 target
+> architecture. What runs today (final review) is one container — the API,
+> the emergency routes and every web surface in **one process** — deployed as a
+> single Render web service in Singapore over Neon Postgres + PostGIS
+> (Singapore), live at `app.roadassistbharat.online`. The separate emergency
+> deployable (ADR-0005), Redis, the event bus, object storage and replicas are
+> not deployed, and Redis/Redpanda in `docker-compose.yml` are not used by
+> application code.
+
 ---
 
 ## 1. C4 Level 1 — System Context

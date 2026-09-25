@@ -32,7 +32,8 @@ npm start                 # → http://localhost:4000
 
 Open <http://localhost:4000/app.html> and sign in as `+917000000000`. In
 development the OTP is `000000` and the API returns it in the response, so no
-SMS account is needed.
+SMS account is needed. (The hosted demo at <https://app.roadassistbharat.online>
+needs none of this; this file is about running it yourself.)
 
 ### Environment configuration
 
@@ -64,16 +65,22 @@ password if it declines.
 ## Tests
 
 ```bash
-npm run verify            # typecheck · lint · boundaries · 61 unit tests
+npm run verify            # typecheck · lint · boundaries · 223 unit tests
 npm start                 # in another shell — the suites below need it running
 npm run test:e2e          # 189
-npm run test:gateway      # 26
-npm run test:concurrency  # 65
+npm run test:gateway      # 27
+npm run test:concurrency  # 75
 npm run test:security     # 74
 npm run test:ui           # 163  (drives real Chrome; --headed to watch)
 npm run test:demo         # 15 demo beats, two browser windows, timed
 npm run perf              # measured latency, not a load test
 ```
+
+The per-suite counts are the current ones — 751 across the six suites,
+measured 2026-09-12 (`app/docs/measured.json`). The 22-check payment suite
+(`npm run test:razorpay`) is not in that total and was not executed: it needs
+no Razorpay account, but refuses to run unless the API was started separately
+with `PAYMENTS_PROVIDER=razorpay` pointed at its local stub.
 
 ### Expected output
 

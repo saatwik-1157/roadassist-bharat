@@ -21,7 +21,8 @@ Third tab, unopened until 8:30: `app/docs/SWE4004-MAPPING.md`.
 
 **Run everything locally.** Never demo the off-grid section with the API on a
 tunnel — you need to control the network, and conference Wi-Fi will not
-cooperate.
+cooperate. The hosted demo (https://app.roadassistbharat.online) is the backup
+if the laptop setup fails, not the stage run.
 
 ---
 
@@ -276,7 +277,8 @@ build."
 
 **SAY:** "Eight of twenty-one concepts implemented, five partial, eight
 designed and not provisioned. The eight are infrastructure we have not bought —
-there is no autoscaler, no load balancer, no replica, and I will not show you an
+the demo is live, but on one Render instance in Singapore: there is no
+autoscaler, no load balancer, no replica, and I will not show you an
 animation and call it a cluster. What we did build is the part that matters most
 for this problem: workload distribution and resource pooling in the dispatch
 engine, dynamic scheduling with timeout-driven re-scheduling, and a readiness
@@ -292,7 +294,7 @@ which is precisely what lets an orchestrator remove an instance."
 ## 9:45 — Conclusion
 
 **SAY:** "Intelligent assistance when the road fails. Resilient software when
-the network fails. Five hundred and seventy-eight assertions across six suites,
+the network fails. Seven hundred and fifty-one assertions across six suites,
 zero failures — including seventy-four attacks that must fail. Six real bugs
 found by tooling we wrote to attack our own project, and fixed. Nothing on
 those slides is a claim I cannot show you."

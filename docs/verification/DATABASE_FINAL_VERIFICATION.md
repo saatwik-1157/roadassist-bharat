@@ -2,6 +2,8 @@
 > Base commit `f771df5` on `main`, plus 41 modified and 59 untracked files that
 > are **not yet committed**. Every number below came from a run on that state.
 > Where something was not measured, this file says so instead of estimating.
+> Exception: the structure counts and the suite total are the current ones,
+> measured 2026-09-12 (`app/docs/measured.json`), and are labelled where used.
 
 # Database final verification
 
@@ -10,17 +12,25 @@ PostgreSQL 16.4 + PostGIS 3.4 (`USE_GEOS=1 USE_PROJ=1 USE_STATS=1`), database
 
 ## Structure
 
+Current counts, measured 2026-09-12 (`app/docs/measured.json`):
+
 | Property | Count |
 |---|---|
-| Tables | 57 |
-| Primary keys | 57 (every table) |
+| Tables | 56 |
+| Primary keys | 56 (every table) |
 | Foreign keys | 62 |
-| Check constraints | 433 |
+| Check constraints | 5 |
 | Indexes | 138 |
 | — of which GiST (PostGIS) | 5 |
 | — of which UNIQUE | 84 |
-| Migrations applied | 5 (latest `0004_offgrid_incident`) |
+| Migrations applied | 7 (latest `0006_mechanic_rating_baseline`) |
 | Append-only rules on `audit_log` | 2 (`DO INSTEAD NOTHING` for UPDATE and DELETE) |
+
+This table first read 57 tables, 57 primary keys and 433 check constraints.
+Both errors came from counting through bare `information_schema`: PostGIS
+installs its own `spatial_ref_sys` into `public`, and
+`information_schema.check_constraints` emits one row per NOT NULL column. The
+counts above filter extension-owned objects through `pg_depend`.
 
 Unique indexes carrying the idempotency guarantees include
 `idempotency_key_uq`, `bookings_reference_uq` and the per-device `op_id`
@@ -64,7 +74,9 @@ After reseeding: 4,076 invoices, 1,789 settled payments, **0 amount
 mismatches**, and 2,287 COMPLETED bookings correctly holding an invoice with no
 payment — which is exactly what "payment pending" means on screen.
 
-Full suite re-run against the corrected data: 578 passed, 0 failed.
+Full suites against the corrected data: 751 passed, 0 failed across six suites
+— measured 2026-09-12 (`app/docs/measured.json`) on a database migrated from
+empty and seeded by `demo:reset`.
 
 ## Not verified
 

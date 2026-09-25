@@ -28,10 +28,10 @@ node scripts/capture-screens.mjs        # in another → docs/screenshots/*.png 
 | 12 | Off-grid screen | Off-grid screen | queued incident | Two columns — what works, what does not — plus the sync journal | Honest capability matrix | 20 | ✅ `10-offgrid-screen.png` |
 | 13 | Sync complete | reconnect | queued incident | "SOS synchronized", journal empty, platform reference | Store-and-forward + idempotency | 21 | ✅ `11-sync-complete.png` |
 | 14 | Activity / history | Activity tab | past bookings | Booking list with status | Persistence | 16 | ✅ `12-activity.png` |
-| 15 | Authority dashboard | `/raksha.html` | `+919999900001` | Live counts, NH-48 corridor, road health | Third tenant class, authority scope | 22 | ✅ `14-authority.png` |
+| 15 | Authority dashboard | `/raksha.html` | `+919999900001` (local; on the hosted site the admin signs in by email code) | Live counts, NH-48 corridor, road health | Third tenant class, authority scope | 22 | ✅ `14-authority.png` |
 | 16 | Invoice + payment | complete a job, then Pay | demo booking | Invoice total, then **PAID** | Server-side amount authority | 18 | ⬜ **capture** |
 | 17 | SOS online | hold SOS while online | — | Escalation ladder, each rung a fact | Emergency path | 20 | ⬜ **capture** |
-| 18 | Live map | Map tab | seeded data | Clustered mechanics/responders/detections over India | Cloud storage + geospatial | 22 | ⬜ **capture** |
+| 18 | Live map | Map tab | seeded data | Clustered mechanics/responders/detections over India — seeded data; on the hosted demo the fleet is labelled "(simulated)" and the 34 real YOLO11 detections sit at simulated NH-48 positions. Caption it that way | Cloud storage + geospatial | 22 | ⬜ **capture** |
 | 19 | Health endpoint | `/health` with the DB stopped | — | **503** `database: down` while `/v1/ping` returns 200 | **Readiness gate — dynamic scalability** | 24 | ⬜ **capture** |
 | 20 | Database schema | `\dt` in psql | seeded DB | 56 tables | Data tier | 23 | ⬜ **capture** |
 | 21 | Test results | `npm run test:security` | running API | `74 passed, 0 failed` | Testing evidence | 26 | ⬜ **capture** |

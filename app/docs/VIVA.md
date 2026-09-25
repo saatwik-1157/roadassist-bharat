@@ -36,10 +36,12 @@ network access, resource pooling, rapid elasticity, measured service.
 
 **In RoadAssist.** We are a consumer of IaaS/PaaS and a provider of SaaS to
 three user classes. Broad network access is the one we lean on hardest: one API
-serves a browser, an installed PWA, an Android WebView and a feature phone over
-SMS.
+serves a browser, an installed PWA, the native Kotlin Android app and a feature
+phone over SMS.
 
-**Status.** Consumed in design; the SaaS-provider side is built.
+**Status.** PaaS consumed for real — the platform is live on one Render web
+service with a managed Neon Postgres, both in Singapore; the SaaS-provider side
+is built. Elasticity is not: one free-plan instance, no autoscaling.
 
 ### 2. Why does RoadAssist need cloud computing?
 
@@ -54,7 +56,8 @@ regional presence rather than one machine.
 provider pool; that pool and its index have to live somewhere reachable from
 everywhere.
 
-**Status.** The argument is sound; the elastic infrastructure is not deployed.
+**Status.** The argument is sound. The platform is deployed as one instance;
+the elastic infrastructure is not.
 
 ### 3. Why did you choose this architecture?
 
@@ -79,12 +82,15 @@ is DESIGN — today it is a module in the same process.
 **Short.** All three, in different roles.
 
 **In RoadAssist.** **IaaS** — we would size compute, storage and the virtual
-network; `docker-compose.yml` is the local stand-in. **PaaS** — managed Postgres
-and a managed container platform. **SaaS** — we *consume* Twilio/MSG91,
-Razorpay, OSM tiles; and we *are* SaaS to citizens, mechanics and authorities.
+network; `docker-compose.yml` is the local stand-in. **PaaS** — a managed
+container platform (Render, running our Docker image) and managed Postgres +
+PostGIS (Neon), both Singapore. **SaaS** — we *consume* Twilio/MSG91,
+Razorpay, OSM tiles and Resend email; and we *are* SaaS to citizens, mechanics
+and authorities.
 
 **Status.** SaaS-consumer IMPLEMENTED (`providers.ts`, every vendor behind an
-adapter with a local fallback). IaaS/PaaS DESIGN.
+adapter with a local fallback). PaaS IMPLEMENTED as consumer — live at
+`app.roadassistbharat.online`, single instance, free plan. IaaS DESIGN.
 
 ### 5. What deployment model is appropriate?
 
@@ -93,7 +99,19 @@ adapter with a local fallback). IaaS/PaaS DESIGN.
 **Technical.** The constraint that decides it is regulatory, not technical: "No
 PII leaves India" — including logs, backups and crash reports.
 
-**Status.** DESIGN. Nothing is deployed.
+**Status.** PARTIAL. It is deployed on public cloud — but Render and Neon are in
+**Singapore**, because their free tiers offer no India region. So the rule is
+not true of the demo: every visitor's request reaches the Singapore host. An
+India region (e.g. Mumbai) is the production target. What *is* enforced today
+is `scripts/check-data-residency.mjs`: pages we serve load no third-party
+subresource except `checkout.razorpay.com`, so no third party receives a
+visitor's IP from our pages; every server-side outbound host is declared with
+its region (MSG91 and Razorpay India, OSM tiles EU, Open-Meteo Germany, Resend
+USA, Twilio USA optional, figshare at training time only); no analytics or
+crash SDKs; no PII in query strings. It does not check where the platform is
+hosted. Resend is an email processor in the USA: an alert carries a phone
+number masked to its last three digits, a role, an event and a time; a sign-in
+code goes to the listed address.
 
 ### 6. Where is virtualization used?
 
@@ -136,7 +154,8 @@ and every one is refused with 403.
 **Short.** Storage consumed as a service, in block, file or object form.
 
 **In RoadAssist.** Block — the Postgres volume. File — hazard photos on a
-mounted volume (`UPLOAD_DIR`; ADR-0006 keeps only the reference in the database).
+mounted volume (`UPLOAD_DIR`; ADR-0006 keeps only the reference in the database)
+— ephemeral on the free Render tier, so a photo does not survive a redeploy.
 Object storage is DESIGN. The interesting one is **client-side** storage:
 IndexedDB with AES-GCM-256 at rest, which is what makes off-grid work.
 
@@ -175,7 +194,8 @@ and the offer sweeper are all in-process.
 our workload is I/O-bound — we measured it: dispatch spends its ~100 ms in
 PostGIS, not in Node. One component is built: the **readiness gate**. `/health`
 returns **503** when the database is unreachable, so an orchestrator removes the
-instance rather than sending traffic to a server that cannot serve. Verified.
+instance rather than sending traffic to a server that cannot serve — it is the
+`healthCheckPath` of the Render deployment. Verified.
 
 **Status.** DESIGN, with the readiness gate IMPLEMENTED.
 
@@ -220,11 +240,12 @@ What is still `DESIGN` is the *redundancy*: one node, no replica, no failover. A
 
 ### 18. What is migration?
 
-**Schema migration is real and rehearsed.** Five versioned migrations; this
+**Schema migration is real and rehearsed.** Seven versioned migrations; this
 audit ran `db:reset → db:migrate → db:seed` from empty and then the whole test
-suite. All five are additive — new columns and indexes, no drops, no retypes —
-so an older image runs against a newer schema, which is what makes a rollback
-safe. Workload/live migration is DESIGN.
+suite, and the deployment migrates on every boot. All seven are additive — new
+columns and indexes, no column dropped or retyped (0002 rebuilds one unique
+index to key it per device) — so an older image runs against a newer schema,
+which is what makes a rollback safe. Workload/live migration is DESIGN.
 
 ### 19. Static vs dynamic scheduling?
 
@@ -325,6 +346,9 @@ log — Postgres rules block UPDATE and DELETE, and `/v1/ops/overview` re-verifi
 the chain live. Break-glass medical access requires a role, a *live* incident, a
 written reason of 10–300 characters, and writes an audit row. Logs redact
 credentials, OTP codes, phone numbers, medical fields and coordinates — tested.
+The accounts worth stealing — admin, RAKSHA officer, listed mechanics — sign in
+only by a code emailed to their listed address; their phone path answers
+`403 email_signin_required`, so the demo's on-screen OTP cannot open them.
 
 **74 attacks in `security-audit.mjs`, all refused.**
 
@@ -336,9 +360,13 @@ callback and the **webhook**, and the webhook is the one that matters because a
 customer can pay and close the tab. Delivery is at-least-once, so every path is
 idempotent. Production refuses to boot on a real gateway with no webhook secret.
 
-**Tested against a local stub of Razorpay's API:** forged signature, replayed
-delivery, wrong amount, wrong order, unconfigured secret — each fails closed.
-Never run against a real account.
+**Checked against a local stub of Razorpay's API** by 22 checks in
+`scripts/razorpay-test.mjs`: forged signature, replayed delivery, wrong amount,
+wrong order, unconfigured secret — each is written to fail closed. They need no
+account (the script starts its own stub and signs with a stub secret), but they
+refuse to run unless the API was started with `PAYMENTS_PROVIDER=razorpay`, so
+they sit outside the 757 and were not re-run for that measurement. Never run
+against a real account; the deployment itself uses the mock provider.
 
 ### 29. Why PostgreSQL/PostGIS?
 
@@ -387,9 +415,13 @@ baseline any future model must beat.
 
 **Be precise in the viva:** this is not machine learning. It is labelled
 "rules-1.0.0" in the response and `LOCAL OFFLINE DIAGNOSIS` in the UI when it
-runs on the device. There *is* a trained model in the project — YOLO11n on
-RDD2022-India for road damage, mAP50 0.443 — and its metrics are real and
-measured, not claimed.
+runs on the device. There *are* trained models in the project — YOLO11
+detectors on RDD2022 for road damage. The best run is YOLO11s
+(`yolo11s-multi-rich`), mAP50 0.472, mAP50-95 0.226 — undertrained, stopped at
+epoch 13. The YOLO11n India model, mAP50 0.443, is the one whose 34 real
+detections RAKSHA shows at boot in demo mode, at simulated NH-48 positions
+because the dataset images carry no GPS. The metrics are real and measured,
+not claimed.
 
 A remote model can be configured (`AI_BASE_URL`), and the merge has a **safety
 asymmetry**: a model may make a drivability verdict stricter, never laxer.
@@ -405,13 +437,19 @@ service leaves a working product — that is the whole point of ADR-0006.
 
 Stated plainly, in order of importance:
 
-1. **Nothing is deployed to a cloud.** No account, no domain, no cluster.
+1. **Deployed as a demo, not as production.** One free-plan Render service and
+   a Neon database, both in Singapore (no India region on the free tiers),
+   `NODE_ENV=demo`, sleeps after 15 min idle, photos ephemeral. No cluster,
+   no autoscaling, no replication.
 2. **Single instance only** — SSE registry, rate limiter and offer sweeper are
    in-process.
-3. **112 handoff is a stub**; emergency isolation is a design, not a deployment.
-4. **Payments verified against a stub**, never a real Razorpay account.
+3. **112 handoff is a stub**; the emergency routes run in the same process as
+   the API, so emergency isolation is a design, not a deployment.
+4. **Payments are mock on the deployment**; the Razorpay adapter is checked only
+   against a local stub, never a real account.
 5. **No backup *schedule*** is configured. The restore procedure itself is rehearsed and measured; what is missing is automation, so the real RPO today is "whenever somebody runs the command".
-6. **No load test, no coverage metric, no external penetration test.**
+6. **No load test, no external penetration test, no real SMS gateway**, and no
+   coverage on the HTTP layer (the pure domain modules are at 95.68% lines).
 7. **Diagnosis "AI" is a rules engine.**
 8. Encryption at rest on the device does not protect against script on the same
    origin, and the UI says so.
@@ -420,8 +458,9 @@ Stated plainly, in order of importance:
 
 Redis-backed rate limiting and the event bus for SSE fan-out (both already
 designed), WAL archiving to get the RPO under a day, object storage for photos,
-an external APM, and a `--reference-only` seed so production can be seeded
-without demo data — that last one is a real gap flagged in `DEPLOYMENT.md`.
+an external APM, an India-region host (e.g. Mumbai) and a DLT-registered SMS
+gateway. The `--reference-only` seed that used to be on this list now exists
+and is verified in `DEPLOYMENT.md` — 0 demo rows.
 
 ### 38. How would you horizontally scale RoadAssist?
 
@@ -458,15 +497,17 @@ returning 503 with the database stopped. *(The presentation script previously
 claimed a running autoscaler. It was corrected — see `CLAIMS-AUDIT.md`.)*
 
 **"Is this real AI?"** — The diagnosis engine is deterministic rules, and the UI
-labels it as such. The road-damage model is a genuinely trained YOLO11n with
-measured metrics. I will not call the first one AI.
+labels it as such. The road-damage models are genuinely trained YOLO11
+detectors with measured metrics — best run YOLO11s mAP50 0.472; the YOLO11n
+India model RAKSHA shows scored 0.443. I will not call the first one AI.
 
-**"Did you actually test it, or does it just look right?"** — 751 assertions
+**"Did you actually test it, or does it just look right?"** — 757 assertions
 across six suites, all executed with no failures, including 74 attacks that must
-fail and a concurrency suite that fires ten simultaneous accepts. A seventh
-suite of 22 payment-gateway checks needs a Razorpay sandbox account, so it is
-not run and I do not count it. Three real
-vulnerabilities were found by that suite during this audit and fixed.
+fail and a concurrency suite that fires ten simultaneous accepts. The 22 Razorpay
+checks need no account — they run against their own local stub — but only when
+the API is started with `PAYMENTS_PROVIDER=razorpay`, so they are outside the
+total and I do not count them. Three real vulnerabilities were found by the
+security suite during this audit and fixed.
 
 ---
 
@@ -478,8 +519,9 @@ The questions an examiner reaches for once the core answers hold up.
 
 ### 41. Is RoadAssist a cloud application, or a web application you would like to put in the cloud?
 
-**Short.** Today it is a cloud-*ready* application that consumes cloud services;
-it is not a cloud-*deployed* one.
+**Short.** Today it is cloud-*deployed* on PaaS — one Render web service and a
+managed Neon Postgres, in Singapore — and cloud-*ready* for scale; it is not
+cloud-*scaled*.
 
 **Technical.** The properties that make cloud adoption possible without a
 rewrite are built and testable: the API is stateless (session state lives in the
@@ -489,15 +531,18 @@ require infrastructure — replication, autoscaling, load balancing — are desi
 and not provisioned.
 
 **The framing to use.** "We built the application-side preconditions and can
-demonstrate every one. We did not provision the infrastructure, and I will not
-claim we did." Three things block replication today and each is documented where
+demonstrate every one. We deployed it as a single PaaS instance; we did not
+provision replicas, autoscaling or a load balancer, and I will not claim we
+did." Three things block replication today and each is documented where
 it is defined.
 
 ### 42. Which parts of this are *actually* cloud, then?
 
 Consumed as SaaS through adapters: SMS, payments, tiles, email — real
 integrations with real wire formats, each with a local implementation so the
-platform runs on zero paid accounts. Container virtualization is real and
+platform runs on zero paid accounts; on the deployment, Resend email is live for
+operator alerts and email sign-in codes. Hosting is PaaS and live: the Docker
+image on Render, the database on Neon. Container virtualization is real and
 verified. Multitenancy is real and attack-tested. Cloud storage is real in three
 forms including the on-device encrypted store. Cloud monitoring is partial —
 structured logs with correlation ids and a live operations view, but no external
@@ -549,9 +594,10 @@ fixed. A fresh seed now yields zero.
 
 ### 47. How do you handle schema migrations safely?
 
-Five versioned migrations, applied by a runner that also creates the extensions
-and the constraints drizzle-kit cannot express. All five are **additive** — new
-columns and indexes, no drops, no retypes — so an older image runs against a
+Seven versioned migrations, applied by a runner that also creates the extensions
+and the constraints drizzle-kit cannot express. All seven are **additive** — new
+columns and indexes, no column dropped or retyped (0002 rebuilds one unique
+index to key it per device) — so an older image runs against a
 newer schema, which is what makes an application rollback safe. The rule that
 keeps it true: never drop or retype a column in the same release that stops
 using it. Add, deploy, stop using, drop later.

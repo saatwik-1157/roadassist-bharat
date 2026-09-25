@@ -339,6 +339,7 @@
     return "lat=" + c.lat.toFixed(4) + "&lng=" + c.lng.toFixed(4) + "&radiusKm=" + km;
   }
   var loadSeq = 0;   // a slow answer for a view already left must not overwrite a newer one
+  var signedOut = false;   // refused for want of a session: polling waits for one
 
   async function load() {
     var mine = ++loadSeq;
@@ -357,12 +358,14 @@
         var why = (j.error && j.error.title) || res.status;
         // A bare "Unauthorized" tells a visitor nothing they can act on.
         if (res.status === 401) {
+          signedOut = !tok;
           why = tok ? "Your session has expired - sign in again on the citizen app, mechanic console or RAKSHA"
                     : "Sign in on the citizen app, mechanic console or RAKSHA in this browser to see the live map";
         }
         document.getElementById("badge").innerHTML = "⚠ " + esc(why);
         return;
       }
+      signedOut = false;
       var d = j.data;
       draw(d, null, j.meta);
       if (OGStore) {
@@ -479,7 +482,9 @@
   var moveTimer = null;
   map.on("moveend", function () { clearTimeout(moveTimer); moveTimer = setTimeout(load, 350); });
 
-  setInterval(function () { if (!document.hidden) load(); }, 15000);
+  // A signed-out visitor is not asked again every tick - the answer cannot
+  // change until a session appears, and the storage listener below sees that.
+  setInterval(function () { if (!document.hidden && (!signedOut || authToken())) load(); }, 15000);
   // Signing in on another tab or frame of this origin shows up here at once,
   // rather than on the next 15-second tick.
   window.addEventListener("storage", function (e) {

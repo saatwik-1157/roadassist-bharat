@@ -41,6 +41,11 @@ returns it, so it auto-fills.
 | Authority / admin | `+919999900001` |
 | Mechanic | whichever number the tracking screen shows after acceptance |
 
+These numbers are for the **local** run. On the hosted demo
+(https://app.roadassistbharat.online) the admin, RAKSHA officer and listed
+mechanics sign in by **email code only** — their phone path returns 403
+`email_signin_required`. Other demo accounts use the on-screen OTP.
+
 **12. Run the demo** — `DEMO_COMMAND_CARD.md`.
 
 **13. Test offline** — tap the connectivity pill in the app header. Diagnose,

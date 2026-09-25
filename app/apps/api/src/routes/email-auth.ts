@@ -21,7 +21,7 @@ import { alerts } from "../alerts.js";
 import { email as mail } from "../providers.js";
 import { otpPolicy } from "../domain/otp-policy.js";
 import { emailChallengeKey, parseEmailSignin } from "../domain/email-signin.js";
-import { constantTimeEquals, otpAttemptsInWindow, otpRequestsFromIp, sha256, startSession } from "../auth.js";
+import { claimOtpChallenge, constantTimeEquals, sha256, startSession } from "../auth.js";
 
 export const emailSignin = parseEmailSignin(env.emailSignin);
 
@@ -32,15 +32,6 @@ export async function emailAuthRoutes(app: FastifyInstance) {
     const { email } = z.object({ email: emailSchema }).parse(req.body);
     const key = emailChallengeKey(email);
 
-    if (await otpAttemptsInWindow(db, key) >= env.otpMaxAttempts) {
-      return reply.code(429).send({ error: { code: "too_many_requests",
-        title: `Too many codes requested. Try again in ${env.otpWindowMinutes} minutes.`, retryable: true } });
-    }
-    if (await otpRequestsFromIp(db, req.ip) >= env.otpIpMax) {
-      return reply.code(429).send({ error: { code: "otp_ip_limited",
-        title: `Too many codes requested from this connection. Try again in ${env.otpWindowMinutes} minutes.`, retryable: true } });
-    }
-
     // Stricter than the phone code (otp-policy.ts): this code is the only way
     // into an account whose phone path is closed, so it is random and never
     // echoed even with the console provider - which prints it to the server
@@ -50,10 +41,19 @@ export async function emailAuthRoutes(app: FastifyInstance) {
     const accepted = ok({ sent: true, expiresInSeconds: 300, channel: "email" });
 
     const code = policy.random ? String(randomInt(100000, 1000000)) : env.devOtp;
-    const [challenge] = await db.insert(S.otpChallenges).values({
+    // Counted and recorded in one locked step (auth.ts), so simultaneous
+    // requests cannot all slip under the limits and flood an inbox.
+    const claim = await claimOtpChallenge(db, key, req.ip, {
       msisdn: key, codeHash: sha256(code), ip: req.ip, channel: "email",
       expiresAt: new Date(Date.now() + 5 * 60_000),
-    }).returning({ id: S.otpChallenges.id });
+    });
+    if ("limited" in claim) {
+      return claim.limited === "key"
+        ? reply.code(429).send({ error: { code: "too_many_requests",
+          title: `Too many codes requested. Try again in ${env.otpWindowMinutes} minutes.`, retryable: true } })
+        : reply.code(429).send({ error: { code: "otp_ip_limited",
+          title: `Too many codes requested from this connection. Try again in ${env.otpWindowMinutes} minutes.`, retryable: true } });
+    }
 
     // An address nobody listed gets the same answer and no email, so the
     // endpoint cannot be used to find out which addresses are registered. Its
@@ -63,23 +63,36 @@ export async function emailAuthRoutes(app: FastifyInstance) {
     // answered 429, which told anyone which addresses were listed.
     if (!emailSignin.accounts.has(email)) return accepted;
 
-    try {
-      await mail.send(email, "Your RoadAssist-Bharat sign-in code",
-        [`Your RoadAssist-Bharat sign-in code is ${code}.`, "",
-          "It expires in 5 minutes and works once.",
-          "If you did not ask to sign in, ignore this email: nobody can sign in without the code."].join("\n"));
-    } catch (err) {
-      // A code that was never delivered must not stay redeemable.
-      await db.delete(S.otpChallenges).where(eq(S.otpChallenges.id, challenge.id));
-      req.log.warn({ err: err instanceof Error ? err.message.slice(0, 200) : String(err) }, "email sign-in code not delivered");
-      return reply.code(502).send({ error: { code: "email_not_sent",
-        title: "The code could not be emailed. Try again in a minute.", retryable: true } });
-    }
+    const deliver = async () => {
+      try {
+        await mail.send(email, "Your RoadAssist-Bharat sign-in code",
+          [`Your RoadAssist-Bharat sign-in code is ${code}.`, "",
+            "It expires in 5 minutes and works once.",
+            "If you did not ask to sign in, ignore this email: nobody can sign in without the code."].join("\n"));
+        return true;
+      } catch (err) {
+        // A code that was never delivered must not stay redeemable.
+        await db.delete(S.otpChallenges).where(eq(S.otpChallenges.id, claim.id)).catch(() => undefined);
+        req.log.warn({ err: err instanceof Error ? err.message.slice(0, 200) : String(err) }, "email sign-in code not delivered");
+        return false;
+      }
+    };
 
-    return policy.echo
-      ? ok({ sent: true, expiresInSeconds: 300, channel: "email" },
-        { devOtp: code, note: "Returned only because EMAIL_PROVIDER=console and EXPOSE_DEV_OTP is on" })
-      : accepted;
+    // Only the console provider (development) waits, because it hands the
+    // code back. A real send happens after the answer: waiting for it made a
+    // listed address answer hundreds of milliseconds slower than an unlisted
+    // one - and a failed send answer 502 where an unlisted one never does -
+    // which told anyone timing the endpoint which addresses were listed.
+    if (policy.echo) {
+      if (!(await deliver())) {
+        return reply.code(502).send({ error: { code: "email_not_sent",
+          title: "The code could not be emailed. Try again in a minute.", retryable: true } });
+      }
+      return ok({ sent: true, expiresInSeconds: 300, channel: "email" },
+        { devOtp: code, note: "Returned only because EMAIL_PROVIDER=console and EXPOSE_DEV_OTP is on" });
+    }
+    void deliver();
+    return accepted;
   });
 
   app.post("/v1/auth/email/verify", async (req, reply) => {
@@ -88,7 +101,7 @@ export async function emailAuthRoutes(app: FastifyInstance) {
     const key = emailChallengeKey(email);
 
     const invalid = () => {
-      if (msisdn) alerts.otpFailure(msisdn);
+      if (msisdn) alerts.otpFailure(msisdn, true);
       return reply.code(401).send({ error: { code: "otp_invalid",
         title: "That code is not right. Check it and try again.", retryable: true } });
     };
@@ -98,7 +111,7 @@ export async function emailAuthRoutes(app: FastifyInstance) {
       .where(and(eq(S.otpChallenges.msisdn, key), isNull(S.otpChallenges.consumedAt)))
       .orderBy(desc(S.otpChallenges.createdAt)).limit(1);
     if (!challenge) return invalid();
-    if (challenge.expiresAt.getTime() < Date.now()) {
+    if (challenge.expiresAt.getTime() <= Date.now()) {
       return reply.code(401).send({ error: { code: "otp_expired", title: "That code has expired. Request a new one.", retryable: true } });
     }
     // Take the attempt BEFORE comparing, in one conditional statement. Read,
@@ -110,13 +123,17 @@ export async function emailAuthRoutes(app: FastifyInstance) {
       .where(and(eq(S.otpChallenges.id, challenge.id), lt(S.otpChallenges.attempts, env.otpMaxAttempts)))
       .returning({ id: S.otpChallenges.id });
     if (!slot) {
-      alerts.otpFailure(msisdn);
+      alerts.otpFailure(msisdn, true);
       return reply.code(429).send({ error: { code: "otp_locked", title: "Too many wrong attempts. Request a new code.", retryable: true } });
     }
     if (!constantTimeEquals(sha256(code), challenge.codeHash)) return invalid();
-    await db.update(S.otpChallenges)
+    // Consumed only if nobody consumed it first: two requests carrying the right
+    // code at the same moment both passed the compare, and both got a session.
+    const [won] = await db.update(S.otpChallenges)
       .set({ consumedAt: new Date(), updatedAt: new Date() })
-      .where(eq(S.otpChallenges.id, challenge.id));
+      .where(and(eq(S.otpChallenges.id, challenge.id), isNull(S.otpChallenges.consumedAt)))
+      .returning({ id: S.otpChallenges.id });
+    if (!won) return invalid();
 
     // The listed number is the account. If it does not exist yet it is created
     // exactly as a first phone sign-in would create it: a verified citizen.

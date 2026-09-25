@@ -13,16 +13,16 @@ this project does not have.
 |---|---|
 | Production Docker image builds | ✅ **Verified** — `docker build`, 321 MB, runs as `node` (uid 1000) |
 | Image runs and serves the whole platform | ✅ **Verified** — API, citizen app, mechanic console, authority dashboard, media |
-| Full test suite passes **against the image** | ✅ **Verified** — 189 e2e + 75 concurrency + 27 gateway + 163 browser |
+| Full test suite passes **against the image** | ✅ **Verified** — 191 e2e + 77 concurrency + 27 gateway + 163 browser |
 | Health check reports the database honestly | ✅ **Verified** — 503 with `database: "down"` when Postgres is unreachable |
 | Graceful shutdown | ✅ **Verified** — SIGTERM → exit code 0, no force kill |
 | Production CORS allowlist | ✅ **Verified** — allowed origin reflected, other origins refused |
 | Startup configuration validation | ✅ **Verified** — refuses to boot and names the variable |
 | Reference-only production seed | ✅ **Verified** — 0 demo rows, API boots and signs in against it |
 | Backup and restore | ✅ **Scheduled, verified and measured** — nightly `backup` sidecar that restores each dump before trusting it; rehearsal 8.4 s, audit hash chain intact across 639 entries |
-| **Deployed to a cloud provider** | ❌ **NOT DONE.** No cloud account or credentials are configured in this repository. See [What I need from you](#what-i-need-from-you). |
-| **HTTPS / custom domain** | ❌ **NOT VERIFIED.** Configuration is written and reasoned below; it has never terminated a real certificate. |
-| **Live payment** | ❌ **Deliberately not enabled.** Sandbox verified (22 assertions). Production keys must be a conscious act. |
+| **Deployed to a cloud provider** | ✅ **Demo deployment live** — one Render web service (Docker, free plan, region Singapore, [`render.yaml`](../../render.yaml)) over Neon Postgres + PostGIS (Singapore, `ap-southeast-1`); showcase on GitHub Pages. Steps in the root [`DEPLOYMENT.md`](../../DEPLOYMENT.md). Runs `NODE_ENV=demo`, single instance, sleeps when idle; free tiers offer no India region. |
+| **HTTPS / custom domain** | ✅ **Live** — `https://app.roadassistbharat.online`, TLS terminated by Render's proxy. The Caddy/nginx configuration in §4 below is the self-hosted path and has still never terminated a real certificate. |
+| **Live payment** | ❌ **Deliberately not enabled.** The demo runs the `mock` provider. The 22 Razorpay checks run against a local stub of Razorpay's API (no account), outside the counted total. Production keys must be a conscious act. |
 
 Nothing in this document claims a deployment that did not happen.
 
@@ -192,11 +192,13 @@ and its tests in `apps/api/test/state-machines.test.ts`.
 
 ---
 
-## 4. HTTPS and domain — **NOT VERIFIED**
+## 4. HTTPS and domain (self-hosted path) — **NOT VERIFIED**
 
-The API is published on `127.0.0.1:4000` only. TLS belongs to a reverse proxy
-in front of it. This configuration is reasoned but has never terminated a real
-certificate in this project.
+The hosted demo does not use this section: Render terminates TLS for
+`app.roadassistbharat.online` at its own proxy. What follows is the path for a
+self-hosted VM. There the API is published on `127.0.0.1:4000` only and TLS
+belongs to a reverse proxy in front of it. This configuration is reasoned but
+has never terminated a real certificate in this project.
 
 HTTPS is not cosmetic here: a phone browser withholds geolocation, service-worker
 registration and "Add to home screen" over plain HTTP — so **Off-Grid Mode does
@@ -387,6 +389,10 @@ copy first, and verify the health check there.
    story. `logOp` is the integration point for Sentry or equivalent.
 5. **No load test.** Latency figures in the reports are single-user
    measurements against a local database.
+6. **Hosted outside India.** The demo runs in Singapore (Render + Neon) because
+   the free tiers offer no Indian region; an Indian region (e.g. Mumbai) is the
+   production target. On Render's free plan hazard photos are ephemeral and the
+   service sleeps after 15 idle minutes.
 
 ---
 
@@ -401,8 +407,12 @@ copy first, and verify the health check there.
 
 ## 9. What I need from you
 
-Everything below needs an account this project does not have. **None of it has
-been guessed or stubbed.**
+Rows 1–3 and 7 are now in place for the **demo**: Render (host, Singapore),
+`app.roadassistbharat.online` (DNS at Hostinger), Neon Postgres + PostGIS
+(Singapore) and Resend (email alerts and sign-in codes, from
+`alerts@send.roadassistbharat.online`). A production deployment would need an
+Indian region for all of them. Rows 4–6 still need an account this project
+does not have. **None of it has been guessed or stubbed.**
 
 | # | What | Why | Where it goes |
 |---|---|---|---|
@@ -410,7 +420,7 @@ been guessed or stubbed.**
 | 2 | **A domain + DNS** | HTTPS, and Off-Grid Mode needs HTTPS for service workers and geolocation | `CORS_ORIGINS`, the proxy config |
 | 3 | **Managed Postgres with PostGIS**, or the compose `db` service | PostGIS is not optional — dispatch is a geospatial query | `DATABASE_URL` |
 | 4 | **Twilio or MSG91 account** (MSG91 needs a TRAI DLT-registered template for India) | OTP sign-in and emergency SMS | `SMS_PROVIDER`, `SMS_API_KEY`, `SMS_SENDER_ID`, `SMS_DLT_TEMPLATE_ID` |
-| 5 | **Razorpay account** — **test keys first** | Payments. The suite verifies the sandbox flow against a local stub; real keys have never been used here | `PAYMENTS_KEY_ID`, `PAYMENTS_KEY_SECRET`, `PAYMENTS_WEBHOOK_SECRET` |
+| 5 | **Razorpay account** — **test keys first** | Payments. `razorpay-test.mjs` exercises the flow against a local stub (outside the counted total); real keys have never been used here | `PAYMENTS_KEY_ID`, `PAYMENTS_KEY_SECRET`, `PAYMENTS_WEBHOOK_SECRET` |
 | 6 | *(optional)* A hosted model endpoint | Better diagnosis than the rules engine | `AI_BASE_URL`, `AI_API_KEY` |
 | 7 | *(optional)* A transactional email provider | Authority notifications | `EMAIL_PROVIDER`, `EMAIL_API_KEY`, `EMAIL_BASE_URL` |
 

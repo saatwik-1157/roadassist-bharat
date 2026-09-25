@@ -20,8 +20,8 @@ Four labels, used strictly:
 | Cloud characteristics | **PARTIAL** | Broad network access is real and demonstrable: one API serves a browser, a PWA, an Android WebView and a **feature phone over SMS**. Show `apps/web/`, `mobile/`, and `POST /v1/telecom/sms` in `server.ts`. On-demand self-service and measured usage are consumed in design only. |
 | Service models — SaaS | **IMPLEMENTED (as provider and consumer)** | Provider to three user classes: `app.html`, `mechanic.html`, `raksha.html`. Consumer through adapters: `apps/api/src/providers.ts` — SMS, payments, tiles, email, each with a local implementation so the platform runs on zero paid accounts. |
 | Service models — IaaS | **PARTIAL** | `docker-compose.yml` / `docker-compose.prod.yml`: PostGIS, Redis, Redpanda as separately provisioned services on a private network. No cloud IaaS is provisioned. |
-| Service models — PaaS | **CONCEPTUAL** | Managed Postgres + managed container platform, reasoned in ADR-0001. Nothing deployed. |
-| Deployment model | **CONCEPTUAL** | Public cloud with an Indian data-residency constraint ("no PII leaves India") — `docs/00-team-charter.md`, ADR-0001. |
+| Service models — PaaS | **CONCEPTUAL** (production design) | Managed Postgres + managed container platform, reasoned in ADR-0001. The demo already consumes both: one Render web service (Docker, free plan) + Neon Postgres, both in Singapore — `render.yaml`. Single instance, so the production design is not what is running. |
+| Deployment model | **CONCEPTUAL** (India residency) | Public cloud in an India region (e.g. Mumbai) is the production target — `docs/00-team-charter.md`, ADR-0001. The live demo is public cloud in **Singapore**, because the free tiers have no India region, so visitor requests leave India today. `scripts/check-data-residency.mjs` guarantees only that our pages call no third party except Razorpay checkout, that every server-side outbound host is declared with its region, that there are no analytics SDKs, and that no PII goes in a query string — it does not check where the platform is hosted. |
 | Cloud benefits | **IMPLEMENTED (cost)** | Cost proportionality is real: the whole platform runs with no paid account by default. Show `providers.ts` and `env.ts` defaults. |
 | Cloud risks | **IMPLEMENTED (mitigated)** | The project's whole thesis. Show Off-Grid Mode: `offline-engine.js`, `offline-store.js`, `connectivity.js`, and ADR-0009. Reduced operational control and connectivity dependence are the risks; the offline path is the mitigation. |
 | Roles and boundaries | **IMPLEMENTED** | Five modules in one deployable with **CI-enforced** boundaries: `scripts/check-boundaries.mjs` fails the build on a cross-module import. Run it live. |
@@ -36,7 +36,7 @@ Four labels, used strictly:
 | Virtualization | **IMPLEMENTED (OS-level)** | `app/Dockerfile`: four stages, non-root uid 1000, `tini` as PID 1, a real `HEALTHCHECK`. Hardware virtualization is the layer beneath, which we consume. |
 | Web technology | **IMPLEMENTED** | REST with a uniform `{data, meta}` / `{error}` envelope; **SSE** for real-time — not WebSocket, and ADR-0010 says why; a PWA with `sw.js` and `manifest.webmanifest`. |
 | Multitenancy | **IMPLEMENTED** | Row-level tenancy on a shared schema, every read scoped by `user_id`. **Proven, not asserted:** `scripts/security-audit.mjs` runs 12 cross-tenant attacks and all are refused. Run it in front of them. |
-| Service technology | **IMPLEMENTED** | Versioned `/v1` contract — 65 routes, 61 under `/v1` — zod validation at every boundary, stable error codes in `errors.ts`, idempotency keys on every replayable operation. |
+| Service technology | **IMPLEMENTED** | Versioned `/v1` contract — 67 routes, 64 under `/v1` — zod validation at every boundary, stable error codes in `errors.ts`, idempotency keys on every replayable operation. |
 
 ---
 
@@ -44,7 +44,7 @@ Four labels, used strictly:
 
 | Topic | Status | Where to show the professor |
 |---|---|---|
-| Network perimeter / virtual server | **PARTIAL** | Container isolation and a private compose network; production publishes no database port. No VPC, no security groups — nothing is deployed. |
+| Network perimeter / virtual server | **PARTIAL** | Container isolation and a private compose network; production publishes no database port. No VPC, no security groups — the demo is a single Render web service, not a network we operate. |
 | Cloud storage | **PARTIAL** | Three real forms: block (the database volume), file (`UPLOAD_DIR` for hazard photos, ADR-0006 keeps only the reference in the database), and **client-side** — IndexedDB encrypted with AES-GCM-256 under a non-extractable key. The third is the interesting one and it is genuinely implemented. Object storage is TARGET. |
 | Cloud usage monitoring | **PARTIAL** | Structured JSON logs with a per-request correlation id; `observability.ts` logs operation, duration and result with a redaction denylist; `/health` separates application from database; `/v1/ops/overview` shows live counts and verifies the audit hash chain. No external APM. |
 | Resource replication | **CONCEPTUAL** | The *precondition* is built — the API is stateless, session state lives in the JWT. Say plainly that the three things which would break replication today are the in-process SSE registry, rate limiter and offer sweeper, each documented at its definition. Naming them is stronger than claiming replication. |
@@ -63,7 +63,7 @@ Four labels, used strictly:
 | Cloud bursting | **TARGET** | A modelled scenario on the deck, labelled as modelled. |
 | Elastic disk provisioning | **TARGET** | Not built. |
 | **Redundant storage** | **PARTIAL** | Backup and restore are **rehearsed and measured** — dump 1.2 s, restore 7.2 s, audit hash chain re-verified intact across 639 entries on the restored copy. What is still design is the *redundancy*: one node, no replica, no failover, and no backup schedule. |
-| **Migration** | **IMPLEMENTED (schema)** | Five versioned migrations, run from an empty database during this verification, all additive so an older image runs against a newer schema. Show `npm run db:migrate` on a fresh database. Workload migration is TARGET. |
+| **Migration** | **IMPLEMENTED (schema)** | Seven versioned migrations, run from an empty database during this verification, all additive so an older image runs against a newer schema. Show `npm run db:migrate` on a fresh database. Workload migration is TARGET. |
 | **Static scheduling** | **IMPLEMENTED** | The offer sweeper on a fixed interval (`OFFER_SWEEP_SECONDS`), the client booking poll, the 25 s SSE heartbeat. |
 | **Dynamic scheduling** | **IMPLEMENTED** | The dispatch ladder: work assigned at run time from a pool, by a score computed from live state, with **timeout-driven re-scheduling** to the next wave when a provider does not answer. This is the textbook definition, and it is real. |
 

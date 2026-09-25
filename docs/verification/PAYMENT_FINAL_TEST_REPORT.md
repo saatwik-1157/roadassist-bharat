@@ -3,17 +3,22 @@
 
 # Payment — final verification
 
-Sandbox and stub only. **No live credentials exist in this repository, and none
-were invented.**
+Stub only. The live demo runs `PAYMENTS_PROVIDER=mock` — no real gateway, no
+real money. **No live credentials exist in this repository, and none were
+invented.**
 
 ## Two tiers, stated plainly
 
-1. **`npm run test:gateway` — 26 checks, all executed, 0 failures.** Runs
-   against a stub that speaks Razorpay's actual wire format, with signatures
-   computed the same way. This is what proves the settlement logic.
-2. **`npm run test:razorpay` — 22 checks, NOT RUN.** Exercises Razorpay's real
-   sandbox and refuses to start without credentials rather than inventing them.
-   It needs your account.
+1. **`npm run test:gateway` — 27 checks, all executed, 0 failures** (measured
+   2026-09-12, `app/docs/measured.json`). Runs against a stub that speaks
+   Razorpay's actual wire format, with signatures computed the same way. This
+   is what proves the settlement logic.
+2. **`npm run test:razorpay` — 22 checks, NOT EXECUTED, not counted in the 751.**
+   `app/scripts/razorpay-test.mjs` needs no Razorpay account: it starts its own
+   local stub of the Orders API and signs webhooks with a stub secret. It
+   refuses to run (exit 2) unless the API was started separately with
+   `PAYMENTS_PROVIDER=razorpay` and `PAYMENTS_BASE_URL` pointed at that stub,
+   so it sits outside every npm test run and was not run for this measurement.
 
 | Check | Result | Evidence |
 |---|---|---|
@@ -43,7 +48,8 @@ configured — the default `mock` provider never pulls it.
 ## The mock provider is loud about itself
 
 It logs `[payments:mock] … — SIMULATED, no money moved`, and production
-**refuses to boot** on `mock`, or on a real gateway missing its key pair or its
+(`NODE_ENV=production`; the live demo runs `NODE_ENV=demo`) **refuses to boot**
+on `mock`, or on a real gateway missing its key pair or its
 webhook secret. Without that webhook secret the only settlement signal would be
 the payer's own browser surviving checkout, which is a money bug rather than a
 configuration nit.

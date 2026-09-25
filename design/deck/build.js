@@ -90,7 +90,7 @@ const next = () => { const s = pres.addSlide(); base(s); n++; return s; };
     { x: MX, y: 3.65, w: 5.9, h: 0.8, fontSize: 14.5, color: C.ink2 });
   s.addImage({ path: img("hero.jpg"), x: 7.05, y: 0.95, w: 5.7, h: 4.275, sizing: { type: "cover", w: 5.7, h: 4.275 }, shadow: shadow() });
   const team = [["V Saatwik Sairaam", "24MIC7131", "Backend & Cloud Database"], ["P Sai Nirisha Chowdary", "24MIC7122", "Frontend & Mobile"],
-                ["T V S Jignesh", "24MIC7190", "AI & Data Services"], ["G Parthavi", "24MIC145", "DevOps, QA & Cloud Security"]];
+                ["T V S Jignesh", "24MIC7190", "AI & Data Services"], ["G Parthavi", "24MIC7145", "DevOps, QA & Cloud Security"]];
   team.forEach(([name, reg, role], i) => {
     const x = MX + i * 3.06, y = 5.55;
     card(s, x, y, 2.9, 1.08);
@@ -212,7 +212,7 @@ const next = () => { const s = pres.addSlide(); base(s); n++; return s; };
   eyebrow(s, "RAKSHA  ·  AI THAT A PERSON SUPERVISES", MX, 0.55, C.blue);
   title(s, "The road reports its own damage", MX, 0.85, 12);
   browser(s, 6.65, 1.95, 6.1, 3.8, img("raksha.jpg"));
-  [["0.471", "mAP50"], ["0.226", "mAP50-95"]].forEach(([v, l], i) => {
+  [["0.472", "mAP50"], ["0.226", "mAP50-95"]].forEach(([v, l], i) => {
     const x = MX + i * 2.75;
     card(s, x, 1.95, 2.55, 1.35);
     t(s, v, { x: x + 0.25, y: 2.1, w: 2.2, h: 0.7, fontFace: HEAD, fontSize: 36, bold: true, color: C.blue });
@@ -228,7 +228,7 @@ const next = () => { const s = pres.addSlide(); base(s); n++; return s; };
   t(s, "A model never dispatches (ADR-0005). These are validation figures from the training run, not production accuracy.",
     { x: MX, y: 6.15, w: 12, h: 0.4, fontSize: 12, color: C.ink3, italic: true });
   foot(s, n);
-  s.addNotes("YOLO11 trained here on RDD2022 across four countries: mAP50 0.471 and mAP50-95 0.226 on held-out validation (ai/README.md). A model-detected incident waits in a confirmation queue until a person moves it; there is no transition to dispatch that skips a human.");
+  s.addNotes("YOLO11 trained here on RDD2022 across four countries: mAP50 0.472 and mAP50-95 0.226 on held-out validation (best run, YOLO11s yolo11s-multi-rich, ai/README.md). A model-detected incident waits in a confirmation queue until a person moves it; there is no transition to dispatch that skips a human.");
 }
 
 // 8 ── architecture ─────────────────────────────────────────────────────────
@@ -245,7 +245,7 @@ const next = () => { const s = pres.addSlide(); base(s); n++; return s; };
     });
   };
   col(MX, 3.6, "CLIENTS", ["Citizen web app (PWA)", "Android · Kotlin + Compose", "Mechanic console", "RAKSHA + live map", "Feature phone · SMS"], C.gold);
-  col(4.6, 4.1, "FASTIFY API", [`${num("api", "routes")} routes under /v1`, "Zod validation at every edge", "JWT with role-based access", "Server-sent events (ADR-0010)", "Offer-expiry sweeper"], C.blue);
+  col(4.6, 4.1, "FASTIFY API", [`${num("api", "routes")} routes, versioned /v1`, "Zod validation at every edge", "JWT with role-based access", "Server-sent events (ADR-0010)", "Offer-expiry sweeper"], C.blue);
   col(9.1, 3.63, "POSTGRESQL 16 + POSTGIS", [`${num("schema", "tables")} tables`, `${num("schema", "indexes")} indexes · ${num("schema", "gistIndexes")} GiST`, `${num("schema", "foreignKeys")} foreign keys`, "Hash-chained audit log", `${num("schema", "migrations")} migrations`], C.green);
   [4.23, 8.73].forEach((x) => s.addShape(pres.shapes.RIGHT_ARROW, { x, y: 3.85, w: 0.34, h: 0.34, fill: { color: C.gold }, line: { color: C.gold, width: 0 } }));
   t(s, `${num("adrs")} architecture decision records explain every choice on this slide.`, { x: MX, y: 6.3, w: 12, h: 0.3, fontSize: 12, color: C.ink3 });
@@ -275,7 +275,7 @@ const next = () => { const s = pres.addSlide(); base(s); n++; return s; };
   card(s, MX, 4.05, 4.3, 1.1);
   t(s, `${num("assertions", "suites", "securityAudit")} attacks attempted, every one refused`, { x: MX + 0.3, y: 4.25, w: 3.8, h: 0.7, fontSize: 13, color: C.ink });
   card(s, MX, 5.35, 4.3, 1.0);
-  t(s, `${num("assertions", "notExecuted", "paymentSandbox")} Razorpay sandbox checks need a payment account — never run, not counted.`,
+  t(s, `${num("assertions", "notExecuted", "paymentSandbox")} Razorpay checks run against a local stub, outside the ${num("assertions", "total")} — never counted as passing.`,
     { x: MX + 0.3, y: 5.5, w: 3.8, h: 0.75, fontSize: 12, color: C.ink3 });
   foot(s, n);
   s.addNotes(`${num("assertions", "total")} assertions across unit, end-to-end, concurrency, security, gateway security and browser suites, zero failures. The security suite attempts ${num("assertions", "suites", "securityAudit")} attacks including cross-tenant reads, role escalation, SQL injection and forged tokens. The 22 payment-sandbox checks need an account we do not have, so they are reported as not run.`);
@@ -288,7 +288,7 @@ const next = () => { const s = pres.addSlide(); base(s); n++; return s; };
   title(s, "Built by us. Checked by the build.", MX, 0.85, 12);
   const gates = [["npm run no-llm", "fails the build on any LLM package in a manifest or a chat endpoint in source"],
                  ["npm run claims", "every number in the docs must match what the suites measured"],
-                 ["npm run residency", "no visitor address leaves India; server egress is declared"],
+                 ["npm run residency", "pages load nothing third-party; every server egress host declared with its region"],
                  ["npm run citations", "every code reference in the docs still resolves"]];
   gates.forEach(([cmd, d], i) => {
     const x = MX + (i % 2) * 6.1, y = 2.0 + Math.floor(i / 2) * 1.9;
@@ -334,7 +334,7 @@ const next = () => { const s = pres.addSlide(); base(s); n++; return s; };
   const team = [["V Saatwik Sairaam", "VS", "24MIC7131", "Backend & Cloud Database", "Fastify API, PostGIS schema, dispatch and concurrency", C.gold],
                 ["P Sai Nirisha Chowdary", "PN", "24MIC7122", "Frontend & Mobile", "Citizen web app, mechanic console, Android client", C.gold2],
                 ["T V S Jignesh", "TJ", "24MIC7190", "AI & Data Services", "YOLO11 training, RAKSHA ingest, rules engine", C.blue],
-                ["G Parthavi", "GP", "24MIC145", "DevOps, QA & Cloud Security", "CI, Docker, security suite, deployment", C.green]];
+                ["G Parthavi", "GP", "24MIC7145", "DevOps, QA & Cloud Security", "CI, Docker, security suite, deployment", C.green]];
   team.forEach(([name, initials, reg, role, work, col], i) => {
     const x = MX + i * 3.06;
     card(s, x, 2.0, 2.9, 3.9);

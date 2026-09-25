@@ -78,9 +78,9 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 223 unit — no I/O, the only ones that run standalone
-npm run test:e2e         # 189
-npm run test:concurrency # 75
+npm test                 # 225 unit — no I/O, the only ones that run standalone
+npm run test:e2e         # 191
+npm run test:concurrency # 77
 npm run test:gateway     # 27
 npm run test:security    # 74 attacks, every one must be refused
 npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
@@ -102,9 +102,11 @@ docker compose -f docker-compose.demo.yml down -v
 docker compose -f docker-compose.demo.yml up -d
 ```
 
-`npm run test:razorpay` (22) needs a Razorpay sandbox account and refuses to run
-without one. It is **not** part of the 636 and must never be described as
-passing.
+`npm run test:razorpay` (22) needs no Razorpay account — it starts its own
+local stub of the Orders API and signs webhooks with a stub secret — but it
+refuses to run (exit 2) unless the API was started with the variables in the
+script's header (`PAYMENTS_PROVIDER=razorpay`, `PAYMENTS_BASE_URL` at the stub).
+It is **not** part of the 757 and must never be described as passing.
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (87
 tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).

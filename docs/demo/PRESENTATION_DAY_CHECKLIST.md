@@ -9,13 +9,13 @@
 - [ ] Demo video backed up *(optional — none recorded; only if your rubric needs one)*
 - [ ] Repository ZIP created — see `FINAL_SUBMISSION_PACKAGE.md`
 - [ ] `npm run demo:reset` run, so the data is fresh
-- [ ] Demo accounts tested — `+917000000000` and `+919999900001` both sign in
+- [ ] Demo accounts tested — `+917000000000` and `+919999900001` both sign in locally (on the hosted site the admin signs in by email code)
 - [ ] Database tested — `/health` returns `database: ok`
 - [ ] Environment tested — `npm start` boots with no error-level log line
 - [ ] **`npm run test:demo` run once end to end — all 15 beats pass**
 - [ ] Offline demo tested — pill toggle, tab close, reopen, sync
 - [ ] Laptop charged · charger packed
-- [ ] Internet backup available *(not needed — the demo is entirely local)*
+- [ ] Internet backup available *(not needed for the local stage demo; needed if you fall back to the hosted demo at https://app.roadassistbharat.online — open it once beforehand, the free plan takes ~1 min to wake)*
 
 ## Before presenting
 
@@ -25,7 +25,7 @@
 - [ ] `curl http://localhost:4000/health` → 200, `database: ok`
 - [ ] Customer window open at ~430 px — `app.html`, signed in
 - [ ] Mechanic window open at ~430 px — `mechanic.html`, signed out (you sign in live)
-- [ ] Payment sandbox — provider is `mock`; nothing to verify, and **do not test a live payment**
+- [ ] Payments — provider is `mock` on the live demo; nothing to verify, and **do not test a live payment**
 - [ ] Network toggle tested — tap the pill once, confirm red, tap back
 - [ ] PPT open **as the PDF**, not PowerPoint (PowerPoint reflows on unfamiliar machines)
 - [ ] Backup evidence reachable — `app/docs/screenshots/`

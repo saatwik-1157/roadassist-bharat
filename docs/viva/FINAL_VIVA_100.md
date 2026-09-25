@@ -31,7 +31,7 @@ concrete example) · *Code* (where to open it).
 
 **4. What is the scope of what actually works?**
 *Short:* The full journey end to end, plus the offline emergency path.
-*Detail:* Not deployed to a cloud; payments are sandbox-only; 112 is a stub.
+*Detail:* Deployed as a demo on one Render instance in Singapore — no cluster; payments are `mock`, no live gateway; 112 is a stub.
 *RoadAssist:* 19 customer steps and 16 mechanic steps verified.
 *Code:* `CUSTOMER_FINAL_TEST_REPORT.md`
 
@@ -56,7 +56,7 @@ concrete example) · *Code* (where to open it).
 **8. How large is the codebase?**
 *Short:* About 7,800 lines of TypeScript plus six web surfaces and an Android client.
 *Detail:* 16 API files (6,261 lines), 13 database files (1,564), 12 test/tooling scripts.
-*RoadAssist:* 65 routes, 56 tables.
+*RoadAssist:* 67 routes, 56 tables.
 *Code:* `FINAL_REPOSITORY_STATUS.md`
 
 **9. What would you do differently?**
@@ -82,10 +82,10 @@ concrete example) · *Code* (where to open it).
 *Code:* `SWE4004_IMPLEMENTATION_MAPPING_FINAL.md`
 
 **12. Where exactly is the cloud?**
-*Short:* Consumed, not operated. Nothing is deployed.
-*Detail:* Containerised services, stateless API, adapters over SaaS vendors, a readiness gate. No cloud account exists.
+*Short:* Consumed, not operated. The demo runs at app.roadassistbharat.online — one Render web service plus Neon Postgres, both in Singapore.
+*Detail:* Containerised services, stateless API, adapters over SaaS vendors, a readiness gate. One instance on a free plan — no cluster, no autoscaling, no replication.
 *RoadAssist:* Say it plainly — it is worth more than a diagram.
-*Code:* `docker-compose.prod.yml`
+*Code:* `render.yaml`, `docker-compose.prod.yml`
 
 **13. Which cloud characteristics do you demonstrate?**
 *Short:* Broad network access and resource pooling, genuinely.
@@ -100,9 +100,9 @@ concrete example) · *Code* (where to open it).
 *Code:* `apps/api/src/providers.ts`
 
 **15. Which deployment model?**
-*Short:* Target is public cloud with Indian data residency. Current is local.
-*Detail:* "No PII leaves India" is a stated constraint, reasoned in the charter.
-*RoadAssist:* Nothing deployed.
+*Short:* Public cloud. Current: the demo on Render + Neon in Singapore. Target: an India region (e.g. Mumbai).
+*Detail:* Indian data residency is a stated constraint, reasoned in the charter — and the demo does not meet it: the free tiers have no India region, so a visitor's request leaves India today. `check-data-residency.mjs` guarantees only that our pages call no third party except Razorpay checkout, every server-side outbound host is declared with its region, there are no analytics SDKs, and no PII goes in a query string.
+*RoadAssist:* Say the Singapore part before you are asked.
 *Code:* `docs/00-team-charter.md`, ADR-0001
 
 **16. What are the cloud benefits you realise?**
@@ -148,20 +148,20 @@ concrete example) · *Code* (where to open it).
 *Code:* `app/scripts/check-boundaries.mjs`
 
 **23. Is this cloud-native?**
-*Short:* Partially. Containerised, stateless, config through environment. Not deployed, not orchestrated.
+*Short:* Partially. Containerised, stateless, config through environment. Deployed as one instance, not orchestrated.
 *Detail:* We do not claim cloud-native on any slide.
 *RoadAssist:* Slide 27 lists it as a limitation.
 *Code:* `app/Dockerfile`
 
-**24. What would move you from cloud-ready to cloud-deployed?**
-*Short:* Three code changes and an account.
+**24. What would move you from one hosted instance to a scalable deployment?**
+*Short:* Three code changes, then more instances in an India region.
 *Detail:* Redis-backed rate limiting, an outbox→bus for SSE fan-out, and WAL archiving.
 *RoadAssist:* All three are named in the roadmap slide.
 *Code:* `RELEASE_NOTES.md`
 
 **25. What is the shared responsibility model here?**
 *Short:* We would own the application, schema, secrets and data; the provider owns hardware, hypervisor and managed-service uptime.
-*Detail:* Today we own everything because we run it locally.
+*Detail:* For the demo, Render and Neon own the hardware and the managed services; we own the application, schema, secrets and data.
 *RoadAssist:* `assertProductionSafe` encodes our half — it refuses to boot on eight unsafe settings.
 *Code:* `apps/api/src/env.ts`
 
@@ -179,7 +179,7 @@ concrete example) · *Code* (where to open it).
 *Code:* `providers.ts`, `docker-compose.yml`
 
 **28. Module 1 — deployment model?**
-*Short:* Public cloud target, Indian residency, currently local.
+*Short:* Public cloud. Demo on Render + Neon in Singapore; an India region is the target.
 *Code:* ADR-0001
 
 **29. Module 2 — where is virtualization?**
@@ -206,7 +206,7 @@ concrete example) · *Code* (where to open it).
 *Code:* `docker-compose.prod.yml`
 
 **34. Module 3 — network perimeter?**
-*Short:* Partial. Container isolation and a private network; no VPC because nothing is deployed.
+*Short:* Partial. Container isolation and a private network locally; the demo is one Render web service with no VPC of our own.
 *Code:* `docker-compose.prod.yml`
 
 **35. Module 3 — virtual server?**
@@ -253,7 +253,7 @@ concrete example) · *Code* (where to open it).
 
 **44. Module 4 — migration?**
 *Short:* Schema migration is implemented and rehearsed; workload migration is future.
-*Detail:* Five versioned migrations, run from an empty database during verification, all additive.
+*Detail:* Seven versioned migrations, run from an empty database during verification, all additive.
 *Code:* `packages/db/drizzle/`
 
 **45. Module 4 — redundant storage?**
@@ -407,7 +407,7 @@ concrete example) · *Code* (where to open it).
 *Code:* `model_predictions` table
 
 **75. What are the detector's real metrics?**
-*Short:* A trained YOLO11n with measured mAP50 — quote from the training run, never estimate.
+*Short:* Quote from the training runs, never estimate: best run YOLO11s (`yolo11s-multi-rich`) mAP50 0.472 / mAP50-95 0.226, undertrained at epoch 13; the YOLO11n India model whose detections RAKSHA shows scored mAP50 0.443 / 0.183.
 *Code:* `ai/`
 
 ---
@@ -451,7 +451,7 @@ concrete example) · *Code* (where to open it).
 *Code:* `apps/api/src/env.ts`, GHSA-3m5p-2c4r-xxw2
 
 **84. Have you had a penetration test?**
-*Short:* No. 100 self-written attacks is not the same thing, and I will not claim it is.
+*Short:* No. 101 self-written attacks (74 security + 27 gateway-security) is not the same thing, and I will not claim it is.
 *Code:* `SECURITY_FINAL_VERIFICATION.md`
 
 **85. Are any secrets in the repository?**
@@ -510,8 +510,9 @@ concrete example) · *Code* (where to open it).
 # I. Deployment and scalability (96–100)
 
 **96. Is anything deployed?**
-*Short:* No. A production image builds and the full suite passes against it, but no cloud account exists.
-*Code:* `app/Dockerfile`
+*Short:* Yes, as a demo: https://app.roadassistbharat.online — one Render web service (Docker, free plan, Singapore) with Neon Postgres (Singapore), plus a GitHub Pages showcase. `NODE_ENV=demo`, mock payments, no real SMS.
+*Detail:* Single instance — no cluster, no autoscaling, no replication, no load balancer.
+*Code:* `render.yaml`, `app/Dockerfile`
 
 **97. What stops you running two instances today?**
 *Short:* Three in-process components: the SSE registry, the rate limiter and the offer sweeper.
@@ -528,7 +529,7 @@ concrete example) · *Code* (where to open it).
 *Code:* `app/docs/DEPLOYMENT.md`
 
 **100. What would you build next, in order?**
-*Short:* Redis-backed rate limiting, outbox→event bus for SSE fan-out, WAL archiving. Then a host.
+*Short:* Redis-backed rate limiting, outbox→event bus for SSE fan-out, WAL archiving. Then more than one instance, in an India region.
 *Detail:* Those three are exactly what stands between this and a second instance.
 *Code:* `RELEASE_NOTES.md`
 
@@ -539,7 +540,7 @@ concrete example) · *Code* (where to open it).
 | Question | The answer, in one breath |
 |---|---|
 | "Why is this a cloud project?" | SaaS provider and consumer, dispatch is dynamic scheduling over a pooled resource, and the risk we mitigated — connectivity loss — is a cloud risk. Three of four modules have implemented evidence. |
-| "Where exactly is the cloud?" | Consumed, not operated. Nothing is deployed and I would rather say that than point at a diagram. |
+| "Where exactly is the cloud?" | Consumed, not operated. The demo is one Render service with Neon Postgres, in Singapore — one instance, no cluster — and I would rather say that than point at a diagram. |
 | "Show me your virtualization." | `app/Dockerfile` — four stages, non-root uid 1000, tini as PID 1, a real HEALTHCHECK. The full suite passes against the image, not just the source. |
 | "Show me multitenancy." | Row-level tenancy on a shared schema. Twelve cross-tenant attacks, all refused — `npm run test:security`, live. |
 | "Where is autoscaling?" | Not provisioned. Slide 22 says DESIGN. What exists is the readiness gate: stop Postgres and `/health` returns 503 while `/v1/ping` returns 200. |
@@ -556,7 +557,7 @@ concrete example) · *Code* (where to open it).
 | "What if the AI crashes?" | Rules result with `usedFallback: true`. A model may make a verdict stricter, never laxer. |
 | "What if GPS fails?" | An approximate position, *labelled* as approximate. Never fabricated silently. |
 | "Biggest limitation?" | Single instance. Three in-process components, each documented with its fix. |
-| "What would you build next?" | Redis rate limiting, outbox→bus, WAL archiving. Then a host. |
+| "What would you build next?" | Redis rate limiting, outbox→bus, WAL archiving. Then more instances, in an India region. |
 | "Why would anyone use it?" | Because it keeps working where the customer actually is. Every other roadside app shows a spinner when the network dies. |
 
 ---
@@ -593,7 +594,7 @@ concrete example) · *Code* (where to open it).
 > assumed. Off-grid, an SOS becomes a real incident on the device, and a unique
 > key makes a duplicate impossible on sync.
 >
-> **Result.** 751 assertions across six suites, zero failures, including 74
+> **Result.** 757 assertions across six suites, zero failures, including 74
 > attacks that must fail. Every claim on our slides is something I can show you.
 
 ## 3 minutes — architecture
@@ -603,7 +604,7 @@ concrete example) · *Code* (where to open it).
 > step, no second deployment unit. It is a PWA: service worker, manifest,
 > installable, and it keeps its shell offline.
 >
-> **API.** Fastify — 65 routes, 61 under `/v1` — with zod validation at every
+> **API.** Fastify — 67 routes, 64 under `/v1` — with zod validation at every
 > boundary, a uniform `{data, meta}` / `{error}` envelope and stable error
 > codes. Every error says whether it is retryable, so a client never guesses.
 >
@@ -635,7 +636,8 @@ concrete example) · *Code* (where to open it).
 > encrypted IndexedDB journal that forwards idempotently.
 >
 > **Cloud.** Containerised, stateless, config through environment, with a
-> readiness gate — and honestly, not deployed.
+> readiness gate — deployed as one instance in Singapore, and honestly, not
+> more than that.
 
 ## 5 minutes — "Why does this qualify as a cloud computing project?"
 
@@ -661,7 +663,8 @@ concrete example) · *Code* (where to open it).
 > by a score computed from live state, with timeout-driven re-scheduling when
 > nobody answers. That is the textbook definition, property for property.
 >
-> **Layer two — what is cloud-ready but not provisioned.** The API is
+> **Layer two — what is cloud-ready but not provisioned.** The demo runs on
+> one Render instance with Neon Postgres, in Singapore. Beyond that, the API is
 > stateless; session state lives in the token, not in memory. Idempotency keys
 > mean a retry is safe. State is server-authoritative. There is a readiness gate
 > — stop PostgreSQL and `/health` returns 503 while `/v1/ping` still returns

@@ -6,14 +6,14 @@
 > where coverage is worst.
 
 **A four-person team project for SWE4004 — Cloud Computing and Applications**,
-presented at Review 1 with the workstreams below.
+with the workstreams below.
 
-| Member | Workstream |
-|---|---|
-| [V. Saatwik Sairaam](https://github.com/saatwik-1157) | Backend · APIs · Database |
-| P. Nirisha Chowdary | Auth · Security · Real-time |
-| T. V. S. Jignesh | Frontend · Customer app |
-| G. Parthavi | Mechanic & admin surfaces · Cloud DevOps |
+| Member | Reg. no. | Workstream |
+|---|---|---|
+| [V. Saatwik Sairaam](https://github.com/saatwik-1157) | 24MIC7131 | Backend & cloud database |
+| P. Sai Nirisha Chowdary | 24MIC7122 | Frontend & mobile |
+| T. V. S. Jignesh | 24MIC7190 | AI & data services |
+| G. Parthavi | 24MIC7145 | DevOps, QA & cloud security |
 
 The `docs/0X-*-roadmap.md` files are written as four lead roadmaps because that
 is how the 18-phase plan divides the work; D1–D4 map onto the four members in
@@ -31,7 +31,7 @@ This is the first thing to say about the project, so it is the first thing in
 this file.
 
 **RAKSHA road-damage detection is a genuinely trained YOLO11 model.** Best
-`mAP50` is **0.471** (`mAP50-95` 0.226) on held-out validation, trained on
+`mAP50` is **0.472** (`mAP50-95` 0.226, YOLO11s, run `yolo11s-multi-rich`) on held-out validation, trained on
 RDD2022 across four countries. Weights and per-epoch metrics live in `ai/runs/`,
 which is gitignored — a clone gets the pipeline, the measured figures and the
 commands that produced them, not the artefacts. See [ai/README.md](ai/README.md).
@@ -69,6 +69,21 @@ The web surfaces are plain HTML, CSS and JavaScript served by the API itself.
 There is no build step and no second runtime: a bundler would add a deployment
 unit, a network hop and a CORS boundary in exchange for nothing.
 
+**Where it runs.** The demo is live at <https://app.roadassistbharat.online>:
+one Render web service (Docker, free plan, region Singapore) serving the API,
+the emergency routes and every web surface from one process, over Neon Postgres
++ PostGIS in Singapore (`ap-southeast-1`). The showcase at
+<https://roadassistbharat.online> is a static page on GitHub Pages. Email alerts
+and email sign-in codes go through Resend from
+`alerts@send.roadassistbharat.online`. The admin, RAKSHA officer and listed
+mechanic accounts sign in by emailed code only — their phone path answers
+`403 email_signin_required`; every other demo account uses the on-screen phone
+code, because there is no SMS gateway. The deployment runs `NODE_ENV=demo` with
+the `mock` payment provider. Its 24 mechanics and the police and ambulance
+responders on the live map are seeded and labelled "(simulated)"; RAKSHA's 34
+detections are real YOLO11 output placed at simulated NH-48 positions.
+[DEPLOYMENT.md](DEPLOYMENT.md) has the steps.
+
 ---
 
 ## The five decisions worth defending
@@ -91,11 +106,13 @@ fails the build if it regresses.
 - **`npm run no-llm`** refuses to let a language model into the system, so
   "the AI here is a trained detector and a rule table" stays true by
   construction rather than by memory.
-- **`npm run residency`** refuses to let personal data leave India. It found a
-  live leak the day it was written: half a dozen dead prototype pages under
-  `site/` were reachable at `/media/*.html`, and every one pulled webfonts from
-  Google, so a visitor's IP address left the country to render a page nothing
-  linked to.
+- **`npm run residency`** refuses to let a page hand a visitor's address to a
+  third party, and refuses any server-side outbound host that is not declared
+  with the region it lands in. It found a live leak the day it was written: half
+  a dozen dead prototype pages under `site/` were reachable at `/media/*.html`,
+  and every one pulled webfonts from Google, so a visitor's IP address went to a
+  third party to render a page nothing linked to. It does **not** check where the
+  platform itself is hosted — see non-negotiable #4.
 
 This exists because the same wrong number reached twenty-odd documents three
 separate times, and a human caught it each time. A human catching it is not a
@@ -151,12 +168,12 @@ database migrated from empty and seeded.
 
 | | |
 |---|---|
-| **751 assertions**, six suites, zero failures | 223 unit · 189 e2e · 75 concurrency · 74 attacks · 27 gateway security · 163 browser |
+| **757 assertions**, six suites, zero failures | 225 unit · 191 e2e · 77 concurrency · 74 attacks · 27 gateway security · 163 browser |
 | Android | 87 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
-| **Not run** | 22 Razorpay sandbox checks — they need an account, and are never counted or described as passing |
+| **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`). No account needed — the script stubs Razorpay's Orders API locally — but it only runs against an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so it is outside the six suites, was not re-run for these figures, and is never described as passing |
 | Schema | 56 tables · 138 indexes · 7 migrations |
-| API | 65 routes |
+| API | 67 routes — 64 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
 | Localisation | 8 languages — **not native-reviewed** |
 
 The security suite is 74 attacks that must every one be refused: cross-tenant
@@ -194,7 +211,7 @@ cd app
 docker compose up -d db      # PostGIS on 5434
 npm run demo:reset           # reset · migrate · seed
 npm start                    # API on :4000, serves every web surface too
-npm run demo:raksha          # second terminal: 65 real detections into RAKSHA
+npm run demo:raksha          # second terminal: 65 real YOLO11 detections, positions simulated on NH-48
 ```
 
 Sign in with `+919876543210` (citizen), `+919999900001` (authority) or
@@ -222,7 +239,7 @@ the authority dashboard empty.
 
 | Path | What | Toolchain |
 |---|---|---|
-| `app/apps/api` | Fastify API — 65 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
+| `app/apps/api` | Fastify API — 67 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
 | `app/apps/web` | Citizen, mechanic, authority and map surfaces | Plain HTML/CSS/JS |
 | `app/packages/db` | Drizzle schema, migrations, seeds | PostgreSQL 16 + PostGIS |
 | `app/scripts` | Six test runners, the claims and citation gates, the RAKSHA simulator | Node |
@@ -243,7 +260,15 @@ the authority dashboard empty.
    all eight languages, switched by texting `LANG TA`. Translations are not yet
    native-reviewed — see
    [TESTING.md](app/docs/TESTING.md#localisation-and-exactly-how-far-it-goes).
-4. **No PII leaves India.** Including logs, backups and crash reports.
+4. **No PII leaves India — the production target, not yet the demo.** Including
+   logs, backups and crash reports. The live demo runs in **Singapore** (Render
+   web service + Neon Postgres) because the free tiers offer no India region, so
+   today every request and every stored row sits outside India; an Indian region
+   (e.g. Mumbai) is the production target. What `npm run residency` enforces now:
+   no page loads a third-party resource (Razorpay checkout excepted), every
+   server-side outbound host is declared with its region — including Resend
+   (USA), which carries alert emails with a masked number and sign-in codes —
+   and no analytics or crash-reporting SDK is present.
 5. **Nothing is faked in a demo.** If it is mocked, it says so on screen.
 
 ---

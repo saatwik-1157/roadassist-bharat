@@ -41,3 +41,17 @@ One database, one deployable, one CI pipeline; the boundary fitness function
 and schema-convention tests extend to RAKSHA automatically. LineString
 geometry enters the schema for the first time (road segments) — SRID pinning
 for it joins the existing list in `migrate.ts`.
+
+## Update — 2026-09-25 (annotation; the decision above is unchanged)
+
+The MVP detector described above was the simulated `sim-rules-0.1.0`, and the
+simulator still uses it. Real model output now also exists: a YOLO11n trained
+on RDD2022-India (mAP50 0.443, `ai/train-full.log`; best later run YOLO11s
+`yolo11s-multi-rich`, mAP50 0.472) produced 34 detections
+(`ai/cv-detections-full.json`, model version `yolo-rdd2022in-best`). In demo
+mode (`SEED_DEMO_FLEET=true`, refused under `NODE_ENV=production`) they are
+seeded at boot through the same idempotent ingest route
+(`apps/api/src/demo/raksha-demo-seed.ts`). Their positions along NH-48 are
+**SIMULATED** — RDD2022 images carry no GPS — and the device is named as a
+simulated patrol. Inference does not run on the deployment; its recorded output
+is replayed.

@@ -39,7 +39,7 @@ it, **and** a test exercises it.
 |---|---|---|
 | OTP auth, rotating refresh with theft detection | **IMPLEMENTED** | e2e §2, security §6 |
 | Vehicles, bookings, invoicing, payment, reviews | **IMPLEMENTED** | e2e, browser |
-| AI-assisted diagnosis | **PARTIAL** | Deterministic rules engine — labelled as such. A trained YOLO11n for road damage does exist (mAP50 0.443, measured) |
+| AI-assisted diagnosis | **PARTIAL** | Deterministic rules engine — labelled as such. A trained YOLO11 road-damage detector does exist (best: YOLO11s `yolo11s-multi-rich`, mAP50 0.472, measured) |
 | Dynamic dispatch — rank, wave, timeout, escalate | **IMPLEMENTED** | concurrency §1, §2, §9b, §9c |
 | Race-safe assignment | **IMPLEMENTED** | ten simultaneous accepts, exactly one wins |
 | Emergency SOS — online | **IMPLEMENTED** | e2e §12 |
@@ -50,7 +50,7 @@ it, **and** a test exercises it.
 | Secure payments | **IMPLEMENTED** | sandbox only — never a live account |
 | Tamper-evident audit trail | **IMPLEMENTED** | hash chain, verified live and after restore |
 | Feature-phone SMS journey | **IMPLEMENTED** | inbound; outbound needs a vendor |
-| RAKSHA road monitoring | **PARTIAL** | detector labelled `SIMULATED` |
+| RAKSHA road monitoring | **PARTIAL** | demo detections are real YOLO11 output at SIMULATED NH-48 positions; the simulator's own detector is labelled `SIMULATED` |
 | Fleet / analytics | **PARTIAL** | schema and roles exist; ops counts only |
 | Cloud autoscaling, replication, load balancing | **TARGET** | designed; no cluster provisioned |
 | ERSS 112 handoff | **TARGET** | stub — the API response says so |
@@ -58,29 +58,38 @@ it, **and** a test exercises it.
 
 ## The system, as it runs today
 
-One container serving three web surfaces plus the API, and one PostGIS database.
+One container serving the API and every web surface (six, listed below), and one
+PostGIS database. Live at <https://app.roadassistbharat.online>: one Render web
+service in Singapore over Neon Postgres in Singapore, with the showcase on GitHub
+Pages at <https://roadassistbharat.online>.
 
 - **56 tables**, 62 foreign keys, 138 indexes, 5 GiST spatial indexes,
   7 migrations
-- **65 routes**, 61 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
+- **67 routes**, 64 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
 - **6 web surfaces**: citizen app, mechanic console, authority dashboard, live
   map, landing, showcase
-- **10 ADRs**, an enforced module-boundary check, and a 20-row failure matrix
+- **11 ADRs**, an enforced module-boundary check, and a 20-row failure matrix
 
 ## Verification
 
-**751 assertions executed across six suites, no failures** (a seventh, 22 payment-gateway checks, needs a Razorpay sandbox account), against a real
+**757 assertions executed across six suites, no failures**, against a real
 PostgreSQL + PostGIS and a real Chrome:
 
 | Suite | Assertions |
 |---|---|
-| Unit | 61 |
-| End-to-end | 189 |
-| Concurrency + real-time | 65 |
+| Unit | 225 |
+| End-to-end | 191 |
+| Concurrency + real-time | 77 |
 | Security (attacks that must fail) | 74 |
-| Gateway security | 26 |
-| Payment sandbox | 22 |
+| Gateway security | 27 |
 | Browser / offline | 163 |
+| **Total** | **757** |
+
+Not in that total: 22 Razorpay checks (`npm run test:razorpay`). They need no
+Razorpay account — the script stubs the Orders API locally — but they only run
+against an API started with `PAYMENTS_PROVIDER=razorpay`, were not re-run for
+these figures, and are not described as passing. Separately, the Android client
+has 87 tests and the AI pipeline 39, on their own runners.
 
 Plus: clean typecheck, zero lint errors, module boundaries clean, a production
 Docker image that the full suite passes **against**, and a rehearsed
@@ -101,10 +110,13 @@ endpoint. Only numbers clear of that floor are stated.
 
 ## What is honestly not done
 
-1. Nothing is deployed to a cloud — no account, no domain, no cluster.
+1. The live demo is one free-tier instance in Singapore (Render + Neon) — no
+   India region on the free tiers, no cluster, no autoscaling. An Indian region
+   is the production target.
 2. Single instance only: SSE registry, rate limiter and offer sweeper are
    in-process.
-3. The 112 handoff is a stub; emergency isolation (ADR-0005) is a design.
+3. The 112 handoff is a stub; emergency isolation (ADR-0005) is a design — the
+   emergency routes run in the same process as the API.
 4. Payments verified against a local stub, never a real Razorpay account.
 5. No load test, no external penetration test.
 

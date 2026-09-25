@@ -1,23 +1,26 @@
 # RoadAssist Bharat — SWE4004 presentation
 
-`RoadAssist-Bharat-SWE4004.pptx` — 30 slides, 16:9, speaker notes on every slide.
+`RoadAssist-Bharat-FINAL.pptx` — the current deck: 32 slides, 16:9, speaker
+notes on the slides that need them. `RoadAssist-Bharat-FINAL.pdf` is its
+PowerPoint export.
 
 ## Rebuilding
 
 ```bash
 pip install python-pptx pillow
-python ppt/make.py          # assembles the parts and writes the .pptx
+python ppt/make_final.py    # build_deck.py + part_final.py -> RoadAssist-Bharat-FINAL.pptx
 ```
 
 The deck is generated rather than hand-drawn so that a fact which changes in the
 project (route count, table count, provider status) can be corrected in one
-place and the slide regenerated.
+place and the slide regenerated. Edit `part_final.py`, never the `.pptx`.
 
 | File | Contents |
 |------|----------|
 | `build_deck.py` | Palette, background generation, and every slide primitive |
-| `part_a.py` … `part_g.py` | The slides, in order |
-| `make.py` | Concatenates the above and saves the deck |
+| `part_final.py` | The final deck's 32 slides, in order |
+| `make_final.py` | Concatenates the two above into `make_final_generated.py`, runs it and saves the deck |
+| `part_a.py` … `part_g.py`, `make.py` | The superseded Review-1 deck (`RoadAssist-Bharat-SWE4004.pptx`, 30 slides, no longer in the tree) |
 | `assets/` | Generated background images (deleted → regenerated) |
 
 ## Transitions and the PDF
@@ -73,28 +76,39 @@ deck rather than decoration:
 
 Deliberately **not** claimed anywhere: Kubernetes, AWS, Azure, GCP, automatic
 scaling, replication, load balancing, cloud bursting, uptime figures, user
-counts, response times, AI accuracy, cost savings or server counts. A grep for
+counts, response times beyond the single-user measurements, AI accuracy beyond
+the measured validation mAP, cost savings or server counts. A grep for
 those terms is part of the build check.
 
 Facts that *are* asserted, all verified against the running system:
 
 - TypeScript · Fastify 5 · Drizzle ORM · Zod · jose
-- PostgreSQL 16 + PostGIS 3.4.3, 56 tables, 64 API routes
+- PostgreSQL 16 + PostGIS 3.4.3, 56 tables, 67 API routes (64 under `/v1`)
 - Seven roles: citizen, mechanic, admin, gov_officer, fleet_admin, fleet_driver, support
 - PWA with a service worker caching 23 shell assets; manifest with 5 shortcuts
 - Rules-based AI diagnosis (ADR-0006), with an optional HTTP model provider
 - Razorpay payments: Orders API, HMAC signature verification, and a signed
-  webhook — default provider is `mock`; live keys need a KYC-verified account
+  webhook — default provider is `mock`, which the live demo runs; live keys need a KYC-verified account
 - Docker Compose provides PostGIS, Redis and Redpanda locally — **Redis and
   Redpanda are provisioned but not used by application code**, and the deck says so
-- 751 automated assertions across six suites: 223 unit · 189 API e2e · 75 concurrency
+- 757 automated assertions across six suites: 225 unit · 191 API e2e · 77 concurrency
   · 74 security · 27 gateway security · 163 browser. A seventh — 22 payment-gateway
-  checks — needs a Razorpay sandbox account, is **not** counted here and is never
-  described as passing.
+  checks — runs against a local stub of Razorpay's API and needs no account, but
+  only against an API started with `PAYMENTS_PROVIDER=razorpay`; it is **not**
+  counted here and is never described as passing.
+- A live demo deployment: one Render web service and Neon Postgres, both in
+  Singapore (no India region on the free tiers; an Indian region is the
+  production target), with the showcase on GitHub Pages
+- 11 ADRs; trained YOLO11 road-damage detectors — best YOLO11s mAP50 0.472, and
+  the YOLO11n (mAP50 0.443) whose detections the RAKSHA demo shows at simulated
+  positions
 - Eight languages (en hi ta te bn mr kn gu) across SMS, OTP, the Android UI and the
   web app's critical paths — **machine-translated and not yet native-reviewed**
 
 ## The visuals
+
+*(This section and "Presenting" below were written for the Review-1 deck; the
+final deck uses `vis_products.png` on slide 1.)*
 
 `render_visuals.py` generates four images into `assets/`, and the deck embeds
 them. Two kinds, and the distinction is deliberate:

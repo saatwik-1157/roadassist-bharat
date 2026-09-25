@@ -159,7 +159,7 @@ under-trained — all metrics REAL, measured on held-out val):
 | Model | Data | Classes | Epochs | mAP50 | mAP50-95 |
 |---|---|---|---|---|---|
 | `yolo11s-multi` | 4-country 3.0k | 2 | 13 | 0.290 | 0.119 |
-| `yolo11s-multi-rich` | 4-country 3.2k | 4 | 13 | 0.471 | 0.226 |
+| `yolo11s-multi-rich` | 4-country 3.2k | 4 | 13 | 0.472 | 0.226 |
 | `yolo11n-multi-edge` | 4-country 3.0k | 2 | 18 | 0.293 | 0.117 |
 
 Rich model per-class mAP50: pothole 0.242 · road_damage 0.431 ·

@@ -5,8 +5,17 @@ minutes and the other depends on a regulator.
 
 | | Problem | Answer | Effort |
 |---|---|---|---|
-| 1 | The app only works on your machine | `npm run share` | one command |
+| 1 | Your local build only works on your machine | `npm run share` | one command |
 | 2 | The OTP is always `000000` | configure an SMS gateway | 15 min, or weeks — read §2 |
+
+The platform itself is already reachable from anywhere: it is deployed at
+`https://app.roadassistbharat.online` (one Render service, Singapore). That
+deployment has **no** SMS gateway either — it runs `SMS_PROVIDER=console` with
+`EXPOSE_DEV_OTP=true`, so ordinary demo accounts see their code on screen. The
+protected accounts — admin, RAKSHA officer and the mechanics listed in
+`EMAIL_SIGNIN` — cannot use that code: their phone path answers
+`403 email_signin_required`, and they sign in with a code emailed (through
+Resend) to their listed address. §1 below is for sharing a *local* build.
 
 ---
 
@@ -34,10 +43,12 @@ of collapsing into one bucket the whole room shares.
 
 ### The Android app
 
-It defaults to `http://10.0.2.2:4000`, the emulator's alias for your PC. On a
-real handset, open the app and put the tunnel URL in **API base URL** on the
-sign-in screen. Use the `https://` one — the manifest permits cleartext for
-local development, but the tunnel gives you TLS and the OS prefers it.
+The native Kotlin app defaults to the live platform,
+`https://app.roadassistbharat.online` (it used to default to `http://10.0.2.2:4000`,
+the emulator's alias for your PC). To point it at your local build instead, put
+the tunnel URL in **API base URL** on the sign-in screen. Use the `https://`
+one — the manifest permits cleartext for local development, but the tunnel
+gives you TLS and the OS prefers it.
 
 ---
 

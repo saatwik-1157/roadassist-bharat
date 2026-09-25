@@ -6,8 +6,10 @@
 
 # SOS — final verification
 
-The emergency path is isolated by ADR-0005: a model may raise a signal, only a
-human may escalate, and nothing is ever claimed on faith.
+The emergency path follows ADR-0005: a model may raise a signal, only a human
+may escalate, and nothing is ever claimed on faith. ADR-0005's separate
+emergency deployable is design only — on the live demo the emergency service
+runs in the same process as the API, on one Render service.
 
 | Scenario | Expected | Actual | Verdict | Evidence |
 |---|---|---|---|---|

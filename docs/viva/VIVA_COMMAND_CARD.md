@@ -2,9 +2,9 @@
 
 **PROJECT:** An AI-assisted, cloud-connected roadside assistance platform for India whose emergency path keeps working when the network does not.
 
-**CLOUD:** SaaS provider to three user classes and consumer through adapters; dispatch is dynamic scheduling over a pooled resource — consumed, not operated, and nothing is deployed.
+**CLOUD:** SaaS provider to three user classes and consumer through adapters; dispatch is dynamic scheduling over a pooled resource — consumed, not operated; the demo is live on one Render service with Neon Postgres (Singapore), with no cluster, autoscaling or replication.
 
-**AI:** A deterministic rule table labelled `rules-1.0.0` in every response, with a separately trained YOLO11n for road damage — a remote model may make a verdict stricter, never laxer.
+**AI:** A deterministic rule table labelled `rules-1.0.0` in every response, with separately trained YOLO11 road-damage detectors (best run YOLO11s, mAP50 0.472; the YOLO11n model RAKSHA shows, 0.443) — a remote model may make a verdict stricter, never laxer.
 
 **DISPATCH:** PostGIS nearest-neighbour with off-duty and busy providers excluded in SQL, then scored proximity 60% / rating 34% / newcomer bonus, offered in waves of five with a 90-second timeout that escalates.
 

@@ -6,7 +6,7 @@ Ticked only where the artefact exists **and** has been verified in this session.
 
 | | Item | Where | Status |
 |---|---|---|---|
-| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 56-table schema, 65 routes, 6 web surfaces |
+| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 56-table schema, 67 routes (64 under `/v1`), 6 web surfaces, native Kotlin Android client |
 | ✅ | Database migrations | `app/packages/db/drizzle/` | 7 migrations, run from an **empty** database in this session |
 | ✅ | Seed data | `app/packages/db/src/seed.ts` | Two modes — full demo, and `--reference-only` for production (0 demo rows, verified) |
 | ✅ | README | `app/README.md`, root `README.md` | |
@@ -16,7 +16,8 @@ Ticked only where the artefact exists **and** has been verified in this session.
 | ✅ | Security documentation | `app/docs/SECURITY.md` | Controls, 74 attacks, findings, known gaps |
 | ✅ | Offline documentation | `app/docs/OFFLINE.md` | Capability matrix, tiers, storage, retention |
 | ✅ | Deployment instructions | `app/docs/DEPLOYMENT.md` | Docker, config, backup, rollback, DR, cost |
-| ✅ | Testing report | `app/docs/TESTING.md` | 7 suites, coverage, what is not covered |
+| ✅ | Live deployment | https://app.roadassistbharat.online · showcase https://roadassistbharat.online | One Render web service (Docker, free plan, Singapore) + Neon Postgres/PostGIS (Singapore); showcase on GitHub Pages. `NODE_ENV=demo`, mock payments, on-screen OTP |
+| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (757 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
 | ✅ | SWE4004 mapping | `app/docs/SWE4004-MAPPING.md` | Modules 1–6, 21-row cloud-concept audit |
 | ✅ | Claims audit | `app/docs/CLAIMS-AUDIT.md` | Every claim checked against the code |
 | ✅ | Presentation | `ppt/RoadAssist-Bharat-FINAL.pptx` | **32 slides**, generated, 0 over-claims |
@@ -60,30 +61,43 @@ transitions — are done: `ppt/RoadAssist-Bharat-FINAL.pdf` is 32 pages exported
 from the final deck through PowerPoint itself, and all 32 slides carry a 0.7 s
 fade. Both are reproducible with the script in `ppt/README.md`.
 
-## External accounts still required
+## External accounts — in place, and still required
 
-Nothing below is stubbed, guessed or faked — each genuinely needs an account.
+The first three and the email account exist and run the hosted demo. The rest
+genuinely need an account the project does not have; nothing is faked in their
+place — the demo says on screen that it has no SMS route and no payment gateway.
 
-| # | What | Needed for | Variables |
-|---|---|---|---|
-| 1 | A host (Fly / Render / Railway / VM) | Any deployment at all | — |
-| 2 | Domain + DNS | HTTPS — and Off-Grid Mode needs it for service workers and geolocation | `CORS_ORIGINS` |
-| 3 | PostgreSQL **with PostGIS** | Dispatch is a geospatial query | `DATABASE_URL` |
-| 4 | Twilio or MSG91 (MSG91 needs a TRAI DLT template) | OTP sign-in, emergency SMS | `SMS_*`, `TELECOM_WEBHOOK_SECRET` |
-| 5 | Razorpay **test** keys first | Payments | `PAYMENTS_*` |
-| 6 | *(optional)* Hosted model endpoint | Better than the rules engine | `AI_*` |
-| 7 | *(optional)* Transactional email | Authority notifications | `EMAIL_*` |
+| # | What | Needed for | Variables | Status |
+|---|---|---|---|---|
+| 1 | A host | Any deployment at all | — | **In place** — one Render web service (Docker, free plan, Singapore, `render.yaml`) |
+| 2 | Domain + DNS | HTTPS — and Off-Grid Mode needs it for service workers and geolocation | `CORS_ORIGINS` | **In place** — `app.roadassistbharat.online` (platform), `roadassistbharat.online` (GitHub Pages showcase) |
+| 3 | PostgreSQL **with PostGIS** | Dispatch is a geospatial query | `DATABASE_URL` | **In place** — Neon, Singapore (ap-southeast-1) |
+| 4 | Twilio or MSG91 (MSG91 needs a TRAI DLT template) | OTP sign-in, emergency SMS | `SMS_*`, `TELECOM_WEBHOOK_SECRET` | **Still required** — demo runs `SMS_PROVIDER=console` with the code shown on screen |
+| 5 | Razorpay **test** keys first | Payments | `PAYMENTS_*` | **Still required** — demo runs `PAYMENTS_PROVIDER=mock`, no money moves |
+| 6 | *(optional)* Hosted model endpoint | Better than the rules engine | `AI_*` | Not configured |
+| 7 | Transactional email | Operator alerts, email sign-in codes | `EMAIL_*` | **In place** — Resend (USA), verified domain `send.roadassistbharat.online` |
 
 **Maps need no account** — keyless OpenStreetMap tiles, Leaflet bundled locally.
 
+**Region.** Render and Neon are in Singapore because their free tiers offer no
+India region; an India region (e.g. Mumbai) is the production target. So on the
+demo every visitor's request does leave India.
+
 ## Known limitations carried into submission
 
-1. Nothing is deployed to a cloud.
+1. Deployed as a **demo**, not a production service: one free-plan Render
+   service (`NODE_ENV=demo`, sleeps after 15 min idle, ~1 min to wake, uploaded
+   photos ephemeral) and a Neon database, both in Singapore rather than India.
+   No autoscaling, no cluster, no replication, no load balancer.
 2. Single instance only — SSE registry, rate limiter and offer sweeper are
    in-process.
-3. ERSS 112 handoff is a stub; emergency isolation is a design.
-4. Payments verified against a local stub, never a live account.
+3. ERSS 112 handoff is a stub; the emergency routes run in the same process as
+   the API, so emergency isolation (ADR-0005) is a design.
+4. Payments: the deployment runs the mock provider. The Razorpay adapter has 22
+   checks against a local stub (no account needed), outside the 757 and not
+   re-run for this measurement — never a live account.
 5. Diagnosis "AI" is a deterministic rules engine, labelled as such everywhere.
-6. No load test, no external penetration test, no coverage on the HTTP layer.
+6. No load test, no external penetration test, no coverage on the HTTP layer,
+   no real SMS gateway.
 7. `review1-ppt/` WAS the older Review-1 material, corrected during the audit and
    kept for history; `ppt/RoadAssist-Bharat-FINAL.pptx` is the submission deck.

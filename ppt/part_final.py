@@ -81,7 +81,7 @@ txt(s, 1.1, 4.5, 4.8, 0.35, "“RoadAssist doesn't stop when the network stops.�
 visual(s, 7.05, 1.35, 5.4, 2.75, str(ASSETS / "vis_products.png"), "final_hero")
 
 bullet_rows(s, 7.05, 4.32, [
-    ("Team", "V. Saatwik Sairaam · P. Nirisha Chowdary"),
+    ("Team", "V. Saatwik Sairaam · P. Sai Nirisha Chowdary"),
     ("", "T. V. S. Jignesh · G. Parthavi"),
     ("Faculty", "Dr. Nagendra Panini Challa"),
     ("Institution", "VIT-AP University"),
@@ -167,7 +167,7 @@ sixth is the differentiator and the rest of the deck defends it.""")
 # ── 5 · SYSTEM ARCHITECTURE ────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "System architecture", eyebrow="WHAT ACTUALLY RUNS TODAY",
-            sub="One container serving three surfaces, one PostGIS database. Everything external is behind an adapter.")
+            sub="One container, one PostGIS database — live on Render + Neon in Singapore. Everything external is behind an adapter.")
 for i, (t, sub) in enumerate([("CUSTOMER", "PWA · Android WebView"),
                               ("MECHANIC", "console"),
                               ("AUTHORITY / FLEET", "RAKSHA dashboard")]):
@@ -177,7 +177,7 @@ for i, (t, sub) in enumerate([("CUSTOMER", "PWA · Android WebView"),
 node(s, 1.0, 3.1, 11.5, 0.62, "WEB / PWA  ·  service worker, IndexedDB, connectivity manager",
      color=CYAN, tsize=11.5)
 down_arrow(s, 6.75, 3.74, 0.26)
-node(s, 1.0, 4.04, 11.5, 0.62, "FASTIFY API  ·  /v1  ·  65 endpoints  ·  zod validation  ·  SSE stream",
+node(s, 1.0, 4.04, 11.5, 0.62, "FASTIFY API  ·  67 routes, 64 under /v1  ·  zod validation  ·  SSE stream",
      color=CYAN, tsize=11.5)
 down_arrow(s, 6.75, 4.68, 0.26)
 for i, (t, sub) in enumerate([("AUTH + RBAC", "OTP · JWT · rotation"),
@@ -281,8 +281,8 @@ txt(s, 7.1, 3.95, 5.1, 0.3, "STATED PLAINLY", size=9.5, color=RED, bold=True, sp
 txt(s, 7.1, 4.35, 5.1, 1.7,
     "This is a deterministic rules engine, not machine learning. The UI labels it "
     "“rules-1.0.0”, and “LOCAL OFFLINE DIAGNOSIS” on the device.\n\n"
-    "A trained model DOES exist in the project — YOLO11n for road damage, "
-    "mAP50 0.443 — and those metrics are measured.",
+    "Trained models DO exist — YOLO11 for road damage: best run YOLO11s, "
+    "mAP50 0.472; RAKSHA's demo detections come from a YOLO11n, mAP50 0.443. Both measured.",
     size=11, color=WHITE, line=1.4)
 footer(s); page_no(s, 8)
 notes(s, """Do not call the diagnosis engine AI without qualifying it. The
@@ -474,7 +474,7 @@ rows = [("Amount", "Never taken from the request — it is the invoice total, an
         ("Two paths", "Browser callback AND webhook. The webhook is the one that matters: a customer can pay and close the tab"),
         ("Idempotent", "Delivery is at-least-once, so a replayed webhook settles nothing twice"),
         ("Refuses to boot", "Production will not start on a real gateway with no webhook secret"),
-        ("Tested", "22 assertions against a local stub of Razorpay's API: forged signature, replay, wrong amount, wrong order — each fails closed")]
+        ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 757")]
 bullet_rows(s, 0.9, 4.15, rows, w=11.5, gap=0.5, size=10.5)
 footer(s); page_no(s, 16)
 
@@ -528,7 +528,7 @@ title_block(s, "Where we sit in the cloud", eyebrow="MODULE 1 · CLOUD COMPUTING
             sub="We are a consumer of IaaS and PaaS, and a provider of SaaS to three user classes.")
 for i, (t, sub, kind, col) in enumerate([
         ("SaaS", "We PROVIDE this: citizen app,\nmechanic console, authority dashboard", "IMPLEMENTED", GREEN),
-        ("PaaS", "We would CONSUME managed\nPostgres + container platform", "TARGET", BLUE),
+        ("PaaS", "We CONSUME managed Postgres (Neon)\n+ a container platform (Render)", "IMPLEMENTED", BLUE),
         ("IaaS", "Compute, network, storage.\nCompose is the local stand-in", "PARTIAL", AMBER)]):
     node(s, 0.85 + i * 3.95, 2.3, 3.7, 1.35, t, sub, color=col, tsize=16, ssize=9)
     status_chip(s, 0.85 + i * 3.95 + 1.28, 3.72, kind)
@@ -545,9 +545,8 @@ txt(s, 1.1, 4.95, 5.15, 1.15,
 panel(s, 6.85, 4.35, 5.6, 1.9, fill=INK_2, line_col=AMBER, line_w=1.25)
 txt(s, 7.1, 4.55, 5.1, 0.3, "DEPLOYMENT MODEL", size=9.5, color=AMBER, bold=True, spacing=1.6)
 txt(s, 7.1, 4.95, 5.1, 1.15,
-    "Public cloud, Indian region. The constraint that decides it is regulatory, "
-    "not technical: “No PII leaves India” — including logs, backups and crash reports.\n"
-    "Status: designed, not deployed.",
+    "Public cloud. Demo: Render + Neon in Singapore — the free tiers offer no India region. "
+    "Production target: an Indian region, because “No PII leaves India” — logs, backups and crash reports included.",
     size=10.5, color=WHITE, line=1.35)
 footer(s); page_no(s, 19)
 
@@ -559,7 +558,7 @@ rows = [("Data centre", "Compose stack: PostGIS + Redis + Redpanda on a private 
         ("Virtualization", "Multi-stage container, non-root (uid 1000), tini as PID 1, healthcheck. Built and run — 321 MB.", "IMPLEMENTED"),
         ("Web technology", "REST over HTTPS with a uniform envelope, server-sent events for real-time, PWA with a service worker", "IMPLEMENTED"),
         ("Multitenancy", "Row-scoped shared schema. 12 cross-tenant attacks fired; all 12 refused.", "IMPLEMENTED"),
-        ("Service technology", "Versioned /v1, 65 endpoints, zod validation, stable error codes, idempotency keys", "IMPLEMENTED")]
+        ("Service technology", "Versioned /v1, 67 routes (64 under /v1), zod validation, stable error codes, idempotency keys", "IMPLEMENTED")]
 for i, (topic, detail, kind) in enumerate(rows):
     y = 2.3 + i * 0.82
     panel(s, 0.85, y, 11.6, 0.7, fill=INK_2, line_col=LINE)
@@ -641,14 +640,13 @@ footer(s); page_no(s, 23)
 
 # ── 24 · TESTING ───────────────────────────────────────────────────────────
 s = new_slide()
-title_block(s, "751 assertions, all executed", eyebrow="TESTING",
-            sub="Against a real PostgreSQL + PostGIS and a real Chrome. Every number here is from a run, not an estimate.")
-suites = [("Unit", "101", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
-          ("End-to-end", "189", "the whole API journey against real Postgres"),
-          ("Concurrency + real-time", "65", "races a sequential suite structurally cannot make"),
+title_block(s, "757 assertions, all executed", eyebrow="TESTING",
+            sub="Against a real PostgreSQL + PostGIS and a real Chrome. 22 Razorpay stub checks sit outside this total.")
+suites = [("Unit", "225", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
+          ("End-to-end", "191", "the whole API journey against real Postgres"),
+          ("Concurrency + real-time", "77", "races a sequential suite structurally cannot make"),
           ("Security", "74", "attacks that must FAIL"),
-          ("Gateway security", "26", "webhook signatures, append-only rules, OTP ceilings"),
-          ("Payment sandbox", "22", "forged signature, replay, wrong amount — fails closed"),
+          ("Gateway security", "27", "webhook signatures, append-only rules, OTP ceilings"),
           ("Browser / offline", "163", "what only a browser can prove")]
 for i, (name, n, what) in enumerate(suites):
     y = 2.25 + i * 0.6
@@ -659,7 +657,7 @@ for i, (name, n, what) in enumerate(suites):
     txt(s, 5.35, y + 0.11, 6.9, 0.3, what, size=9.5, color=GREY)
 panel(s, 0.85, 6.5, 11.6, 0.0, fill=INK_2, line_col=None)
 txt(s, 0.85, 6.5, 11.6, 0.4,
-    "600 passed · 0 failed · 0 skipped   •   coverage 95.68% lines on the pure domain modules   •   0 server errors across the sweep",
+    "757 passed · 0 failed · 0 skipped   •   coverage 95.68% lines on the pure domain modules   •   0 server errors across the sweep",
     size=12, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 24)
 
@@ -694,14 +692,14 @@ footer(s); page_no(s, 25)
 s = new_slide()
 title_block(s, "What is built, what is partial, what is design",
             eyebrow="IMPLEMENTATION STATUS", sub="Marked from the code, not from intent.")
-feats = [("AI diagnosis", "PARTIAL", "rules engine + trained YOLO11n for road damage"),
+feats = [("AI diagnosis", "PARTIAL", "rules engine + trained YOLO11 for road damage"),
          ("SOS — online", "IMPLEMENTED", "e2e + concurrency suites"),
          ("SOS — offline", "IMPLEMENTED", "browser suite drives the whole scenario"),
          ("Offline storage", "IMPLEMENTED", "IndexedDB, AES-GCM-256, survives restart"),
          ("Store-and-forward sync", "IMPLEMENTED", "idempotent; duplicate proven impossible"),
          ("Dispatch", "IMPLEMENTED", "ladder, timeout, busy-exclusion, race-safe"),
          ("Real-time", "IMPLEMENTED", "SSE, measured 65 ms"),
-         ("Payment", "IMPLEMENTED", "sandbox only — never a live account"),
+         ("Payment", "IMPLEMENTED", "mock on the demo — never a live account"),
          ("Fleet", "PARTIAL", "schema + roles exist; no dedicated UI"),
          ("Analytics", "PARTIAL", "ops overview with live counts; no BI layer"),
          ("Cloud autoscaling", "TARGET", "designed; no cluster"),
@@ -722,10 +720,10 @@ footer(s); page_no(s, 26)
 s = new_slide()
 title_block(s, "Limitations", eyebrow="STATED BEFORE YOU ASK",
             sub="In order of importance. Every one of these is also written in the code or the docs.")
-lims = ["Nothing is deployed to a cloud — no account, no domain, no cluster.",
+lims = ["The demo is one free-tier instance in Singapore (Render + Neon) — no India region, no cluster.",
         "Single instance only: SSE registry, rate limiter and offer sweeper are in-process.",
         "The ERSS 112 handoff is a stub, and the API response says so. Emergency isolation (ADR-0005) is a design, not a deployment.",
-        "Payments verified against a local stub of Razorpay's API — never a real account.",
+        "Payment checks run only against a local stub of Razorpay's API, outside the 757 — never a real account.",
         "The diagnosis “AI” is a deterministic rules engine. Labelled as such everywhere.",
         "No load test, no external penetration test, no coverage on the HTTP layer (suites run out-of-process).",
         "Device encryption protects a storage dump, not script on the same origin — and the UI says exactly that.",
@@ -841,7 +839,7 @@ panel(s, 0.85, 5.05, 11.6, 1.0, fill=INK_2, line_col=RED, line_w=1.75)
 txt(s, 1.1, 5.28, 11.1, 0.55, "“RoadAssist doesn't stop when the network stops.”",
     size=22, color=WHITE, bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.3, 11.6, 0.35,
-    "751 assertions · 6 suites · 0 failures  •  56 tables · 65 routes · 10 ADRs  •  every claim on these slides is testable",
+    "757 assertions · 6 suites · 0 failures  •  56 tables · 67 routes · 11 ADRs  •  every claim on these slides is testable",
     size=10.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 footer(s)
 notes(s, """Close on the promise, then stop talking. If there is time, offer to run

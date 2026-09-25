@@ -11,7 +11,7 @@
 
 | Claim | Evidence | Code location | Demo screen | SWE4004 |
 |---|---|---|---|---|
-| Users authenticate with OTP and rotating tokens | 189 e2e assertions incl. refresh-reuse theft detection | `apps/api/src/auth.ts:131` `authenticate()` | Sign-in, 0:45 | M1 SaaS |
+| Users authenticate with OTP and rotating tokens | 191 e2e assertions incl. refresh-reuse theft detection | `apps/api/src/auth.ts:131` `authenticate()` | Sign-in, 0:45 | M1 SaaS |
 | A user can only reach their own data | 12 cross-tenant attacks refused | `apps/api/src/booking-access.ts:17` `bookingAudience()` | — (run the suite) | **M2 multitenancy** |
 | Diagnosis is a labelled rules engine, not a model | Response carries `rules-1.0.0` | `apps/api/src/server.ts:617` → `domain/ai-rules.ts` | Diagnosis, 2:15 | M1 service boundary |
 | A remote model may make a verdict stricter, never laxer | `driveable: rules.driveable === false ? false : …` | `apps/api/src/providers.ts:196` | Diagnosis badge | M1 risk control |
@@ -31,7 +31,7 @@
 | Production refuses unsafe config | Boots refused on 8 settings | `apps/api/src/env.ts:361` `assertProductionSafe()` | Terminal | M1 boundaries |
 | Module boundaries are enforced, not agreed | Cross-module import fails CI | `app/scripts/check-boundaries.mjs` | Terminal | M1 roles/boundaries |
 | Virtualization is real | Suite passes **against the image** | `app/Dockerfile` | Terminal | **M2 virtualization** |
-| 751 assertions, 0 failures | Six suites, executed twice | `FINAL_REPOSITORY_STATUS.md` | Terminal | — |
+| 757 assertions, 0 failures | Six suites: unit 225 · e2e 191 · concurrency 77 · security 74 · gateway security 27 · browser 163. The 22 payment checks are outside the total and were not executed | `app/docs/measured.json` | Terminal | — |
 
 ## The three files to have open before you walk in
 

@@ -203,7 +203,7 @@ export function requireRole(...allowed: string[]) {
  * from the address in the window, consumed or not — an SMS-flood costs money
  * whether or not the codes get redeemed.
  */
-export async function otpRequestsFromIp(db: Db, ip: string): Promise<number> {
+export async function otpRequestsFromIp(db: Pick<Db, "select">, ip: string): Promise<number> {
   const since = new Date(Date.now() - env.otpWindowMinutes * 60_000);
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
@@ -213,7 +213,7 @@ export async function otpRequestsFromIp(db: Db, ip: string): Promise<number> {
 }
 
 /** Rate limit for OTP requests — threat #1. Counts unconsumed challenges. */
-export async function otpAttemptsInWindow(db: Db, msisdn: string): Promise<number> {
+export async function otpAttemptsInWindow(db: Pick<Db, "select">, msisdn: string): Promise<number> {
   const since = new Date(Date.now() - env.otpWindowMinutes * 60_000);
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
@@ -227,4 +227,27 @@ export async function otpAttemptsInWindow(db: Db, msisdn: string): Promise<numbe
       isNull(S.otpChallenges.consumedAt),
     ));
   return row?.n ?? 0;
+}
+
+/**
+ * Count both OTP limits and record the new challenge as ONE step.
+ *
+ * Counting and inserting separately let simultaneous requests all read the
+ * same count: 200 requests for one address sent together all saw 0 and all
+ * sent a real message. Each request now holds two transaction-scoped advisory
+ * locks - one for the address or number, one for the connection - while it
+ * counts and inserts, so the next request's count includes this one. Always
+ * taken in the same order (key, then IP), so two requests cannot deadlock.
+ */
+export async function claimOtpChallenge(
+  db: Db, key: string, ip: string, values: typeof S.otpChallenges.$inferInsert,
+): Promise<{ limited: "key" | "ip" } | { id: string }> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(1, hashtext(${key}))`);
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(2, hashtext(${ip}))`);
+    if (await otpAttemptsInWindow(tx, key) >= env.otpMaxAttempts) return { limited: "key" as const };
+    if (await otpRequestsFromIp(tx, ip) >= env.otpIpMax) return { limited: "ip" as const };
+    const [row] = await tx.insert(S.otpChallenges).values(values).returning({ id: S.otpChallenges.id });
+    return { id: row.id };
+  });
 }

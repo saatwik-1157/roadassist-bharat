@@ -3,31 +3,40 @@
 > AI-powered · cloud-connected · **network-resilient** roadside assistance for India.
 > *"RoadAssist doesn't stop when the network stops."*
 >
-> "AI-powered" covers RAKSHA's trained YOLO11n road-damage detector (`ai/runs/`),
+> "AI-powered" covers RAKSHA's trained YOLO11 road-damage detector (`ai/runs/`;
+> best run YOLO11s `yolo11s-multi-rich`, mAP50 0.472),
 > not the roadside diagnosis — that is a deterministic rule table returning
 > `rules-1.0.0`, and is never described as a model. `app/docs/CLAIMS-AUDIT.md`
 > records the claim as PARTIAL for exactly this reason.
-> SWE4004 Cloud Computing and Applications · Review 1
+> SWE4004 Cloud Computing and Applications · final review
 
-**Current status: the Review 2 vertical slice runs end to end.** One complete
-journey — sign in, add a vehicle, diagnose, dispatch, track, complete, pay, plus
-offline replay and the emergency path — against real PostgreSQL + PostGIS.
+**Current status: the vertical slice runs end to end,** locally and on the live
+demo at <https://app.roadassistbharat.online> (one Render web service + Neon
+Postgres, both in Singapore). One complete journey — sign in, add a vehicle,
+diagnose, dispatch, track, complete, pay, plus offline replay and the emergency
+path — against real PostgreSQL + PostGIS.
 
 ```bash
 npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Desktop running)
 npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run share                                               # → public HTTPS url, for real phones
-npm run verify && npm run test:e2e                          # 223 unit + 189 end-to-end
+npm run verify && npm run test:e2e                          # 225 unit + 191 end-to-end
 npm run test:gateway                                        # 27 gateway-security checks
-npm run test:concurrency                                    # 75 race / idempotency / real-time
+npm run test:concurrency                                    # 77 race / idempotency / real-time
 npm run test:security                                       # 74 attacks, all must be refused
 npm run test:ui                                             # 163 browser-journey checks
-npm run test:razorpay                                       # 22 payment-gateway checks
+npm run test:razorpay                                       # 22 payment-gateway checks: not in the 757, see below
 ```
 
 > `db:seed` is not idempotent — against an already-seeded database run
 > `npm run db:reset && npm run db:migrate` first.
+
+`test:razorpay` needs no Razorpay account: it starts its own local stub of the
+Orders API and signs webhooks with a stub secret. It refuses to run unless the
+API was started with `PAYMENTS_PROVIDER=razorpay` and `PAYMENTS_BASE_URL` pointed
+at that stub (see the script's header), so it sits outside the six counted
+suites and is never described as passing.
 
 `test:ui` drives real Chrome over the DevTools protocol — no headless-browser
 dependency is added — and covers what only a client can prove: that the app boots
@@ -112,16 +121,16 @@ against a fresh PostGIS container on every push.
 |---|---|---|
 | 0 · Research | Problem validation, integration feasibility, constraints | ✅ [`../docs/`](../docs/) |
 | 1 · Planning | Backlog, repo scaffold, CI pipeline, quality gates | ✅ |
-| 2 · Architecture | C4 diagrams, 10 ADRs, event catalogue, API style guide, failure matrix, threat model | ✅ [`docs/`](docs/) |
+| 2 · Architecture | C4 diagrams, 11 ADRs, event catalogue, API style guide, failure matrix, threat model | ✅ [`docs/`](docs/) |
 | 3 · Database | 56 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
 | 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS, gateway-verified payments | ◐ slice complete, full surface pending |
-| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web only; no React Native app |
-| 7 · AI | Rules engine + trained CV model: YOLO11n on RDD2022-India full set (5.4 MB, mAP50 0.443, see ai/) | ◐ baseline model live; GPU training is the path up |
-| R · RAKSHA | Edge simulator → offline queue → idempotent sync → segments → road health → authority verify/close | ◐ MVP slice live, detector SIMULATED (ADR-0007) |
+| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 87 tests); no React Native app |
+| 7 · AI | Rules engine + trained CV model on RDD2022: best YOLO11s (`yolo11s-multi-rich`, 4 countries, mAP50 0.472 · mAP50-95 0.226); YOLO11n on the full India set, mAP50 0.443 · mAP50-95 0.183 (`ai/train-full.log`) — the model whose detections RAKSHA shows (see ai/) | ◐ undertrained (epoch 13 of 100); its recorded detections feed RAKSHA, the model itself is not served on the hosted demo; GPU training is the path up |
+| R · RAKSHA | Edge simulator → offline queue → idempotent sync → segments → road health → authority verify/close | ◐ MVP slice live. Demo detections are real YOLO11 output at SIMULATED NH-48 positions; the edge simulator's own detector (`sim-rules-0.1.0`) is SIMULATED (ADR-0007) |
 | O · Off-Grid | Connectivity manager (ONLINE/LIMITED/OFF-GRID), offline SOS, on-device diagnosis, encrypted sync journal, cached maps | ✅ (ADR-0009); satellite/mesh explicitly NOT implemented |
 | H · Hardening | Live SSE stream, row-locked dispatch, offer expiry, SOS idempotency, sync conflict resolution, rate limits, audit coverage | ✅ (ADR-0010); single-instance only |
-| 8+ | SMS/IVR gateway, government portal, analytics, real CV model | ⏸ not started |
+| 8+ | SMS/IVR gateway, government portal, analytics, a served CV model on the road | ⏸ not started |
 
 ### Off-Grid Mode — RoadAssist Rescue Link ([ADR-0009](docs/adr/0009-offgrid-mode.md))
 
@@ -252,8 +261,23 @@ short list of what is genuinely not covered.
 
 ### RAKSHA — autonomous road monitoring (MVP slice)
 
-Every RAKSHA event on this build is **SIMULATED** — the detector is a labeled
-deterministic generator (`sim-rules-0.1.0`), not a trained model.
+Two kinds of RAKSHA event, and every one says which it is:
+
+- **Real model output, simulated position.** `ai/cv-detections-full.json` holds
+  34 real detections from the YOLO11n India model (model version `yolo-rdd2022in-best`, mAP50 0.443) on RDD2022
+  India images. The images carry no GPS, so each is placed along NH-48 — the
+  POSITIONS are simulated. The demo deployment seeds these at boot
+  (`SEED_DEMO_FLEET=true`, never under `NODE_ENV=production`) through the real
+  ingest route (`apps/api/src/demo/raksha-demo-seed.ts`); `npm run demo:raksha`
+  uploads a 65-detection set the same way on a local build.
+- **Fully simulated.** `scripts/raksha-simulator.mjs` without `--from-json`
+  uses a labelled deterministic generator (`sim-rules-0.1.0`), not a trained
+  model.
+
+The simulator signs in as the demo admin with the on-screen phone code, which
+works locally but is refused on the hosted demo (the admin is email-only,
+`403 email_signin_required`). To upload there, register a device on the RAKSHA
+dashboard and run `scripts/raksha-upload.ps1`.
 
 ```bash
 npm run db:seed:raksha                  # demo admin (+919999900001) + NH-48 segments
@@ -270,7 +294,7 @@ renders live geospatial state:
 | `GET /v1/me/reports` | reporter | own reports + live verification status |
 | `GET /v1/raksha/detections/:id/photo` | reporter **or** authority | the report photo (stored on disk per ADR-0006, only a ref in the DB) |
 | `GET /v1/raksha/detections?source=citizen` | authority | triage the crowdsourced queue |
-| `GET /v1/map/live?lat&lng&radiusKm` | any signed-in user | nearby mechanics, responders and detections for the map |
+| `GET /v1/map/live?lat&lng&radiusKm` | any signed-in user | nearby mechanics, responders and detections for the map (on the demo, mechanics and responders are seeded and labelled "(simulated)") |
 | `GET /tiles/...` · `/basemap/...` | — | cached, keyless OpenStreetMap tile proxies (whole-India basemap) |
 
 The map (`/map.html`, embedded in the Android app) bundles Leaflet +
@@ -337,7 +361,7 @@ The gateway suite proves all of this against a stub vendor endpoint.
 the dispatch candidate query executes in **29 ms**, the whole dispatch endpoint
 in **~100 ms** p50 (PostGIS KNN, provider-state exclusions, offer inserts, SSE
 fan-out and audit writes; it varies roughly 89-115 ms run to run) · emergency escalation **37 ms** median, measured end
-to end through the API · **189** end-to-end assertions covering illegal transitions,
+to end through the API · **191** end-to-end assertions covering illegal transitions,
 idempotent replay, refresh-token theft detection, cross-tenant isolation, the
 full citizen-report loop (submit → photo → authority verify → status), and
 settlement that no client can assert for itself.
@@ -349,7 +373,7 @@ settlement that no client can assert for itself.
 ```
 app/
 ├── docs/
-│   ├── adr/                  10 architecture decision records
+│   ├── adr/                  11 architecture decision records
 │   ├── architecture/         C4 diagrams · events · degraded modes · failure matrix · API style guide
 │   └── security/             STRIDE threat model, 20 threats mapped to controls
 ├── apps/
@@ -395,10 +419,13 @@ npm run db:generate && npm run db:migrate && npm run db:seed
 
 ## Architecture in one paragraph
 
-One modular-monolith deployable with five enforced modules, plus **one exception**:
-the emergency service is deployed separately with its own quota and a degraded SMS
-path that shares no runtime dependency with the platform — so an SOS survives a full
-platform outage ([ADR-0005](docs/adr/0005-emergency-isolation.md)). All AI ships
+One modular-monolith deployable with five enforced modules, plus **one designed
+exception**: the emergency service is meant to deploy separately with its own
+quota and a degraded SMS path that shares no runtime dependency with the
+platform, so an SOS survives a full platform outage
+([ADR-0005](docs/adr/0005-emergency-isolation.md)). That isolation is a design,
+not yet a deployment: today the emergency routes run in the same process as the
+rest of the API, in the one Render service. All AI ships
 rules-first behind a stable contract, so killing the AI service leaves a working
 product ([ADR-0006](docs/adr/0006-ai-rules-first.md)). Offline conflict rules were
 decided before any sync code was written, and booking state is always
@@ -419,4 +446,4 @@ Start with [`docs/architecture/README.md`](docs/architecture/README.md).
 | P1 | V Saatwik Sairaam (24MIC7131) | Backend, database, API contracts |
 | P2 | P Sai Nirisha Chowdary (24MIC7122) | Frontend, mobile, offline client |
 | P3 | T V S Jignesh (24MIC7190) | AI services, data pipeline |
-| P4 | G Parthavi (24MIC145) | DevOps, QA, security, CI/CD |
+| P4 | G Parthavi (24MIC7145) | DevOps, QA, security, CI/CD |

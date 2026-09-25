@@ -34,6 +34,14 @@ DevTools open on the customer window, Network tab visible · geolocation allowed
 **Never demo from a laptop on conference Wi-Fi with the API on a tunnel.** Run
 everything locally; the off-grid section needs you to control the network.
 
+**Backup host: the live deployment**, `https://app.roadassistbharat.online`
+(one free-plan Render service, Singapore). Open it two minutes ahead — it sleeps
+after 15 minutes idle and takes about a minute to wake. Two differences from
+local: the operator/admin, RAKSHA officer and listed mechanics sign in **only by
+a code emailed to their listed address** (their phone path answers
+`403 email_signin_required`), so have that mailbox open; and the nearby
+mechanics are the 24 seeded "Demo Fleet (simulated)" accounts — say so.
+
 ---
 
 ## 1 · The problem (30s)
@@ -237,9 +245,12 @@ pending**, the incident stays, and it retries with jittered backoff. Say so.
 **Action.** Show `docs/SWE4004-MAPPING.md` — the two diagrams, CURRENT and
 TARGET, side by side.
 
-**Say this.** > Eight cloud concepts are implemented, five partial, eight are
-> design. The eight are infrastructure we have not provisioned, and I would
-> rather tell you that than show you an animation and call it an autoscaler.
+**Say this.** > Nine cloud concepts are implemented, six partial, six are
+> design. The platform is live — one Render instance and a Neon database, in
+> Singapore because the free tiers have no India region. The six are
+> infrastructure we have not provisioned — replication, autoscaling, load
+> balancing — and I would rather tell you that than show you an animation and
+> call it an autoscaler.
 > What we did build is the part that matters most for this problem: the
 > platform keeps working when *the user's* network fails, which is the failure
 > that actually happens on a highway.
@@ -251,8 +262,9 @@ one of them, live, if there is time.
 
 > An AI-powered, cloud-connected, network-resilient emergency mobility platform
 > that keeps protecting people when connectivity becomes unreliable.
-> 751 assertions executed across six suites, no failures (a seventh needs a
-> payment-gateway account). Three real vulnerabilities found by
+> 757 assertions executed across six suites, no failures (22 Razorpay checks
+> against a local stub sit outside that total and are not counted). Three real
+> vulnerabilities found by
 > our own security suite during the audit, and fixed. Nothing on that list is a
 > claim I cannot show you.
 

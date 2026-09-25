@@ -17,10 +17,17 @@ rules-first (ADR-0006).
 
 | Model | Data | Classes | Epochs | mAP50 | mAP50-95 | ONNX | ms/img (CPU) |
 |---|---|---|---|---|---|---|---|
-| baseline `yolo11n` | India, 800 | 2 | 30 | 0.426 | 0.173 | 10 MB | ~72 |
+| baseline `yolo11n` | India, 2.7k | 2 | 30 | 0.443 | 0.183 | 10 MB | ~72 |
 | `yolo11s-multi` | 4-country, 3.0k | 2 | 13 | 0.290 | 0.119 | 37 MB | ~135 |
-| **`yolo11s-multi-rich`** | 4-country, 3.2k | **4** | 13 | **0.471** | **0.226** | 37 MB | ~135 |
+| **`yolo11s-multi-rich`** | 4-country, 3.2k | **4** | 13 | **0.472** | **0.226** | 37 MB | ~135 |
 | `yolo11n-multi-edge` | 4-country, 3.0k | 2 | 18 | 0.293 | 0.117 | **10 MB** | **~48** |
+
+The baseline row is `best.pt` as validated at the end of `ai/train-full.log`
+(2,723 train / 500 val India images). It was published here as 0.426 / 0.173 on
+"India, 800", which is that log's epoch-28 line, not the best checkpoint; this
+YOLO11n model is the one whose detections (`cv-detections-full.json`, model
+version `yolo-rdd2022in-best`) the RAKSHA demo shows. Metrics are rounded to
+three places from the raw values (0.4717 → 0.472).
 
 Per-class mAP50 (rich model): pothole 0.242 · road_damage 0.431 · faded_marking
 0.425 · manhole 0.786. Two honest caveats: the rich model's higher mean is

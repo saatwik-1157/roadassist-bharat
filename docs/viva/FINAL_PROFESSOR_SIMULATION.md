@@ -1,5 +1,5 @@
 > Written after inspecting the actual repository on 2026-09-06 and re-measured
-> against it on 2026-09-12 — 56 tables, 65 routes, 751 executed assertions.
+> against it on 2026-09-12 — 56 tables, 67 routes, 757 executed assertions.
 > Nothing here is assumed. This is prep to be spoken aloud, not a dated record:
 > when the code moves, the numbers here move with it.
 >
@@ -69,7 +69,7 @@
 - **Expected:** A labelled rules engine that triages; a separate trained detector for road damage.
 - **Good:** Volunteer the limitation first: "It's a deterministic rule table and every response says `rules-1.0.0`."
 - **Weak:** "We use AI to diagnose the problem." *(Invites the worst follow-up in the viva.)*
-- **Follow-up:** *"So it isn't AI?"* → "The roadside engine isn't, and we don't claim it is. The YOLO11n detector is, with measured metrics."
+- **Follow-up:** *"So it isn't AI?"* → "The roadside engine isn't, and we don't claim it is. The YOLO11n detector is, with measured metrics — mAP50 0.443; our best run, YOLO11s, reached 0.472."
 
 **10. Role of dispatch?**
 - **Expected:** Assign the right provider at run time from a pool.
@@ -99,7 +99,7 @@
 - **Expected:** Server-computed invoice → order → signature verified server-side → webhook → settlement.
 - **Good:** "The booking cannot be marked PAID without a settled payment — 409 `payment_required`."
 - **Weak:** "We use Razorpay."
-- **Follow-up:** *"Is it live?"* → "No. Sandbox and a signature-exact stub. Production refuses to boot on mock."
+- **Follow-up:** *"Is it live?"* → "No. `mock` on the deployment and a signature-exact stub in tests. Production refuses to boot on mock."
 
 **15. How is SOS handled?**
 - **Expected:** Incident + escalation ladder, each rung reported as fact.
@@ -120,7 +120,7 @@
 - **Follow-up:** *"Prove no duplicate."* → sync twice, live.
 
 **18. Major limitations?**
-- **Expected:** Not deployed; single instance; 112 stubbed; payments stub-only.
+- **Expected:** Demo on one instance in Singapore, not India — no cluster; single instance; 112 stubbed; payments stub-only.
 - **Good:** Answer without hesitating, and name the three in-process blockers.
 - **Weak:** "None really" or a vague "scaling".
 - **Follow-up:** *"Which would you fix first?"* → Redis-backed rate limiting.
@@ -145,8 +145,8 @@
 |---|---|---|---|
 | 1 | What makes this a cloud application? | SaaS provider to 3 classes + consumer via adapters; dispatch = dynamic scheduling over a pool; readiness gate | Managed platform, orchestrated |
 | 2 | Which characteristics? | Broad network access (4 client types), resource pooling (600 mechanics) | On-demand self-service, measured usage/billing |
-| 3 | Service model? | SaaS both ways; IaaS partial via compose | PaaS: managed Postgres + container platform |
-| 4 | Deployment model? | Local, single instance | Public cloud, Indian data residency |
+| 3 | Service model? | SaaS both ways; IaaS partial via compose; PaaS consumed by the demo — one Render service + Neon Postgres | PaaS at production shape: managed Postgres with failover + container platform with replicas |
+| 4 | Deployment model? | Public cloud, demo only: one Render service + Neon, both Singapore (free tiers have no India region), single instance | Public cloud in an India region (e.g. Mumbai) |
 | 5 | Where is virtualization? | OS-level: 4-stage image, non-root uid 1000, tini PID 1, HEALTHCHECK; **suite passes against the image** | Managed nodes |
 | 6 | Where is multitenancy? | Row-level on a shared schema; **12 cross-tenant attacks refused** | Same model, per-tenant encryption keys |
 | 7 | Where is resource pooling? | `findCandidates()` — off-duty and busy excluded in SQL, then allocate | Multi-region pools |
@@ -159,15 +159,15 @@
 | 14 | Where is replication? | **Not implemented.** API is stateless; 3 in-process blockers named | Read replicas + Redis-backed shared state |
 | 15 | Where is redundant storage? | Restore **rehearsed and measured** (dump 1.2 s, restore 7.2 s, audit chain intact across 639 entries) | Multi-AZ, WAL archiving, scheduled |
 | 16 | Elastic disk provisioning? | **Not implemented** | Auto-expanding volumes |
-| 17 | Where is migration? | Schema migration real: 5 versioned, additive, run from empty | Live workload migration |
+| 17 | Where is migration? | Schema migration real: 7 versioned, additive, run from empty | Live workload migration |
 | 18 | Database fails? | `/health` 503 naming the database, `/v1/ping` 200, **automatic recovery, no restart** | Failover to replica |
 | 19 | Backend fails? | Service worker serves the cached shell; SOS degrades to the local path | Replicas behind a balancer |
 | 20 | Scale to 1M users? | Not attempted; no load test run | Read replicas, Redis, partition `bookings` by time, CDN for static |
 | 21 | Make it highly available? | **Not today** — single instance | Multi-AZ, ≥2 replicas, managed Postgres failover |
 | 22 | Introduce autoscaling? | Readiness gate exists as the precondition | HPA + externalise the 3 in-process components |
-| 23 | Multi-region? | Not attempted; data-residency constraint documented | Region-pinned data, geo-routing |
+| 23 | Multi-region? | Not attempted; the demo is one region (Singapore) and the India-region constraint is documented, not met | Region-pinned data, geo-routing |
 | 24 | Biggest bottleneck? | **The database, then the three in-process components** | Replicas + Redis + outbox bus |
-| 25 | Which topics are only conceptual? | 8 of 21: PaaS, deployment models, replication, dynamic scalability, elastic capacity, elastic disk, bursting, infra load balancing | — |
+| 25 | Which topics are only conceptual? | 8 of 21 per the mapping: PaaS and deployment models (the demo runs on Render + Neon in Singapore, but not in the production shape), replication, dynamic scalability, elastic capacity, elastic disk, bursting, infra load balancing | — |
 
 **How to deliver Round 2:** always say the ACTUAL column first. A professor who
 hears "not implemented, and here is exactly what blocks it" marks higher than
@@ -278,7 +278,7 @@ What follows is what actually loses marks in each round.
 | 46 | Circuit breaker? | Stop calling a failing dependency; fail fast. |
 | 47 | Backoff with jitter? | Retry after growing, randomised delays to avoid thundering herds. |
 | 48 | Our AI model version? | `rules-1.0.0`. |
-| 49 | Our test total? | 626 executed, 0 failures, six suites. |
+| 49 | Our test total? | 757 executed, 0 failures, six suites. |
 | 50 | Our biggest limitation? | Single instance — three in-process components. |
 
 ---
@@ -288,7 +288,7 @@ What follows is what actually loses marks in each round.
 | Interruption | Ideal response | Where |
 |---|---|---|
 | "Stop. Explain this screen." | Name the screen, the endpoint behind it, and the one guarantee it demonstrates. | any |
-| "Where is the cloud?" | "Consumed, not operated — nothing is deployed. What is built is containerisation, a stateless API and a readiness gate." | slide 9 |
+| "Where is the cloud?" | "Consumed, not operated — the demo runs on one Render service with Neon Postgres, in Singapore. What is built is containerisation, a stateless API and a readiness gate; there is no cluster." | slide 9 |
 | "Show me the database." | `docker exec ra-db psql -U roadassist -d roadassist_rc -c "\dt"` → 56 tables. | terminal |
 | "Show me the API." | `apps/api/src/server.ts` — point at a route and its zod schema. | editor |
 | "Why did *this* mechanic get selected?" | "Nearest available after excluding off-duty and busy — proximity 60%, rating 34%, newcomer bonus. The card shows the distance the ranking used." | dispatch screen |
@@ -316,17 +316,17 @@ Not inflated. This is my estimate as an examiner, given the evidence that exists
 |---|---|---|---|---|---|
 | Project idea | 8 | **7–8** | Genuine, specific problem; clear differentiator | Sounds like an aggregator if pitched badly | Lead with the connectivity failure, not the marketplace |
 | Architecture | 10 | **8–9** | Modular monolith, CI-enforced boundaries, ADRs | Monolith read as unambitious | Say "enforced, not agreed" and run the check |
-| Cloud concepts | 15 | **10–12** | 8 implemented, 5 partial, 8 design | **Highest risk** — 8 are design | Lead with pooling + distribution + scheduling; name blockers precisely |
-| Implementation | 15 | **13–14** | 751 assertions, 6 real bugs found and fixed | Little | Show the row lock |
+| Cloud concepts | 15 | **10–12** | 9 implemented, 6 partial, 6 design | **Highest risk** — 6 are design | Lead with pooling + distribution + scheduling; name blockers precisely |
+| Implementation | 15 | **13–14** | 757 assertions, 6 real bugs found and fixed | Little | Show the row lock |
 | AI | 10 | **6–7** | Rules engine, labelled; trained YOLO11n separate | "Not real AI" | Agree instantly, pivot to asymmetry + CI guard |
 | Database | 10 | **9** | 56 tables, hash-chained audit, PostGIS | Little | Show the append-only RULES |
 | Security | 10 | **8–9** | 101 attacks refused; real CVE fixed | No pentest | Volunteer that before asked |
-| Testing | 8 | **8** | 626 executed, twice, plus timed rehearsal | Little | Run a suite live |
+| Testing | 8 | **8** | 757 executed across six suites, plus timed rehearsal | Little | Run a suite live |
 | UI/UX | 5 | **4** | Real screenshots, phone-first | Sparse on a projector | Demo at 430 px |
 | Offline resilience | 10 | **9–10** | The strongest area; unanswerable demo | Overclaiming offline reach | Give the three-way split unprompted |
 | Demo | 5 | **4–5** | Rehearsed, timed, 9 clean runs | Live failure | Backups ready |
 | Viva | 10 | **8–9** | 100 answers with code paths | Bluffing under pressure | "Designed and not provisioned" costs nothing |
-| Documentation | 4 | **4** | 30+ documents, 10 ADRs | Sprawl | Point to the master report |
+| Documentation | 4 | **4** | 30+ documents, 11 ADRs | Sprawl | Point to the master report |
 | **Total** | **100** | **≈ 82–89** | | | |
 
 **The single biggest lever:** capture the six terminal screenshots
@@ -351,7 +351,7 @@ keeps running on the phone."
 **1:00 — Architecture.** "Three surfaces — citizen app, mechanic console,
 authority dashboard — plain HTML and ES modules served by one process, so
 there's no build step and no second deployment unit. Behind them a Fastify API,
-65 routes, zod validation at every boundary, a uniform envelope. Five modules in
+67 routes, zod validation at every boundary, a uniform envelope. Five modules in
 one deployable, and the boundaries are enforced mechanically: a cross-module
 import fails the build. Underneath, PostgreSQL 16 with PostGIS — 56 tables, and
 an append-only hash-chained audit log the database itself won't let you edit."
@@ -384,21 +384,22 @@ makes a duplicate impossible."
 
 **4:00 — Security and payment.** "OTP with per-number and per-IP ceilings,
 refresh rotation with reuse detected as theft, ownership checks on every
-resource. A hundred attacks across two suites, all refused — and we fixed a real
+resource. A hundred and one attacks across two suites, all refused — and we fixed a real
 CVE class in this release. Payment: the client never decides money arrived. The
 amount is the invoice total, the signature is recomputed server-side, and a
 booking can't be marked paid without a settled payment."
 
-**4:30 — Testing.** "751 assertions across six suites, zero failures, run twice
+**4:30 — Testing.** "757 assertions across six suites, zero failures, run twice
 — once on a fresh database and again after a full reset. Plus a timed demo
 rehearsal that walks all fifteen beats in two browser windows. Six real bugs
 were found by tooling we wrote to attack our own project, including two
 mechanics who could both accept the same job."
 
-**4:45 — Limitations.** "Nothing is deployed to a cloud. It's a single instance
+**4:45 — Limitations.** "The demo is live, but on one instance in Singapore, not
+India. It's a single instance
 — the SSE registry, rate limiter and offer sweeper are in-process, and that's
-what a second instance would break. 112 is stubbed. Payments are sandbox-only.
-No independent penetration test."
+what a second instance would break. 112 is stubbed. Payments are `mock` — no
+live gateway. No independent penetration test."
 
 **5:00 — Conclusion.** "Intelligent assistance when the road fails. Resilient
 software when the network fails. Nothing on our slides is a claim I can't show
@@ -446,15 +447,15 @@ nothing. A claim you cannot show costs the room.
 
 Cloud is 7 not because the understanding is weak but because eight of twenty-one
 concepts are honestly unbuilt — and no amount of rehearsal changes that without
-a deployment. AI is 7 for the same reason: correctly labelled, genuinely modest.
+infrastructure beyond one instance. AI is 7 for the same reason: correctly labelled, genuinely modest.
 
 **Strongest areas**
 1. Offline / off-grid resilience — the tab-close demo is unanswerable.
 2. Concurrency and data integrity — row lock, idempotency, hash-chained audit.
-3. Testing honesty — 751 assertions and six self-found bugs.
+3. Testing honesty — 757 assertions and six self-found bugs.
 
 **Weakest areas**
-1. Nothing deployed — eight cloud concepts remain design.
+1. One hosted instance in Singapore — eight cloud concepts remain design.
 2. The diagnosis engine is rules, not a model.
 3. Single instance, with three in-process blockers.
 
@@ -470,7 +471,7 @@ a deployment. AI is 7 for the same reason: correctly labelled, genuinely modest.
 2. Dispatch score: proximity 60% / rating 34% / newcomer bonus; wave 5; 90 s TTL.
 3. `SELECT … FOR UPDATE` on the booking row, expiry checked inside the transaction.
 4. The offline three-way split: works / queued / needs network.
-5. 751 assertions, six suites, zero failures — and that a seventh needs an account.
+5. 757 assertions, six suites, zero failures — and that the 22 payment checks sit outside the total, not executed.
 
 **Must show in the demo**
 1. The `rules-1.0.0` badge.

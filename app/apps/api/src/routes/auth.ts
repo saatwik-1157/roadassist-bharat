@@ -28,8 +28,7 @@ import { t, resolveLocale } from "../i18n.js";
 import { otpPolicy } from "../domain/otp-policy.js";
 import {
   constantTimeEquals,
-  otpAttemptsInWindow,
-  otpRequestsFromIp,
+  claimOtpChallenge,
   rotateSession,
   sha256,
   startSession,
@@ -38,26 +37,6 @@ import {
 export async function authRoutes(app: FastifyInstance) {
   app.post("/v1/auth/otp/request", async (req, reply) => {
     const { msisdn } = z.object({ msisdn: msisdnSchema }).parse(req.body);
-
-    if (await otpAttemptsInWindow(db, msisdn) >= env.otpMaxAttempts) {
-      return reply.code(429).send({
-        error: {
-          code: "too_many_requests",
-          title: `Too many codes requested. Try again in ${env.otpWindowMinutes} minutes.`,
-          retryable: true,
-        },
-      });
-    }
-    // Second axis of threat #1: one address hammering many numbers.
-    if (await otpRequestsFromIp(db, req.ip) >= env.otpIpMax) {
-      return reply.code(429).send({
-        error: {
-          code: "otp_ip_limited",
-          title: `Too many codes requested from this connection. Try again in ${env.otpWindowMinutes} minutes.`,
-          retryable: true,
-        },
-      });
-    }
 
     // Whether the code is real, and whether it may be shown — see otp-policy.ts.
     const policy = otpPolicy({
@@ -83,10 +62,31 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const code = policy.random ? String(randomInt(100000, 1000000)) : env.devOtp;
-    await db.insert(S.otpChallenges).values({
+    // Both limits and the insert are one locked step (auth.ts): counted
+    // separately, simultaneous requests all read the same count and all sent.
+    const claim = await claimOtpChallenge(db, msisdn, req.ip, {
       msisdn, codeHash: sha256(code), ip: req.ip,
       expiresAt: new Date(Date.now() + 5 * 60_000),
     });
+    if ("limited" in claim && claim.limited === "key") {
+      return reply.code(429).send({
+        error: {
+          code: "too_many_requests",
+          title: `Too many codes requested. Try again in ${env.otpWindowMinutes} minutes.`,
+          retryable: true,
+        },
+      });
+    }
+    // Second axis of threat #1: one address hammering many numbers.
+    if ("limited" in claim) {
+      return reply.code(429).send({
+        error: {
+          code: "otp_ip_limited",
+          title: `Too many codes requested from this connection. Try again in ${env.otpWindowMinutes} minutes.`,
+          retryable: true,
+        },
+      });
+    }
 
     /**
      * The OTP is the first message the platform ever sends somebody, and until
@@ -120,12 +120,12 @@ export async function authRoutes(app: FastifyInstance) {
       .where(and(eq(S.otpChallenges.msisdn, msisdn), isNull(S.otpChallenges.consumedAt)))
       .orderBy(desc(S.otpChallenges.createdAt)).limit(1);
 
-    const invalid = () => (alerts.otpFailure(msisdn), reply.code(401).send({
+    const invalid = () => (alerts.otpFailure(msisdn, emailSignin.protectedNumbers.has(msisdn)), reply.code(401).send({
       error: { code: "otp_invalid", title: "That code is not right. Check it and try again.", retryable: true },
     }));
 
     if (!challenge) return invalid();
-    if (challenge.expiresAt.getTime() < Date.now()) {
+    if (challenge.expiresAt.getTime() <= Date.now()) {
       return reply.code(401).send({
         error: { code: "otp_expired", title: "That code has expired. Request a new one.", retryable: true },
       });
@@ -139,16 +139,20 @@ export async function authRoutes(app: FastifyInstance) {
       .where(and(eq(S.otpChallenges.id, challenge.id), lt(S.otpChallenges.attempts, env.otpMaxAttempts)))
       .returning({ id: S.otpChallenges.id });
     if (!slot) {
-      alerts.otpFailure(msisdn);
+      alerts.otpFailure(msisdn, emailSignin.protectedNumbers.has(msisdn));
       return reply.code(429).send({
         error: { code: "otp_locked", title: "Too many wrong attempts. Request a new code.", retryable: true },
       });
     }
     if (!constantTimeEquals(sha256(code), challenge.codeHash)) return invalid();
 
-    await db.update(S.otpChallenges)
+    // Consumed only if nobody consumed it first: two requests carrying the right
+    // code at the same moment both passed the compare, and both got a session.
+    const [won] = await db.update(S.otpChallenges)
       .set({ consumedAt: new Date(), updatedAt: new Date() })
-      .where(eq(S.otpChallenges.id, challenge.id));
+      .where(and(eq(S.otpChallenges.id, challenge.id), isNull(S.otpChallenges.consumedAt)))
+      .returning({ id: S.otpChallenges.id });
+    if (!won) return invalid();
 
     let [user] = await db.select().from(S.users).where(eq(S.users.msisdn, msisdn)).limit(1);
     let created = false;

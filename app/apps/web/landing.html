@@ -430,16 +430,15 @@
         <p class="sub">Every figure here is measured by a script in this repository and gated in CI, not estimated.</p>
       </div>
       <div class="stats">
-        <div class="card stat"><div class="v num">626</div><div class="k hint">automated checks across six suites</div></div>
-        <div class="card stat"><div class="v num">64</div><div class="k hint">API routes</div></div>
+        <div class="card stat"><div class="v num">757</div><div class="k hint">automated checks across six suites</div></div>
+        <div class="card stat"><div class="v num">67</div><div class="k hint">API routes</div></div>
         <div class="card stat"><div class="v num">56</div><div class="k hint">database tables</div></div>
         <div class="card stat"><div class="v num">8</div><div class="k hint">languages offered</div></div>
       </div>
       <p class="hint" style="margin-top: var(--s-4); max-width: 70ch">
         Seven of the eight languages are machine-translated and have <b>not</b> been
         native-reviewed: the strings exist, the quality is unverified, and those are
-        different claims. The payment-sandbox suite sits outside the 626 because it
-        needs an account this build does not have — it is never described as passing.
+        different claims. The Razorpay checks run separately, against a local stub rather than the real gateway, and are not counted in the 757.
       </p>
 
       <div class="card" style="margin-top: var(--s-6); padding: var(--s-5)">

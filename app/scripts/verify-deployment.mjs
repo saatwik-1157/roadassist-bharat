@@ -131,9 +131,9 @@ for (const [path, what] of [
     }
   }
   if (offenders.size === 0) {
-    pass("no visitor address leaves India", "no third-party subresource in any served page");
+    pass("no served page makes the browser contact a third party", "no third-party subresource in any served page");
   } else {
-    fail("no visitor address leaves India", [...offenders].join(", "));
+    fail("no served page makes the browser contact a third party", [...offenders].join(", "));
   }
 }
 

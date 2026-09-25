@@ -84,8 +84,8 @@ cannot seed: `@faker-js/faker` is a devDependency and stays out. That is the
 right shape — a production artefact has no business being able to fabricate four
 thousand users.
 
-Seed once from your machine, against the Render database URL (Render → database
-→ **External Connection String**):
+Seed once from your machine, against the Neon database (Neon → **Connection
+Details**, the direct string used for `DATABASE_URL`):
 
 ```bash
 cd app
@@ -97,14 +97,28 @@ DATABASE_URL="<external-connection-string>" npm run seed:raksha -w @roadassist/d
 created and dies on a unique violation. Run it exactly once, on a freshly
 migrated database.
 
-**`seed:raksha` leaves the authority dashboard empty**, by design: detections
-arrive over the API from an edge device, so they cannot be seeded ahead of the
-server. To fill it, point the simulator at the deployed API:
+**`seed:raksha` does not insert detections**, by design: detections arrive over
+the API from an edge device, so they cannot be seeded ahead of the server. The
+deployment fills RAKSHA itself instead: with `SEED_DEMO_FLEET=true` (set in
+`render.yaml`, refused under `NODE_ENV=production`), the API registers a demo
+patrol device at boot and posts the 34 real YOLO11n detections from
+`ai/cv-detections-full.json` through the real ingest route
+(`app/apps/api/src/demo/raksha-demo-seed.ts`). The detections are model output;
+their NH-48 **positions are simulated**, because RDD2022 images carry no GPS.
+It runs only when the table is empty, so a restart is a no-op.
 
-```bash
-cd app
-API=https://app.roadassistbharat.online npm run demo:raksha
+**Do not point `npm run demo:raksha` at the hosted API.** The simulator signs in
+as the demo admin with the on-screen phone code, and once that admin is listed
+in `EMAIL_SIGNIN` the phone path answers `403 email_signin_required`. To upload
+detections by hand, sign in to RAKSHA by email, **Register an edge device**,
+copy the `deviceId` and `deviceSecret` it shows once, and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File app\scripts\raksha-upload.ps1
 ```
+
+It reads the secret with hidden input and uploads through that device; a
+repeat run is counted as duplicates.
 
 ## Optional · Email alerts to the owner — **YOU**
 
@@ -114,10 +128,11 @@ sign-in of a new number, an admin or authority sign-in, a burst of wrong OTP
 codes for one number, a confirmed SOS, and an off-grid SOS that reaches the
 server late, with how long it waited on the device.
 
-It is sent from the server through [Resend](https://resend.com), so the key is
-never in a page and no visitor's IP address leaves India. Every email carries a
-number masked to its last three digits, a role, an event and a time; never a
-name, a position, an IP address or a device.
+It is sent from the server through [Resend](https://resend.com) (a US email
+processor, declared in `check-data-residency.mjs`), so the key is never in a
+page and no visitor's IP address reaches Resend. Every email carries a number
+masked to its last three digits, a role, an event and a time; never a name, a
+position, an IP address or a device.
 
 1. Create a free Resend account with the address you want alerts at, and create
    an API key (**API Keys → Create**, "Sending access").
@@ -198,9 +213,12 @@ Two settings in `render.yaml` are deliberate, and one of them is a door.
 
 **`EXPOSE_DEV_OTP=true`.** With no SMS provider there is no way to receive a
 code, so the API returns it in the response. That is what makes the demo usable
-and it also means **anyone with the URL can sign in as any seeded account,
-including the authority dashboard**. For a throwaway demo database that is a
-reasonable trade. It would not be acceptable against real data, and the moment
+and it also means **anyone with the URL can sign in as any seeded account that
+is not listed in `EMAIL_SIGNIN`**. On the live demo the admin, the RAKSHA
+officer and the listed mechanics are listed, so their phone path answers
+`403 email_signin_required` and they can only be entered with a code emailed to
+their address (see *Email sign-in for the team* above). For the remaining
+throwaway demo accounts that is a reasonable trade. It would not be acceptable against real data, and the moment
 this holds anything real, set it to `false` and configure MSG91.
 
 **`NODE_ENV=demo`, not `production`.** The production guard in `env.ts` refuses
@@ -217,7 +235,7 @@ The image is not trusted because it built. `.github/workflows/publish-image.yml`
 boots it against a real PostGIS and runs the suites **against the running
 container** before publishing:
 
-- 189 end-to-end assertions and 74 security attacks, `API=` pointed at the
+- 191 end-to-end assertions and 74 security attacks, `API=` pointed at the
   container
 - every surface answers 200: `/app.html`, `/mechanic.html`, `/raksha.html`,
   `/map.html`, `/health`, `/v1/ping`

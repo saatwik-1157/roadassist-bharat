@@ -35,10 +35,12 @@ repository; nothing is aspirational.
 > storage, and it says plainly that nothing has been transmitted. On reconnect
 > it forwards itself, and a unique key makes a duplicate impossible.
 >
-> **Result.** 751 assertions executed across six suites, no failures, including 74
-> attacks that must fail. A seventh suite — 22 payment-gateway checks — needs a
-> Razorpay sandbox account and is not run; the same settlement path is covered
-> against a signature-exact stub. Every claim on our slides is something I can show you.
+> **Result.** 757 assertions executed across six suites, no failures, including 74
+> attacks that must fail. Outside that total sit 22 Razorpay checks that run
+> against their own local stub of the Orders API — no account needed — but only
+> when the API is started with `PAYMENTS_PROVIDER=razorpay`, so they are not in
+> the npm test runs and I do not count them. Every claim on our slides is
+> something I can show you.
 
 ## 60-second architecture
 
@@ -46,7 +48,7 @@ repository; nothing is aspirational.
 > plain HTML and ES modules served by the same process, so there is no build
 > step and no second deployment unit.
 >
-> They talk to a **Fastify API**: 65 routes, 61 of them under `/v1`, zod validation at
+> They talk to a **Fastify API**: 67 routes, 64 of them under `/v1`, zod validation at
 > every boundary, a uniform envelope, and stable error codes.
 >
 > Behind it, five modules in one deployable — identity, fleet, service, ops and
@@ -85,8 +87,9 @@ repository; nothing is aspirational.
 > Three layers, and I will keep them apart.
 >
 > **Actually implemented:** we are a SaaS provider to three user classes and a
-> SaaS consumer through adapters — SMS, payments, tiles, email. Container
-> virtualization, row-level multitenancy proven by twelve refused cross-tenant
+> SaaS consumer through adapters — SMS, payments, tiles, email. We consume PaaS
+> for real: the platform is live on a Render web service with a managed Neon
+> Postgres, both in Singapore. Container virtualization, row-level multitenancy proven by twelve refused cross-tenant
 > attacks, cloud storage in three forms, and dynamic scheduling in the dispatch
 > engine.
 >
@@ -104,9 +107,9 @@ repository; nothing is aspirational.
 
 | Area | Risk | Severity | Mitigation |
 |---|---|---|---|
-| **Cloud concepts** | 8 of 21 concepts are DESIGN. An examiner wanting "deployed cloud" may mark down. | **HIGH** | Lead with the two Module 4 architectures that ARE built (workload distribution, resource pooling) and the readiness gate. Then say the rest is designed — precisely, with the three in-process blockers named. Precision reads as competence; vagueness reads as bluffing. |
+| **Cloud concepts** | 6 of 21 concepts are DESIGN. It is deployed, but as one free-plan instance — an examiner wanting "elastic cloud" may mark down. | **HIGH** | Show the live deployment, then lead with the two Module 4 architectures that ARE built (workload distribution, resource pooling) and the readiness gate. Then say the rest is designed — precisely, with the three in-process blockers named. Precision reads as competence; vagueness reads as bluffing. |
 | **Cloud concepts** | "You have no Kubernetes." | MEDIUM | Correct, and deliberate: ADR-0001 explains why four developers should not operate a cluster. Offer the target diagram. |
-| **AI** | "Your AI is if-statements." | MEDIUM | Agree immediately. It is a deterministic rules engine, labelled `rules-1.0.0` in the response. Then pivot to the two genuinely interesting parts: the safety asymmetry, and the device/cloud divergence guard. Mention the real trained YOLO11n with measured mAP50. |
+| **AI** | "Your AI is if-statements." | MEDIUM | Agree immediately. It is a deterministic rules engine, labelled `rules-1.0.0` in the response. Then pivot to the two genuinely interesting parts: the safety asymmetry, and the device/cloud divergence guard. Mention the real trained YOLO11 detectors with measured mAP50: best run YOLO11s (`yolo11s-multi-rich`) 0.472; the YOLO11n India model whose 34 detections RAKSHA shows scored 0.443 (their positions on NH-48 are simulated). |
 | **Functionality** | A demo step fails live. | MEDIUM | Every step in `DEMO-SCRIPT.md` has a backup, and no backup fakes success. The failure path *is* the argument. |
 | **Offline** | "Is the offline part real, or a mock?" | LOW | Close the tab and reopen it. That single action is unanswerable. |
 | **Security** | "Have you had a pentest?" | LOW | No. 74 self-written attacks is not the same thing, and I say so. |
@@ -131,8 +134,14 @@ forwards without duplicating, and a rules engine that provably matches between
 device and cloud. I can demonstrate all three in four minutes.
 
 **3. "Is anything actually deployed?"**
-No. A production Docker image is built and the entire test suite passes against
-it, but no cloud account exists. I would rather say that than point at a diagram.
+Yes — `app.roadassistbharat.online` is one Render web service (Docker, free
+plan, Singapore) on a Neon Postgres + PostGIS database, also Singapore; the
+showcase is on GitHub Pages. Be precise about what it is: a demo
+(`NODE_ENV=demo`), a single instance with no autoscaling or replication, mock
+payments, on-screen OTP with no real SMS, and it sleeps after 15 minutes idle.
+It is in Singapore because the free tiers have no India region; an India
+region (e.g. Mumbai) is the production target. The emergency routes run in the same
+process — ADR-0005's isolation is still a design.
 
 **4. "What is the weakest part?"**
 Single-instance. The SSE registry, the rate limiter and the offer sweeper are

@@ -79,7 +79,28 @@ export function sendTileFailure<R>(
     .send({ error: { ...got.error, requestId: req.id } });
 }
 
+/**
+ * A failure worth one more try: the connection broke, or the upstream said
+ * 5xx. Seen on the hosted map as a single 502 tile that loaded on the next
+ * request. Not a 4xx (asking again gets the same answer, and 429 means slow
+ * down), not an empty body, and not a timeout - that one has already used the
+ * time a user will wait for a tile.
+ */
+function transient(r: TileResult): boolean {
+  return !r.ok && r.status === 502 && (/^upstream HTTP 5\d\d$/.test(r.cause) || !r.cause.startsWith("upstream "));
+}
+
 export async function fetchTile(
+  url: string,
+  opts: { userAgent: string; fetchImpl?: TileFetch; timeoutMs?: number; retryDelayMs?: number },
+): Promise<TileResult> {
+  const first = await fetchTileOnce(url, opts);
+  if (!transient(first)) return first;
+  await new Promise((r) => setTimeout(r, opts.retryDelayMs ?? 250));
+  return fetchTileOnce(url, opts);
+}
+
+async function fetchTileOnce(
   url: string,
   opts: { userAgent: string; fetchImpl?: TileFetch; timeoutMs?: number },
 ): Promise<TileResult> {

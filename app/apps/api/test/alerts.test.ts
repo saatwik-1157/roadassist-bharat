@@ -124,3 +124,14 @@ test("an off-grid SOS alert says how long it waited on the device", () => {
   g.sosConfirmed("3f2a9c1e-0000-4000-8000-000000000000", 2);
   assert.match(sent[1].subject, /incident 3f2a9c1e$/);
 });
+
+test("wrong codes for a protected account alert even after the hour's cap is spent", () => {
+  // Made-up numbers use up the cap first; the account behind email sign-in
+  // must still be reported, or the flood is how an attack on it hides.
+  const { g, sent } = gate({ otpBurst: 5 });
+  for (let n = 0; n < 40; n++) for (let i = 0; i < 5; i++) g.otpFailure(`+9198765${String(n).padStart(5, "0")}`);
+  const capped = sent.length;
+  for (let i = 0; i < 5; i++) g.otpFailure("+919999900001", true);
+  assert.equal(sent.length, capped + 1, "the protected account's burst was dropped by the shared cap");
+  assert.equal(sent[sent.length - 1].kind, "otp-burst");
+});

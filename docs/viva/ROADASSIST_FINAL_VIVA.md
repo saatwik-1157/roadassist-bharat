@@ -23,11 +23,17 @@ consume in design only.
 
 **4. Which service model?**
 All three, in different roles. SaaS we *provide*. IaaS we stand in for locally
-with compose. PaaS we consume in design — nothing is deployed.
+with compose. PaaS we consume for the live demo — one Render web service and a
+Neon Postgres database — as a single instance, not the production design.
 
 **5. Which deployment model?**
-Public cloud with an Indian data-residency constraint — no PII leaves India.
-Reasoned in the team charter and ADR-0001. Not deployed.
+Public cloud. The demo is live at app.roadassistbharat.online on Render and
+Neon, both in Singapore, because the free tiers have no India region — so today
+a visitor's request does leave India. An India region (e.g. Mumbai) is the
+production target, reasoned in the team charter and ADR-0001. What we do check,
+in `check-data-residency.mjs`: our pages call no third party except Razorpay
+checkout, every server-side outbound host is declared with its region, there
+are no analytics SDKs, and no PII goes in a query string.
 
 **6. Where is virtualization?**
 OS-level: a four-stage Dockerfile, non-root uid 1000, tini as PID 1, a real
@@ -98,7 +104,10 @@ the wrong answer is to block the responder.
 
 **19. What is your cloud infrastructure?**
 Locally: PostGIS, Redis and Redpanda in compose, plus a production image.
-In a cloud: **nothing**. No account exists.
+In a cloud: **one Render web service** (Docker, free plan, Singapore) running
+the API and every web surface in one process, **Neon Postgres + PostGIS**
+(Singapore), and a GitHub Pages showcase. No cluster, no autoscaling, no
+replication, no load balancer.
 
 **20. Where is resource pooling?**
 600 mechanics. `findCandidates` excludes off-duty and busy providers in SQL,
@@ -144,8 +153,9 @@ two mechanics could both win — that was a real bug, found by our own suite.
 Settlement is recorded, never asserted, and the confirmation is idempotent.
 
 **30. What are the major limitations?**
-Nothing deployed; single instance; 112 stubbed; payments sandbox-only; no
-backup schedule; the roadside engine is rules, not a model.
+Demo hosted in Singapore, not India; single instance, no cluster; 112
+stubbed; payments `mock`, no live gateway; no real SMS; no backup schedule; the
+roadside engine is rules, not a model.
 
 **31. What would you build next?**
 Redis-backed rate limiting, the outbox → event bus for SSE fan-out, and WAL

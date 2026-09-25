@@ -1,14 +1,13 @@
 # RoadAssist Bharat — Team Charter & Engineering Constitution
 
-> **A four-person team**, as presented at Review 1 for SWE4004 — Cloud Computing
-> and Applications:
+> **A four-person team** for SWE4004 — Cloud Computing and Applications:
 >
-> | Member | Workstream |
-> |---|---|
-> | V. Saatwik Sairaam | Backend · APIs · Database |
-> | P. Nirisha Chowdary | Auth · Security · Real-time |
-> | T. V. S. Jignesh | Frontend · Customer app |
-> | G. Parthavi | Mechanic & admin surfaces · Cloud DevOps |
+> | Member | Reg. no. | Workstream |
+> |---|---|---|
+> | V. Saatwik Sairaam | 24MIC7131 | Backend & cloud database (D1) |
+> | P. Sai Nirisha Chowdary | 24MIC7122 | Frontend & mobile (D2) |
+> | T. V. S. Jignesh | 24MIC7190 | AI & data services (D3) |
+> | G. Parthavi | 24MIC7145 | DevOps, QA & cloud security (D4) |
 >
 > The D1–D4 roles below are the same four workstreams, in that order. The
 > repository is pushed from one account, so `git log` shows a single committer;
@@ -376,4 +375,5 @@ docs/
 2. **Offline is a first-class mode, not a fallback.** If a feature can't degrade, it needs an explicit, visible offline state.
 3. **Feature phones are users.** Every core journey (request help, track, cancel, confirm) must be completable over SMS/IVR.
 4. **No PII leaves India.** Ever. Including logs, backups, error reports, and third-party analytics.
+   *(Status 2026-09-25: the live demo is hosted in Singapore — Render + Neon, because the free tiers offer no India region — so this holds as the production target, not yet for the demo. `npm run residency` enforces the part code can: no third-party loads from pages, every server egress host declared with its region.)*
 5. **We never fake it in a demo.** If it's mocked, we say it's mocked, on the slide.

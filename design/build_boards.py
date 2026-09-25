@@ -233,7 +233,7 @@ def desktop():
     trust = [(f"{num('assertions', 'total')}", "assertions, 0 failures"),
              (f"{num('assertions', 'suites', 'securityAudit')}", "attacks refused"),
              (f"{num('i18n', 'locales')}", "languages over SMS"),
-             ("0.471", "mAP50, YOLO11")]
+             ("0.472", "mAP50, YOLO11")]
     tx = X
     for v, l in trust:
         b.append(text(tx, ty + 26, v, 28, 800, GOLD2, ls=-0.6))

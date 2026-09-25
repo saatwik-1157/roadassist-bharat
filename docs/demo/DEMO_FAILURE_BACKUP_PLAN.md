@@ -7,7 +7,7 @@
 
 | What fails | First response | Backup | Does it fake anything? |
 |---|---|---|---|
-| **Internet** | Nothing. The demo is local — `localhost:4000` and a local database. Conference Wi-Fi is not in the path | Say so out loud; it strengthens the point | No |
+| **Internet** | Nothing. The stage demo is local — `localhost:4000` and a local database. Conference Wi-Fi is not in the path. (The hosted copy at `app.roadassistbharat.online` does need the internet — it is the backup, not the stage run) | Say so out loud; it strengthens the point | No |
 | **Backend down** | Restart: `npm start`. It boots in ~2 s | The PWA still serves its cached shell; show that instead — it is the offline story | No |
 | **Database down** | `npm run infra:up` | **Show it deliberately.** `/health` → 503 `database: down`, `/v1/ping` → 200. This is a *planned* beat, not a disaster | No |
 | **Payment gateway** | Provider is `mock` by default — there is no gateway to fail | If payment errors, show the log line and `assertProductionSafe`. **Never claim a payment succeeded** | No |
@@ -16,7 +16,7 @@
 | **Real-time** | Badge reads **Polling** instead of Live | Press Refresh. The console works on its 6 s poll. Say it: *the stream is an accelerator, never the source of truth* | No |
 | **No mechanic offered** | Widen the radius to 60 km | If still none: that is `NO_SUPPLY` with a **named reason**. Show `skippedByState` — the platform says *why*, not just "no". Then continue from the SOS beat, which needs no mechanic | No |
 | **Demo account broken** | `npm run demo:reset` — 60 s, restores everything | Any seeded customer works; the OTP is `000000` for all of them | No |
-| **Whole laptop dies** | — | `ppt/RoadAssist-Bharat-FINAL.pdf` (32 pages) plus the 15 screenshots in `app/docs/screenshots/`, each captured from the running app | Screenshots are real captures. **Say they are screenshots** |
+| **Whole laptop dies** | Borrow any device and open the live demo, https://app.roadassistbharat.online — one Render service in Singapore on a free plan, so allow ~1 min to wake after 15 min idle. Ordinary demo accounts use the on-screen OTP; the admin, RAKSHA officer and listed mechanics sign in by email code only | `ppt/RoadAssist-Bharat-FINAL.pdf` (32 pages) plus the 15 screenshots in `app/docs/screenshots/`, each captured from the running app | Screenshots are real captures. **Say they are screenshots.** The hosted demo is real but runs `NODE_ENV=demo` with mock payments and no real SMS — say that too |
 
 ## Pre-recorded material
 

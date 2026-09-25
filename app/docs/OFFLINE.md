@@ -31,7 +31,7 @@ simplification.
 | Booking state changes | YES | **NO** | Server-authoritative (ADR-0004). Never queued |
 | Add a vehicle / file a hazard report | YES | **QUEUED** | Safe to replay; the server de-duplicates by operation id |
 | Cloud synchronisation | YES | **QUEUED** | Store-and-forward, exponential backoff with full jitter |
-| App shell / PWA start | YES | **YES** | Service worker `ra-v4` caches the shell, both consoles and the fonts |
+| App shell / PWA start | YES | **YES** | Service worker `ra-v8` caches the shell, the map, the mechanic console and the fonts |
 | Emergency instructions | YES | **YES** | Static text on the device |
 
 ---

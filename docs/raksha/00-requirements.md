@@ -8,6 +8,18 @@
 > official government classification, guaranteed prediction, or field-proven
 > battery life. Those claims require measurement and verification we have not done.
 
+> **Update, 2026-09-25 — annotated, not rewritten.** The baseline below is the
+> 2026-08-23 plan and stays as written. Since then real model output exists: a
+> YOLO11n trained on RDD2022-India (mAP50 0.443, `ai/train-full.log`) produced
+> the 34 detections in `ai/cv-detections-full.json`, and the demo deployment
+> seeds them at boot through the ingest route
+> (`app/apps/api/src/demo/raksha-demo-seed.ts`). The detections are real; their
+> NH-48 **positions are SIMULATED** (RDD2022 images carry no GPS), and so is
+> the patrol device. The best run so far is a YOLO11s (`yolo11s-multi-rich`,
+> mAP50 0.472), still undertrained — see `ai/README.md`. The demo is hosted in
+> Singapore, so the "No PII leaves India" constraint below is the production
+> target, not yet true of the demo. No camera is on a road.
+
 ---
 
 ## 1. Problem statement

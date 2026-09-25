@@ -59,6 +59,34 @@ describe("fetchTile", () => {
     assert.match(!r.ok ? r.cause : "", /fetch failed/);
   });
 
+  it("tries once more after a broken connection or a 5xx, and never after a 4xx", async () => {
+    const calls = (seq: Array<number | "throw">) => {
+      let n = 0;
+      const f: TileFetch = async (u, init) => {
+        const step = seq[Math.min(n++, seq.length - 1)];
+        if (step === "throw") throw new TypeError("fetch failed");
+        return answer(step)(u, init);
+      };
+      return { f, count: () => n };
+    };
+    for (const seq of [["throw", 200], [503, 200]] as Array<Array<number | "throw">>) {
+      const c = calls(seq);
+      const r = await fetchTile(URL_, { userAgent: UA, fetchImpl: c.f, retryDelayMs: 0 });
+      assert.equal(r.ok, true, `${seq.join(" then ")} should recover`);
+      assert.equal(c.count(), 2);
+    }
+    for (const status of [404, 429]) {
+      const c = calls([status, 200]);
+      const r = await fetchTile(URL_, { userAgent: UA, fetchImpl: c.f, retryDelayMs: 0 });
+      assert.equal(r.ok, false, `a ${status} is not asked again`);
+      assert.equal(c.count(), 1);
+    }
+    const twice = calls([500, 500]);
+    const r = await fetchTile(URL_, { userAgent: UA, fetchImpl: twice.f, retryDelayMs: 0 });
+    assert.equal(!r.ok && r.status, 502, "two failures in a row are still a 502");
+    assert.equal(twice.count(), 2, "only one retry");
+  });
+
   it("turns a body cut off halfway into a 502", async () => {
     const r = await fetchTile(URL_, {
       userAgent: UA,
