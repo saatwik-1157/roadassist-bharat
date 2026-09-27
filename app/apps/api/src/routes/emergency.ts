@@ -20,7 +20,7 @@
  *     retry that creates a second incident sends a second ambulance.
  */
 import type { FastifyInstance } from "fastify";
-import { and, eq, isNull, sql as raw } from "drizzle-orm";
+import { and, desc, eq, isNull, notInArray, sql as raw } from "drizzle-orm";
 import { z } from "zod";
 
 import * as S from "@roadassist/db";
@@ -36,7 +36,7 @@ import { t, resolveLocale } from "../i18n.js";
 import { fail } from "../errors.js";
 import { logOp } from "../observability.js";
 import {
-  applyIncident, PUBLIC_STAGE, type IncidentStatus,
+  allowedIncidentCommands, applyIncident, PUBLIC_STAGE, type IncidentStatus,
 } from "../domain/incident-machine.js";
 
 export async function emergencyRoutes(app: FastifyInstance) {
@@ -267,6 +267,34 @@ export async function emergencyRoutes(app: FastifyInstance) {
 
     return ok({ id, status: to, stage: PUBLIC_STAGE[to], outcome },
       { note: "The emergency is closed. A new one needs a new incident." });
+  });
+
+  /**
+   * The caller's emergencies that are still open.
+   *
+   * Nothing listed them. The SOS screen held the one it had just raised, so an
+   * app that was closed, killed or reinstalled mid-emergency could no longer
+   * see it - or say "I'm safe" and close it. It stayed open on the server with
+   * nobody able to end it but an operator. Only the caller's own, only the
+   * open ones, newest first, and with what may be done to each.
+   */
+  app.get("/v1/me/incidents", { preHandler: authenticate }, async (req) => {
+    const rows = await db.select({
+      id: S.incidents.id, status: S.incidents.status, severity: S.incidents.severity,
+      reference: S.incidents.clientIncidentId, raisedAt: S.incidents.createdAt,
+    }).from(S.incidents)
+      .where(and(eq(S.incidents.userId, req.user!.sub), isNull(S.incidents.deletedAt),
+                 notInArray(S.incidents.status, ["RESOLVED", "CANCELLED"])))
+      .orderBy(desc(S.incidents.createdAt)).limit(5);
+    return ok(rows.map((r) => {
+      const status = r.status as IncidentStatus;
+      return {
+        id: r.id, status, stage: PUBLIC_STAGE[status], reference: r.reference ?? null,
+        raisedAt: r.raisedAt.toISOString(), severity: r.severity,
+        canResolve: allowedIncidentCommands(status).includes("resolve"),
+        canCancel: allowedIncidentCommands(status).includes("cancel"),
+      };
+    }), { note: "Open emergencies only; a resolved or cancelled one is history." });
   });
 
   /** Escalation ladder. Each rung is timed so the <10s claim is measured, not asserted. */

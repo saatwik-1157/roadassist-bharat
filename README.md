@@ -168,12 +168,12 @@ database migrated from empty and seeded.
 
 | | |
 |---|---|
-| **757 assertions**, six suites, zero failures | 225 unit · 191 e2e · 77 concurrency · 74 attacks · 27 gateway security · 163 browser |
-| Android | 93 tests, zero lint errors, release APK under R8 |
+| **760 assertions**, six suites, zero failures | 225 unit · 194 e2e · 77 concurrency · 74 attacks · 27 gateway security · 163 browser |
+| Android | 109 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`). No account needed — the script stubs Razorpay's Orders API locally — but it only runs against an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so it is outside the six suites, was not re-run for these figures, and is never described as passing |
 | Schema | 56 tables · 138 indexes · 7 migrations |
-| API | 67 routes — 64 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
+| API | 68 routes — 65 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
 | Localisation | 8 languages — **not native-reviewed** |
 
 The security suite is 74 attacks that must every one be refused: cross-tenant
@@ -222,7 +222,7 @@ auto-fills.
 npm run verify               # typecheck · lint · boundaries · claims · citations · no-llm · residency · unit
 ```
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (93
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (109
 tests). Build on **JDK 21** — Gradle 8.13 rejects 25. A fresh install talks to
 the live platform, `https://app.roadassistbharat.online`; to use a local API,
 long-press the wordmark on the sign-in screen and type its address (for example
@@ -239,7 +239,7 @@ the authority dashboard empty.
 
 | Path | What | Toolchain |
 |---|---|---|
-| `app/apps/api` | Fastify API — 67 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
+| `app/apps/api` | Fastify API — 68 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
 | `app/apps/web` | Citizen, mechanic, authority and map surfaces | Plain HTML/CSS/JS |
 | `app/packages/db` | Drizzle schema, migrations, seeds | PostgreSQL 16 + PostGIS |
 | `app/scripts` | Six test runners, the claims and citation gates, the RAKSHA simulator | Node |

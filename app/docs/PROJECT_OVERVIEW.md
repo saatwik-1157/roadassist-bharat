@@ -65,25 +65,25 @@ Pages at <https://roadassistbharat.online>.
 
 - **56 tables**, 62 foreign keys, 138 indexes, 5 GiST spatial indexes,
   7 migrations
-- **67 routes**, 64 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
+- **68 routes**, 65 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
 - **6 web surfaces**: citizen app, mechanic console, authority dashboard, live
   map, landing, showcase
 - **11 ADRs**, an enforced module-boundary check, and a 20-row failure matrix
 
 ## Verification
 
-**757 assertions executed across six suites, no failures**, against a real
+**760 assertions executed across six suites, no failures**, against a real
 PostgreSQL + PostGIS and a real Chrome:
 
 | Suite | Assertions |
 |---|---|
 | Unit | 225 |
-| End-to-end | 191 |
+| End-to-end | 194 |
 | Concurrency + real-time | 77 |
 | Security (attacks that must fail) | 74 |
 | Gateway security | 27 |
 | Browser / offline | 163 |
-| **Total** | **757** |
+| **Total** | **760** |
 
 Not in that total: 22 Razorpay checks (`npm run test:razorpay`). They need no
 Razorpay account — the script stubs the Orders API locally — but they only run

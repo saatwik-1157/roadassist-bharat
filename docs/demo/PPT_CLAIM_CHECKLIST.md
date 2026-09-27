@@ -33,7 +33,7 @@ re-exported to PDF on 2026-09-25.
 | 21 | "Full test suite passes AGAINST the image" | True — verified in an earlier phase | — | **GREEN** | None |
 | 22 | "Two are built. Six are design. I will not show you an animation and call it an autoscaler." | Workload distribution + resource pooling built; rest design | `dispatch.ts` | **GREEN** | None — the strongest slide in the deck |
 | 23 | "Static vs dynamic scheduling" | Both real | `OFFER_SWEEP_SECONDS`, `dispatch.ts` | **GREEN** | None |
-| 24 | **"757 assertions, all executed"** | 757 execute across six suites; 22 payment checks sit outside the total, not executed | `app/docs/measured.json` | **GREEN** *(was RED)* | **Already fixed** — see below |
+| 24 | **"760 assertions, all executed"** | 760 execute across six suites; 22 payment checks sit outside the total, not executed | `app/docs/measured.json` | **GREEN** *(was RED)* | **Already fixed** — see below |
 | 25 | "Twenty rows in the failure matrix" | `architecture/failure-matrix.md` has 20 | — | **GREEN** | None |
 | 26 | "Marked from the code, not from intent" | Consistent with the mapping | — | **GREEN** | None |
 | 27 | "The demo is one free-tier instance in Singapore (Render + Neon) — no India region, no cluster." | True — live at `app.roadassistbharat.online` | `render.yaml` | **GREEN** *(was RED: "Nothing is deployed")* | **Fixed 2026-09-25.** Volunteering the limits is still worth marks |
@@ -47,8 +47,8 @@ re-exported to PDF on 2026-09-25.
 **Slide 24 previously read "600 assertions, all executed"**, with a footer  <!-- claims-check:ignore: quotes the corrected-away figure on purpose -->
 reading "600 assertions · 7 suites · 0 failures".  <!-- claims-check:ignore: quotes the corrected-away figure on purpose -->
 
-Only **six** suites actually execute — **757** assertions as re-measured on
-2026-09-12 (unit 225 · e2e 191 · concurrency 77 · security 74 · gateway
+Only **six** suites actually execute — **760** assertions as re-measured on
+2026-09-12 (unit 225 · e2e 194 · concurrency 77 · security 74 · gateway
 security 27 · browser 163). The seventh — 22 payment-gateway checks in
 `razorpay-test.mjs` — needs no Razorpay account (it starts its own local stub),
 but it refuses to run unless the API was started separately in Razorpay mode
@@ -57,8 +57,8 @@ executed. Presenting it as passing is precisely the failure this deck otherwise
 avoids, and a professor who asked *"show me the seventh suite"* would have found
 it was never part of the run.
 
-**Applied:** slide retitled **"757 assertions, all executed"**; the footer should
-read "757 assertions · 6 suites · 0 failures · 56 tables · 67 routes · 11 ADRs".
+**Applied:** slide retitled **"760 assertions, all executed"**; the footer should
+read "760 assertions · 6 suites · 0 failures · 56 tables · 68 routes · 11 ADRs".
 The deck was rebuilt (`python ppt/make_final.py`) and re-exported to PDF (32 pages,
 verified). The same correction was applied to six documents — see
 `CLAIM_VERIFICATION_FINAL.md`.
@@ -72,7 +72,7 @@ the PDF re-exported (32 pages; text checked with `pypdf`):
 | Deck text (old) | Correct |
 |---|---|
 | Slide 27: "Nothing is deployed to a cloud — no account, no domain, no cluster." | Demo live at `app.roadassistbharat.online` — one Render service + Neon Postgres (Singapore); still no cluster |
-| Footer "65 routes · 10 ADRs"  <!-- claims-check:ignore: quotes the stale deck footer on purpose --> | 67 routes (64 under `/v1`) · 11 ADRs |
+| Footer "65 routes · 10 ADRs"  <!-- claims-check:ignore: quotes the stale deck footer on purpose --> | 68 routes (65 under `/v1`) · 11 ADRs |
 | Testing slide "Unit 101" | Unit 225 |
 
 ## Wording to use if asked about the seventh suite

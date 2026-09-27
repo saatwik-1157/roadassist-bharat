@@ -79,7 +79,7 @@ Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
 npm test                 # 225 unit — no I/O, the only ones that run standalone
-npm run test:e2e         # 191
+npm run test:e2e         # 194
 npm run test:concurrency # 77
 npm run test:gateway     # 27
 npm run test:security    # 74 attacks, every one must be refused
@@ -106,9 +106,9 @@ docker compose -f docker-compose.demo.yml up -d
 local stub of the Orders API and signs webhooks with a stub secret — but it
 refuses to run (exit 2) unless the API was started with the variables in the
 script's header (`PAYMENTS_PROVIDER=razorpay`, `PAYMENTS_BASE_URL` at the stub).
-It is **not** part of the 757 and must never be described as passing.
+It is **not** part of the 760 and must never be described as passing.
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (93
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (109
 tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
 
 ## Toolchain traps

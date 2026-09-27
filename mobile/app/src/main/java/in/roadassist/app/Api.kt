@@ -227,6 +227,31 @@ object Api {
 
     suspend fun delete(path: String): JSONObject = request("DELETE", path, null)
 
+    /**
+     * The caller's emergencies that are still open, newest first (at most 5).
+     *
+     * A server from before this endpoint existed answers 404; that is "nothing
+     * to show", not a failure, so Home simply has no card. Every other error
+     * propagates like any other call.
+     */
+    suspend fun openIncidents(): List<OpenIncident> =
+        try {
+            OpenIncidents.parse(get("/v1/me/incidents"))
+        } catch (e: ApiException) {
+            if (e.status == 404) emptyList() else throw e
+        }
+
+    /** "I'm safe": close an open emergency as self-resolved. */
+    suspend fun resolveIncident(id: String): JSONObject = close(id, OpenIncidents.Action.RESOLVE)
+
+    /** "False alarm": cancel an open emergency. */
+    suspend fun cancelIncident(id: String): JSONObject = close(id, OpenIncidents.Action.CANCEL)
+
+    private suspend fun close(id: String, action: OpenIncidents.Action): JSONObject {
+        val (path, body) = OpenIncidents.closeRequest(id, action)
+        return post(path, body)
+    }
+
     /** Store both tokens from an OTP-verify (or refresh) response. */
     fun adoptSession(data: JSONObject) {
         token = data.optString("accessToken").takeIf { it.isNotBlank() } ?: token

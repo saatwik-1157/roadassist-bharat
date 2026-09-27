@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -505,6 +506,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                         0 -> Box(Modifier.fillMaxSize().background(Bg)) {
                             HomeScreen(
                                 msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel,
+                                online = online,
                                 onVehicle = { id, label -> vehicleId = id; vehicleLabel = label },
                                 onBook = { tab = 1 },
                                 onReport = { showReport = true },
@@ -1414,6 +1416,7 @@ private const val SOS_GRACE_S = 5
 @Composable
 private fun HomeScreen(
     msisdn: String, vehicleId: String?, vehicleLabel: String?,
+    online: Boolean,
     onVehicle: (String, String) -> Unit,
     onBook: () -> Unit, onReport: () -> Unit, onLayers: () -> Unit, onToast: (String) -> Unit,
 ) {
@@ -1424,14 +1427,102 @@ private fun HomeScreen(
     var busy by remember { mutableStateOf(false) }
     var sosResult by remember { mutableStateOf<String?>(null) }
     val classes = listOf("car", "motorcycle", "scooter", "auto_rickshaw", "truck", "bus", "tractor", "ev")
+    val ctx = LocalContext.current
+
+    // ── open emergencies ────────────────────────────────────────────────
+    // The SOS UI used to exist only while raising one, so an emergency raised
+    // before the app was closed, killed or reinstalled could no longer be seen
+    // or closed from the phone. Home now asks the server which are still open
+    // on entry, whenever the phone comes back online, and after the SOS flow
+    // finishes (bumping incidentsKey), and shows a card for each at the top.
+    var incidents by remember { mutableStateOf<List<OpenIncident>>(emptyList()) }
+    var incidentsKey by remember { mutableIntStateOf(0) }
+    // The card action waiting on its confirm dialog, and whether one is in flight.
+    var pendingClose by remember { mutableStateOf<Pair<OpenIncident, OpenIncidents.Action>?>(null) }
+    var closing by remember { mutableStateOf(false) }
+    LaunchedEffect(incidentsKey, online) {
+        if (!online || !Emergency.hasData(ctx)) return@LaunchedEffect
+        // A failed lookup keeps whatever was shown. It must never toast on every
+        // visit to Home, and never stand between the person and the SOS button.
+        incidents = try {
+            Api.openIncidents()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return@LaunchedEffect
+        }
+    }
+
+    pendingClose?.let { (incident, action) ->
+        val resolve = action == OpenIncidents.Action.RESOLVE
+        AlertDialog(
+            // Dismissing is the safe answer here: the emergency stays open.
+            onDismissRequest = { if (!closing) pendingClose = null },
+            containerColor = Panel,
+            title = {
+                Text(
+                    stringResource(if (resolve) R.string.incident_confirm_resolve_title else R.string.incident_confirm_cancel_title),
+                    color = Alarm, fontSize = 19.sp,
+                )
+            },
+            text = {
+                Text(
+                    stringResource(if (resolve) R.string.incident_confirm_resolve_body else R.string.incident_confirm_cancel_body),
+                    color = Muted, style = RaType.label, lineHeight = 18.sp,
+                )
+            },
+            confirmButton = {
+                Button(
+                    enabled = !closing,
+                    onClick = {
+                        closing = true
+                        scope.launch {
+                            try {
+                                if (resolve) Api.resolveIncident(incident.id) else Api.cancelIncident(incident.id)
+                                incidents = OpenIncidents.without(incidents, incident.id)
+                                onToast(ctx.getString(if (resolve) R.string.toast_incident_closed else R.string.toast_incident_false_alarm))
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                // The server's own title (e.g. it was already closed
+                                // elsewhere), then re-read so a stale card goes.
+                                onToast(e.message ?: "Failed")
+                                incidentsKey++
+                            } finally {
+                                closing = false
+                                pendingClose = null
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Alarm, contentColor = Color.White),
+                ) {
+                    Text(
+                        stringResource(if (resolve) R.string.incident_action_resolve else R.string.incident_action_cancel),
+                        style = RaType.label, fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = !closing, onClick = { pendingClose = null }) {
+                    Text(stringResource(R.string.incident_keep_open), color = Muted, style = RaType.label)
+                }
+            },
+        )
+    }
 
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
+        incidents.forEach { incident ->
+            OpenIncidentCard(
+                incident = incident,
+                enabled = !closing,
+                onAction = { action -> pendingClose = incident to action },
+            )
+        }
         Heading(R.string.head_home_plain, R.string.head_home_italic)
         Sub("$msisdn " + stringResource(R.string.signed_in_suffix))
 
         // SOS — the fallback ladder: data → SMS → 112 → queue. Works with no net.
-        val ctx = LocalContext.current
         val DEMO_LAT = 28.4595; val DEMO_LNG = 77.0266   // fallback if no GPS fix yet
         // Arm the no-data (SMS) and real-location rungs by requesting both perms.
         val perms = rememberLauncherForActivityResult(
@@ -1488,6 +1579,8 @@ private fun HomeScreen(
                 }
                 onToast("SOS via ${result.rung}")
                 busy = false
+                // Show (or refresh) the open-emergency card for what was just raised.
+                incidentsKey++
             }
         }
 
@@ -1663,6 +1756,70 @@ private fun HomeScreen(
 
         Spacer(Modifier.height(8.dp))
         if (busy) Loading()
+    }
+}
+
+/**
+ * One emergency still open on the server: red-bordered, above everything else
+ * on Home. The buttons are exactly what the server says is legal for it
+ * ([OpenIncidents.actions]); each goes through a confirm dialog in HomeScreen.
+ */
+@Composable
+private fun OpenIncidentCard(
+    incident: OpenIncident,
+    enabled: Boolean,
+    onAction: (OpenIncidents.Action) -> Unit,
+) {
+    val ctx = LocalContext.current
+    val raised = remember(incident.raisedAt) {
+        OpenIncidents.raisedLocal(
+            incident.raisedAt,
+            java.time.ZoneId.systemDefault(),
+            java.util.Locale.getDefault(),
+            android.text.format.DateFormat.is24HourFormat(ctx),
+        ) ?: "—"
+    }
+    val stage = when (OpenIncidents.stage(incident)) {
+        OpenIncidents.Stage.CREATED -> stringResource(R.string.incident_stage_created)
+        OpenIncidents.Stage.RECEIVED -> stringResource(R.string.incident_stage_received)
+        OpenIncidents.Stage.RESPONDING -> stringResource(R.string.incident_stage_responding)
+        OpenIncidents.Stage.OTHER -> stringResource(R.string.incident_stage_other, OpenIncidents.readableStage(incident.stage))
+    }
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel),
+        border = BorderStroke(2.dp, Alarm),
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+    ) {
+        Column(Modifier.padding(17.dp)) {
+            Text(
+                "● " + stringResource(R.string.incident_open_title),
+                color = Alarm, style = RaType.title, fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                stringResource(R.string.incident_raised, raised, OpenIncidents.label(incident)),
+                color = Cream, style = RaType.label, modifier = Modifier.padding(top = 6.dp),
+            )
+            Text(stage, color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
+            OpenIncidents.actions(incident).forEach { action ->
+                when (action) {
+                    OpenIncidents.Action.RESOLVE -> Button(
+                        onClick = { onAction(action) },
+                        enabled = enabled,
+                        shape = RoundedCornerShape(RaRadius.full),
+                        colors = ButtonDefaults.buttonColors(containerColor = Alarm, contentColor = Color.White),
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
+                    ) { Text(stringResource(R.string.incident_action_resolve), style = RaType.label, fontWeight = FontWeight.SemiBold) }
+                    OpenIncidents.Action.CANCEL -> OutlinedButton(
+                        onClick = { onAction(action) },
+                        enabled = enabled,
+                        shape = RoundedCornerShape(RaRadius.full),
+                        border = BorderStroke(1.dp, Alarm.copy(alpha = 0.7f)),
+                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp).height(46.dp),
+                    ) { Text(stringResource(R.string.incident_action_cancel), color = Alarm, style = RaType.label) }
+                }
+            }
+        }
     }
 }
 

@@ -8,7 +8,7 @@ India whose emergency path keeps working when the network does not.
 ---
 
 ### Architecture
-PWA / Android / feature-phone SMS → **Fastify API** (67 routes, 64 under `/v1`,
+PWA / Android / feature-phone SMS → **Fastify API** (68 routes, 65 under `/v1`,
 zod at every boundary) → five modules (identity, fleet, service, ops, RAKSHA)
 with **CI-enforced** boundaries → **PostgreSQL 16 + PostGIS 3.4**. Every vendor
 behind an adapter with a local implementation → runs on **zero paid accounts**.
@@ -69,8 +69,8 @@ request. Signature recomputed server-side. Forged → settles nothing. Replay �
 no double charge. **`mock` on the deployment, stub in tests — no live gateway.**
 
 ### Testing
-Unit **225** · E2E **191** · Gateway **27** · Concurrency **77** · Security **74**
-· Browser **163** = **757 executed, 0 failures**. Plus a 15-beat
+Unit **225** · E2E **194** · Gateway **27** · Concurrency **77** · Security **74**
+· Browser **163** = **760 executed, 0 failures**. Plus a 15-beat
 timed demo rehearsal. **Outside the total, not executed:** 22 payment checks —
 no account needed (local stub), but they need the API started separately in
 Razorpay mode. **Say so.**

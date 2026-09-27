@@ -14,11 +14,11 @@
   "measuredOn": "2026-09-12",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 757,
+    "total": 760,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
       "unit": 225,
-      "e2e": 191,
+      "e2e": 194,
       "concurrency": 77,
       "gatewaySecurity": 27,
       "securityAudit": 74,
@@ -29,7 +29,7 @@
       "why": "scripts/razorpay-test.mjs needs NO Razorpay account: it starts its own local stub of the Orders API and signs webhooks with a stub secret. It refuses to run (exit 2) unless the API was started separately with PAYMENTS_PROVIDER=razorpay and PAYMENTS_BASE_URL pointed at that stub, so it is outside every npm test run and was not re-run for this measurement. Never counted in the total, never described as passing"
     },
     "otherRunners": {
-      "android": 93,
+      "android": 109,
       "sosLadder": 21,
       "ai": 39,
       "why": "separate toolchains with their own runners; not part of the six-suite total",
@@ -82,16 +82,16 @@
     ]
   },
   "api": {
-    "routes": 67,
+    "routes": 68,
     "how": [
       "Count app.get/post/patch/put/delete call sites across apps/api/src:",
       "34 in server.ts + 16 in raksha.ts + 3 in routes/auth.ts",
-      "+ 2 in routes/email-auth.ts + 5 in routes/emergency.ts",
+      "+ 2 in routes/email-auth.ts + 6 in routes/emergency.ts",
       "+ 1 in routes/telecom.ts + 3 in routes/mechanic.ts + 3 in routes/payments.ts.",
       "",
       "  grep -rnE 'app[.](get|post|put|patch|delete)[(]' apps/api/src | wc -l",
       "",
-      "64 of the 67 are under /v1. The other three are infrastructure, all in",
+      "65 of the 68 are under /v1. The other three are infrastructure, all in",
       "server.ts: GET /tiles/:z/:x/:file, GET /basemap/:z/:x/:file and GET /health.",
       "",
       "The SPLIT moves whenever a route group is lifted out of server.ts — it was",
@@ -116,7 +116,7 @@
       "gu"
     ],
     "serverKeys": 18,
-    "androidKeys": 108,
+    "androidKeys": 123,
     "webKeys": 30,
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."

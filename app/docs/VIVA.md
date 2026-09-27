@@ -365,7 +365,7 @@ idempotent. Production refuses to boot on a real gateway with no webhook secret.
 wrong order, unconfigured secret — each is written to fail closed. They need no
 account (the script starts its own stub and signs with a stub secret), but they
 refuse to run unless the API was started with `PAYMENTS_PROVIDER=razorpay`, so
-they sit outside the 757 and were not re-run for that measurement. Never run
+they sit outside the 760 and were not re-run for that measurement. Never run
 against a real account; the deployment itself uses the mock provider.
 
 ### 29. Why PostgreSQL/PostGIS?
@@ -501,7 +501,7 @@ labels it as such. The road-damage models are genuinely trained YOLO11
 detectors with measured metrics — best run YOLO11s mAP50 0.472; the YOLO11n
 India model RAKSHA shows scored 0.443. I will not call the first one AI.
 
-**"Did you actually test it, or does it just look right?"** — 757 assertions
+**"Did you actually test it, or does it just look right?"** — 760 assertions
 across six suites, all executed with no failures, including 74 attacks that must
 fail and a concurrency suite that fires ten simultaneous accepts. The 22 Razorpay
 checks need no account — they run against their own local stub — but only when

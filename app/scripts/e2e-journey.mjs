@@ -763,6 +763,15 @@ const emergency = await call("POST", "/v1/sos", { token, body: { lat: 28.4595, l
 const incidentId = emergency.data?.incidentId ?? emergency.data?.id;
 ok("an incident exists to break glass on", Boolean(incidentId));
 
+// An app restarted mid-emergency must still find it, to close it.
+const openMine = await call("GET", "/v1/me/incidents", { token });
+ok("the caller's open emergency is listed, with what may be done to it",
+   openMine.status === 200 && openMine.data?.some((i) => i.id === incidentId && typeof i.canCancel === "boolean"),
+   `got ${openMine.status} ${openMine.data?.length ?? ""}`);
+const openTheirs = await call("GET", "/v1/me/incidents", { token: otherToken });
+ok("nobody else's emergencies are in that list",
+   openTheirs.status === 200 && !openTheirs.data?.some((i) => i.id === incidentId), `got ${openTheirs.status}`);
+
 const selfServe = await call("GET", `/v1/incidents/${incidentId}/medical?reason=curious+about+this+record`, { token });
 ok("a citizen cannot break glass on anyone, including themselves", selfServe.status === 403,
    `got ${selfServe.status}`);
@@ -786,6 +795,9 @@ ok("the subject can see who opened their record, and why",
 ok("the subject was notified it happened", Boolean(accessLog.data?.[0]?.notifiedAt));
 
 await call("POST", `/v1/sos/${incidentId}/cancel`, { token });
+const openAfter = await call("GET", "/v1/me/incidents", { token });
+ok("a closed emergency leaves the open list",
+   openAfter.status === 200 && !openAfter.data?.some((i) => i.id === incidentId), `got ${openAfter.status}`);
 const afterIncidentClosed = await call("GET", `/v1/incidents/${incidentId}/medical?reason=${encodeURIComponent(REASON)}`,
                                { token: adminToken });
 ok("break glass closes once the emergency is over",

@@ -1,11 +1,11 @@
 # Testing
 
-Six suites, 757 assertions, all executed against a real PostgreSQL + PostGIS and a
+Six suites, 760 assertions, all executed against a real PostgreSQL + PostGIS and a
 real Chrome, with no failures. A seventh — 22 payment-gateway checks in
 `scripts/razorpay-test.mjs` — needs **no** Razorpay account (it runs its own
 local stub of the Orders API), but refuses to run unless the API was started
 with `PAYMENTS_PROVIDER=razorpay` pointed at that stub; it is therefore outside
-the 757, was not re-run for these figures, and is never described as passing.
+the 760, was not re-run for these figures, and is never described as passing.
 Nothing here is mocked except the third-party vendors, and each
 of those has a stub that speaks the vendor's actual wire format.
 
@@ -45,10 +45,10 @@ expected outcome of each, and times it. It fails if any beat fails.
 | Suite | Assertions | What it exists for |
 |---|---|---|
 | `npm test` (node:test) | **225** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. |
-| `scripts/e2e-journey.mjs` | **191** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. |
+| `scripts/e2e-journey.mjs` | **194** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. |
 | `scripts/concurrency-test.mjs` | **77** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
 | `scripts/gateway-security-test.mjs` | **27** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |
-| `scripts/razorpay-test.mjs` | **22** — not in the 757 | Payment negative space, against a local stub (no account); only runs against an API started with `PAYMENTS_PROVIDER=razorpay`, and not re-run for these figures: forged signature, replayed delivery, wrong amount, wrong order, unconfigured secret — each must fail closed. |
+| `scripts/razorpay-test.mjs` | **22** — not in the 760 | Payment negative space, against a local stub (no account); only runs against an API started with `PAYMENTS_PROVIDER=razorpay`, and not re-run for these figures: forged signature, replayed delivery, wrong amount, wrong order, unconfigured secret — each must fail closed. |
 | `scripts/security-audit.mjs` | **74** | Application-level penetration checks — every case is an attack that must FAIL: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error-body leakage, rate limits. Three real vulnerabilities were found by this suite and fixed. |
 | `scripts/ui-journey.mjs` | **163** | What only a browser can prove: the app boots without a console error, a session survives a reload, an offline payment is refused rather than queued, live updates arrive without polling, and the complete Off-Grid Mode scenario end to end. |
 
@@ -58,7 +58,7 @@ Every integration suite has been run against the container built by
 `app/Dockerfile`, not only against `tsx` on the source tree:
 
 ```
-E2E vs container image          191 passed, 0 failed
+E2E vs container image          194 passed, 0 failed
 Concurrency vs container image   64 passed, 0 failed
 Gateway vs container image       26 passed, 0 failed
 Browser vs container image      163 passed, 0 failed
@@ -169,7 +169,7 @@ that reach the people with the worst connections and the cheapest phones, first.
 | Surface | Covered | Not covered |
 |---|---|---|
 | API (SMS + OTP) | **Everything the platform sends**, in all 8 — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
-| Android | **The user-facing UI**, in all 8 — 108 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer and the user-facing toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | Seven literals remain, all of them diagnostics or wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
+| Android | **The user-facing UI**, in all 8 — 123 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer and the user-facing toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | Seven literals remain, all of them diagnostics or wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
 | Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 30 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 
@@ -261,7 +261,7 @@ now samples 25 times so its p95 is a percentile.
 | `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
 | `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
 | `boundaries` | four fitness functions: module boundaries, the offline-shell completeness check, the documented-claims check and the code-citation check |
-| `android` | lint, 93 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
+| `android` | lint, 109 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
 | `ai` | syntax-checks every CV script and runs the pipeline unit tests |
 
 `android` and `ai` were added because `mobile/` and `ai/` ship as real artefacts

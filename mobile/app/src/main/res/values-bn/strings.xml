@@ -124,4 +124,19 @@
     <string name="layers_offline_body">আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন। ইন্টারনেট ছাড়াও SOS কাজ করে।</string>
     <string name="action_retry">আবার চেষ্টা করুন</string>
     <string name="cd_back">ফিরে যান</string>
+    <string name="incident_open_title">জরুরি অবস্থা খোলা আছে</string>
+    <string name="incident_raised">তোলা হয়েছে %1$s · %2$s</string>
+    <string name="incident_stage_created">তোলা হয়েছে — নিশ্চিতকরণের অপেক্ষায়</string>
+    <string name="incident_stage_received">SOS পাওয়া গেছে — আপনার পরিচিতি ও উদ্ধারকারীদের জানানো হচ্ছে</string>
+    <string name="incident_stage_responding">উদ্ধারকারীদের জানানো হয়েছে</string>
+    <string name="incident_stage_other">পর্যায়: %1$s</string>
+    <string name="incident_action_resolve">আমি নিরাপদ — এটি বন্ধ করুন</string>
+    <string name="incident_action_cancel">ভুল সতর্কতা</string>
+    <string name="incident_confirm_resolve_title">এই জরুরি অবস্থা বন্ধ করবেন?</string>
+    <string name="incident_confirm_resolve_body">আপনি নিরাপদ থাকলে এবং আর সাহায্যের দরকার না হলে তবেই এটি করুন। উদ্ধারকারীরা এটি নিয়ে কাজ বন্ধ করবেন।</string>
+    <string name="incident_confirm_cancel_title">ভুল সতর্কতা হিসেবে নথিভুক্ত করবেন?</string>
+    <string name="incident_confirm_cancel_body">এই জরুরি অবস্থা ভুল সতর্কতা হিসেবে বাতিল হবে এবং কেউ সাড়া দেবে না।</string>
+    <string name="incident_keep_open">খোলা রাখুন</string>
+    <string name="toast_incident_closed">জরুরি অবস্থা বন্ধ হয়েছে</string>
+    <string name="toast_incident_false_alarm">ভুল সতর্কতা নথিভুক্ত হয়েছে</string>
 </resources>

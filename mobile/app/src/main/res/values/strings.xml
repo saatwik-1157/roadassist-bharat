@@ -142,4 +142,23 @@
     <string name="layers_offline_body">Check your connection and try again. SOS still works without internet.</string>
     <string name="action_retry">Retry</string>
     <string name="cd_back">Back</string>
+    <!-- Open emergencies: a card per SOS still open on the server, at the top
+         of Home, so one raised before the app was closed, killed or
+         reinstalled can still be seen and closed. Both actions change a live
+         emergency, so each is confirmed first. -->
+    <string name="incident_open_title">Emergency open</string>
+    <string name="incident_raised">Raised %1$s · %2$s</string>
+    <string name="incident_stage_created">Raised — waiting for confirmation</string>
+    <string name="incident_stage_received">SOS received — alerting your contacts and responders</string>
+    <string name="incident_stage_responding">Responders have been alerted</string>
+    <string name="incident_stage_other">Stage: %1$s</string>
+    <string name="incident_action_resolve">I\'m safe — close it</string>
+    <string name="incident_action_cancel">False alarm</string>
+    <string name="incident_confirm_resolve_title">Close this emergency?</string>
+    <string name="incident_confirm_resolve_body">Only do this if you are safe and no longer need help. Responders will stop working on it.</string>
+    <string name="incident_confirm_cancel_title">Record a false alarm?</string>
+    <string name="incident_confirm_cancel_body">This emergency will be cancelled as a false alarm and nobody will respond to it.</string>
+    <string name="incident_keep_open">Keep it open</string>
+    <string name="toast_incident_closed">Emergency closed</string>
+    <string name="toast_incident_false_alarm">False alarm recorded</string>
 </resources>
