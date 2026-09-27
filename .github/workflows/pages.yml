@@ -47,6 +47,12 @@ jobs:
           # The logo, favicon and home-screen icons the page's <head> and nav use.
           mkdir -p _site/brand
           cp pages/brand/* _site/brand/
+          # The Blender render of the layers model: the "Every layer, live in
+          # 3D" frame shows it until the platform's own /layers.html answers,
+          # and keeps showing it when the platform does not. A copy of
+          # app/apps/web/assets/3d/, so a sleeping platform cannot blank it.
+          mkdir -p _site/3d
+          cp pages/3d/*.webp _site/3d/
           # A custom domain would go here as pages/CNAME, copied into the
           # artefact. It is deliberately absent: setting one BEFORE the
           # domain's DNS points at GitHub makes the working github.io URL

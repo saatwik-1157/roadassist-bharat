@@ -497,6 +497,43 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   .surf.is-live{grid-template-columns:1fr}
 }
 
+/* ── layers in live 3D ───────────────────────────────────────────
+   The running platform's own three.js page, framed. Until it answers, and
+   whenever it does not, the frame is the Blender render of the same model.
+   The canvas inside takes every drag, wheel and pinch (it has to, to turn),
+   so a shield sits over it until the viewer asks to use it: scrolling the
+   page past the model never gets caught by it. */
+.l3d{margin:26px 0 0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+     background:var(--bg-2);box-shadow:0 20px 60px -24px rgba(0,0,0,.85)}
+.l3d-vp{position:relative;aspect-ratio:16/10;background:#08090c;overflow:hidden}
+.l3d-vp img,.l3d-vp iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.l3d-vp img{object-fit:cover;transition:opacity .8s}
+.l3d-vp iframe{background:#08090c;opacity:0;transition:opacity .8s}
+.l3d.is-live .l3d-vp iframe{opacity:1}
+.l3d.is-live .l3d-vp img{opacity:0;pointer-events:none}
+.l3d-shield{position:absolute;inset:0;z-index:2;display:flex;align-items:flex-end;justify-content:center;
+  padding:0 0 22px;border:0;margin:0;background:linear-gradient(transparent 62%,rgba(8,9,12,.55));
+  cursor:pointer;font-family:inherit;color:var(--ink)}
+.l3d-shield span{display:inline-flex;align-items:center;gap:8px;font-size:.86rem;font-weight:650;
+  background:rgba(8,9,12,.78);border:1px solid var(--line);padding:10px 18px;border-radius:999px;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:border-color .15s,background .15s}
+.l3d-shield:hover span,.l3d-shield:focus-visible span{border-color:var(--accent);background:rgba(18,21,28,.9)}
+.l3d-bar{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;padding:12px 18px;
+  border-top:1px solid var(--line-soft);font-size:.84rem;color:var(--ink-3)}
+.l3d-bar .dot-live{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;letter-spacing:.11em;
+  font-weight:800;color:var(--ok);flex:0 0 auto}
+.l3d-bar .dot-live b{width:5px;height:5px;border-radius:50%;background:var(--ok);animation:pulse 2s ease-in-out infinite}
+.l3d-bar .dot-live em{font-style:normal}
+.l3d-cap{flex:1 1 260px;min-width:0}
+.l3d-bar .btn{flex:0 0 auto}
+@media (max-width:720px){
+  /* A 16:10 box on a phone is 210px of model. Tall instead, with the page's
+     own panel below the stage scrolling inside it once the shield is down. */
+  .l3d-vp{aspect-ratio:auto;height:80vh;height:80svh;min-height:480px;max-height:760px}
+  .l3d-bar{padding:12px 14px}
+  .l3d-bar .btn{flex:1 1 100%;justify-content:center}
+}
+
 /* ── reveal ─────────────────────────────────────────────────── */
 /* Scoped to .js, set by an inline script before first paint. Without it a
    reader with JavaScript disabled or blocked would get a page whose every
@@ -857,7 +894,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         <a class="btn btn-primary" href="#run">Run the platform</a>
         <a class="btn btn-ghost" href="#raksha">Explore RAKSHA</a>
         <a class="btn btn-ghost" href="#architecture">View architecture</a>
-        <a class="btn btn-ghost" href="https://app.roadassistbharat.online/layers.html">Layers in live 3D</a>
+        <a class="btn btn-ghost" href="#layers">Layers in live 3D</a>
       </div>
     </div>
     <div>
@@ -893,6 +930,32 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       <p class="ls-note"><span class="ls-dot"></span><span data-ls="when">Reading the running platform…</span>
         <span>Read live from <a data-ls="origin" href="#" rel="noopener"></a> every 30 seconds, not typed into this page. RAKSHA positions from RDD2022 images are simulated.</span></p>
     </div>
+  </div>
+</section>
+
+<!-- ═══ LAYERS IN LIVE 3D ═══ -->
+<section id="layers" class="rv">
+  <div class="wrap">
+    <p class="eyebrow">The architecture, running</p>
+    <h2>Every layer, live in 3D</h2>
+    <p class="lead" style="margin-bottom:0">
+      The whole stack as one model, from the four surfaces at the top to the database at the
+      bottom. It turns on its own; open a layer to see what is in it, or press play to watch a
+      real request travel through every one. The readings on it come from the running platform.
+    </p>
+    <figure class="l3d" id="l3d">
+      <div class="l3d-vp">
+        <img src="3d/layers-render-960.webp" srcset="3d/layers-render-960.webp 960w, 3d/layers-render.webp 1920w"
+             sizes="(max-width: 1188px) calc(100vw - 48px), 1092px" width="1920" height="1200" loading="lazy"
+             alt="The layers of RoadAssist Bharat stacked as one model, rendered in Blender">
+        <button class="l3d-shield" type="button" hidden><span>Click to turn, zoom and explore</span></button>
+      </div>
+      <figcaption class="l3d-bar">
+        <span class="dot-live is-shot" id="l3dBadge"><b></b><em>RENDER</em></span>
+        <span class="l3d-cap" id="l3dCap">The same model, rendered in Blender. The live scene loads here from the running platform when it answers.</span>
+        <a class="btn btn-primary btn-sm" id="l3dFull" href="https://app.roadassistbharat.online/layers.html" target="_blank" rel="noopener">Open full screen</a>
+      </figcaption>
+    </figure>
   </div>
 </section>
 
@@ -2693,6 +2756,76 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       document.addEventListener("visibilitychange", function () { if (document.visibilityState === "visible") read(); loop(); });
     })
     .catch(function () { /* no published deployment: no strip */ });
+})();
+</script>
+<script>
+/* Layers in live 3D: the running platform's /layers.html, framed. The address
+   comes from live.json like every other live thing on this page, so this file
+   names no origin of its own to load from, and the same health check decides:
+   a platform that does not answer leaves the Blender render in place and never
+   gets a LIVE badge. Nothing is fetched until the section is close to view. */
+(function () {
+  "use strict";
+  var fig = document.getElementById("l3d");
+  if (!fig || !window.fetch) return;
+  var vp = fig.querySelector(".l3d-vp"), shield = fig.querySelector(".l3d-shield");
+  var badge = document.getElementById("l3dBadge"), cap = document.getElementById("l3dCap");
+  var full = document.getElementById("l3dFull");
+  var started = false, frame = null;
+
+  function arm(on) { if (frame) { shield.hidden = !on; frame.tabIndex = on ? -1 : 0; } }
+
+  function goLive(origin) {
+    var url = origin + "/layers.html";
+    full.href = url;
+    frame = document.createElement("iframe");
+    frame.title = "Every layer of RoadAssist Bharat in live 3D — the running platform";
+    frame.setAttribute("referrerpolicy", "no-referrer");
+    frame.loading = "lazy";
+    frame.addEventListener("load", function () {
+      fig.classList.add("is-live");
+      badge.classList.remove("is-shot");
+      badge.lastChild.textContent = "LIVE";
+      cap.textContent = "Live from " + origin.replace(/^https:\/\//, "") + ". Drag to turn, scroll or pinch to zoom, tap a layer to open it.";
+      arm(true);
+    }, { once: true });
+    frame.src = url;
+    vp.insertBefore(frame, shield);
+  }
+
+  function start() {
+    if (started) return;
+    started = true;
+    fetch("live.json", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (cfg) {
+        var o = cfg && cfg.origin ? String(cfg.origin).replace(/\/+$/, "") : "";
+        if (!/^https:\/\//.test(o)) return;
+        full.href = o + "/layers.html";
+        // A free-tier instance that was asleep takes most of a minute to wake;
+        // the render stays up for all of it rather than a blank frame.
+        var ctl = "AbortController" in window ? new AbortController() : null;
+        var t = setTimeout(function () { if (ctl) ctl.abort(); }, 60000);
+        return fetch(o + "/health", { cache: "no-store", signal: ctl ? ctl.signal : undefined })
+          .then(function (r) { clearTimeout(t); return r.ok ? r.json() : null; })
+          .then(function (h) { if (h && h.data && h.data.status === "ok") goLive(o); });
+      })
+      .catch(function () { /* not answering: the render is the frame */ });
+  }
+
+  shield.addEventListener("click", function () { arm(false); if (frame) frame.focus(); });
+
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (es) {
+      es.forEach(function (e) {
+        if (e.isIntersecting) start();
+        // Scrolled away and back, the page scrolls past it again until asked.
+        else if (frame && shield.hidden) arm(true);
+      });
+    }, { rootMargin: "600px 0px" }).observe(fig);
+  } else {
+    start();
+  }
 })();
 </script>
 </body>

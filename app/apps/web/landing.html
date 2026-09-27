@@ -182,6 +182,39 @@
   @media (prefers-reduced-motion: reduce) {
     .s-stage, .s-route, .s-pin svg, .s-card em i { animation: none !important; }
   }
+
+  /* Every layer in live 3D: /layers.html, framed. The Blender render of the same
+     model holds the space until the scene has loaded. The canvas takes every
+     drag, wheel and pinch, so a shield sits over it until the visitor asks to
+     use it - scrolling this page past the model never gets caught in it. */
+  .l3d { margin: 0; border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden;
+         background: var(--surface); box-shadow: var(--shadow-2); }
+  .l3d-vp { position: relative; aspect-ratio: 16 / 10; background: var(--bg); overflow: hidden; }
+  .l3d-vp img, .l3d-vp iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .l3d-vp img { object-fit: cover; transition: opacity .8s var(--ease); }
+  .l3d-vp iframe { background: var(--bg); opacity: 0; transition: opacity .8s var(--ease); }
+  .l3d.is-live .l3d-vp iframe { opacity: 1; }
+  .l3d.is-live .l3d-vp img { opacity: 0; pointer-events: none; }
+  .l3d-shield { position: absolute; inset: 0; z-index: 2; display: flex; align-items: flex-end;
+                justify-content: center; padding-bottom: var(--s-5);
+                background: linear-gradient(transparent 62%, color-mix(in srgb, var(--bg) 55%, transparent)); }
+  .l3d-shield span { display: inline-flex; align-items: center; gap: var(--s-2); padding: 10px 18px;
+                     border-radius: var(--r-full); border: 1px solid var(--line-2);
+                     background: var(--glass-strong); color: var(--text); font-size: 13px; font-weight: 650;
+                     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+                     box-shadow: var(--shadow-2); transition: border-color var(--t-2) var(--ease); }
+  .l3d-shield:hover span, .l3d-shield:focus-visible span { border-color: var(--line-brand); }
+  .l3d-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-4);
+             padding: var(--s-3) var(--s-5); border-top: 1px solid var(--line); }
+  .l3d-bar .hint { flex: 1 1 260px; min-width: 0; }
+  .l3d-bar .btn { flex: none; }
+  @media (max-width: 719px) {
+    /* A 16:10 box on a phone is 200 px of model. Tall instead; the page's own
+       layer panel sits under its stage and scrolls inside the frame. */
+    .l3d-vp { aspect-ratio: auto; height: 80vh; height: 80svh; min-height: 480px; max-height: 760px; }
+    .l3d-bar { padding: var(--s-3) var(--s-4); }
+    .l3d-bar .btn { flex: 1 1 100%; }
+  }
 </style>
 </head>
 <body>
@@ -198,7 +231,7 @@
       <a href="#how">How help arrives</a>
       <a href="#offgrid">Off-grid</a>
       <a href="#surfaces">Surfaces</a>
-      <a href="/layers.html">Layers in 3D</a>
+      <a href="#layers">Layers in 3D</a>
     </nav>
     <a class="btn" href="/app.html">Open the app</a>
   </div>
@@ -219,7 +252,7 @@
         <div class="cta">
           <a class="btn" href="/app.html">Open the app</a>
           <a class="btn ghost" href="/index.html">See the live request console</a>
-          <a class="btn ghost" href="/layers.html">Every layer in live 3D</a>
+          <a class="btn ghost" href="#layers">Every layer in live 3D</a>
         </div>
         <div class="trust">
           <span class="chip">Works with no data — over SMS</span>
@@ -277,6 +310,34 @@
           <div class="s-bill s-chip" style="left:16%;top:88%">Off-grid · held on the device</div>
         </div></div></div>
         <figcaption id="scene-cap">How a dispatch plays out. An illustration, not live data.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="layers">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow">Under the hood</span>
+        <h2 class="display">Every layer, <em>live in 3D.</em></h2>
+        <p class="sub">
+          The whole platform as one model, from the screens at the top to the database at the
+          bottom. It turns on its own: open a layer to see what is in it, or press play to watch a
+          real request travel through every one. The readings on it come from this server.
+        </p>
+      </div>
+      <figure class="l3d" id="l3d">
+        <div class="l3d-vp">
+          <img src="assets/3d/layers-render-960.webp" srcset="assets/3d/layers-render-960.webp 960w, assets/3d/layers-render.webp 1920w"
+               sizes="(max-width: 1140px) calc(100vw - 48px), 1092px" width="1920" height="1200" loading="lazy"
+               alt="The layers of RoadAssist Bharat stacked as one model, rendered in Blender">
+          <iframe data-src="/layers.html" loading="lazy" referrerpolicy="no-referrer" tabindex="-1"
+                  title="Every layer of RoadAssist Bharat in live 3D"></iframe>
+          <button class="l3d-shield" type="button" hidden><span>Click to turn, zoom and explore</span></button>
+        </div>
+        <figcaption class="l3d-bar">
+          <span class="hint" id="l3dCap">The same model, rendered in Blender, until the live scene has loaded.</span>
+          <a class="btn sm" href="/layers.html">Open full screen</a>
+        </figcaption>
       </figure>
     </div>
   </section>
@@ -480,5 +541,35 @@
   </div>
 </footer>
 <script src="depth.js"></script>
+<script>
+  /* The framed 3D scene. Its address is set here rather than in the markup so a
+     copy of this page that is itself inside a frame (the scene's brand link
+     leads back here) does not open a third level. The shield comes down on a
+     click and goes back up once the model has scrolled out of view. */
+  (function () {
+    "use strict";
+    var fig = document.getElementById("l3d");
+    if (!fig) return;
+    var fr = fig.querySelector("iframe"), shield = fig.querySelector(".l3d-shield");
+    var inFrame = true;
+    try { inFrame = window.self !== window.top; } catch (e) { /* cross-origin parent */ }
+    if (inFrame) { fr.remove(); return; }
+    function arm(on) { shield.hidden = !on; fr.tabIndex = on ? -1 : 0; }
+    fr.addEventListener("load", function () {
+      if (!fr.getAttribute("src")) return;
+      fig.classList.add("is-live");
+      document.getElementById("l3dCap").textContent =
+        "Live from this server. Drag to turn, scroll or pinch to zoom, tap a layer to open it.";
+      arm(true);
+    });
+    shield.addEventListener("click", function () { arm(false); fr.focus(); });
+    fr.src = fr.dataset.src;
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) {
+        es.forEach(function (e) { if (!e.isIntersecting && fig.classList.contains("is-live")) arm(true); });
+      }).observe(fig);
+    }
+  })();
+</script>
 </body>
 </html>
