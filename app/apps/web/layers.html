@@ -13,6 +13,11 @@
       var t = localStorage.getItem("ra.theme");
       if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
     } catch (e) { /* storage blocked - the system preference wins */ }
+    // Framed on another page (the project site, the app home, the showcase):
+    // that page has its own header and badge, so this one's are dropped and
+    // the model is sized to the frame.
+    try { if (window.self !== window.top) document.documentElement.classList.add("embedded"); }
+    catch (e) { document.documentElement.classList.add("embedded"); }
   })();
 </script>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -166,6 +171,16 @@
     .hud .chip .t { display: none; }
     /* Five names across one slab collide at this width: only the part in play. */
     .lbl-comp.show:not(.hot) { opacity: 0; }
+  }
+  /* ── framed on another page ─────────────────────────────────────────── */
+  .embedded .top, .embedded .intro { display: none; }   /* the host page has its own heading */
+  .embedded .wrap { height: 100vh; height: 100dvh; }
+  @media (max-width: 900px) {
+    /* The frame is the phone's view: the model and its journey controls fill
+       it exactly; the layer list stays on the full-screen page. */
+    .embedded .stage canvas, .embedded .poster, .embedded .labels {
+      height: calc(100vh - 196px) !important; height: calc(100dvh - 196px) !important; min-height: 280px; }
+    .embedded .panel { display: none; }
   }
   @media (prefers-reduced-motion: reduce) { .livepill.ok .dot { animation: none; } }
 </style>
