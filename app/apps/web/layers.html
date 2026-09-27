@@ -137,7 +137,13 @@
   /* ── phone ───────────────────────────────────────────────────────────── */
   @media (max-width: 900px) {
     .wrap { grid-template-columns: minmax(0, 1fr); height: auto; }
-    .stage { height: 72vh; height: 72svh; min-height: 460px; }
+    /* On a phone the model gets the whole view: the journey controls sit
+       below it instead of over its lower half. */
+    .stage { height: auto; }
+    .stage canvas, .poster, .labels { height: 64vh !important; height: 64svh !important; min-height: 420px; }
+    .labels { bottom: auto; }
+    .poster { bottom: auto; }
+    .journey { position: relative; left: auto; right: auto; bottom: auto; padding: 0 12px 14px; }
     .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
     .intro { top: 58px; }
     .intro p { display: none; }
@@ -148,13 +154,16 @@
     .top .brand { font-size: 17px; }
   }
   @media (max-width: 600px) {
-    /* The panel below names every layer; on the model only the open one is labelled. */
-    .lbl-layer { display: none; }
+    /* Every layer keeps a compact name tag on the model; the live reading is in the panel. */
+    .lbl-layer { font-size: 10.5px; padding: 3px 8px; gap: 5px; box-shadow: none; }
+    .lbl-layer b { width: 7px; height: 7px; }
+    .lbl-layer small { display: none; }
+    /* The headline would sit on the top slab: the header already names the page. */
+    .intro { display: none; }
     /* One row of controls: icons only, the names stay for screen readers. */
     .hud { gap: 6px; }
     .hud .chip { padding: 8px 11px; }
     .hud .chip .t { display: none; }
-    .lbl-layer.sel { display: flex; }
     /* Five names across one slab collide at this width: only the part in play. */
     .lbl-comp.show:not(.hot) { opacity: 0; }
   }
@@ -400,7 +409,9 @@ if (!renderer || !renderer.getContext()) {
 
 let selected = -1, hotComp = -1;
 const W = 7.4, DEP = 4.4, TH = 0.22, GAP0 = 1.75;   // GAP0: the spacing the model was built at
-let gap = reduced ? GAP0 : 0.9, gapTarget = GAP0;
+// Opens already spread out: the model is whole from its first frame, even on a
+// device that draws slowly. The toggle still animates between the two states.
+let gap = GAP0, gapTarget = GAP0;
 // Per layer: its node, its slab, every material on it (with what it started as),
 // its parts and its light pipes.
 const L3 = [];
@@ -527,7 +538,7 @@ async function build() {
   scene.background = new THREE.Color(0x06080c);
   camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
   camera.position.set(14.2, 10.2, 16.4);
-  if (narrow()) camera.position.multiplyScalar(1.34);   // all seven layers fit a phone
+  if (narrow()) camera.position.multiplyScalar(0.98);   // all seven layers fill a phone
 
   renderer.setPixelRatio(Math.min(devicePixelRatio || 1, narrow() ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -669,19 +680,19 @@ function retheme() {
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
 
 function resize() {
-  const w = stage.clientWidth, h = stage.clientHeight;
+  const w = stage.clientWidth, h = renderer.domElement.clientHeight || stage.clientHeight;
   if (!w || !h) return;
   renderer.setSize(w, h, false); labelRenderer.setSize(w, h);
   if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
   camera.aspect = w / h;
   // Narrow screens see the stack from further back, so all seven layers fit.
-  camera.fov = w < 600 ? 50 : 38;
+  camera.fov = w < 600 ? 52 : 38;
   // Beside the slab on a wide stage; on a phone that is off the screen, so on it.
   layerTags.forEach((t) => t.position.set(w < 600 ? -W / 2 + 1.6 : -W / 2 - 0.2, 0, DEP / 2 + 0.2));
   // On a wide stage the headline sits top-left, so the picture is slid right in
   // screen space. The orbit centre stays on the stack, so turning it never wobbles.
   if (w >= 700) camera.setViewOffset(w, h, -w * 0.11, -h * 0.04, w, h);
-  else camera.setViewOffset(w, h, 0, -h * 0.02, w, h);
+  else camera.setViewOffset(w, h, 0, -h * 0.03, w, h);
   camera.updateProjectionMatrix();
 }
 
@@ -690,7 +701,7 @@ let tween = null, userTurned = false;
 function focusOn(i) {
   const tgt = new THREE.Vector3(0, i < 0 ? -0.6 : layerY(i) * (gapTarget / gap || 1), 0);
   const dir = camera.position.clone().sub(controls.target).normalize();
-  const dist = (i < 0 ? 24 : 13.5) * (narrow() ? 1.34 : 1);
+  const dist = (i < 0 ? 24 : 13.5) * (narrow() ? 0.98 : 1);
   const pos = tgt.clone().add(dir.multiplyScalar(dist));
   pos.y = Math.max(pos.y, tgt.y + (i < 0 ? 8 : 5.5));
   if (reduced) { controls.target.copy(tgt); camera.position.copy(pos); return; }
@@ -910,7 +921,7 @@ async function poll() {
     live.ai = { short: `${s.detections} detections`, long: `${s.detections} detections logged, ${s.open} open, ${s.verified} verified. Corridor health ${s.avg_health}/100.` };
     live.cloud = { short: h.status === "ok" ? "healthy" : h.status, long: `Platform status: ${h.status}. Served from Render, Singapore.` };
     lastOk = new Date();
-    pill.className = "livepill ok"; $("live-t").textContent = `LIVE · API ${rtt} ms`;
+    pill.className = "livepill ok"; $("live-t").textContent = narrow() ? `LIVE · ${rtt} ms` : `LIVE · API ${rtt} ms`;
     // A heartbeat: the reading just taken, drawn as a request and its answer.
     if (scene && !playing && !reduced) {
       const a = compWorld(L.people, 0), b = compWorld(L.api, 0), c = compWorld(L.data, 0);
