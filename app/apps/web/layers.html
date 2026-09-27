@@ -47,7 +47,12 @@
   .livepill.ok .dot { background: var(--green); box-shadow: 0 0 0 0 var(--green); animation: beat 2.4s infinite; }
   .livepill.bad .dot { background: var(--red); }
   @keyframes beat { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 60%, transparent); } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
-  .iconbtn { width: 36px; height: 36px; border-radius: var(--r-full); border: 1px solid var(--line); background: var(--surface);
+  /* The live badge gives way before anything else does: with a long reading
+     ("LIVE · API 493 ms") it pushed the theme button off a 375 px screen. */
+  .livepill { min-width: 0; overflow: hidden; }
+  #live-t { overflow: hidden; text-overflow: ellipsis; }
+  .top .brand { flex: none; }
+  .iconbtn { flex: none; width: 36px; height: 36px; border-radius: var(--r-full); border: 1px solid var(--line); background: var(--surface);
              display: grid; place-items: center; font-size: 16px; }
   .navlink { font-size: 13px; font-weight: 600; color: var(--text); opacity: .75; white-space: nowrap; }
   .navlink:hover { opacity: 1; }
@@ -139,6 +144,8 @@
     .journey { grid-template-columns: minmax(0, 1fr); }
     .jctl select { flex: 1; max-width: none; }
     .top .navlink { display: none; }
+    .top { gap: 8px; padding: 10px 12px; }
+    .top .brand { font-size: 17px; }
   }
   @media (max-width: 600px) {
     /* The panel below names every layer; on the model only the open one is labelled. */
