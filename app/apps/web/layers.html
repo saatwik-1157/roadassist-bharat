@@ -54,7 +54,8 @@
 
   /* ── layout ──────────────────────────────────────────────────────────── */
   .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 0; height: calc(100vh - 61px); height: calc(100dvh - 61px); }
-  .stage { position: relative; min-width: 0; overflow: hidden; }
+  .stage { position: relative; min-width: 0; overflow: hidden; background: #06080c; color: #f2f0ea; }
+  .stage .intro p { color: #d9d6cc; opacity: .8; }
   .stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; cursor: grab; }
   .stage canvas:active { cursor: grabbing; }
   .labels { position: absolute; inset: 0; pointer-events: none; }
@@ -87,6 +88,11 @@
   .poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; transition: opacity .8s; pointer-events: none; }
   .poster.gone { opacity: 0; visibility: hidden; transition: opacity .8s, visibility 0s .8s; }
   .stage canvas { position: relative; z-index: 1; }
+  .film { margin: auto; border: 1px solid var(--line); border-radius: var(--r-xl); padding: 14px; background: #0b0d12; color: #f2f0ea;
+          width: min(960px, calc(100vw - 32px)); }
+  .film::backdrop { background: rgba(4, 6, 10, .78); backdrop-filter: blur(6px); }
+  .film video { width: 100%; border-radius: var(--r-lg); background: #000; aspect-ratio: 16 / 9; }
+  .film p { font-size: 13px; opacity: .75; margin: 10px 2px; line-height: 1.45; }
   .nogl { position: absolute; left: 0; right: 0; bottom: 110px; display: none; place-items: center; text-align: center; padding: 20px; z-index: 3; }
   .nogl > div { background: var(--glass-strong); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 12px 16px; font-size: 14px; }
   .no-webgl .nogl { display: grid; }
@@ -142,6 +148,10 @@
   @media (max-width: 600px) {
     /* The panel below names every layer; on the model only the open one is labelled. */
     .lbl-layer { display: none; }
+    /* One row of controls: icons only, the names stay for screen readers. */
+    .hud { gap: 6px; }
+    .hud .chip { padding: 8px 11px; }
+    .hud .chip .t { display: none; }
     .lbl-layer.sel { display: flex; }
     /* Five names across one slab collide at this width: only the part in play. */
     .lbl-comp.show:not(.hot) { opacity: 0; }
@@ -159,16 +169,24 @@
   <button class="iconbtn" id="theme" aria-label="Switch light or dark">◐</button>
 </header>
 
+<dialog class="film" id="film" aria-label="The stack rendered in Blender">
+  <video id="film-v" src="assets/3d/layers-film.mp4" poster="assets/3d/layers-render-960.webp" controls muted loop playsinline preload="none"></video>
+  <p>Rendered in Blender 5.2 (EEVEE, bloom in the compositor) from <code>design/blender/build_layers.py</code> — the same model this page turns.</p>
+  <button class="chip" id="film-x">Close</button>
+</dialog>
+
 <main class="wrap">
   <section class="stage" id="stage" aria-label="3D model of the platform's layers">
     <div class="hud">
-      <button class="chip" id="b-explode" aria-pressed="true">⇕ Exploded</button>
-      <button class="chip" id="b-spin" aria-pressed="true">⟳ Auto-rotate</button>
-      <button class="chip" id="b-reset">⌖ Reset view</button>
+      <button class="chip" id="b-explode" aria-pressed="true" aria-label="Exploded or stacked">⇕<span class="t" id="b-explode-t"> Exploded</span></button>
+      <button class="chip" id="b-spin" aria-pressed="true" aria-label="Auto-rotate">⟳<span class="t"> Auto-rotate</span></button>
+      <button class="chip" id="b-glow" aria-pressed="true" aria-label="Glow">✦<span class="t"> Glow</span></button>
+      <button class="chip" id="b-reset" aria-label="Reset view">⌖<span class="t"> Reset view</span></button>
+      <button class="chip" id="b-film" aria-label="Blender film">🎬<span class="t"> Blender film</span></button>
     </div>
     <div class="intro">
       <h1>Seven layers,<br><em>one request.</em></h1>
-      <p>Drag to turn the stack. Tap a layer to open it. Press ▶ to watch a real request travel through every layer.</p>
+      <p>Drag to turn the stack any way — over the top or from underneath. Right-drag or two fingers to pan, scroll or pinch to zoom, arrow keys too. Tap a layer to open it; press ▶ to watch a real request travel through every layer.</p>
     </div>
     <div class="labels" id="labels"></div>
     <img class="poster" id="poster" src="assets/3d/layers-render-960.webp" srcset="assets/3d/layers-render-960.webp 960w, assets/3d/layers-render.webp 1920w" sizes="(max-width: 900px) 100vw, 70vw" alt="The seven layers of RoadAssist Bharat, rendered in Blender">
@@ -201,11 +219,28 @@
   </aside>
 </main>
 
+<script>
+  // Without import maps the 3D module below cannot load at all. Show the
+  // Blender render and a plain note instead of an empty stage.
+  if (!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports("importmap"))) {
+    document.getElementById("stage").classList.add("no-webgl");
+    document.getElementById("layer-list").innerHTML =
+      "<li style='font-size:14px;line-height:1.5;opacity:.8'>This browser is too old for the interactive model. " +
+      "The picture shows the same seven layers: People &amp; devices, Offline edge, API gateway, Domain services, " +
+      "Data, AI, and Cloud &amp; delivery.</li>";
+  }
+</script>
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/OrbitControls.js";
 import { CSS2DRenderer, CSS2DObject } from "three/addons/CSS2DRenderer.js";
 import { GLTFLoader } from "three/addons/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/DRACOLoader.js";
+import { RoomEnvironment } from "./vendor/three/environments/RoomEnvironment.js";
+import { EffectComposer } from "./vendor/three/postprocessing/EffectComposer.js";
+import { RenderPass } from "./vendor/three/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "./vendor/three/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "./vendor/three/postprocessing/OutputPass.js";
 
 /* ── what the platform is made of (every figure is in app/docs/measured.json) ── */
 const LAYERS = [
@@ -292,6 +327,7 @@ const JOURNEYS = [
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const narrow = () => stage.clientWidth < 600;
+let glowOn = true;
 const $ = (id) => document.getElementById(id);
 const stage = $("stage");
 const hex = (n) => "#" + n.toString(16).padStart(6, "0");
@@ -350,20 +386,24 @@ function renderDetail() {
 }
 
 /* ── 3D scene ── */
-let renderer, labelRenderer, scene, camera, controls;
+let renderer, labelRenderer, scene, camera, controls, composer, bloom;
 try {
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 } catch (e) { renderer = null; }
 if (!renderer || !renderer.getContext()) {
   stage.classList.add("no-webgl");
 }
 
 let selected = -1, hotComp = -1;
-const W = 7.4, DEP = 4.4, TH = 0.22;
-let gap = reduced ? 1.75 : 0.9, gapTarget = 1.75;
-const slabs = [], compMeshes = [], layerLabels = [], layerTags = [], compLabels = [];
+const W = 7.4, DEP = 4.4, TH = 0.22, GAP0 = 1.75;   // GAP0: the spacing the model was built at
+let gap = reduced ? GAP0 : 0.9, gapTarget = GAP0;
+// Per layer: its node, its slab, every material on it (with what it started as),
+// its parts and its light pipes.
+const L3 = [];
+const layerLabels = [], layerTags = [], compLabels = [];
 const pickables = [];
-let grid;
+let plinth = null, ground = null;
+const baseMats = [];   // the plinth's materials: they turn to glass when seen from below
 
 function roundedSlab(w, d, r) {
   const s = new THREE.Shape();
@@ -377,36 +417,38 @@ function roundedSlab(w, d, r) {
   return g;
 }
 
-function glowTexture() {
-  const c = document.createElement("canvas"); c.width = c.height = 64;
-  const g = c.getContext("2d"), grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grd.addColorStop(0, "rgba(255,255,255,1)"); grd.addColorStop(0.25, "rgba(255,255,255,.55)"); grd.addColorStop(1, "rgba(255,255,255,0)");
-  g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
-  return new THREE.CanvasTexture(c);
+function radialTexture(stops) {
+  const c = document.createElement("canvas"); c.width = c.height = 128;
+  const g = c.getContext("2d"), grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  stops.forEach(([at, col]) => grd.addColorStop(at, col));
+  g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 let GLOW;
 
 function layerY(i) { return ((LAYERS.length - 1) / 2 - i) * gap; }
-const compObj = LAYERS.map(() => []);     // [layer][comp] -> the mesh on the slab
 const _v = new THREE.Vector3();
 function compLocal(i, j) {
   const n = LAYERS[i].comps.length, span = W - 1.4;
   return new THREE.Vector3(-span / 2 + (span * j) / Math.max(1, n - 1), TH / 2 + 0.16, (j % 2 ? 0.55 : -0.55));
 }
 function compWorld(i, j) {
-  const m = compObj[i] && compObj[i][j];
-  if (m) { m.getWorldPosition(_v); return _v.clone().add(new THREE.Vector3(0, 0.16, 0)); }
+  const c = L3[i] && L3[i].comps[j];
+  if (c) { c.getWorldPosition(_v); return _v.clone().add(new THREE.Vector3(0, (c.userData.h || 0.4) * 0.55, 0)); }
   return compLocal(i, j).add(new THREE.Vector3(0, layerY(i), 0));
 }
 
-/* The model is Blender's (design/blender/build_layers.py -> assets/3d/layers.glb).
-   If it cannot be fetched, the same stack is drawn from primitives instead, so the
-   page never opens to an empty stage. */
+/* The model is Blender's (design/blender/build_layers.py -> assets/3d/layers.glb),
+   Draco-compressed. If it cannot be fetched or decoded, the same stack is drawn
+   from primitives instead, so the page never opens to an empty stage. */
 async function loadModel() {
   try {
+    const draco = new DRACOLoader().setDecoderPath("vendor/three/libs/draco/gltf/").setDecoderConfig({ type: "wasm" });
+    const loader = new GLTFLoader().setDRACOLoader(draco);
     const gltf = await Promise.race([
-      new GLTFLoader().loadAsync("assets/3d/layers.glb"),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("timed out")), 12000)),
+      loader.loadAsync("assets/3d/layers.glb"),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timed out")), 15000)),
     ]);
     return gltf.scene;
   } catch (e) {
@@ -415,124 +457,210 @@ async function loadModel() {
   }
 }
 
+// Every mesh gets its own materials, remembering how it started: dimming one
+// layer must not dim another that shares Blender's "metal" or "letters".
+function own(o, rec, tag, fromBlender = true) {
+  o.userData = tag;
+  const mats = Array.isArray(o.material) ? o.material : [o.material];
+  const mine = mats.map((m) => {
+    const c = m.clone();
+    // Blender's emission strengths are tuned for its renderer; under ACES and
+    // bloom in the browser they wash the stack out, so they are brought down.
+    if (fromBlender && c.emissiveIntensity !== undefined) c.emissiveIntensity *= /^(whiteglow|letters)/.test(m.name) ? 0.08 : 0.28;
+    // A mirror-sharp coat on the glass puts the key light on every slab as one
+    // white hot spot, which the bloom then spreads: a softer, thinner coat.
+    if (/^(slab|panel)_/.test(m.name) && "clearcoat" in c) { c.clearcoat = 0.35; c.clearcoatRoughness = 0.35; c.roughness = Math.max(c.roughness, 0.28); }
+    c.userData = { op: c.opacity, tr: c.transparent, em: c.emissiveIntensity ?? 0, comp: tag.comp, slab: !!tag.slab };
+    rec.mats.push(c);
+    return c;
+  });
+  o.material = Array.isArray(o.material) ? mine : mine[0];
+  pickables.push(o);
+}
+
+function fromModel(model, l, i) {
+  const node = model.getObjectByName(`layer_${l.id}`);
+  if (!node) return null;
+  const rec = { node, mats: [], comps: [], conduits: [] };
+  l.comps.forEach((_, j) => {
+    const c = node.getObjectByName(`comp_${l.id}_${j}`);
+    if (c) rec.comps[j] = c;
+  });
+  rec.comps.forEach((c, j) => c.traverse((o) => { if (o.isMesh) own(o, rec, { layer: i, comp: j }); }));
+  node.traverse((o) => {
+    // Only the pipe itself: GLTFLoader names its child meshes conduit_x_0_1 and so
+    // on, and stretching those as well squared the stretch.
+    if (o.name && o.name.startsWith(`conduit_${l.id}_`) && !(o.parent && o.parent.name.startsWith(`conduit_${l.id}_`))) rec.conduits.push(o);
+    if (o.isMesh && o.userData.layer === undefined) {
+      own(o, rec, { layer: i, comp: -1, slab: o === node });
+      if (o.material.transparent) o.material.depthWrite = false;
+    }
+  });
+  return rec;
+}
+
+function fromPrimitives(l, i, geo) {
+  const node = new THREE.Group();
+  const rec = { node, mats: [], comps: [], conduits: [] };
+  const slab = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ color: l.color, transparent: true, opacity: 0.5,
+    roughness: 0.25, clearcoat: 1, emissive: l.color, emissiveIntensity: 0.12, depthWrite: false }));
+  node.add(slab); own(slab, rec, { layer: i, comp: -1, slab: true }, false);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), new THREE.LineBasicMaterial({ color: l.color, transparent: true }));
+  edges.material.userData = { op: 1, tr: true, em: 0, comp: -1 };
+  rec.mats.push(edges.material);
+  node.add(edges);
+  l.comps.forEach((_, j) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.3, 0.6), new THREE.MeshStandardMaterial({
+      color: new THREE.Color(l.color).lerp(new THREE.Color(0xffffff), 0.35), roughness: 0.4, emissive: l.color, emissiveIntensity: 0.3 }));
+    m.position.copy(compLocal(i, j)); node.add(m); own(m, rec, { layer: i, comp: j }, false); rec.comps[j] = m;
+  });
+  return rec;
+}
+
 async function build() {
   const model = await loadModel();
   scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x06080c);
   camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
-  camera.position.set(12.5, 9.5, 14.5);
-  if (narrow()) camera.position.multiplyScalar(1.28);   // all seven layers fit a phone
+  camera.position.set(14.2, 10.2, 16.4);
+  if (narrow()) camera.position.multiplyScalar(1.34);   // all seven layers fit a phone
 
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, matchMedia("(max-width: 900px)").matches ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, narrow() ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.9;
   stage.insertBefore(renderer.domElement, stage.firstChild);
+
+  // Reflections: a studio environment, so glass and metal have something to show.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.16;   // more and the room's lights sit on the glass as white blobs
+
+  // Bloom: what makes the traces, pipes and packets read as light.
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.45, 0.38, 0.95);
+  bloom.enabled = glowOn;
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
 
   labelRenderer = new CSS2DRenderer({ element: $("labels") });
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.07;
-  controls.enablePan = false; controls.minDistance = 7; controls.maxDistance = 34;
-  controls.maxPolarAngle = Math.PI * 0.58;
+  // ROTATION LIMITS - change them here.
+  //   Left-right: unlimited (azimuth has no bounds).
+  //   Up-down: minPolarAngle 0 = straight down from above, maxPolarAngle PI =
+  //   straight up from underneath, so the stack can be seen from every side.
+  //   Pan (right-drag, or two fingers) moves the picture; "Reset view" re-centres it.
+  controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
+  controls.enablePan = true; controls.screenSpacePanning = true;
+  controls.minDistance = 7; controls.maxDistance = 38;
   controls.autoRotate = !reduced; controls.autoRotateSpeed = 0.55;
-  controls.target.set(0, 0, 0);
+  controls.target.set(0, -0.6, 0);   // a little low: the plinth is part of the picture
   if (reduced) { $("b-spin").setAttribute("aria-pressed", "false"); }
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x303848, 1.1));
-  const key = new THREE.DirectionalLight(0xffffff, 1.6); key.position.set(6, 14, 8); scene.add(key);
-  const rim = new THREE.DirectionalLight(0x88aaff, 0.6); rim.position.set(-8, 4, -10); scene.add(rim);
+  scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x1a1f2b, 0.55));
+  const key = new THREE.DirectionalLight(0xfff1d6, 1.3); key.position.set(8, 14, 9); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x7fa6ff, 1.1); rim.position.set(-10, 6, -10); scene.add(rim);
 
-  GLOW = glowTexture();
+  GLOW = radialTexture([[0, "rgba(255,255,255,1)"], [0.25, "rgba(255,255,255,.55)"], [1, "rgba(255,255,255,0)"]]);
   const geo = roundedSlab(W, DEP, 0.45);
-  const edgeGeo = new THREE.EdgesGeometry(geo, 25);
-  const compGeo = new THREE.BoxGeometry(1.0, 0.26, 0.62);
 
   LAYERS.forEach((l, i) => {
-    let group, slab, mat;
-    const comps = [];
-    const fromModel = model && model.getObjectByName(`layer_${l.id}`);
-    if (fromModel) {
-      // Blender's slab: a mesh whose children are its glass panel and its parts.
-      group = fromModel; slab = fromModel; mat = slab.material;
-      mat.transparent = true; mat.depthWrite = false; mat.opacity = 0.5;
-      l.comps.forEach((_, j) => {
-        const m = group.getObjectByName(`comp_${l.id}_${j}`);
-        if (m) { m.material = m.material.clone(); m.material.transparent = true; comps.push(m); }
-      });
-      group.traverse((o) => { if (o.isMesh && o !== slab && !comps.includes(o)) o.userData = { layer: i, comp: -1, deco: true }; });
-    } else {
-      group = new THREE.Group();
-      mat = new THREE.MeshPhysicalMaterial({ color: l.color, transparent: true, opacity: 0.5, roughness: 0.32, metalness: 0.05,
-        clearcoat: 0.8, clearcoatRoughness: 0.25, emissive: l.color, emissiveIntensity: 0.1, depthWrite: false });
-      slab = new THREE.Mesh(geo, mat); group.add(slab);
-      l.comps.forEach((_, j) => {
-        const m = new THREE.Mesh(compGeo, new THREE.MeshStandardMaterial({ color: new THREE.Color(l.color).lerp(new THREE.Color(0xffffff), 0.35),
-          roughness: 0.4, metalness: 0.1, emissive: l.color, emissiveIntensity: 0.25 }));
-        m.position.copy(compLocal(i, j)); group.add(m); comps.push(m);
-      });
-    }
-    slab.userData = { layer: i, comp: -1 }; pickables.push(slab);
-    const edges = new THREE.LineSegments(fromModel ? new THREE.EdgesGeometry(slab.geometry, 25) : edgeGeo,
-      new THREE.LineBasicMaterial({ color: l.color, transparent: true, opacity: 0.95 }));
-    group.add(edges);
-    edges.userData = { layer: i, comp: -1, deco: true };
+    const rec = (model && fromModel(model, l, i)) || fromPrimitives(l, i, geo);
+    L3[i] = rec;
+    rec.node.position.set(0, layerY(i), 0);
+    scene.add(rec.node);
+    rec.node.updateMatrixWorld(true);
 
     l.comps.forEach((c, j) => {
-      const m = comps[j];
-      if (!m) return;
-      m.userData = { layer: i, comp: j };
-      pickables.push(m); compMeshes.push(m); compObj[i][j] = m;
+      const node = rec.comps[j];
+      if (!node) return;
+      // Label just above the part, however tall Blender made it.
+      const box = new THREE.Box3().setFromObject(node);
+      node.userData.h = Math.max(0.3, box.max.y - node.getWorldPosition(_v).y);
       const div = document.createElement("div"); div.className = "lbl-comp"; div.textContent = c[0];
-      const lab = new CSS2DObject(div); lab.position.set(0, 0.34, 0); m.add(lab);
+      const lab = new CSS2DObject(div); lab.position.set(0, node.userData.h + 0.12, 0); node.add(lab);
       compLabels.push({ layer: i, comp: j, el: div });
     });
 
     const tag = document.createElement("div"); tag.className = "lbl-layer";
     tag.innerHTML = `<b style="background:${hex(l.color)}"></b>${esc(l.name)} <small data-live="${l.id}"></small>`;
     tag.onclick = () => select(i, -1, true);
-    const tl = new CSS2DObject(tag); tl.position.set(-W / 2 - 0.2, 0, DEP / 2 + 0.2); group.add(tl);
+    const tl = new CSS2DObject(tag); tl.position.set(-W / 2 - 0.2, 0, DEP / 2 + 0.2); rec.node.add(tl);
     layerLabels.push(tag); layerTags.push(tl);
-
-    group.position.y = layerY(i);
-    scene.add(group); slabs.push({ group, mat, edges });
   });
 
-  grid = new THREE.GridHelper(40, 40, 0x888888, 0x888888);
-  grid.material.transparent = true; grid.material.opacity = 0.12;
-  scene.add(grid);
+  plinth = model && model.getObjectByName("plinth");
+  if (plinth) {
+    scene.add(plinth);
+    plinth.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; baseMats.push(o.material); } });
+  }
+  // A pool of light under the stack, so it stands on something.
+  ground = new THREE.Mesh(new THREE.CircleGeometry(16, 64), new THREE.MeshBasicMaterial({
+    map: radialTexture([[0, "rgba(80,96,140,.55)"], [0.45, "rgba(30,38,60,.25)"], [1, "rgba(6,8,12,0)"]]),
+    transparent: true, depthWrite: false }));
+  ground.rotation.x = -Math.PI / 2; scene.add(ground);
+  placeStack();
   retheme();
 
   // Picking: a tap selects, a drag only turns the stack.
   const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
-  ray.params.Line.threshold = 0.02;
-  let down = null;
-  renderer.domElement.addEventListener("pointerdown", (e) => { down = [e.clientX, e.clientY]; });
+  let down = null, downs = 0;
+  renderer.domElement.addEventListener("pointerdown", (e) => { downs++; down = downs === 1 ? [e.clientX, e.clientY] : null; });
+  renderer.domElement.addEventListener("pointercancel", () => { downs = 0; down = null; });
   renderer.domElement.addEventListener("pointerup", (e) => {
+    downs = Math.max(0, downs - 1);
     if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return;
     const r = renderer.domElement.getBoundingClientRect();
     ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ptr, camera);
-    const hit = ray.intersectObjects(pickables, true)[0];
-    if (hit) {
-      let o = hit.object;
-      while (o.userData.deco && o.parent && o.parent.userData.layer !== undefined && o.parent.userData.deco) o = o.parent;
-      if (o.userData.deco && o.parent && o.parent.userData.comp >= 0) o = o.parent;   // a lit strip belongs to its part
-      select(o.userData.layer, o.userData.deco ? -1 : o.userData.comp, true);
-    }
+    const hit = ray.intersectObjects(pickables, false)[0];
+    if (hit) select(hit.object.userData.layer, hit.object.userData.comp, true);
     else select(-1, -1, true);
   });
-  controls.addEventListener("start", () => { userTurned = true; });
+  controls.addEventListener("start", () => { userTurned = true; tween = null; });
+  stage.tabIndex = 0;
+  stage.addEventListener("keydown", (e) => {
+    if (e.target !== stage && e.target !== renderer.domElement) return;   // the picker and buttons keep their keys
+    const step = Math.PI / 24, off = camera.position.clone().sub(controls.target);
+    const sph = new THREE.Spherical().setFromVector3(off);
+    if (e.key === "ArrowLeft") sph.theta -= step;
+    else if (e.key === "ArrowRight") sph.theta += step;
+    else if (e.key === "ArrowUp") sph.phi = Math.max(0.01, sph.phi - step);
+    else if (e.key === "ArrowDown") sph.phi = Math.min(Math.PI - 0.01, sph.phi + step);
+    else if (e.key === "+" || e.key === "=") sph.radius = Math.max(controls.minDistance, sph.radius * 0.9);
+    else if (e.key === "-") sph.radius = Math.min(controls.maxDistance, sph.radius * 1.1);
+    else return;
+    e.preventDefault(); tween = null;
+    controls.autoRotate = false; $("b-spin").setAttribute("aria-pressed", "false");
+    camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sph));
+  });
 
   addEventListener("resize", resize); resize();
   renderer.setAnimationLoop(frame);
 }
 
+// Slabs at the current gap; pipes stretched to reach the next slab; the plinth
+// and the pool of light follow the bottom of the stack.
+function placeStack() {
+  const stretch = Math.max(0.05, (gap - TH) / (GAP0 - TH));
+  L3.forEach((rec, i) => {
+    rec.node.position.y = layerY(i);
+    rec.conduits.forEach((c) => { c.scale.y = stretch; });
+  });
+  const bottom = layerY(LAYERS.length - 1);
+  if (plinth) plinth.position.y = bottom - 1.15;
+  if (ground) ground.position.y = bottom - (plinth ? 1.32 : 1.0);
+}
+
 function retheme() {
-  if (!grid) return;
+  // The stage is a dark studio in both themes; only the exposure follows.
+  if (!renderer) return;
   const dark = (document.documentElement.getAttribute("data-theme") ||
     (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
-  grid.material.color.set(dark ? 0x9aa3b5 : 0x5b6070);
-  grid.material.opacity = dark ? 0.14 : 0.16;
-  renderer.toneMappingExposure = dark ? 1.05 : 0.95;
+  renderer.toneMappingExposure = dark ? 0.9 : 0.96;
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
 
@@ -540,6 +668,7 @@ function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
   if (!w || !h) return;
   renderer.setSize(w, h, false); labelRenderer.setSize(w, h);
+  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
   camera.aspect = w / h;
   // Narrow screens see the stack from further back, so all seven layers fit.
   camera.fov = w < 600 ? 50 : 38;
@@ -548,16 +677,16 @@ function resize() {
   // On a wide stage the headline sits top-left, so the picture is slid right in
   // screen space. The orbit centre stays on the stack, so turning it never wobbles.
   if (w >= 700) camera.setViewOffset(w, h, -w * 0.11, -h * 0.04, w, h);
-  else camera.setViewOffset(w, h, 0, -h * 0.07, w, h);
+  else camera.setViewOffset(w, h, 0, -h * 0.02, w, h);
   camera.updateProjectionMatrix();
 }
 
 /* ── camera moves ── */
 let tween = null, userTurned = false;
 function focusOn(i) {
-  const tgt = new THREE.Vector3(0, i < 0 ? 0 : layerY(i) * (gapTarget / gap || 1), 0);
+  const tgt = new THREE.Vector3(0, i < 0 ? -0.6 : layerY(i) * (gapTarget / gap || 1), 0);
   const dir = camera.position.clone().sub(controls.target).normalize();
-  const dist = (i < 0 ? 21 : 13.5) * (narrow() ? 1.3 : 1);
+  const dist = (i < 0 ? 24 : 13.5) * (narrow() ? 1.34 : 1);
   const pos = tgt.clone().add(dir.multiplyScalar(dist));
   pos.y = Math.max(pos.y, tgt.y + (i < 0 ? 8 : 5.5));
   if (reduced) { controls.target.copy(tgt); camera.position.copy(pos); return; }
@@ -565,22 +694,31 @@ function focusOn(i) {
 }
 
 /* ── selection ── */
+function applyLook() {
+  L3.forEach((rec, k) => {
+    const on = selected < 0 || k === selected;
+    rec.mats.forEach((m) => {
+      const u = m.userData;
+      const needT = u.tr || !on;
+      if (m.transparent !== needT) { m.transparent = needT; m.needsUpdate = true; }
+      m.depthWrite = !needT;
+      m.opacity = u.op * (on ? 1 : 0.18);
+      if ("emissiveIntensity" in m) {
+        let e = u.em;
+        if (k === selected && u.slab) e = Math.max(0.3, u.em * 2.2);
+        if (k === selected && u.comp === hotComp && hotComp >= 0) e = Math.max(1.2, u.em * 3);
+        m.emissiveIntensity = e;
+      }
+    });
+  });
+}
 function select(i, j, fromUser) {
   selected = i; hotComp = j;
   if (fromUser && playing) stopPlay();
-  slabs.forEach((s, k) => {
-    const on = i < 0 || k === i;
-    s.mat.opacity = on ? (k === i ? 0.62 : 0.5) : 0.16;
-    if (s.mat.emissive) s.mat.emissiveIntensity = k === i ? 0.28 : 0.1;
-    s.edges.material.opacity = on ? 0.95 : 0.3;
-    layerLabels[k] && layerLabels[k].classList.toggle("dim", !on);
-    layerLabels[k] && layerLabels[k].classList.toggle("sel", k === i);
-  });
-  compMeshes.forEach((m) => {
-    const on = i < 0 || m.userData.layer === i;
-    m.material.transparent = true; m.material.opacity = on ? 1 : 0.25;
-    if (m.userData.baseEmissive === undefined) m.userData.baseEmissive = m.material.emissiveIntensity || 0.25;
-    m.material.emissiveIntensity = (m.userData.layer === i && m.userData.comp === j) ? Math.max(0.9, m.userData.baseEmissive * 3) : m.userData.baseEmissive;
+  applyLook();
+  layerLabels.forEach((el, k) => {
+    el.classList.toggle("dim", !(i < 0 || k === i));
+    el.classList.toggle("sel", k === i);
   });
   compLabels.forEach((c) => {
     c.el.classList.toggle("show", c.layer === i);
@@ -600,7 +738,8 @@ function spawn(from, to, color, size, speed, onDone) {
   const side = new THREE.Vector3(b.z - a.z, 0, a.x - b.x).normalize().multiplyScalar(0.8);
   mid.add(new THREE.Vector3(0, 0.9 + a.distanceTo(b) * 0.12, 0)).add(side);
   const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
-  const core = new THREE.Mesh(new THREE.SphereGeometry(size, 16, 12), new THREE.MeshBasicMaterial({ color }));
+  const core = new THREE.Mesh(new THREE.SphereGeometry(size, 16, 12),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(2.2) }));
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
   glow.scale.setScalar(size * 9); core.add(glow);
   const N = 28, trailPos = new Float32Array(N * 3);
@@ -625,6 +764,7 @@ function stepPackets(dt) {
     if (p.t >= 1) {
       scene.remove(p.core); scene.remove(p.trail);
       p.core.geometry.dispose(); p.trail.geometry.dispose();
+      p.core.material.dispose(); p.trail.material.dispose(); p.core.children.forEach((g) => g.material.dispose());
       packets.splice(k, 1);
       p.onDone && p.onDone();
     }
@@ -689,16 +829,28 @@ $("j-prev").onclick = () => { stopPlay(); goStep(Math.max(jStep - 1, 0)); };
 $("b-explode").onclick = (e) => {
   const on = e.currentTarget.getAttribute("aria-pressed") !== "true";
   e.currentTarget.setAttribute("aria-pressed", String(on));
-  e.currentTarget.textContent = on ? "⇕ Exploded" : "⇕ Stacked";
+  $("b-explode-t").textContent = on ? " Exploded" : " Stacked";
   gapTarget = on ? 1.75 : 0.62;
-  if (reduced) gap = gapTarget;
+  if (reduced) { gap = gapTarget; placeStack(); }
 };
 $("b-spin").onclick = (e) => {
   if (!controls) return;
   controls.autoRotate = !controls.autoRotate;
   e.currentTarget.setAttribute("aria-pressed", String(controls.autoRotate));
 };
-$("b-reset").onclick = () => { stopPlay(); select(-1, -1, false); };
+$("b-reset").onclick = () => { stopPlay(); select(-1, -1, false); };   // focusOn(-1) re-centres a pan too
+$("b-film").onclick = () => {
+  const d = $("film");
+  if (typeof d.showModal === "function") d.showModal(); else d.setAttribute("open", "");
+  $("film-v").play().catch(() => { /* the controls are there to start it */ });
+};
+$("film-x").onclick = () => { $("film-v").pause(); $("film").close ? $("film").close() : $("film").removeAttribute("open"); };
+$("film").addEventListener("close", () => $("film-v").pause());
+$("b-glow").onclick = (e) => {
+  glowOn = !glowOn;
+  e.currentTarget.setAttribute("aria-pressed", String(glowOn));
+  if (bloom) bloom.enabled = glowOn;
+};
 
 /* ── frame loop ── */
 const clock = new THREE.Clock();
@@ -708,9 +860,8 @@ function frame() {
   if (!drawn) { drawn = true; requestAnimationFrame(() => $("poster").classList.add("gone")); }
   if (Math.abs(gap - gapTarget) > 0.001) {
     gap += (gapTarget - gap) * Math.min(1, dt * 4);
-    slabs.forEach((s, i) => { s.group.position.y = layerY(i); });
-    grid.position.y = layerY(LAYERS.length - 1) - 1.2;
-  } else if (grid.position.y === 0) grid.position.y = layerY(LAYERS.length - 1) - 1.2;
+    placeStack();
+  }
   if (tween) {
     tween.t = Math.min(1, tween.t + dt / tween.dur);
     const e = 1 - Math.pow(1 - tween.t, 3);
@@ -718,12 +869,24 @@ function frame() {
     controls.target.lerpVectors(tween.q0, tween.q1, e);
     if (tween.t >= 1) tween = null;
   }
-  // The component a journey is on breathes, so the eye finds it.
+  // The part a journey is on breathes, so the eye finds it.
   const pulse = 1 + Math.sin(performance.now() / 260) * 0.08;
-  compMeshes.forEach((m) => m.scale.setScalar(m.userData.layer === selected && m.userData.comp === hotComp && !reduced ? pulse : 1));
+  L3.forEach((rec, i) => rec.comps.forEach((c, j) => {
+    if (c) c.scale.setScalar(i === selected && j === hotComp && !reduced ? pulse : 1);
+  }));
+  // Seen from underneath, a solid plinth would hide the whole stack: it fades.
+  if (plinth) {
+    const below = camera.position.y < plinth.position.y + 0.3;
+    const want = below ? 0.1 : 1;
+    baseMats.forEach((m) => {
+      m.opacity += (want - m.opacity) * Math.min(1, dt * 6);
+      m.depthWrite = m.opacity > 0.95;
+    });
+    if (ground) ground.visible = !below;
+  }
   ambient(dt); stepPackets(dt);
   controls.update();
-  renderer.render(scene, camera); labelRenderer.render(scene, camera);
+  composer.render(); labelRenderer.render(scene, camera);
 }
 
 /* ── live readings from the running platform ── */
