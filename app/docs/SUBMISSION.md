@@ -20,7 +20,7 @@ Ticked only where the artefact exists **and** has been verified in this session.
 | ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (760 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
 | ✅ | SWE4004 mapping | `app/docs/SWE4004-MAPPING.md` | Modules 1–6, 21-row cloud-concept audit |
 | ✅ | Claims audit | `app/docs/CLAIMS-AUDIT.md` | Every claim checked against the code |
-| ✅ | Presentation | `ppt/RoadAssist-Bharat-FINAL.pptx` | **32 slides**, generated, 0 over-claims |
+| ✅ | Presentation | `ppt/RoadAssist-Bharat-FINAL.pptx` | **35 slides**, generated, 0 over-claims |
 | ✅ | Demo script | `app/docs/DEMO-SCRIPT.md` | 10 minutes, every step with a backup |
 | ✅ | Viva questions | `app/docs/VIVA.md` | **56 questions**, grouped, grounded in code |
 | ✅ | Screenshots | `app/docs/screenshots/` | **15 PNGs** captured from the running app |
@@ -58,7 +58,7 @@ npm run perf                               # measured, not a load test
 
 Nothing else. The two items that stood here — the PDF export and the slide
 transitions — are done: `ppt/RoadAssist-Bharat-FINAL.pdf` is 32 pages exported
-from the final deck through PowerPoint itself, and all 32 slides carry a 0.7 s
+from the final deck through PowerPoint itself, and all 35 slides carry a 0.7 s
 fade. Both are reproducible with the script in `ppt/README.md`.
 
 ## External accounts — in place, and still required

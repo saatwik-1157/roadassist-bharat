@@ -1,3 +1,5 @@
+> **27 Sep 2026:** the deck is now 35 slides. Three were added — 6 *Every layer, live in 3D*, 16 *The Android app, on the emulator*, 20 *Found in the recheck, and proved* — so slide numbers below that are 6 or higher refer to the 32-slide deck (old 6–14 are now 7–15, old 15–17 are 17–19, old 18–32 are 21–35).
+
 > Deck text extracted from `ppt/RoadAssist-Bharat-FINAL.pptx` (32 slides) and
 > checked term by term against the code on 2026-09-06, re-measured 2026-09-12.
 > The wording in the last column is what to say on the day, so it tracks the

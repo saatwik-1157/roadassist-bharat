@@ -7,7 +7,7 @@ Ranked by how much they cost if answered badly.
 | 1 | **CRITICAL** | "Can SOS contact emergency services offline?" | "No. No satellite, no mesh, no SMS bypass. It says nothing was transmitted and advises calling 112." | `raiseOffGridSos`; the string is absent repo-wide | That any message leaves the device |
 | 2 | **CRITICAL** | "Is your AI actually AI?" | "The roadside engine is a deterministic rule table labelled `rules-1.0.0`. The road-damage detectors are trained YOLO11 models — best run YOLO11s at mAP50 0.472; the YOLO11n India model whose detections RAKSHA shows scored 0.443." | `domain/ai-rules.ts`, `ai/` | That the diagnosis engine is a model |
 | 3 | **CRITICAL** | "Is anything deployed?" | "Yes, as a demo: one Render web service and Neon Postgres, both in Singapore, at app.roadassistbharat.online. Single instance on a free plan — no cluster, no autoscaling, no replication." | `render.yaml`, `app/Dockerfile` | Any uptime figure, "hosted in India", or anything beyond one instance |
-| 4 | **CRITICAL** | "Where is autoscaling?" | "Not provisioned — slide 22 says DESIGN. The readiness gate is real: `/health` 503, `/v1/ping` 200." | `apps/api/src/server.ts:360` | That scaling is automatic |
+| 4 | **CRITICAL** | "Where is autoscaling?" | "Not provisioned — slide 25 says DESIGN. The readiness gate is real: `/health` 503, `/v1/ping` 200." | `apps/api/src/server.ts:360` | That scaling is automatic |
 | 5 | **CRITICAL** | "Two mechanics accept at the same instant?" | "One wins. `SELECT … FOR UPDATE` on the booking row, expiry checked inside the transaction." | `apps/api/src/server.ts:945` | That it is handled "in the code" |
 | 6 | **HIGH** | "Where is replication?" | "Nowhere. Precondition built — stateless API. Three in-process components block it." | `realtime.ts`, `ratelimit.ts` | Any high-availability claim |
 | 7 | **HIGH** | "Where is load balancing?" | "No infrastructure balancer. Workload distribution across a pool is real, and that is the syllabus's framing." | `dispatch.ts` | An L7 balancer |
@@ -22,7 +22,7 @@ Ranked by how much they cost if answered badly.
 | 16 | **MEDIUM** | "How do you prevent duplicate payments?" | "Settlement is recorded, never asserted; replaying the confirmation does not charge twice." | `apps/api/src/server.ts:1036` | Live gateway experience |
 | 17 | **MEDIUM** | "What if the database crashes?" | "`/health` 503 naming the database, `/v1/ping` 200, automatic recovery. Twenty seconds to show you." | `apps/api/src/server.ts:360` | Failover to a replica |
 | 18 | **MEDIUM** | "What if GPS fails?" | "An approximate position, labelled as approximate. Never fabricated silently." | `locate()` | Precise positioning |
-| 19 | **MEDIUM** | "Is this production ready?" | "No, and no document claims it is. It is demo and submission ready." | slide 27 | Production readiness |
+| 19 | **MEDIUM** | "Is this production ready?" | "No, and no document claims it is. It is demo and submission ready." | slide 30 | Production readiness |
 | 20 | **MEDIUM** | "Show me your iOS app." | "There isn't one. The surfaces that exist are the PWA, an Android client and an SMS path." | `README.md` | iOS, Android Auto, IVR, USSD |
 
 **The pattern in all twenty:** the safe answer starts with the limitation and

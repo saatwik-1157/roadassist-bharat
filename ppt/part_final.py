@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════
-#  RoadAssist Bharat — final submission deck, 32 slides
+#  RoadAssist Bharat — final submission deck, 35 slides
 #
 #  Every figure in this file is measured, not estimated, and every capability
 #  claim carries a status. The rule the deck follows throughout:
@@ -191,10 +191,32 @@ node(s, 3.6, 6.05, 6.3, 0.62, "PostgreSQL 16 + PostGIS  ·  56 tables  ·  62 FK
      color=GREEN, tsize=11.5)
 footer(s); page_no(s, 5)
 notes(s, """Note what is NOT here: no Kubernetes, no load balancer, no message
-broker. They are in the target architecture on slide 22, and I keep the two
+broker. They are in the target architecture on slide 25, and I keep the two
 diagrams apart on purpose.""")
 
-# ── 6 · NETWORK-RESILIENT ARCHITECTURE ─────────────────────────────────────
+# ── 6 · EVERY LAYER, LIVE IN 3D ──────────────────────────────────────────
+s = new_slide()
+title_block(s, "Every layer, live in 3D",
+            eyebrow="NEW · MODELLED IN BLENDER · DRAWN WITH THREE.JS · FED BY THE RUNNING PLATFORM")
+visual(s, 0.85, 2.05, 6.6, 4.125, str(ASSETS / "src_layers_render.png"), "layers_render")
+status_chip(s, 7.8, 2.05, "IMPLEMENTED")
+for i, line in enumerate([
+        "Modelled in Blender 5.2 by a script: 7 layers, 31 parts, each a model of what it stands for; Draco-compressed to 595 KB",
+        "Drawn in the browser with three.js: bloom, reflections, turn it any way, zoom, arrow keys",
+        "Live every 8 s: API round trip, database latency, detections and corridor health",
+        "Three journeys, step by step: a booking, an SOS with no signal, RAKSHA finding a pothole",
+        "Embedded on the project site, the app home and the showcase; opens inside the Android app",
+        "Honest labels: the moving packets are illustration; detection positions are simulated"]):
+    txt(s, 7.8, 2.5 + i * 0.6, 4.7, 0.58, "— " + line, size=10.5, color=WHITE, line=1.25)
+txt(s, 0.85, 6.35, 6.6, 0.3, "app.roadassistbharat.online/layers.html", size=10.5,
+    color=CYAN, bold=True, align=PP_ALIGN.CENTER)
+footer(s); page_no(s, 6)
+notes(s, """Open the live page here if the network allows: it turns by itself, and the
+numbers in the side panel are read from the running platform while you talk.
+Press play on "SOS with no signal" to walk the offline path layer by layer.
+If the network does not allow it, this picture is the same model, rendered in Blender.""")
+
+# ── 7 · NETWORK-RESILIENT ARCHITECTURE ─────────────────────────────────────
 s = new_slide(BG_RED)
 title_block(s, "Two paths, and the second one is the product",
             eyebrow="NETWORK-RESILIENT ARCHITECTURE")
@@ -216,11 +238,11 @@ for i, t in enumerate(["CONNECTIVITY MANAGER", "LOCAL EMERGENCY ENGINE",
 txt(s, 0.85, 6.35, 11.6, 0.35,
     "The connectivity manager decides which path runs — ONLINE, LIMITED or OFF-GRID — from measured evidence, never from navigator.onLine alone.",
     size=11, color=GREY, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 6)
+footer(s); page_no(s, 7)
 notes(s, """Strongest architecture slide. The point: the right column is not a
 degraded version of the left, it is a different system that runs on the device.""")
 
-# ── 7 · OFF-GRID SOS ───────────────────────────────────────────────────────
+# ── 8 · OFF-GRID SOS ───────────────────────────────────────────────────────
 s = new_slide(BG_RED)
 title_block(s, "Off-grid SOS", eyebrow="THE EMERGENCY PATH",
             sub="No internet does not mean the emergency workflow disappears. It means it runs here instead.")
@@ -250,11 +272,11 @@ panel(s, 9.25, 4.95, 3.0, 1.05, fill=INK_3, line_col=AMBER)
 txt(s, 9.45, 5.12, 2.6, 0.75,
     "“Nothing has been transmitted.”\nWe never claim emergency services were contacted. The 112 handoff is a stub and the API says so.",
     size=8.5, color=AMBER, line=1.3)
-footer(s); page_no(s, 7)
+footer(s); page_no(s, 8)
 notes(s, """If asked 'did you contact emergency services' — no, and the product
 says so in those words. That honesty is the feature.""")
 
-# ── 8 · AI DIAGNOSIS ───────────────────────────────────────────────────────
+# ── 9 · AI DIAGNOSIS ───────────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Diagnosis: rules first, model optional", eyebrow="AI DIAGNOSIS")
 for i, (t, sub, col) in enumerate([
@@ -284,11 +306,11 @@ txt(s, 7.1, 4.35, 5.1, 1.7,
     "Trained models DO exist — YOLO11 for road damage: best run YOLO11s, "
     "mAP50 0.472; RAKSHA's demo detections come from a YOLO11n, mAP50 0.443. Both measured.",
     size=11, color=WHITE, line=1.4)
-footer(s); page_no(s, 8)
+footer(s); page_no(s, 9)
 notes(s, """Do not call the diagnosis engine AI without qualifying it. The
 qualification is the credible part.""")
 
-# ── 9 · INCIDENT INTELLIGENCE ──────────────────────────────────────────────
+# ── 10 · INCIDENT INTELLIGENCE ──────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Incident intelligence", eyebrow="EXPLAINABLE, NOT OPAQUE",
             sub="Every field below is derived from a rule you can read, not from a weighting nobody can inspect.")
@@ -305,9 +327,9 @@ rows = [("Explainable", "“Battery discharged or terminals loose” — because
         ("Honest", "Below 55% confidence the UI says so: “At 42% this is a suggestion, not a finding”"),
         ("Never fabricated", "No ETA unless a provider is travelling. No location unless GPS returned one.")]
 bullet_rows(s, 0.9, 4.15, rows, w=11.5, gap=0.62, size=11)
-footer(s); page_no(s, 9)
+footer(s); page_no(s, 10)
 
-# ── 10 · SMART DISPATCH ────────────────────────────────────────────────────
+# ── 11 · SMART DISPATCH ────────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Dispatch is dynamic scheduling", eyebrow="SMART DISPATCH",
             sub="Work assigned at run time from a pool, by a score computed from live state, with timeout-driven re-scheduling.")
@@ -339,9 +361,9 @@ for i, (st, meaning, col) in enumerate([
         ("BUSY / EN_ROUTE / ON_JOB", "committed — never offered", RED)]):
     txt(s, 7.1, 4.45 + i * 0.42, 2.5, 0.3, st, size=9.5, color=col, bold=True)
     txt(s, 9.7, 4.45 + i * 0.42, 2.6, 0.3, meaning, size=9.5, color=GREY)
-footer(s); page_no(s, 10)
+footer(s); page_no(s, 11)
 
-# ── 11 · INCIDENT LIFECYCLE ────────────────────────────────────────────────
+# ── 12 · INCIDENT LIFECYCLE ────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Two guarded state machines", eyebrow="INCIDENT LIFECYCLE",
             sub="A client sends a command; only the transition table decides whether it is legal. Every change writes a timestamped event row.")
@@ -375,9 +397,9 @@ txt(s, 8.6, 3.12, 3.6, 2.8,
     "model-detected crash to a dispatched responder that does not pass through a "
     "person.\n\nThat is one line in a transition table, and it is unit-tested.",
     size=10.5, color=WHITE, line=1.4)
-footer(s); page_no(s, 11)
+footer(s); page_no(s, 12)
 
-# ── 12 · REAL-TIME SYSTEM ──────────────────────────────────────────────────
+# ── 13 · REAL-TIME SYSTEM ──────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Real-time, but never the source of truth", eyebrow="LIVE UPDATES",
             sub="Server-sent events over one long-lived GET. Persist first, publish second — always.")
@@ -407,9 +429,9 @@ txt(s, 7.1, 4.35, 5.1, 1.7,
     "stream is never the only path — booking state is server-authoritative and the "
     "client refetches on reconnect.",
     size=10.5, color=WHITE, line=1.35)
-footer(s); page_no(s, 12)
+footer(s); page_no(s, 13)
 
-# ── 13 · CUSTOMER APPLICATION ──────────────────────────────────────────────
+# ── 14 · CUSTOMER APPLICATION ──────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Customer application", eyebrow="REAL SCREENSHOTS · CAPTURED FROM THE RUNNING APP")
 for i, (name, cap) in enumerate([("02-home", "Home · SOS + readiness"),
@@ -421,9 +443,9 @@ for i, (name, cap) in enumerate([("02-home", "Home · SOS + readiness"),
 txt(s, 0.85, 6.52, 11.6, 0.3,
     "Captured by scripts/capture-screens.mjs against the live API — regenerable in ninety seconds, so they cannot drift from the product.",
     size=9.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 13)
+footer(s); page_no(s, 14)
 
-# ── 14 · MECHANIC + AUTHORITY ──────────────────────────────────────────────
+# ── 15 · MECHANIC + AUTHORITY ──────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Mechanic console and authority dashboard",
             eyebrow="THE OTHER TWO SURFACES")
@@ -432,9 +454,28 @@ shot(s, 6.85, 2.15, 5.6, 3.6, "14-authority", "RAKSHA authority · live map, roa
 txt(s, 0.85, 6.0, 11.6, 0.5,
     "Mechanic: availability · incoming request · accept · decline · en route · arrived · in service · complete — every transition persisted and pushed to the customer.",
     size=10, color=GREY, align=PP_ALIGN.CENTER, line=1.35)
-footer(s); page_no(s, 14)
+footer(s); page_no(s, 15)
 
-# ── 15 · EMERGENCY EXPERIENCE ──────────────────────────────────────────────
+# ── 16 · THE ANDROID APP ──────────────────────────────────────────────────
+s = new_slide()
+title_block(s, "The Android app, on the emulator",
+            eyebrow="KOTLIN + JETPACK COMPOSE · 109 TESTS · CAPTURED FROM ANDROID STUDIO'S EMULATOR")
+for i, (name, cap) in enumerate([("src_android_home.png", "Home · the new Layers in 3D card"),
+                                 ("src_android_layers.png", "Layers in 3D · live, in a WebView"),
+                                 ("src_android_journey.png", "A journey playing · step 5 of 8"),
+                                 ("src_android_emergency.png", "An open emergency, found after a restart")]):
+    x = 0.95 + i * 2.95
+    visual(s, x, 2.0, 2.2, 3.95, str(ASSETS / name), "android_" + str(i))
+    txt(s, x - 0.2, 6.02, 2.6, 0.3, cap, size=8.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
+txt(s, 0.85, 6.45, 11.6, 0.3,
+    "109 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
+    size=9.5, color=GREY, align=PP_ALIGN.CENTER)
+footer(s); page_no(s, 16)
+notes(s, """Run it from Android Studio 2026.1: device Medium_Phone, then Run 'app'.
+The emergency card is the fix from the recheck: before it, an app restarted
+mid-emergency had no way to see the emergency, or to say "I'm safe".""")
+
+# ── 17 · EMERGENCY EXPERIENCE ──────────────────────────────────────────────
 s = new_slide(BG_RED)
 title_block(s, "Three states, three honest answers", eyebrow="EMERGENCY EXPERIENCE")
 tiers = [("ONLINE", GREEN, ["Everything works", "SOS reaches dispatch", "Live tracking + ETA",
@@ -455,9 +496,9 @@ txt(s, 0.85, 5.65, 11.6, 0.7,
     "The indicator names the state in WORDS as well as colour — status is never carried by tint alone.\n"
     "Under every state the primary action stays the same and stays one tap away: SOS.",
     size=11.5, color=GREY, align=PP_ALIGN.CENTER, line=1.4)
-footer(s); page_no(s, 15)
+footer(s); page_no(s, 17)
 
-# ── 16 · PAYMENT ARCHITECTURE ──────────────────────────────────────────────
+# ── 18 · PAYMENT ARCHITECTURE ──────────────────────────────────────────────
 s = new_slide()
 title_block(s, "The client never decides that money arrived", eyebrow="PAYMENT ARCHITECTURE")
 for i, (t, sub, col) in enumerate([("INVOICE", "server-computed\ntotal", BLUE),
@@ -476,9 +517,9 @@ rows = [("Amount", "Never taken from the request — it is the invoice total, an
         ("Refuses to boot", "Production will not start on a real gateway with no webhook secret"),
         ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 760")]
 bullet_rows(s, 0.9, 4.15, rows, w=11.5, gap=0.5, size=10.5)
-footer(s); page_no(s, 16)
+footer(s); page_no(s, 18)
 
-# ── 17 · SECURITY ARCHITECTURE ─────────────────────────────────────────────
+# ── 19 · SECURITY ARCHITECTURE ─────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Security", eyebrow="SEVEN LAYERS, AND 74 ATTACKS THAT FAIL",
             sub="The suite passes when the platform refuses — “we tried and could not get in” is a stronger statement than “the code looks right”.")
@@ -500,9 +541,36 @@ txt(s, 0.85, 5.15, 11.6, 1.05,
     "Logs redact credentials, OTP codes, phone numbers, medical fields and coordinates — and that redaction is unit-tested.\n"
     "Three real vulnerabilities were found by this suite during the audit and fixed: missing request ids on 401s, a 500 on malformed JSON, an unsigned SMS intake that did not say so.",
     size=10.5, color=GREY, line=1.5)
-footer(s); page_no(s, 17)
+footer(s); page_no(s, 19)
 
-# ── 18 · DATABASE ──────────────────────────────────────────────────────────
+# ── 20 · FOUND IN THE RECHECK ─────────────────────────────────────────────
+s = new_slide()
+title_block(s, "Found in the recheck, and proved",
+            eyebrow="EACH NEW TEST FAILS ON THE OLD CODE AND PASSES ON THE NEW")
+for x, w, head, col in [(0.85, 5.6, "WHAT WAS WRONG", CYAN), (6.6, 2.85, "BEFORE", RED), (9.6, 2.85, "AFTER", GREEN)]:
+    txt(s, x + 0.15, 2.05, w, 0.3, head, size=9, color=col, bold=True, spacing=1.6)
+rows = [("Twelve simultaneous code requests for one number", "12 codes sent", "5 · the cap holds"),
+        ("One sign-in code redeemed eight times at once", "4 sessions", "1 session"),
+        ("A customer marks their own job done", "mechanic's public count 23 → 24", "unchanged"),
+        ("Email sign-in answered slower for real accounts", "revealed who is registered", "same answer for all"),
+        ("Code-guessing alerts on protected accounts", "could be crowded out", "always sent"),
+        ("App restarted mid-emergency", "could not close it", "card: I'm safe · False alarm")]
+for i, (what, before, after) in enumerate(rows):
+    y = 2.45 + i * 0.56
+    panel(s, 0.85, y, 11.6, 0.48, fill=INK_2, line_col=LINE)
+    txt(s, 1.0, y + 0.1, 5.5, 0.3, what, size=10.5, color=WHITE)
+    txt(s, 6.75, y + 0.1, 2.8, 0.3, before, size=10, color=RED)
+    txt(s, 9.75, y + 0.1, 2.65, 0.3, after, size=10, color=GREEN, bold=True)
+txt(s, 0.85, 5.95, 11.6, 0.6,
+    "Also fixed: a map tile retried once on a network blip, a 10 s deadline on the email service, a lock on the demo seed, "
+    "a map that no longer asks for a request it knows will be refused, and eight fixes in the 3D page from a code review.",
+    size=10, color=GREY, line=1.4)
+footer(s); page_no(s, 20)
+notes(s, """The first three rows have numbers because each test was run against the old
+code first and failed with exactly those figures: 12 codes, 4 sessions, 23 to 24.
+That is the standard for "fixed" on this project.""")
+
+# ── 21 · DATABASE ──────────────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "PostgreSQL 16 + PostGIS", eyebrow="DATABASE ARCHITECTURE",
             sub="Chosen for one query, and kept for four more reasons.")
@@ -520,9 +588,9 @@ rows = [("Why PostGIS", "“nearest available mechanic to this point” is ONE i
         ("Auditability", "audit_log is hash-chained and Postgres RULES block UPDATE and DELETE — an admin cannot quietly edit it."),
         ("Verified", "Migrations run from an EMPTY database in this audit, then the full suite. Backup + restore rehearsed: chain intact across 639 entries.")]
 bullet_rows(s, 0.9, 3.55, rows, w=11.5, gap=0.56, size=10.5)
-footer(s); page_no(s, 18)
+footer(s); page_no(s, 21)
 
-# ── 19 · CLOUD COMPUTING ───────────────────────────────────────────────────
+# ── 22 · CLOUD COMPUTING ───────────────────────────────────────────────────
 s = new_slide(BG_MOD)
 title_block(s, "Where we sit in the cloud", eyebrow="MODULE 1 · CLOUD COMPUTING",
             sub="We are a consumer of IaaS and PaaS, and a provider of SaaS to three user classes.")
@@ -548,9 +616,9 @@ txt(s, 7.1, 4.95, 5.1, 1.15,
     "Public cloud. Demo: Render + Neon in Singapore — the free tiers offer no India region. "
     "Production target: an Indian region, because “No PII leaves India” — logs, backups and crash reports included.",
     size=10.5, color=WHITE, line=1.35)
-footer(s); page_no(s, 19)
+footer(s); page_no(s, 22)
 
-# ── 20 · ENABLING TECHNOLOGY ───────────────────────────────────────────────
+# ── 23 · ENABLING TECHNOLOGY ───────────────────────────────────────────────
 s = new_slide(BG_MOD)
 title_block(s, "Enabling technologies", eyebrow="MODULE 2",
             sub="Five topics. Four are genuinely built; one is partial and says so.")
@@ -565,9 +633,9 @@ for i, (topic, detail, kind) in enumerate(rows):
     txt(s, 1.1, y + 0.1, 2.1, 0.3, topic, size=11, color=CYAN, bold=True, font=SANS_SEMI)
     txt(s, 3.25, y + 0.08, 7.6, 0.55, detail, size=10, color=WHITE, line=1.3)
     status_chip(s, 11.1, y + 0.22, kind)
-footer(s); page_no(s, 20)
+footer(s); page_no(s, 23)
 
-# ── 21 · INFRASTRUCTURE MECHANISMS ─────────────────────────────────────────
+# ── 24 · INFRASTRUCTURE MECHANISMS ─────────────────────────────────────────
 s = new_slide(BG_MOD)
 title_block(s, "Infrastructure mechanisms", eyebrow="MODULE 3")
 rows = [("Virtual server", "Container image; runs anywhere Docker runs. Full test suite passes AGAINST the image.", "IMPLEMENTED"),
@@ -582,9 +650,9 @@ for i, (topic, detail, kind) in enumerate(rows):
     txt(s, 1.1, y + 0.08, 2.4, 0.3, topic, size=10.5, color=CYAN, bold=True, font=SANS_SEMI)
     txt(s, 3.55, y + 0.06, 7.3, 0.5, detail, size=9.5, color=WHITE, line=1.3)
     status_chip(s, 11.1, y + 0.18, kind)
-footer(s); page_no(s, 21)
+footer(s); page_no(s, 24)
 
-# ── 22 · ARCHITECTURE MECHANISMS ───────────────────────────────────────────
+# ── 25 · ARCHITECTURE MECHANISMS ───────────────────────────────────────────
 s = new_slide(BG_MOD)
 title_block(s, "The eight fundamental architectures", eyebrow="MODULE 4",
             sub="Two are built. Six are design. I will not show you an animation and call it an autoscaler.")
@@ -609,9 +677,9 @@ txt(s, 1.1, 5.5, 11.1, 0.6,
     "Three things block replication today, and each is documented where it is defined: the SSE registry, the rate limiter and the offer sweeper are in-process.\n"
     "The fix for each is already designed — Redis, and the outbox → Redpanda bus already in the architecture.",
     size=10.5, color=WHITE, line=1.4, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 22)
+footer(s); page_no(s, 25)
 
-# ── 23 · SCHEDULING ────────────────────────────────────────────────────────
+# ── 26 · SCHEDULING ────────────────────────────────────────────────────────
 s = new_slide(BG_MOD)
 title_block(s, "Static vs dynamic scheduling", eyebrow="MODULE 4 · CLOUD OPERATIONS")
 panel(s, 0.85, 2.15, 5.65, 3.6, fill=INK_2, line_col=BLUE, line_w=1.25)
@@ -636,9 +704,9 @@ for i, line in enumerate(["Dispatch: pool queried at request time",
 txt(s, 0.85, 5.95, 11.6, 0.4,
     "RoadAssist's dispatch engine IS dynamic scheduling — it is the clearest Module 4 mechanism the project actually implements.",
     size=11.5, color=WHITE, bold=True, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 23)
+footer(s); page_no(s, 26)
 
-# ── 24 · TESTING ───────────────────────────────────────────────────────────
+# ── 27 · TESTING ───────────────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "760 assertions, all executed", eyebrow="TESTING",
             sub="Against a real PostgreSQL + PostGIS and a real Chrome. 22 Razorpay stub checks sit outside this total.")
@@ -659,9 +727,9 @@ panel(s, 0.85, 6.5, 11.6, 0.0, fill=INK_2, line_col=None)
 txt(s, 0.85, 6.5, 11.6, 0.4,
     "760 passed · 0 failed · 0 skipped   •   coverage 95.68% lines on the pure domain modules   •   0 server errors across the sweep",
     size=12, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 24)
+footer(s); page_no(s, 27)
 
-# ── 25 · FAILURE HANDLING ──────────────────────────────────────────────────
+# ── 28 · FAILURE HANDLING ──────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Every failure has an answer", eyebrow="FAILURE HANDLING",
             sub="DETECT → DEGRADE → PRESERVE DATA → RECOVER. Twenty rows in the failure matrix; seven of them here.")
@@ -686,9 +754,9 @@ for i, (f, d, u, r) in enumerate(fails):
 txt(s, 0.85, 6.55, 11.6, 0.35,
     "Each row names the suite that proves it. Database loss and backup/restore are now automated CI steps, not prose.",
     size=10, color=GREY_DIM, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 25)
+footer(s); page_no(s, 28)
 
-# ── 26 · IMPLEMENTATION STATUS ─────────────────────────────────────────────
+# ── 29 · IMPLEMENTATION STATUS ─────────────────────────────────────────────
 s = new_slide()
 title_block(s, "What is built, what is partial, what is design",
             eyebrow="IMPLEMENTATION STATUS", sub="Marked from the code, not from intent.")
@@ -714,9 +782,9 @@ for i, (name, kind, ev) in enumerate(feats):
 txt(s, 0.85, 6.35, 11.6, 0.35,
     "GREEN = code exists, database persists it, UI consumes it, AND a test exercises it.  AMBER = some of that.  BLUE = architecture only.",
     size=10, color=GREY_DIM, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 26)
+footer(s); page_no(s, 29)
 
-# ── 27 · LIMITATIONS ───────────────────────────────────────────────────────
+# ── 30 · LIMITATIONS ───────────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Limitations", eyebrow="STATED BEFORE YOU ASK",
             sub="In order of importance. Every one of these is also written in the code or the docs.")
@@ -733,11 +801,11 @@ for i, line in enumerate(lims):
     y = 2.2 + i * 0.5
     chip(s, 0.9, y, 0.36, 0.3, str(i + 1), color=AMBER, size=9)
     txt(s, 1.45, y + 0.01, 11.0, 0.42, line, size=11, color=WHITE, line=1.3)
-footer(s); page_no(s, 27)
+footer(s); page_no(s, 30)
 notes(s, """Read two or three, not all nine. The point is that the list exists and
 is specific.""")
 
-# ── 28 · ROADMAP ───────────────────────────────────────────────────────────
+# ── 31 · ROADMAP ───────────────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Roadmap", eyebrow="FUTURE — LABELLED AS SUCH")
 phases = [("NEXT", GREEN, ["Redis-backed rate limiting", "Outbox → event bus for SSE fan-out",
@@ -757,9 +825,9 @@ for i, (name, col, items) in enumerate(phases):
 txt(s, 0.85, 6.0, 11.6, 0.4,
     "Satellite, mesh and government-network integration are FUTURE and are labelled that way everywhere in the product — not implemented, not claimed.",
     size=10.5, color=AMBER, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 28)
+footer(s); page_no(s, 31)
 
-# ── 29 · BUSINESS MODEL ────────────────────────────────────────────────────
+# ── 32 · BUSINESS MODEL ────────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Where the money would come from", eyebrow="BUSINESS MODEL",
             sub="Potential, not current. No commercial operation exists — this is a university project.")
@@ -777,9 +845,9 @@ txt(s, 1.1, 4.42, 11.1, 0.7,
 txt(s, 0.85, 5.5, 11.6, 0.4,
     "Current status: no revenue, no customers, no commercial deployment. Stated so the model is read as a plan, not a claim.",
     size=10.5, color=AMBER, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 29)
+footer(s); page_no(s, 32)
 
-# ── 30 · COMPETITIVE ADVANTAGE ─────────────────────────────────────────────
+# ── 33 · COMPETITIVE ADVANTAGE ─────────────────────────────────────────────
 s = new_slide()
 title_block(s, "What a competitor would have to build", eyebrow="COMPETITIVE ADVANTAGE",
             sub="Not “we are better than X” — we have not benchmarked anyone. This is what is genuinely hard here.")
@@ -793,9 +861,9 @@ for i, (t, d) in enumerate(adv):
     panel(s, 0.85, y, 11.6, 0.74, fill=INK_2, line_col=LINE)
     txt(s, 1.1, y + 0.12, 2.9, 0.3, t, size=11.5, color=CYAN, bold=True, font=SANS_SEMI)
     txt(s, 4.15, y + 0.1, 8.1, 0.55, d, size=10, color=WHITE, line=1.3)
-footer(s); page_no(s, 30)
+footer(s); page_no(s, 33)
 
-# ── 31 · LIVE DEMO ─────────────────────────────────────────────────────────
+# ── 34 · LIVE DEMO ─────────────────────────────────────────────────────────
 s = new_slide(BG_RED)
 title_block(s, "Live demonstration", eyebrow="THE PART THAT MATTERS")
 txt(s, 0.9, 2.15, 5.5, 0.3, "PART ONE · THE FULL JOURNEY", size=10, color=GREEN,
@@ -819,9 +887,9 @@ panel(s, 0.85, 6.15, 11.6, 0.75, fill=INK_2, line_col=RED, line_w=1.5)
 txt(s, 1.1, 6.32, 11.1, 0.42,
     "If any step fails, the failure IS the demonstration — nothing here fakes a success.",
     size=12.5, color=WHITE, bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER)
-footer(s); page_no(s, 31)
+footer(s); page_no(s, 34)
 
-# ── 32 · CONCLUSION ────────────────────────────────────────────────────────
+# ── 35 · CONCLUSION ────────────────────────────────────────────────────────
 s = new_slide(BG_HERO)
 txt(s, 0.85, 1.7, 11.6, 0.9, "RoadAssist Bharat", size=46, color=WHITE,
     bold=True, font=SANS_SEMI)
