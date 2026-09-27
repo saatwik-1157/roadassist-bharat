@@ -345,6 +345,10 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
     // A mechanic tapped on the live map ("Request assistance"), handed to Book.
     var requestedMechanic by remember { mutableStateOf<JSONObject?>(null) }
     var showReport by rememberSaveable { mutableStateOf(false) }
+    // "Layers in 3D" (layers.html in a WebView), opened from a Home card. It
+    // covers the whole shell and back returns here. Saveable so a rotation
+    // while looking at the model does not drop the user back on Home.
+    var showLayers by rememberSaveable { mutableStateOf(false) }
 
     // A rotation keeps Api.token — the object lives in the process — but process
     // death does not, and Android still restores the flags above. A signed-in UI
@@ -504,6 +508,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                 onVehicle = { id, label -> vehicleId = id; vehicleLabel = label },
                                 onBook = { tab = 1 },
                                 onReport = { showReport = true },
+                                onLayers = { showLayers = true },
                                 onToast = { toast = it },
                             )
                         }
@@ -547,6 +552,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                     }
                 }
             }
+            if (showLayers) LayersScreen(onClose = { showLayers = false })
         }
 
         toast?.let { msg ->
@@ -1409,7 +1415,7 @@ private const val SOS_GRACE_S = 5
 private fun HomeScreen(
     msisdn: String, vehicleId: String?, vehicleLabel: String?,
     onVehicle: (String, String) -> Unit,
-    onBook: () -> Unit, onReport: () -> Unit, onToast: (String) -> Unit,
+    onBook: () -> Unit, onReport: () -> Unit, onLayers: () -> Unit, onToast: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var reg by remember { mutableStateOf("") }
@@ -1633,6 +1639,25 @@ private fun HomeScreen(
                     shape = RoundedCornerShape(RaRadius.full),
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
                 ) { Text(stringResource(R.string.hazard_prompt_action), color = Alarm, style = RaType.caption, letterSpacing = 1.sp) }
+            }
+        }
+
+        // The platform in live 3D: layers.html from the configured server,
+        // shown in a WebView the way the Map tab shows map.html.
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Panel),
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        ) {
+            Column(Modifier.padding(17.dp)) {
+                Text(stringResource(R.string.layers_title), color = Cream, style = RaType.title)
+                Text(stringResource(R.string.layers_sub),
+                    color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
+                OutlinedButton(
+                    onClick = onLayers,
+                    shape = RoundedCornerShape(RaRadius.full),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
+                ) { Text(stringResource(R.string.layers_open), color = Gold, style = RaType.caption, letterSpacing = 1.sp) }
             }
         }
 

@@ -117,4 +117,11 @@
     <string name="toast_vehicle_added">వాహనం జోడించబడింది</string>
     <string name="toast_no_mechanic">ఈ పరిధిలో మెకానిక్ లేరు — పరిధిని పెంచండి</string>
     <string name="toast_sos_synced">ఆన్‌లైన్‌కు రాగానే %1$d SOS సింక్ అయ్యాయి</string>
+    <string name="layers_title">3Dలో పొరలు</string>
+    <string name="layers_sub">RoadAssist ప్రతి పొర లైవ్ 3Dలో: స్టాక్‌ను తిప్పండి, ఒక పొరను తెరవండి, నిజమైన అభ్యర్థన దాని గుండా ఎలా వెళ్తుందో చూడండి.</string>
+    <string name="layers_open">3Dలో తెరవండి</string>
+    <string name="layers_offline_title">3D పొరలు లోడ్ కాలేదు</string>
+    <string name="layers_offline_body">మీ కనెక్షన్‌ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి. ఇంటర్నెట్ లేకపోయినా SOS పనిచేస్తుంది.</string>
+    <string name="action_retry">మళ్లీ ప్రయత్నించు</string>
+    <string name="cd_back">వెనక్కి</string>
 </resources>

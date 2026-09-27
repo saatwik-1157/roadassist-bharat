@@ -169,7 +169,7 @@ database migrated from empty and seeded.
 | | |
 |---|---|
 | **757 assertions**, six suites, zero failures | 225 unit · 191 e2e · 77 concurrency · 74 attacks · 27 gateway security · 163 browser |
-| Android | 87 tests, zero lint errors, release APK under R8 |
+| Android | 93 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`). No account needed — the script stubs Razorpay's Orders API locally — but it only runs against an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so it is outside the six suites, was not re-run for these figures, and is never described as passing |
 | Schema | 56 tables · 138 indexes · 7 migrations |
@@ -222,7 +222,7 @@ auto-fills.
 npm run verify               # typecheck · lint · boundaries · claims · citations · no-llm · residency · unit
 ```
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (87
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (93
 tests). Build on **JDK 21** — Gradle 8.13 rejects 25. A fresh install talks to
 the live platform, `https://app.roadassistbharat.online`; to use a local API,
 long-press the wordmark on the sign-in screen and type its address (for example

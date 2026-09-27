@@ -132,4 +132,14 @@
     <string name="toast_vehicle_added">Vehicle added</string>
     <string name="toast_no_mechanic">No mechanic in range — widen the radius</string>
     <string name="toast_sos_synced">%1$d queued SOS synced now that you are online</string>
+    <!-- Layers in 3D: the web's layers.html in a WebView, opened from a
+         Home card. The offline state names SOS on purpose: a failed 3D model
+         must not read as the app being broken. -->
+    <string name="layers_title">Layers in 3D</string>
+    <string name="layers_sub">Every layer of RoadAssist in live 3D: rotate the stack, open a layer and watch a real request travel through it.</string>
+    <string name="layers_open">Open in 3D</string>
+    <string name="layers_offline_title">Layers in 3D did not load</string>
+    <string name="layers_offline_body">Check your connection and try again. SOS still works without internet.</string>
+    <string name="action_retry">Retry</string>
+    <string name="cd_back">Back</string>
 </resources>

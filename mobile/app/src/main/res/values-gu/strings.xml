@@ -117,4 +117,11 @@
     <string name="toast_vehicle_added">વાહન ઉમેર્યું</string>
     <string name="toast_no_mechanic">આ વિસ્તારમાં મિકેનિક નથી — વિસ્તાર વધારો</string>
     <string name="toast_sos_synced">ઑનલાઇન થતાં જ %1$d SOS સિંક થયા</string>
+    <string name="layers_title">3D માં સ્તરો</string>
+    <string name="layers_sub">RoadAssist નું દરેક સ્તર લાઇવ 3D માં: માળખું ફેરવો, એક સ્તર ખોલો અને એક સાચી વિનંતી તેમાંથી કેવી રીતે પસાર થાય છે તે જુઓ.</string>
+    <string name="layers_open">3D માં ખોલો</string>
+    <string name="layers_offline_title">3D સ્તરો લોડ થયા નહીં</string>
+    <string name="layers_offline_body">તમારું કનેક્શન તપાસો અને ફરી પ્રયાસ કરો. ઇન્ટરનેટ વિના પણ SOS કામ કરે છે.</string>
+    <string name="action_retry">ફરી પ્રયાસ કરો</string>
+    <string name="cd_back">પાછા</string>
 </resources>

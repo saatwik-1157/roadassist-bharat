@@ -117,4 +117,11 @@
     <string name="toast_vehicle_added">வாகனம் சேர்க்கப்பட்டது</string>
     <string name="toast_no_mechanic">இந்த வரம்பில் மெக்கானிக் இல்லை — வரம்பை அதிகரிக்கவும்</string>
     <string name="toast_sos_synced">ஆன்லைனுக்கு வந்ததும் %1$d SOS ஒத்திசைக்கப்பட்டன</string>
+    <string name="layers_title">அடுக்குகள் 3D-யில்</string>
+    <string name="layers_sub">RoadAssist-இன் ஒவ்வொரு அடுக்கும் நேரலை 3D-யில்: அடுக்கைச் சுழற்றுங்கள், ஒரு அடுக்கைத் திறந்து, ஒரு உண்மையான கோரிக்கை அதன் வழியே செல்வதைப் பாருங்கள்.</string>
+    <string name="layers_open">3D-யில் திற</string>
+    <string name="layers_offline_title">3D அடுக்குகள் ஏற்றப்படவில்லை</string>
+    <string name="layers_offline_body">உங்கள் இணைப்பைச் சரிபார்த்து மீண்டும் முயலுங்கள். இணையம் இல்லாமலும் SOS வேலை செய்யும்.</string>
+    <string name="action_retry">மீண்டும் முயல்க</string>
+    <string name="cd_back">பின்செல்</string>
 </resources>

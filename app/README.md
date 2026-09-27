@@ -125,7 +125,7 @@ against a fresh PostGIS container on every push.
 | 3 · Database | 56 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
 | 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS, gateway-verified payments | ◐ slice complete, full surface pending |
-| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 87 tests); no React Native app |
+| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 93 tests); no React Native app |
 | 7 · AI | Rules engine + trained CV model on RDD2022: best YOLO11s (`yolo11s-multi-rich`, 4 countries, mAP50 0.472 · mAP50-95 0.226); YOLO11n on the full India set, mAP50 0.443 · mAP50-95 0.183 (`ai/train-full.log`) — the model whose detections RAKSHA shows (see ai/) | ◐ undertrained (epoch 13 of 100); its recorded detections feed RAKSHA, the model itself is not served on the hosted demo; GPU training is the path up |
 | R · RAKSHA | Edge simulator → offline queue → idempotent sync → segments → road health → authority verify/close | ◐ MVP slice live. Demo detections are real YOLO11 output at SIMULATED NH-48 positions; the edge simulator's own detector (`sim-rules-0.1.0`) is SIMULATED (ADR-0007) |
 | O · Off-Grid | Connectivity manager (ONLINE/LIMITED/OFF-GRID), offline SOS, on-device diagnosis, encrypted sync journal, cached maps | ✅ (ADR-0009); satellite/mesh explicitly NOT implemented |

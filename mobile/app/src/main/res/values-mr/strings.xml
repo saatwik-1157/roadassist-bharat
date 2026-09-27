@@ -117,4 +117,11 @@
     <string name="toast_vehicle_added">वाहन जोडले</string>
     <string name="toast_no_mechanic">या परिघात मेकॅनिक नाही — परिघ वाढवा</string>
     <string name="toast_sos_synced">ऑनलाइन होताच %1$d SOS सिंक झाले</string>
+    <string name="layers_title">3D मध्ये स्तर</string>
+    <string name="layers_sub">RoadAssist चा प्रत्येक स्तर थेट 3D मध्ये: रचना फिरवा, एखादा स्तर उघडा आणि खरी विनंती त्यातून कशी जाते ते पाहा.</string>
+    <string name="layers_open">3D मध्ये उघडा</string>
+    <string name="layers_offline_title">3D स्तर लोड झाले नाहीत</string>
+    <string name="layers_offline_body">तुमचे कनेक्शन तपासा आणि पुन्हा प्रयत्न करा. इंटरनेटशिवायही SOS काम करते.</string>
+    <string name="action_retry">पुन्हा प्रयत्न करा</string>
+    <string name="cd_back">मागे</string>
 </resources>

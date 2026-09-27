@@ -117,4 +117,11 @@
     <string name="toast_vehicle_added">যানবাহন যোগ হয়েছে</string>
     <string name="toast_no_mechanic">এই পরিসরে কোনো মেকানিক নেই — পরিসর বাড়ান</string>
     <string name="toast_sos_synced">অনলাইনে আসতেই %1$d SOS সিঙ্ক হয়েছে</string>
+    <string name="layers_title">3D-তে স্তরগুলি</string>
+    <string name="layers_sub">RoadAssist-এর প্রতিটি স্তর লাইভ 3D-তে: স্তূপটি ঘোরান, একটি স্তর খুলুন এবং একটি আসল অনুরোধ কীভাবে তার ভেতর দিয়ে যায় দেখুন।</string>
+    <string name="layers_open">3D-তে খুলুন</string>
+    <string name="layers_offline_title">3D স্তরগুলি লোড হয়নি</string>
+    <string name="layers_offline_body">আপনার সংযোগ পরীক্ষা করে আবার চেষ্টা করুন। ইন্টারনেট ছাড়াও SOS কাজ করে।</string>
+    <string name="action_retry">আবার চেষ্টা করুন</string>
+    <string name="cd_back">ফিরে যান</string>
 </resources>

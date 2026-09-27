@@ -117,4 +117,11 @@
     <string name="toast_vehicle_added">ವಾಹನ ಸೇರಿಸಲಾಗಿದೆ</string>
     <string name="toast_no_mechanic">ಈ ವ್ಯಾಪ್ತಿಯಲ್ಲಿ ಮೆಕ್ಯಾನಿಕ್ ಇಲ್ಲ — ವ್ಯಾಪ್ತಿ ಹೆಚ್ಚಿಸಿ</string>
     <string name="toast_sos_synced">ಆನ್‌ಲೈನ್ ಆದ ಕೂಡಲೆ %1$d SOS ಸಿಂಕ್ ಆಗಿವೆ</string>
+    <string name="layers_title">3D ಯಲ್ಲಿ ಪದರಗಳು</string>
+    <string name="layers_sub">RoadAssist ನ ಪ್ರತಿಯೊಂದು ಪದರ ಲೈವ್ 3D ಯಲ್ಲಿ: ಸ್ಟಾಕ್ ಅನ್ನು ತಿರುಗಿಸಿ, ಒಂದು ಪದರವನ್ನು ತೆರೆಯಿರಿ ಮತ್ತು ನಿಜವಾದ ವಿನಂತಿ ಅದರ ಮೂಲಕ ಸಾಗುವುದನ್ನು ನೋಡಿ.</string>
+    <string name="layers_open">3D ಯಲ್ಲಿ ತೆರೆಯಿರಿ</string>
+    <string name="layers_offline_title">3D ಪದರಗಳು ಲೋಡ್ ಆಗಲಿಲ್ಲ</string>
+    <string name="layers_offline_body">ನಿಮ್ಮ ಸಂಪರ್ಕವನ್ನು ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. ಇಂಟರ್ನೆಟ್ ಇಲ್ಲದೆಯೂ SOS ಕೆಲಸ ಮಾಡುತ್ತದೆ.</string>
+    <string name="action_retry">ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ</string>
+    <string name="cd_back">ಹಿಂದೆ</string>
 </resources>
