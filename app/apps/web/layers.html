@@ -88,11 +88,6 @@
   .poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; transition: opacity .8s; pointer-events: none; }
   .poster.gone { opacity: 0; visibility: hidden; transition: opacity .8s, visibility 0s .8s; }
   .stage canvas { position: relative; z-index: 1; }
-  .film { margin: auto; border: 1px solid var(--line); border-radius: var(--r-xl); padding: 14px; background: #0b0d12; color: #f2f0ea;
-          width: min(960px, calc(100vw - 32px)); }
-  .film::backdrop { background: rgba(4, 6, 10, .78); backdrop-filter: blur(6px); }
-  .film video { width: 100%; border-radius: var(--r-lg); background: #000; aspect-ratio: 16 / 9; }
-  .film p { font-size: 13px; opacity: .75; margin: 10px 2px; line-height: 1.45; }
   .nogl { position: absolute; left: 0; right: 0; bottom: 110px; display: none; place-items: center; text-align: center; padding: 20px; z-index: 3; }
   .nogl > div { background: var(--glass-strong); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 12px 16px; font-size: 14px; }
   .no-webgl .nogl { display: grid; }
@@ -169,12 +164,6 @@
   <button class="iconbtn" id="theme" aria-label="Switch light or dark">◐</button>
 </header>
 
-<dialog class="film" id="film" aria-label="The stack rendered in Blender">
-  <video id="film-v" src="assets/3d/layers-film.mp4" poster="assets/3d/layers-render-960.webp" controls muted loop playsinline preload="none"></video>
-  <p>Rendered in Blender 5.2 (EEVEE, bloom in the compositor) from <code>design/blender/build_layers.py</code> — the same model this page turns.</p>
-  <button class="chip" id="film-x">Close</button>
-</dialog>
-
 <main class="wrap">
   <section class="stage" id="stage" aria-label="3D model of the platform's layers">
     <div class="hud">
@@ -182,11 +171,10 @@
       <button class="chip" id="b-spin" aria-pressed="true" aria-label="Auto-rotate">⟳<span class="t"> Auto-rotate</span></button>
       <button class="chip" id="b-glow" aria-pressed="true" aria-label="Glow">✦<span class="t"> Glow</span></button>
       <button class="chip" id="b-reset" aria-label="Reset view">⌖<span class="t"> Reset view</span></button>
-      <button class="chip" id="b-film" aria-label="Blender film">🎬<span class="t"> Blender film</span></button>
     </div>
     <div class="intro">
       <h1>Seven layers,<br><em>one request.</em></h1>
-      <p>Drag to turn the stack any way — over the top or from underneath. Right-drag or two fingers to pan, scroll or pinch to zoom, arrow keys too. Tap a layer to open it; press ▶ to watch a real request travel through every layer.</p>
+      <p>It turns by itself, live — drag to turn it any way yourself, over the top or from underneath. Right-drag or two fingers to pan, scroll or pinch to zoom, arrow keys too. Tap a layer to open it; press ▶ to watch a real request travel through every layer.</p>
     </div>
     <div class="labels" id="labels"></div>
     <img class="poster" id="poster" src="assets/3d/layers-render-960.webp" srcset="assets/3d/layers-render-960.webp 960w, assets/3d/layers-render.webp 1920w" sizes="(max-width: 900px) 100vw, 70vw" alt="The seven layers of RoadAssist Bharat, rendered in Blender">
@@ -327,6 +315,15 @@ const JOURNEYS = [
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const narrow = () => stage.clientWidth < 600;
+// The stack turns by itself, live. A hand on it (drag, pinch, keys) pauses the
+// turn; 2.5 s after the hand lets go it carries on. Only the Auto-rotate
+// button, or a request for reduced motion, stops it for good.
+let spinWanted = !reduced, resumeTimer = null;
+function holdSpin() {
+  if (!controls) return;
+  controls.autoRotate = false; clearTimeout(resumeTimer);
+  resumeTimer = setTimeout(() => { controls.autoRotate = spinWanted; }, 2500);
+}
 let glowOn = true;
 const $ = (id) => document.getElementById(id);
 const stage = $("stage");
@@ -556,7 +553,7 @@ async function build() {
   controls.minPolarAngle = 0; controls.maxPolarAngle = Math.PI;
   controls.enablePan = true; controls.screenSpacePanning = true;
   controls.minDistance = 7; controls.maxDistance = 38;
-  controls.autoRotate = !reduced; controls.autoRotateSpeed = 0.55;
+  controls.autoRotate = spinWanted; controls.autoRotateSpeed = 0.8;
   controls.target.set(0, -0.6, 0);   // a little low: the plinth is part of the picture
   if (reduced) { $("b-spin").setAttribute("aria-pressed", "false"); }
 
@@ -620,7 +617,8 @@ async function build() {
     if (hit) select(hit.object.userData.layer, hit.object.userData.comp, true);
     else select(-1, -1, true);
   });
-  controls.addEventListener("start", () => { userTurned = true; tween = null; });
+  controls.addEventListener("start", () => { userTurned = true; tween = null; controls.autoRotate = false; clearTimeout(resumeTimer); });
+  controls.addEventListener("end", holdSpin);
   stage.tabIndex = 0;
   stage.addEventListener("keydown", (e) => {
     if (e.target !== stage && e.target !== renderer.domElement) return;   // the picker and buttons keep their keys
@@ -633,8 +631,7 @@ async function build() {
     else if (e.key === "+" || e.key === "=") sph.radius = Math.max(controls.minDistance, sph.radius * 0.9);
     else if (e.key === "-") sph.radius = Math.min(controls.maxDistance, sph.radius * 1.1);
     else return;
-    e.preventDefault(); tween = null;
-    controls.autoRotate = false; $("b-spin").setAttribute("aria-pressed", "false");
+    e.preventDefault(); tween = null; holdSpin();
     camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sph));
   });
 
@@ -724,7 +721,6 @@ function select(i, j, fromUser) {
     c.el.classList.toggle("show", c.layer === i);
     c.el.classList.toggle("hot", c.layer === i && c.comp === j);
   });
-  if (fromUser && i >= 0 && controls) { controls.autoRotate = false; $("b-spin").setAttribute("aria-pressed", "false"); }
   if (controls) focusOn(i);
   renderList(); renderDetail();
 }
@@ -813,7 +809,6 @@ function tick() {
 }
 function startPlay() {
   playing = true; $("j-play").textContent = "❚❚"; $("j-play").setAttribute("aria-label", "Pause");
-  if (controls) { controls.autoRotate = false; $("b-spin").setAttribute("aria-pressed", "false"); }
   if (jStep >= JOURNEYS[jIdx].steps.length - 1) jStep = -1;
   tick();
 }
@@ -835,17 +830,11 @@ $("b-explode").onclick = (e) => {
 };
 $("b-spin").onclick = (e) => {
   if (!controls) return;
-  controls.autoRotate = !controls.autoRotate;
-  e.currentTarget.setAttribute("aria-pressed", String(controls.autoRotate));
+  spinWanted = !spinWanted; clearTimeout(resumeTimer);
+  controls.autoRotate = spinWanted;
+  e.currentTarget.setAttribute("aria-pressed", String(spinWanted));
 };
 $("b-reset").onclick = () => { stopPlay(); select(-1, -1, false); };   // focusOn(-1) re-centres a pan too
-$("b-film").onclick = () => {
-  const d = $("film");
-  if (typeof d.showModal === "function") d.showModal(); else d.setAttribute("open", "");
-  $("film-v").play().catch(() => { /* the controls are there to start it */ });
-};
-$("film-x").onclick = () => { $("film-v").pause(); $("film").close ? $("film").close() : $("film").removeAttribute("open"); };
-$("film").addEventListener("close", () => $("film-v").pause());
 $("b-glow").onclick = (e) => {
   glowOn = !glowOn;
   e.currentTarget.setAttribute("aria-pressed", String(glowOn));
