@@ -911,7 +911,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 <section id="product" style="padding-top:0;border-top:0">
   <div class="wrap">
     <div class="metrics rv" id="metrics">
-      <div class="metric"><div class="v" data-count="760">760</div><div class="l">Assertions</div></div>
+      <div class="metric"><div class="v" data-count="864">864</div><div class="l">Assertions</div></div>
       <div class="metric"><div class="v" data-count="56">56</div><div class="l">Tables</div></div>
       <div class="metric"><div class="v" data-count="138">138</div><div class="l">Indexes</div></div>
       <div class="metric"><div class="v" data-count="69">69</div><div class="l">API routes</div></div>
@@ -1608,21 +1608,21 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     <h2>Every suite, and the one that never ran</h2>
     <div class="tbl-scroll" style="margin-top:18px"><table class="tbl tbl-suites">
       <tr><th>Suite</th><th>What it covers</th><th class="num">Assertions</th><th>Status</th></tr>
-      <tr><td>Unit</td><td>No I/O; the only suite that runs standalone</td><td class="num">225</td><td><span class="badge badge-ok">PASS</span></td></tr>
-      <tr><td>End-to-end</td><td>Full citizen and mechanic journeys against a live API</td><td class="num">194</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Unit</td><td>No I/O; the only suite that runs standalone</td><td class="num">302</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>End-to-end</td><td>Full citizen and mechanic journeys against a live API</td><td class="num">203</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Concurrency</td><td>Races settled by Postgres rather than by timing</td><td class="num">77</td><td><span class="badge badge-ok">PASS</span></td></tr>
-      <tr><td>Security</td><td>Attacks that must every one be refused</td><td class="num">74</td><td><span class="badge badge-ok">PASS</span></td></tr>
-      <tr><td>Gateway security</td><td>Telecom path, audit hash chain, OTP limits</td><td class="num">27</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Security</td><td>Attacks that must every one be refused</td><td class="num">84</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Gateway security</td><td>Telecom path, audit hash chain, OTP limits</td><td class="num">35</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Browser</td><td>Real Chrome driven over CDP</td><td class="num">163</td><td><span class="badge badge-ok">PASS</span></td></tr>
-      <tr class="total"><td><strong>Total</strong></td><td>Six suites, zero failures</td><td class="num"><strong>760</strong></td><td><span class="badge badge-ok">PASS</span></td></tr>
-      <tr class="sub"><th colspan="4">Run separately &mdash; not part of the 760</th></tr>
-      <tr><td>Android</td><td>Kotlin unit tests; 21 cover the SOS ladder alone</td><td class="num">109</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr class="total"><td><strong>Total</strong></td><td>Six suites, zero failures</td><td class="num"><strong>864</strong></td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr class="sub"><th colspan="4">Run separately &mdash; not part of the 864</th></tr>
+      <tr><td>Android</td><td>Kotlin unit tests; 21 cover the SOS ladder alone</td><td class="num">115</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>CV pipeline</td><td>Standard library only, no model download needed</td><td class="num">39</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Razorpay sandbox</td><td>Needs a payment account; has never been executed</td><td class="num">22</td><td><span class="badge badge-no">NOT RUN</span></td></tr>
     </table></div>
     <div class="note">
       <p><strong>Tested is not the same as claimed.</strong> The 22 Razorpay sandbox checks need a
-      KYC-verified account. They have never run, they are not part of the 760, and they are never
+      KYC-verified account. They have never run, they are not part of the 864, and they are never
       described as passing. Android lint reports zero errors and the release APK builds under R8.</p>
     </div>
   </div>
