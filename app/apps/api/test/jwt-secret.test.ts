@@ -62,7 +62,14 @@ describe("jwtSecretProblem", () => {
 describe("validateEnv", { concurrency: true }, () => {
   const ENV_TS = pathToFileURL(fileURLToPath(new URL("../src/env.ts", import.meta.url))).href;
   const boot = (vars: Record<string, string>) => {
-    const env: NodeJS.ProcessEnv = { ...process.env, SMS_PROVIDER: "console", ...vars };
+    // DATABASE_URL is set explicitly too: outside development the env refuses
+    // to boot without one, which would pass the refusal cases for the wrong
+    // reason. Nothing connects to it - validateEnv() only reads it. CI's unit
+    // job has no database, which is how a developer's own value hid this.
+    const env: NodeJS.ProcessEnv = {
+      ...process.env, SMS_PROVIDER: "console",
+      DATABASE_URL: "postgres://localhost:5434/roadassist_env_test", ...vars,
+    };
     delete env.CORS_ORIGINS; // unrelated problems would mask the one under test
     const r = spawnSync(process.execPath, [
       "--import", "tsx", "--input-type=module", "-e",
