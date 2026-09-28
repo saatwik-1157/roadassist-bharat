@@ -80,12 +80,61 @@ function resolveDatabaseUrl(): string {
 
 export const DATABASE_URL = resolveDatabaseUrl();
 
+/** Hosts whose traffic never leaves the machine. */
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/**
+ * Whether the driver must be told to use TLS.
+ *
+ * postgres.js defaults to a plain-text connection, so a managed database
+ * reached with a URL that omits `sslmode` carried its password and every row
+ * over the public internet in the clear. The rule:
+ *
+ *   · development and test never change — local docker (localhost:5434) and
+ *     CI's service container have no TLS and must keep working;
+ *   · a URL that already says `sslmode=...` (or `sslrootcert=system`) is an
+ *     explicit choice and is left to the driver, as is `PGSSL` in the
+ *     environment (the variable postgres.js itself reads);
+ *   · loopback hosts, and single-label hosts such as `db` or `ra-db`, are
+ *     exempt: those are docker-compose / container-network service names
+ *     (docker-compose.demo.yml, docker-compose.prod.yml and the image smoke
+ *     test in publish-image.yml all use one) and their Postgres has no TLS;
+ *   · everything else — a dotted hostname or an IP — gets `ssl: "require"`.
+ *
+ * Returns "require" or undefined; undefined means "pass no ssl option at all",
+ * because postgres.js treats a present-but-undefined `ssl` key as an override
+ * of the URL's own sslmode.
+ */
+export function requiredSsl(
+  url: string,
+  nodeEnv: string = process.env.NODE_ENV ?? "development",
+  envVars: Record<string, string | undefined> = process.env,
+): "require" | undefined {
+  if (nodeEnv === "development" || nodeEnv === "test") return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;   // checkDatabaseUrl has already refused anything unparseable
+  }
+  if (parsed.searchParams.has("sslmode") || parsed.searchParams.get("sslrootcert") === "system") {
+    return undefined;
+  }
+  if (envVars.PGSSL) return undefined;
+  const host = parsed.hostname.toLowerCase();
+  if (!host || LOOPBACK_HOSTS.has(host)) return undefined;
+  const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
+  if (!isIp && !host.includes(".")) return undefined;   // container service name
+  return "require";
+}
+
 /**
  * One pooled connection per process. `max` is deliberately small: in production
  * PgBouncer fronts the database and each pod holds only a handful of sessions.
  */
 export function createClient(url: string = DATABASE_URL, max = 10) {
-  const sql = postgres(url, { max, onnotice: () => {} });
+  const ssl = requiredSsl(url);
+  const sql = postgres(url, { max, onnotice: () => {}, ...(ssl ? { ssl } : {}) });
   return { sql, db: drizzle(sql, { schema }) };
 }
 

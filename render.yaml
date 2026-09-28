@@ -74,6 +74,11 @@ services:
       # Render terminates TLS at its own proxy, so without this every request
       # appears to come from the proxy — and the per-IP OTP limiter would
       # throttle every user in the world as if they were one client.
+      # Cloudflare (in front of Render) overwrites this with the address that
+      # really connected; X-Forwarded-For's leftmost entry is the client's own
+      # claim. See apps/api/src/client-ip.ts.
+      - key: CLIENT_IP_HEADER
+        value: cf-connecting-ip
       - key: TRUST_PROXY
         value: "true"
 

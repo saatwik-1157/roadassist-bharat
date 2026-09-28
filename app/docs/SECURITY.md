@@ -3,7 +3,7 @@
 Threat model: [`security/threat-model.md`](security/threat-model.md) — STRIDE,
 20 threats mapped to controls.
 Penetration suite: [`../scripts/security-audit.mjs`](../scripts/security-audit.mjs) —
-**74 attacks, every one refused.**
+**84 attacks, every one refused.**
 
 Everything below has been executed. A control described here without a test
 beside it says so.
@@ -260,9 +260,48 @@ One reported finding was a **test bug, not a vulnerability**: the subject-swap
 check set the subject to the token's *own* account, so the 200 it earned was
 correct. Corrected to swap to a different account, which is refused.
 
+## The September 2026 hardening pass
+
+A checklist review (keys, env, admin routes, auth, access control, input,
+XSS, rate limits, CORS, headers, debug mode, dependencies, exposed files,
+database, passwords, leaked secrets). Git history, the live hosts and every
+source file were searched for secrets first: **none was found**, and every
+probe for an exposed file (`/.env`, `/.git/config`, source maps, backups)
+answers 404 on the live hosts. What changed:
+
+| Finding | Severity | Fix | Verified by |
+|---|---|---|---|
+| With the OTP echoed on the hosted demo, **any** number — including a privileged one — could be signed into | High | Outside local environments an echoed or fixed code is accepted only for the published demo numbers, and never for a privileged role (`domain/demo-numbers.ts`) | `demo-numbers.test.ts`; live: a non-demo number is refused |
+| The inbound-SMS webhook with no secret accepted any number on the hosted demo, so a stranger could act as a real phone | High | 503 `webhook_not_configured` except for demo numbers; a set secret is required of everyone; limited per sending number (`domain/webhook-intake.ts`) | `webhook-intake.test.ts`, `gateway-security-test.mjs` |
+| `/v1/notify/email` would send an operator-written message to any address | High | Plain text only, and only to the platform's own alert and sign-in recipients — else 403 `recipient_not_allowed` | `e2e-journey.mjs` §25 |
+| Behind Cloudflare, the client address came from `X-Forwarded-For`, which the caller writes — every per-IP limit could be dodged | High | `CLIENT_IP_HEADER=cf-connecting-ip`: the address the edge saw, used only when it is a valid IP (`client-ip.ts`) | `route-limits.test.ts` |
+| No security headers | Medium | CSP (`object-src 'none'`, `frame-ancestors` limited to the showcase, `base-uri`/`form-action 'self'`), nosniff, Referrer-Policy, Permissions-Policy, COOP, CORP, HSTS over HTTPS; `no-store` on the API (`security-headers.ts`) | `security-headers.test.ts`, `e2e-journey.mjs` §25 |
+| No sign-out on the server — a stolen refresh token outlived "sign out" | Medium | `POST /v1/auth/logout` revokes the whole session family; its access tokens are refused as `AUTH_REVOKED` | `security-audit.mjs` (9 checks) |
+| A repeated SOS confirm re-texted every emergency contact | Medium | Confirm is idempotent per incident; at most 10 alert batches an hour per account (the escalation itself is never limited); at most 5 contacts, each number once | Contacts: `e2e-journey.mjs` §25. Confirm idempotency and the alert cap: a manual probe (10 simultaneous confirms, one send) — **not yet in a counted suite** |
+| The generic transition route let a non-admin issue `mechanic.accept` and other system commands | Medium | 409 `command_not_allowed`; only the customer or an admin may cancel | `e2e-journey.mjs` §25 |
+| Another user's idempotency key replayed *their* booking | Medium | 409 `idempotency_key_in_use` | `e2e-journey.mjs` §25 |
+| The tile proxies would fetch any tile, anywhere, unlimited | Low | Only tiles that exist, over the region, 1,200 a minute | `route-limits.test.ts` |
+| A foreign `vehicleId` could be attached to an SOS or a diagnosis | Low | Dropped, and the response says so | Manual probe — **not yet in a counted suite** |
+| The console SMS log printed full numbers and live sign-in codes on the hosted demo | Low | Masked outside development (`+91******3210`, `••••••`); the same for the console email provider | `log-redaction.test.ts` |
+| Weak or default JWT secret accepted outside development; the local demo compose shipped a fixed one | Low | Refused below 32 characters; the demo generates a random one per boot | `jwt-secret.test.ts` |
+| Database connections to a remote host did not require TLS | Low | `ssl: "require"` unless the URL says otherwise or the host is local | `database-tls.test.ts` |
+| Pages: `innerHTML` with server strings, CSV formula injection, a token left in the map URL | Low | Escaped, neutralised, cleared | Code review; the browser suite still passes |
+| Android: map WebView could navigate anywhere and its bridge answered any page; app data was backed up | Low | Origin allow-list for navigation, bridge and geolocation; file access off; `allowBackup=false` | `MapWebGuardTest.kt` |
+
+Dependencies were updated within their ranges (Fastify 5.12.5, Drizzle ORM
+0.45.3) and an unused direct dependency was removed. `npm audit` still
+reports 4 moderate advisories, all in `drizzle-kit`'s development-only
+`esbuild` chain, which never ships in the image. Passwords: the platform has
+none — sign-in is a one-time code, stored as a SHA-256 hash.
+
+**Still open, said plainly:** refresh tokens live in `localStorage`, and the
+CSP keeps `'unsafe-inline'` for the pages' inline scripts — HttpOnly cookies
+and nonces are future work. The database runs as its owner role; a
+least-privilege role needs the Neon console.
+
 ## Known gaps
 
-1. **No external penetration test.** 74 self-written attacks is not the same
+1. **No external penetration test.** 84 self-written attacks is not the same
    thing.
 2. **Rate limiting is per-instance.** See above.
 3. **No column-level encryption at rest in Postgres.** Medical data is protected

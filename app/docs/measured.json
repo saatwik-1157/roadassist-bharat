@@ -11,17 +11,17 @@
     "file. docs/release/ and docs/verification/ are exempt: they record what was",
     "true for a past build, and correcting them would falsify the record."
   ],
-  "measuredOn": "2026-09-12",
+  "measuredOn": "2026-09-29",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 760,
+    "total": 864,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 225,
-      "e2e": 194,
+      "unit": 302,
+      "e2e": 203,
       "concurrency": 77,
-      "gatewaySecurity": 27,
-      "securityAudit": 74,
+      "gatewaySecurity": 35,
+      "securityAudit": 84,
       "browser": 163
     },
     "notExecuted": {
@@ -29,7 +29,7 @@
       "why": "scripts/razorpay-test.mjs needs NO Razorpay account: it starts its own local stub of the Orders API and signs webhooks with a stub secret. It refuses to run (exit 2) unless the API was started separately with PAYMENTS_PROVIDER=razorpay and PAYMENTS_BASE_URL pointed at that stub, so it is outside every npm test run and was not re-run for this measurement. Never counted in the total, never described as passing"
     },
     "otherRunners": {
-      "android": 109,
+      "android": 115,
       "sosLadder": 21,
       "ai": 39,
       "why": "separate toolchains with their own runners; not part of the six-suite total",
@@ -82,10 +82,10 @@
     ]
   },
   "api": {
-    "routes": 68,
+    "routes": 69,
     "how": [
       "Count app.get/post/patch/put/delete call sites across apps/api/src:",
-      "34 in server.ts + 16 in raksha.ts + 3 in routes/auth.ts",
+      "34 in server.ts + 16 in raksha.ts + 4 in routes/auth.ts",
       "+ 2 in routes/email-auth.ts + 6 in routes/emergency.ts",
       "+ 1 in routes/telecom.ts + 3 in routes/mechanic.ts + 3 in routes/payments.ts.",
       "",

@@ -6,18 +6,18 @@ Ticked only where the artefact exists **and** has been verified in this session.
 
 | | Item | Where | Status |
 |---|---|---|---|
-| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 56-table schema, 68 routes (65 under `/v1`), 6 web surfaces, native Kotlin Android client |
+| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 56-table schema, 69 routes (66 under `/v1`), 6 web surfaces, native Kotlin Android client |
 | ✅ | Database migrations | `app/packages/db/drizzle/` | 7 migrations, run from an **empty** database in this session |
 | ✅ | Seed data | `app/packages/db/src/seed.ts` | Two modes — full demo, and `--reference-only` for production (0 demo rows, verified) |
 | ✅ | README | `app/README.md`, root `README.md` | |
 | ✅ | Project overview | `app/docs/PROJECT_OVERVIEW.md` | |
 | ✅ | Architecture | `app/docs/architecture/README.md` | C4, events, degraded modes, API style guide |
 | ✅ | Failure matrix | `app/docs/architecture/failure-matrix.md` | 20 rows, each naming its proving suite |
-| ✅ | Security documentation | `app/docs/SECURITY.md` | Controls, 74 attacks, findings, known gaps |
+| ✅ | Security documentation | `app/docs/SECURITY.md` | Controls, 84 attacks, findings, known gaps |
 | ✅ | Offline documentation | `app/docs/OFFLINE.md` | Capability matrix, tiers, storage, retention |
 | ✅ | Deployment instructions | `app/docs/DEPLOYMENT.md` | Docker, config, backup, rollback, DR, cost |
 | ✅ | Live deployment | https://app.roadassistbharat.online · showcase https://roadassistbharat.online | One Render web service (Docker, free plan, Singapore) + Neon Postgres/PostGIS (Singapore); showcase on GitHub Pages. `NODE_ENV=demo`, mock payments, on-screen OTP |
-| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (760 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
+| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (864 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
 | ✅ | SWE4004 mapping | `app/docs/SWE4004-MAPPING.md` | Modules 1–6, 21-row cloud-concept audit |
 | ✅ | Claims audit | `app/docs/CLAIMS-AUDIT.md` | Every claim checked against the code |
 | ✅ | Presentation | `ppt/RoadAssist-Bharat-FINAL.pptx` | **35 slides**, generated, 0 over-claims |

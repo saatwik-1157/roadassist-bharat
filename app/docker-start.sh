@@ -27,6 +27,16 @@
 # password, and it refuses NODE_ENV=production on its own account.
 set -e
 
+# No signing secret supplied (the local demo compose): make a random one for
+# this boot. Sessions then end on restart, which a demo can live with; a
+# published default secret would let anyone forge a session. A host that sets
+# JWT_SECRET (Render generates one) keeps its own.
+if [ -z "${JWT_SECRET:-}" ]; then
+  JWT_SECRET="$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64url"))')"
+  export JWT_SECRET
+  echo "→ no JWT_SECRET given: generated a random one for this boot"
+fi
+
 echo "→ migrating"
 node packages/db/dist/src/migrate.js
 

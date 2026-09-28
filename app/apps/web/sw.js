@@ -12,7 +12,8 @@
  */
 // Bump whenever SHELL_ASSETS changes: the old cache is dropped on activate, so
 // a viewer who already installed v1 does not keep a shell missing the new files.
-const VERSION = "ra-v9";
+// v10: keys are the bare pathname, so v9's query-string entries are dropped.
+const VERSION = "ra-v10";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -57,6 +58,12 @@ const SHELL_ASSETS = [
   "/vendor/MarkerCluster.css",
   "/vendor/markercluster.js",
 ];
+// The shell cache holds exactly these paths, keyed without their query string:
+// keyed by full URL, every distinct ?x=... link added an entry, without bound.
+const SHELL_PATHS = new Set(SHELL_ASSETS);
+// Only a complete 200 is stored. A 206 (a Range request, e.g. /media/*.mp4)
+// is a fragment, and Cache.put rejects it outright.
+const cacheable = (res) => res && res.status === 200 && res.type === "basic";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -99,7 +106,7 @@ self.addEventListener("fetch", (event) => {
         if (hit) return hit;
         try {
           const res = await fetch(req);
-          if (res.ok) cache.put(req, res.clone());
+          if (cacheable(res)) cache.put(req, res.clone()).catch(() => {});
           return res;
         } catch {
           // No tile and no network: let the map draw its own empty ground.
@@ -114,14 +121,19 @@ self.addEventListener("fetch", (event) => {
   // Cache-first served a returning visitor the previous release of every page
   // once - a fixed map kept making the request the fix removed. A deploy now
   // shows on the next load; three seconds of dead air falls back to the copy.
+  // Only a shell page is written to the cache, under its bare pathname.
+  const key = SHELL_PATHS.has(url.pathname) ? url.pathname : null;
   if (req.mode === "navigate") {
     event.respondWith(
       caches.open(SHELL).then(async (cache) => {
-        const fresh = fetch(req).then((res) => { if (res.ok) cache.put(req, res.clone()); return res; });
+        const fresh = fetch(req).then((res) => {
+          if (key && cacheable(res)) cache.put(key, res.clone()).catch(() => {});
+          return res;
+        });
         const slow = new Promise((resolve) => setTimeout(resolve, 3000, null));
         const res = await Promise.race([fresh.catch(() => null), slow]);
         if (res) return res;
-        return (await cache.match(req)) ?? (await fresh.catch(() => null)) ??
+        return (key && (await cache.match(key))) ?? (await fresh.catch(() => null)) ??
           (await cache.match("/app.html")) ??
           new Response("Offline and this page was never cached.", { status: 503, headers: { "content-type": "text/plain" } });
       }),
@@ -129,12 +141,16 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Anything else that is not a shell asset (media, 3D assets, feeds) goes to
+  // the network untouched - including its Range requests and 206 answers.
+  if (!key) return;
+
   // Shell assets: serve instantly from cache, refresh in the background.
   event.respondWith(
     caches.open(SHELL).then(async (cache) => {
-      const hit = await cache.match(req);
+      const hit = await cache.match(key);
       const fresh = fetch(req)
-        .then((res) => { if (res.ok) cache.put(req, res.clone()); return res; })
+        .then((res) => { if (cacheable(res)) cache.put(key, res.clone()).catch(() => {}); return res; })
         .catch(() => null);
       if (hit) return hit;
       const res = await fresh;

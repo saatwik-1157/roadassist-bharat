@@ -1,6 +1,6 @@
 # Testing
 
-Six suites, 760 assertions, all executed against a real PostgreSQL + PostGIS and a
+Six suites, 864 assertions, all executed against a real PostgreSQL + PostGIS and a
 real Chrome, with no failures. A seventh — 22 payment-gateway checks in
 `scripts/razorpay-test.mjs` — needs **no** Razorpay account (it runs its own
 local stub of the Orders API), but refuses to run unless the API was started
@@ -261,7 +261,7 @@ now samples 25 times so its p95 is a percentile.
 | `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
 | `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
 | `boundaries` | four fitness functions: module boundaries, the offline-shell completeness check, the documented-claims check and the code-citation check |
-| `android` | lint, 109 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
+| `android` | lint, 115 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
 | `ai` | syntax-checks every CV script and runs the pipeline unit tests |
 
 `android` and `ai` were added because `mobile/` and `ai/` ship as real artefacts

@@ -14,9 +14,8 @@
  *   · Every script but English is outside GSM 03.38, so one segment holds 70
  *     characters, not 160. i18n.test.ts holds every entry to that budget.
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { and, desc, eq, isNull, sql as raw } from "drizzle-orm";
-import { createHmac } from "node:crypto";
 import { z } from "zod";
 
 import * as S from "@roadassist/db";
@@ -24,11 +23,52 @@ import { db } from "../db.js";
 import { env } from "../env.js";
 import { ok, msisdnSchema } from "../http.js";
 import { sms } from "../providers.js";
-import { constantTimeEquals } from "../auth.js";
+import { limit } from "../ratelimit.js";
+import { decideWebhookIntake, type IntakeMode } from "../domain/webhook-intake.js";
+import { isDemoNumber } from "../domain/demo-numbers.js";
 import { apply, type Status } from "../domain/booking-machine.js";
 import { parseSmsCoordinates } from "../domain/sms-coordinates.js";
 import { reference } from "../domain/reference.js";
 import { t, resolveLocale, parseLangCommand, DEFAULT_LOCALE } from "../i18n.js";
+
+/** What the intake gate decided for each accepted request, for the handler to report. */
+const intakeMode = new WeakMap<FastifyRequest, IntakeMode>();
+
+/**
+ * Signature (or, without a secret, the development/demo-number rule) BEFORE
+ * anything else — including the rate limit, so a forged request cannot spend a
+ * real number's allowance and lock its owner out of texting SOS.
+ */
+async function webhookGate(req: FastifyRequest, res: FastifyReply) {
+  const decision = decideWebhookIntake({
+    secret: env.telecomWebhookSecret,
+    nodeEnv: env.nodeEnv,
+    rawBody: (req as { rawBody?: string }).rawBody ?? "",
+    signature: req.headers["x-roadassist-signature"] as string | undefined,
+    from: (req.body as { from?: unknown } | undefined)?.from,
+    isDemoNumber,
+  });
+  if (!decision.accept) {
+    return res.code(decision.status).send({
+      error: { code: decision.code, title: decision.title, retryable: false, requestId: req.id },
+    });
+  }
+  intakeMode.set(req, decision.mode);
+}
+
+/** Keyed by the sending number; a body with no usable `from` falls to the IP. */
+const bySender = (req: FastifyRequest) => {
+  const from = (req.body as { from?: unknown } | undefined)?.from;
+  return typeof from === "string" && from.length <= 20 ? `msisdn:${from}` : `ip:${req.ip}`;
+};
+
+/**
+ * Unsigned demo-number intake is also counted per IP, so one client cannot walk
+ * the demo range. Signed traffic all comes from the vendor's few addresses, and
+ * local development is nobody else's business, so neither is counted here.
+ */
+const byIpWhenUnsignedDemo = (req: FastifyRequest) =>
+  intakeMode.get(req) === "unsigned_demo_number" ? `ip:${req.ip}` : null;
 
 export async function telecomRoutes(app: FastifyInstance) {
   // ══ feature-phone journey: inbound SMS ═════════════════════════════════════
@@ -43,7 +83,15 @@ export async function telecomRoutes(app: FastifyInstance) {
    * TELECOM_WEBHOOK_SECRET is set, every request must carry
    * x-roadassist-signature = HMAC-SHA256(secret, raw body) as hex; production
    * refuses to boot without the secret (assertProductionSafe). With no secret
-   * configured the endpoint stays open for development and says so.
+   * the endpoint is open only in local environments (domain/local-env.ts:
+   * development, test, the CI smoke test). Anywhere else — the
+   * hosted demo is NODE_ENV=demo, which assertProductionSafe never covered —
+   * it answers 503 webhook_not_configured, except for the published demo
+   * numbers, so the demo keeps its feature-phone walkthrough without letting a
+   * stranger act as a real phone number. Rules: domain/webhook-intake.ts.
+   *
+   * Rate limited per sending number (LIMITS.telecom), and unsigned demo-number
+   * intake also per IP (LIMITS.telecomUnsigned), both after the gate.
    */
 
   const CLASS_WORDS: Record<string, string> = {
@@ -52,23 +100,13 @@ export async function telecomRoutes(app: FastifyInstance) {
     bus: "bus", tractor: "tractor", ev: "ev",
   };
 
-  app.post("/v1/telecom/sms", async (req, res) => {
-    if (env.telecomWebhookSecret) {
-      const presented = String(req.headers["x-roadassist-signature"] ?? "");
-      const expected = createHmac("sha256", env.telecomWebhookSecret)
-        .update((req as { rawBody?: string }).rawBody ?? "")
-        .digest("hex");
-      if (!presented || !constantTimeEquals(presented, expected)) {
-        return res.code(401).send({
-          error: { code: "webhook_unsigned", title: "Missing or invalid webhook signature", retryable: false },
-        });
-      }
-    }
-
+  app.post("/v1/telecom/sms", {
+    preHandler: [webhookGate, limit("telecom", bySender), limit("telecomUnsigned", byIpWhenUnsignedDemo)],
+  }, async (req) => {
     // Running without a signature is a development convenience, and the comment
     // above claimed it was "flagged" — it was not. An operator reading a response
     // could not tell a signed intake from an open one. Now they can.
-    const unsignedIntake = !env.telecomWebhookSecret;
+    const mode = intakeMode.get(req) ?? "signed";
 
     const { from, text } = z.object({
       from: msisdnSchema,
@@ -93,13 +131,15 @@ export async function telecomRoutes(app: FastifyInstance) {
       return ok({ reply: body }, {
         channel: "sms", to: from,
         // Said out loud on every response, not buried in a code comment. This
-        // endpoint can raise an SOS for any phone number it is handed, so an
+        // endpoint can raise an SOS for the phone number it is handed, so an
         // operator must be able to see from the wire whether the intake is
-        // authenticated. Production cannot reach this state:
+        // authenticated. Production cannot reach the unsigned states:
         // `assertProductionSafe` refuses to boot without the secret.
-        ...(unsignedIntake
-          ? { warning: "UNSIGNED INTAKE — TELECOM_WEBHOOK_SECRET is unset, so this endpoint accepts unauthenticated requests. Development only." }
-          : { signed: true }),
+        ...(mode === "signed"
+          ? { signed: true }
+          : mode === "unsigned_demo_number"
+            ? { warning: "UNSIGNED DEMO INTAKE — TELECOM_WEBHOOK_SECRET is unset, so only the published demo numbers are accepted, unauthenticated. Every other number is refused." }
+            : { warning: "UNSIGNED INTAKE — TELECOM_WEBHOOK_SECRET is unset, so this endpoint accepts unauthenticated requests. Development only." }),
       });
     };
 

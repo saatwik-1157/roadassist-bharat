@@ -91,6 +91,7 @@ jobs:
         run: |
           docker run -d --name ra-api --network ra-net -p 8099:8080 \
             -e NODE_ENV=ci \
+            -e ALERT_EMAIL_TO=ops@example.com \
             -e PORT=8080 \
             -e JWT_SECRET="ci-only-not-a-secret-$GITHUB_RUN_ID" \
             -e DATABASE_URL="postgres://roadassist:ci-only-not-a-secret@ra-db:5432/roadassist" \

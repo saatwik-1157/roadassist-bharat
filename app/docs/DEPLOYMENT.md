@@ -13,7 +13,7 @@ this project does not have.
 |---|---|
 | Production Docker image builds | ✅ **Verified** — `docker build`, 321 MB, runs as `node` (uid 1000) |
 | Image runs and serves the whole platform | ✅ **Verified** — API, citizen app, mechanic console, authority dashboard, media |
-| Full test suite passes **against the image** | ✅ **Verified** — 194 e2e + 77 concurrency + 27 gateway + 163 browser |
+| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 203 e2e assertions and 84 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
 | Health check reports the database honestly | ✅ **Verified** — 503 with `database: "down"` when Postgres is unreachable |
 | Graceful shutdown | ✅ **Verified** — SIGTERM → exit code 0, no force kill |
 | Production CORS allowlist | ✅ **Verified** — allowed origin reflected, other origins refused |

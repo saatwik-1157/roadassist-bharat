@@ -25,42 +25,68 @@ import { emailSignin } from "./email-auth.js";
 import { phoneSignInBlocked } from "../domain/email-signin.js";
 import { sms } from "../providers.js";
 import { t, resolveLocale } from "../i18n.js";
-import { otpPolicy } from "../domain/otp-policy.js";
+import { otpPolicy, type OtpPolicy } from "../domain/otp-policy.js";
+import { demoRestrictionsApply, phoneSignInRefusal, type PhoneSignInRefusal } from "../domain/demo-numbers.js";
 import {
+  authenticate,
   constantTimeEquals,
   claimOtpChallenge,
+  revokeSessionFamily,
+  rolesForMsisdn,
   rotateSession,
   sha256,
   startSession,
 } from "../auth.js";
 
+/** Whether the code is real, and whether it may be shown — see otp-policy.ts. */
+const phonePolicy = (): OtpPolicy => otpPolicy({
+  smsProvider: env.sms.provider,
+  exposeDevOtp: env.exposeDevOtp,
+});
+
+/**
+ * Who the phone path must refuse — see domain/demo-numbers.ts. Asked both where
+ * the code is issued and where it is redeemed, so a code can neither be minted
+ * nor spent for a number the demo must not sign in.
+ *
+ * The role lookup runs only under the demo restrictions (never in development
+ * or tests, whose suites sign the seeded admin in by phone on purpose).
+ */
+async function phoneRefusal(msisdn: string, policy: OtpPolicy): Promise<PhoneSignInRefusal | null> {
+  const restricted = demoRestrictionsApply({ nodeEnv: env.nodeEnv, policy });
+  return phoneSignInRefusal({
+    msisdn,
+    nodeEnv: env.nodeEnv,
+    policy,
+    // An account its owner put behind email sign-in cannot be entered with a
+    // code that is printed on the screen, or with the fixed development code
+    // that is merely not printed - either would make the email pointless.
+    emailBlocked: phoneSignInBlocked(msisdn, emailSignin, policy),
+    roles: restricted ? await rolesForMsisdn(db, msisdn) : [],
+  });
+}
+
+const refuse = (r: PhoneSignInRefusal) => ({
+  error: { code: r.code, title: r.title, retryable: false },
+});
+
 export async function authRoutes(app: FastifyInstance) {
   app.post("/v1/auth/otp/request", async (req, reply) => {
     const { msisdn } = z.object({ msisdn: msisdnSchema }).parse(req.body);
 
-    // Whether the code is real, and whether it may be shown — see otp-policy.ts.
-    const policy = otpPolicy({
-      smsProvider: env.sms.provider,
-      exposeDevOtp: env.exposeDevOtp,
-    });
+    const policy = phonePolicy();
+
+    // Before any code exists: email-only accounts, and - on a demo with no SMS
+    // gateway - every number that is not a demo number, and every admin or
+    // officer. Refusing here, not just withholding the echo, is what keeps the
+    // fixed code from being issued for a real person's number at all.
+    const refusal = await phoneRefusal(msisdn, policy);
+    if (refusal) return reply.code(refusal.status).send(refuse(refusal));
 
     // randomInt, not Math.random. Math.random is a PRNG seeded per process and is
     // not unpredictable to an attacker who has seen previous outputs — for a
     // credential with a five-minute life and a six-digit space, that is the
     // difference between guessing 1-in-900000 and computing the next one.
-    // An account its owner put behind email sign-in cannot be entered with a
-    // code that is printed on the screen, or with the fixed development code
-    // that is merely not printed - either would make the email pointless.
-    if (phoneSignInBlocked(msisdn, emailSignin, policy)) {
-      return reply.code(403).send({
-        error: {
-          code: "email_signin_required",
-          title: "This account signs in with its email address. Choose “Sign in with email”.",
-          retryable: false,
-        },
-      });
-    }
-
     const code = policy.random ? String(randomInt(100000, 1000000)) : env.devOtp;
     // Both limits and the insert are one locked step (auth.ts): counted
     // separately, simultaneous requests all read the same count and all sent.
@@ -115,6 +141,12 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post("/v1/auth/otp/verify", async (req, reply) => {
     const { msisdn, code } = z.object({ msisdn: msisdnSchema, code: z.string().length(6) }).parse(req.body);
+
+    // The same gate as the request: a code issued before a number became
+    // email-only or privileged, or before this deployment was restricted, is
+    // not redeemable either.
+    const refusal = await phoneRefusal(msisdn, phonePolicy());
+    if (refusal) return reply.code(refusal.status).send(refuse(refusal));
 
     const [challenge] = await db.select().from(S.otpChallenges)
       .where(and(eq(S.otpChallenges.msisdn, msisdn), isNull(S.otpChallenges.consumedAt)))
@@ -192,11 +224,44 @@ export async function authRoutes(app: FastifyInstance) {
           code: result.reason,
           title: result.reason === "reuse_detected"
             ? "For your security every session has been signed out. Please sign in again."
-            : "Your session has expired. Sign in again.",
+            : result.reason === "signed_out"
+              ? "You signed out of this session. Sign in again."
+              : "Your session has expired. Sign in again.",
           retryable: false,
         },
       });
     }
     return ok(result);
+  });
+
+  /**
+   * Sign out: revoke the caller's refresh-token family (auth.ts
+   * revokeSessionFamily). Afterwards the refresh token answers 401 signed_out
+   * and the access token - and any other one minted from the same family that
+   * has not expired yet - answers 401 AUTH_REVOKED.
+   *
+   * A token with no session (a device token, sid "") has nothing to sign out
+   * of, and says so rather than answering a success that did nothing.
+   */
+  app.post("/v1/auth/logout", { preHandler: authenticate }, async (req, reply) => {
+    const user = req.user!;
+    if (!user.sid) {
+      return reply.code(400).send({
+        error: { code: "no_session", title: "This token is not a signed-in session.", retryable: false },
+      });
+    }
+    const revoked = await revokeSessionFamily(db, user.sid, user.sub);
+    if (!revoked) {
+      return reply.code(409).send({
+        error: { code: "session_not_found", title: "This session could not be signed out. Sign in again.", retryable: false },
+      });
+    }
+    await audit({
+      actorId: user.sub, actorRole: user.roles[0] ?? "citizen", action: "auth.logout",
+      entity: "user", entityId: user.sub,
+      after: { sessionsRevoked: revoked },
+      ip: req.ip,
+    });
+    return ok({ signedOut: true });
   });
 }

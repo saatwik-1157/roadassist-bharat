@@ -196,6 +196,12 @@ const API = (function () {
 })();
 const $ = (id) => document.getElementById(id);
 const log = $("log");
+// Every server- or user-derived value goes through esc() before innerHTML.
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+// The on-screen log never shows a whole token: "…" plus the last six characters.
+const redact = (k, v) => (/token$/i.test(k) && typeof v === "string" ? "…" + v.slice(-6) : v);
+const logJson = (v) => JSON.stringify(v, redact);
 
 const state = {
   online: false,
@@ -230,7 +236,7 @@ async function api(method, path, body, opts = {}) {
     write("m", `⧗ QUEUED  ${method} ${path}   (no signal — stored on device as ${op.opId})`);
     return { queued: true, opId: op.opId };
   }
-  write("u", `→ ${method} ${path}${body ? "  " + JSON.stringify(body) : ""}`);
+  write("u", `→ ${method} ${path}${body ? "  " + logJson(body) : ""}`);
   const send = () => fetch(API + path, {
     method,
     headers: { "content-type": "application/json", ...(state.token ? { authorization: "Bearer " + state.token } : {}) },
@@ -254,7 +260,7 @@ async function api(method, path, body, opts = {}) {
     }
   }
   const json = await res.json().catch(() => ({}));
-  write(res.ok ? "g" : "r", `← ${res.status}  ${JSON.stringify(json).slice(0, 420)}`);
+  write(res.ok ? "g" : "r", `← ${res.status}  ${logJson(json).slice(0, 420)}`);
   if (!res.ok) throw Object.assign(new Error(json?.error?.title || "Request failed"), { payload: json });
   return json;
 }
@@ -273,7 +279,7 @@ screens.login = () => `
 screens.otp = () => `
   <div class="steps"><i class="on"></i><i class="on"></i><i></i><i></i></div>
   <h2>Enter the code</h2>
-  <p class="sub">Sent to ${state.msisdn}.</p>
+  <p class="sub">Sent to ${esc(state.msisdn)}.</p>
   <label for="code">6-digit code</label>
   <input id="code" value="000000" inputmode="numeric" maxlength="6">
   <button class="btn" data-act="verify-otp">Verify</button>
@@ -285,12 +291,12 @@ screens.garage = () => `
   <p class="sub">Add the vehicle you need help with.</p>
   ${state.vehicle ? `
     <div class="card">
-      <div class="row"><span>Registration</span><b>${state.vehicle.registrationNo}</b></div>
-      <div class="row"><span>Type</span><b>${state.vehicle.vehicleClass}</b></div>
+      <div class="row"><span>Registration</span><b>${esc(state.vehicle.registrationNo)}</b></div>
+      <div class="row"><span>Type</span><b>${esc(state.vehicle.vehicleClass)}</b></div>
     </div>
     <div class="card">
       <div class="row"><span>Emergency contacts</span><b>${state.contacts.length}</b></div>
-      ${state.contacts.map((c) => `<div class="row"><span>${c.relation ?? "contact"}</span><b>${c.name} · ${c.msisdn}</b></div>`).join("")}
+      ${state.contacts.map((c) => `<div class="row"><span>${esc(c.relation ?? "contact")}</span><b>${esc(c.name)} · ${esc(c.msisdn)}</b></div>`).join("")}
       ${state.contacts.length === 0 ? `<p class="sub" style="margin:6px 0 0">Add one, so an SOS has somewhere to go.</p>` : ""}
     </div>
     <button class="btn ghost" data-act="add-contact">Add emergency contact</button>
@@ -314,12 +320,12 @@ screens.request = () => `
   <button class="btn" data-act="diagnose">Diagnose</button>
   ${state.diagnosis ? `
     <div class="card">
-      <div class="row"><span>Likely cause</span><b style="text-align:right">${state.diagnosis.cause}</b></div>
-      <div class="row"><span>Confidence</span><span class="k ${state.diagnosis.confidence > .6 ? "ok" : "warn"}">${Math.round(state.diagnosis.confidence * 100)}%</span></div>
-      <div class="row"><span>Severity</span><b>${state.diagnosis.severity} / 5</b></div>
+      <div class="row"><span>Likely cause</span><b style="text-align:right">${esc(state.diagnosis.cause)}</b></div>
+      <div class="row"><span>Confidence</span><span class="k ${state.diagnosis.confidence > .6 ? "ok" : "warn"}">${esc(Math.round(state.diagnosis.confidence * 100))}%</span></div>
+      <div class="row"><span>Severity</span><b>${esc(state.diagnosis.severity)} / 5</b></div>
       <div class="row"><span>Safe to drive</span><span class="k ${state.diagnosis.driveable ? "ok" : "bad"}">${state.diagnosis.driveable ? "Yes" : "Do not drive"}</span></div>
-      <div class="row"><span>Parts</span><span style="text-align:right">${state.diagnosis.parts.join(", ")}</span></div>
-      <p class="sub" style="margin:8px 0 0">${state.diagnosis.advice}</p>
+      <div class="row"><span>Parts</span><span style="text-align:right">${esc((state.diagnosis.parts ?? []).join(", "))}</span></div>
+      <p class="sub" style="margin:8px 0 0">${esc(state.diagnosis.advice)}</p>
     </div>
     <button class="btn" data-act="book">Request a mechanic</button>` : ""}
   <button class="btn danger" data-act="sos">SOS — I've had a crash</button>`;
@@ -327,23 +333,23 @@ screens.request = () => `
 screens.tracking = () => {
   const b = state.booking, o = state.offers[0];
   return `
-  <h2>${b.reference}</h2>
+  <h2>${esc(b.reference)}</h2>
   <p class="sub">NH-48, KM 212 · Gurugram</p>
   <div class="card">
-    <div class="row"><span>Status</span><span class="k ${b.status === "PAID" || b.status === "COMPLETED" ? "ok" : "warn"}">${b.status}</span></div>
-    ${o ? `<div class="row"><span>Mechanic</span><b>${o.mechanic.displayName}</b></div>
-    <div class="row"><span>Distance</span><b>${o.mechanic.distanceKm} km</b></div>
-    <div class="row"><span>ETA</span><b>${o.etaMinutes} min</b></div>
-    <div class="row"><span>Rating</span><b>${o.mechanic.rating} ★</b></div>` : ""}
-    ${state.invoice ? `<div class="row"><span>Invoice</span><b>₹${(state.invoice.totalPaise / 100).toFixed(2)}</b></div>` : ""}
+    <div class="row"><span>Status</span><span class="k ${b.status === "PAID" || b.status === "COMPLETED" ? "ok" : "warn"}">${esc(b.status)}</span></div>
+    ${o ? `<div class="row"><span>Mechanic</span><b>${esc(o.mechanic.displayName)}</b></div>
+    <div class="row"><span>Distance</span><b>${esc(o.mechanic.distanceKm)} km</b></div>
+    <div class="row"><span>ETA</span><b>${esc(o.etaMinutes)} min</b></div>
+    <div class="row"><span>Rating</span><b>${esc(o.mechanic.rating)} ★</b></div>` : ""}
+    ${state.invoice ? `<div class="row"><span>Invoice</span><b>₹${esc((state.invoice.totalPaise / 100).toFixed(2))}</b></div>` : ""}
   </div>
-  ${state.next?.length ? `<p class="sub" style="margin-top:12px">Next: ${state.next.join(", ")}</p>` : ""}
+  ${state.next?.length ? `<p class="sub" style="margin-top:12px">Next: ${esc(state.next.join(", "))}</p>` : ""}
   ${b.status === "REQUESTED" ? `<button class="btn" data-act="dispatch">Find a mechanic</button>` : ""}
   ${b.status === "MATCHING" && o ? `<button class="btn" data-act="accept">Mechanic accepts</button>` : ""}
   ${["ASSIGNED","EN_ROUTE","ON_SITE","IN_PROGRESS"].includes(b.status) ? `<button class="btn" data-act="advance">${
     { ASSIGNED:"Mechanic starts travel", EN_ROUTE:"Mechanic arrives", ON_SITE:"Work starts", IN_PROGRESS:"Work complete" }[b.status]
   }</button>` : ""}
-  ${b.status === "COMPLETED" ? `<button class="btn" data-act="pay">Pay ₹${(state.invoice?.totalPaise ?? 0) / 100}</button>` : ""}
+  ${b.status === "COMPLETED" ? `<button class="btn" data-act="pay">Pay ₹${esc((state.invoice?.totalPaise ?? 0) / 100)}</button>` : ""}
   ${b.status === "PAID" ? `<div class="card"><b>Done.</b><p class="sub" style="margin:6px 0 0">The full event history is stored server-side and shown in the console.</p></div>
     <button class="btn ghost" data-act="restart">Start again</button>` : ""}
   <button class="btn ghost" data-act="cancel">Cancel booking</button>`;
@@ -357,12 +363,12 @@ screens.sos = () => {
     ? "Your contacts have been alerted and the nearest responder is on the way."
     : "Nothing has been dispatched. Confirm or cancel."}</p>
   <div class="card" style="border-color:var(--red)">
-    <div class="row"><span>Status</span><span class="k ${responding ? "warn" : "bad"}">${state.incident.status}</span></div>
+    <div class="row"><span>Status</span><span class="k ${responding ? "warn" : "bad"}">${esc(state.incident.status)}</span></div>
     ${responding ? `
-      <div class="row"><span>Contacts alerted</span><b>${state.incident.contactsAlerted ?? 0}</b></div>
-      <div class="row"><span>Nearest responder</span><b>${state.incident.nearestResponder?.name ?? "none in range"}</b></div>
-      <div class="row"><span>Escalated in</span><b>${state.incident.elapsedMs ?? "—"} ms</b></div>`
-    : `<div class="row"><span>Cancel window</span><b id="countdown">${state.incident.cancelWindowSeconds}s</b></div>`}
+      <div class="row"><span>Contacts alerted</span><b>${esc(state.incident.contactsAlerted ?? 0)}</b></div>
+      <div class="row"><span>Nearest responder</span><b>${esc(state.incident.nearestResponder?.name ?? "none in range")}</b></div>
+      <div class="row"><span>Escalated in</span><b>${esc(state.incident.elapsedMs ?? "—")} ms</b></div>`
+    : `<div class="row"><span>Cancel window</span><b id="countdown">${esc(state.incident.cancelWindowSeconds)}s</b></div>`}
   </div>
   ${responding ? `
     <button class="btn ghost" data-act="restart">Back to garage</button>`
@@ -541,8 +547,10 @@ $("clear").addEventListener("click", () => { log.innerHTML = ""; });
 
 // ── feature phone ─────────────────────────────────────────────────────────
 // A separate MSISDN, so this is genuinely a different user reaching the same
-// platform without an app — not the signed-in session in disguise.
-const fpNumber = "+9198" + Math.floor(10000000 + Math.random() * 89999999);
+// platform without an app — not the signed-in session in disguise. Drawn from
+// the published demo range (+917000000000-9999): a hosted demo with no signed
+// SMS webhook refuses every other number, so nobody can text as a real phone.
+const fpNumber = "+917000" + String(Math.floor(Math.random() * 10000)).padStart(4, "0");
 const thread = $("fp-thread");
 const bubble = (cls, text) => {
   const p = document.createElement("p");

@@ -5,6 +5,7 @@
  */
 import { resolve } from "node:path";
 import { loadDotEnv } from "@roadassist/db";
+import { DEV_JWT_SECRET, jwtSecretProblem } from "./domain/jwt-secret.js";
 
 // Shared with the migrator and the seeders so every entry point reads the same
 // file regardless of which workspace directory it was launched from.
@@ -71,8 +72,13 @@ export const env = {
 
   databaseUrl: process.env.DATABASE_URL ?? DEV_DATABASE_URL,
 
-  /** Dev default is deliberately obvious so nobody ships it by accident. */
-  jwtSecret: process.env.JWT_SECRET ?? "dev-only-insecure-secret-change-me",
+  /**
+   * Dev default is deliberately obvious so nobody ships it by accident, and
+   * validateEnv refuses it (and any secret under 32 characters) outside
+   * development and tests - see domain/jwt-secret.ts. `||`, not `??`: an empty
+   * JWT_SECRET must not become an empty HMAC key.
+   */
+  jwtSecret: process.env.JWT_SECRET || DEV_JWT_SECRET,
   accessTtlSeconds: Number(process.env.ACCESS_TTL_SECONDS ?? 600),
   refreshTtlDays: Number(process.env.REFRESH_TTL_DAYS ?? 30),
 
@@ -327,6 +333,12 @@ export function validateEnv(): void {
       );
     }
   }
+
+  // Outside development and tests the signing secret is the whole of
+  // authentication: anyone who knows it mints admin tokens. The hosted demo is
+  // NODE_ENV=demo, which assertProductionSafe never looked at.
+  const jwtProblem = jwtSecretProblem(env.nodeEnv, process.env.JWT_SECRET);
+  if (jwtProblem) problems.push(jwtProblem);
 
   if (!/^postgres(ql)?:\/\//.test(env.databaseUrl)) {
     problems.push(

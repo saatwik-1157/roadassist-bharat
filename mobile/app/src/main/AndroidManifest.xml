@@ -36,8 +36,14 @@
          before and additionally REFUSES cleartext to the live domain. On
          API 24+ that file takes precedence over usesCleartextTraffic, which is
          kept only so the intent reads the same in both places. A store build
-         would drop the base-config allowance and ship HTTPS only. -->
+         would drop the base-config allowance and ship HTTPS only.
+         allowBackup is off: the app keeps queued SOS records (where and when
+         a crash happened) and trip data on the device, and none of it belongs
+         in a cloud backup or an adb backup of the phone. -->
     <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.RoadAssist"

@@ -10,8 +10,8 @@
  *
  *   server.ts:2654  "POST /v1/sos/offline-sync"   → past the end of a 2,520-line file
  *   server.ts:2350  "POST /v1/sos"                → a SQL fragment about mechanic bookings
- *   server.ts:1262  "POST /v1/bookings/:id/pay"   → a blank line
- *   server.ts:832   "bookingAudience()"           → the middle of an unrelated reduce
+ *   server.ts:1265  "POST /v1/bookings/:id/pay"   → a blank line
+ *   server.ts:835   "bookingAudience()"           → the middle of an unrelated reduce
  *
  * These live in `docs/viva/CODE_TO_VIVA_MAP.md` and `FINAL_PROFESSOR_DEFENSE.md`,
  * whose whole instruction to the reader is *"open the file, do not describe it"*.
@@ -37,13 +37,13 @@ const APP = join(ROOT, "app");
 const CITATION = /((?:[\w.-]+\/)+[\w.-]+\.(?:ts|kt|mjs|js|py|sql|kts|xml|html)):(\d+)/g;
 
 /**
- * The same thing written with NO directory: `server.ts:1431`.
+ * The same thing written with NO directory: `server.ts:1434`.
  *
  * CITATION requires at least one slash, so these were invisible to this
  * checker — and that is exactly where the rot survived. Three of them had
- * gone stale while `npm run citations` stayed green: `server.ts:1431` was
+ * gone stale while `npm run citations` stayed green: `server.ts:1434` was
  * cited by two documents as the payment webhook and is the star-rating Zod
- * schema in POST /v1/bookings/:id/review, and `server.ts:1057` was cited as
+ * schema in POST /v1/bookings/:id/review, and `server.ts:1060` was cited as
  * `SELECT … FOR UPDATE` and is a service-types lookup. Both live in the viva
  * packs, whose instruction to the reader is *open the file*.
  *

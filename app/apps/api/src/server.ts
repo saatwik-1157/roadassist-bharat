@@ -3,6 +3,10 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { registerSecurityHeaders } from "./security-headers.js";
+import { mapLimit, tileAllowed, tileLimit } from "./route-limits.js";
+import { registerClientIp } from "./client-ip.js";
+import { isLocalEnv } from "./domain/local-env.js";
 import fastifyStatic from "@fastify/static";
 import { z } from "zod";
 import { and, asc, desc, eq, isNull, sql as raw } from "drizzle-orm";
@@ -76,6 +80,9 @@ await app.register(cors, {
   // The client reads these to show the user when to retry.
   exposedHeaders: ["x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset", "retry-after"],
 });
+registerClientIp(app);   // the caller's real address behind Cloudflare (client-ip.ts)
+// Security headers on every response (security-headers.ts): CSP, HSTS, nosniff, ...
+registerSecurityHeaders(app, { frameAncestors: env.cors.mode === "list" ? env.cors.origins : [], razorpay: env.payments.provider === "razorpay" });
 
 /**
  * Treat an empty JSON body as `{}`.
@@ -164,9 +171,11 @@ app.setErrorHandler((err, req, reply) => {
       code: "internal", title: "Something went wrong on our side", retryable: true, requestId: req.id,
       // Detail is for developers, so it is withheld in production. `err` has been
       // narrowed past the handled cases above, so read the message defensively.
-      ...(env.nodeEnv === "production"
-        ? {}
-        : { detail: err instanceof Error ? err.message : String(err) }),
+      // "demo" is public too, and a database error's message carries its SQL
+      // and parameters, so only a developer's own machine sees the detail.
+      ...(isLocalEnv(env.nodeEnv)
+        ? { detail: err instanceof Error ? err.message : String(err) }
+        : {}),
     },
   });
 });
@@ -176,6 +185,7 @@ await app.register(fastifyStatic, {
   root: findUp("apps/web"),
   prefix: "/",
   index: ["landing.html", "index.html"],
+  dotfiles: "deny",
 });
 // Demo media (videos, photos) live in the repo's site/ folder — served here so
 // the showcase page can embed them without duplicating megabytes into app/.
@@ -192,6 +202,7 @@ await app.register(fastifyStatic, {
   root: findUp("../site"),
   prefix: "/media/",
   decorateReply: false,
+  dotfiles: "deny",
   allowedPath: (pathname) => MEDIA_TYPES.test(pathname),
 });
 
@@ -230,7 +241,7 @@ function findUp(relative: string): string {
 // User-Agent, attribution required in every client) makes Trip Guardian's
 // pre-downloaded maps actually usable. © OpenStreetMap contributors.
 const tileCache = new Map<string, Buffer>();
-app.get("/tiles/:z/:x/:file", async (req, reply) => {
+app.get("/tiles/:z/:x/:file", { preHandler: tileLimit }, async (req, reply) => {
   const p = z.object({
     z: z.coerce.number().int().min(11).max(15),
     x: z.coerce.number().int().min(0),
@@ -238,6 +249,7 @@ app.get("/tiles/:z/:x/:file", async (req, reply) => {
   }).parse(req.params);
   const y = Number(p.file.replace(".png", ""));
   const key = `${p.z}/${p.x}/${y}`;
+  if (!tileAllowed(p.z, p.x, y)) return reply.code(404).send({ error: { code: "no_such_tile", title: "No tile there", retryable: false } });
 
   let buf = tileCache.get(key);
   if (!buf) {
@@ -274,7 +286,7 @@ const baseCache = new Map<string, Buffer>();
  * OSM's tile policy asks for a real User-Agent and sane caching; both are here,
  * and every response is cached so a pan does not re-fetch.
  */
-app.get("/basemap/:z/:x/:file", async (req, reply) => {
+app.get("/basemap/:z/:x/:file", { preHandler: tileLimit }, async (req, reply) => {
   const p = z.object({
     z: z.coerce.number().int().min(3).max(18),
     x: z.coerce.number().int().min(0),
@@ -282,6 +294,7 @@ app.get("/basemap/:z/:x/:file", async (req, reply) => {
   }).parse(req.params);
   const y = Number(p.file.replace(".png", ""));
   const key = `${p.z}/${p.x}/${y}`;
+  if (!tileAllowed(p.z, p.x, y)) return reply.code(404).send({ error: { code: "no_such_tile", title: "No tile there", retryable: false } });
 
   let buf = baseCache.get(key);
   if (!buf) {
@@ -624,6 +637,13 @@ app.post("/v1/diagnose", { preHandler: authenticate }, async (req) => {
 
   const result = await diagnoseWithFallback(body);
 
+  // A diagnosis is recorded against a vehicle only if it is the caller's.
+  if (body.vehicleId) {
+    const [own] = await db.select({ id: S.userVehicles.id }).from(S.userVehicles)
+      .where(and(eq(S.userVehicles.vehicleId, body.vehicleId), eq(S.userVehicles.userId, req.user!.sub),
+                 isNull(S.userVehicles.deletedAt))).limit(1);
+    if (!own) body.vehicleId = undefined;
+  }
   if (body.vehicleId) {
     const [session] = await db.insert(S.diagnosticSessions).values({
       vehicleId: body.vehicleId, userId: req.user!.sub,
@@ -667,6 +687,11 @@ app.post("/v1/bookings", { preHandler: [authenticate, limit("booking")] }, async
   if (idemKey) {
     const [seen] = await db.select().from(S.idempotencyKeys)
       .where(and(eq(S.idempotencyKeys.key, idemKey), eq(S.idempotencyKeys.endpoint, "POST /v1/bookings"))).limit(1);
+    // Keys are unique per endpoint, not per user: someone else's key is a
+    // conflict, never a replay of their booking.
+    if (seen && seen.userId && seen.userId !== req.user!.sub) {
+      return reply.code(409).send({ error: { code: "idempotency_key_in_use", title: "That idempotency key belongs to another request. Use a new one.", retryable: false } });
+    }
     if (seen) return reply.code(seen.responseStatus ?? 200).send(seen.responseBody);
   }
 
@@ -1029,6 +1054,19 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
   const caller = req.user!;
   const audience = await bookingAudience(booking, caller);
   if (!audience.allowed) return reply.code(403).send({ error: notYours });
+  // Some commands have their own routes, which do what the command only
+  // records: accepting an offer assigns a mechanic under a row lock, dispatch
+  // runs the ranked search. Sent here they skipped all of that - a
+  // "mechanic.accept" left a booking ASSIGNED to nobody. And cancelling is the
+  // customer's (or an operator's) decision, not the assigned mechanic's.
+  const isAdmin = caller.roles.includes("admin");
+  if (!isAdmin && ["mechanic.accept", "dispatch.start", "offers.exhausted", "submit"].includes(command)) {
+    return reply.code(409).send({ error: { code: "command_not_allowed",
+      title: `"${command}" is not sent here - it happens through its own step.`, retryable: false } });
+  }
+  if (command === "cancel" && !isAdmin && booking.userId !== caller.sub) {
+    return reply.code(403).send({ error: { code: "forbidden", title: "Only the customer can cancel this booking", retryable: false } });
+  }
 
   // The state machine says PAID follows COMPLETED; it cannot say whether the
   // money arrived. Until this check existed any client could post
@@ -1506,6 +1544,17 @@ app.post("/v1/me/emergency-contacts", { preHandler: authenticate }, async (req, 
     priority: z.number().int().min(1).max(5).optional(),
   }).parse(req.body);
 
+  // Every contact is texted on each confirmed SOS; a cap keeps that from being
+  // turned into an SMS pump, and a number is listed once.
+  const existing = await db.select({ msisdn: S.emergencyContacts.msisdn }).from(S.emergencyContacts)
+    .where(and(eq(S.emergencyContacts.userId, req.user!.sub), isNull(S.emergencyContacts.deletedAt)));
+  if (existing.some((c) => c.msisdn === body.msisdn)) {
+    return reply.code(409).send({ error: { code: "contact_exists", title: "That number is already one of your contacts.", retryable: false } });
+  }
+  if (existing.length >= 5) {
+    return reply.code(409).send({ error: { code: "too_many_contacts", title: "You can list up to five emergency contacts. Remove one first.", retryable: false } });
+  }
+
   const [row] = await db.insert(S.emergencyContacts).values({
     userId: req.user!.sub, name: body.name, msisdn: body.msisdn,
     relation: body.relation, priority: body.priority ?? 1,
@@ -1796,13 +1845,23 @@ app.get("/v1/admin/audit", { preHandler: [authenticate, requireRole("admin")] },
 // EMAIL_PROVIDER=http + vendor creds are set — exactly like the SMS channel).
 app.post("/v1/notify/email", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req, reply) => {
   const body = z.object({
-    to: z.string().email(),
+    to: z.string().trim().toLowerCase().email(),
     subject: z.string().min(1).max(200),
     body: z.string().min(1).max(10000),
-    html: z.string().max(50000).optional(),
   }).parse(req.body);
+  // Mail goes out from the verified send.roadassistbharat.online domain, so it
+  // goes only to the platform's own people (the alert list and the accounts
+  // that sign in by email) and only as plain text - never a relay for
+  // arbitrary HTML to arbitrary inboxes.
+  const allowed = new Set([
+    ...env.alerts.to.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean),
+    ...emailSignin.accounts.keys(),
+  ]);
+  if (!allowed.has(body.to)) {
+    return reply.code(403).send({ error: { code: "recipient_not_allowed", title: "Email can only be sent to the platform's own alert recipients.", retryable: false } });
+  }
   try {
-    const result = await email.send(body.to, body.subject, body.body, { html: body.html });
+    const result = await email.send(body.to, body.subject, body.body);
     return ok({ sent: result.delivered, id: result.id, provider: providerSummary().email },
       { note: providerSummary().email === "console" ? "console mode — logged, not transmitted; set EMAIL_PROVIDER=http for real delivery" : undefined });
   } catch (e) {
@@ -1822,11 +1881,12 @@ app.post("/v1/notify/email", { preHandler: [authenticate, requireRole("admin", "
 // are ordered nearest-first. `meta.truncated` says when a cap was hit, so a
 // client can tell "these are all of them" from "these are the nearest N".
 const MAP_LIMIT = { mechanics: 150, responders: 50, detections: 300 } as const;
-app.get("/v1/map/live", { preHandler: authenticate }, async (req) => {
+app.get("/v1/map/live", { preHandler: [authenticate, mapLimit] }, async (req) => {
   const q = z.object({
     lat: z.coerce.number().min(-90).max(90),
     lng: z.coerce.number().min(-180).max(180),
-    radiusKm: z.coerce.number().min(1).max(3000).optional(),
+    // map.html caps its own view at 1000 km; nothing asks for more.
+    radiusKm: z.coerce.number().min(1).max(1000).optional(),
   }).parse(req.query);
   const r = (q.radiusKm ?? 40) * 1000;
   const pt = raw`ST_SetSRID(ST_MakePoint(${q.lng}, ${q.lat}), 4326)`;

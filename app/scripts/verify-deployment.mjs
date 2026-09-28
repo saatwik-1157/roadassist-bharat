@@ -164,7 +164,7 @@ if (BASE.startsWith("https://")) {
     const res = await fetch(BASE + "/v1/auth/otp/request", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ msisdn: "+919999999999" }),
+      body: JSON.stringify({ msisdn: "+917000000000" }),
       signal: ctrl.signal,
     });
     const json = await res.json().catch(() => ({}));

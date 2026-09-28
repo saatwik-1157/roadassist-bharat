@@ -2378,7 +2378,7 @@
             "<div><span class='diag-k'>Confidence</span>" +
               "<span class='diag-v'>" + conf + "%</span></div>" +
             "<div><span class='diag-k'>Severity</span>" +
-              "<span class='diag-v'>" + esc(sevWord) + " (" + d.severity + "/5)</span></div>" +
+              "<span class='diag-v'>" + esc(sevWord) + " (" + esc(d.severity) + "/5)</span></div>" +
           "</div>" +
 
           // A confidence bar that is also a number, and a severity that is also
@@ -3792,7 +3792,7 @@
               ? "<img src='" + API + "/v1/raksha/detections/" + esc(d.id) + "/photo' alt='' " +
                 "style='width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none' " +
                 "onerror=\"this.style.display='none'\">"
-              : "<span class='avatar' style='font-size:14px'>" + d.severity + "</span>") +
+              : "<span class='avatar' style='font-size:14px'>" + esc(d.severity) + "</span>") +
             "<span class='grow'><b>" + esc(String(d.detection_type).replace(/_/g, " ")) + "</b>" +
             "<small>severity " + esc(d.severity) + " · " + new Date(d.created_at).toLocaleDateString() +
             (d.notes ? " · " + esc(d.notes) : "") + "</small></span>" +

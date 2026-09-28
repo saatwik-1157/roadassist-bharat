@@ -608,22 +608,54 @@ private fun buildMapWebView(
         )
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
+        settings.allowFileAccess = false
+        settings.allowContentAccess = false
+        settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
         @Suppress("DEPRECATION") settings.setGeolocationEnabled(true)
+        // The page now showing, for the bridges below. They run on a binder
+        // thread and may not call webView.url, so the UI thread records it here.
+        val page = java.util.concurrent.atomic.AtomicReference<String?>(null)
+        webViewClient = object : android.webkit.WebViewClient() {
+            // Only the configured server stays in the WebView (and so near the
+            // bridges); every other link opens in the system browser.
+            override fun shouldOverrideUrlLoading(
+                view: android.webkit.WebView, request: android.webkit.WebResourceRequest,
+            ): Boolean {
+                if (!request.isForMainFrame || MapWebGuard.sameOrigin(base, request.url.toString())) return false
+                try {
+                    view.context.startActivity(
+                        android.content.Intent(android.content.Intent.ACTION_VIEW, request.url)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                } catch (_: android.content.ActivityNotFoundException) { /* nothing can open it */ }
+                return true
+            }
+            override fun onPageStarted(view: android.webkit.WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                page.set(url)
+            }
+            override fun onPageFinished(view: android.webkit.WebView, url: String?) {
+                page.set(view.url ?: url)
+            }
+        }
         webChromeClient = object : android.webkit.WebChromeClient() {
             override fun onGeolocationPermissionsShowPrompt(
                 origin: String?, callback: android.webkit.GeolocationPermissions.Callback?,
-            ) { callback?.invoke(origin, true, false) }
+            ) { callback?.invoke(origin, MapWebGuard.mayUseLocation(base, origin), false) }
         }
-        // Bridge so the page always uses a current token and can self-refresh.
+        // Bridge so the page always uses a current token and can self-refresh -
+        // answered only while the page is on the configured server.
         addJavascriptInterface(object {
-            @android.webkit.JavascriptInterface fun token(): String = Api.currentToken()
-            @android.webkit.JavascriptInterface fun refresh(): Boolean = Api.refreshBlocking()
+            @android.webkit.JavascriptInterface
+            fun token(): String = MapWebGuard.bridgeToken(base, page.get(), Api.currentToken())
+            @android.webkit.JavascriptInterface
+            fun refresh(): Boolean = MapWebGuard.bridgeAllowed(base, page.get()) && Api.refreshBlocking()
         }, "AndroidAuth")
         // Bridge for "Request assistance" tapped on a mechanic's map popup. Runs
         // on a binder thread, so hop to the main thread to touch Compose state.
         addJavascriptInterface(object {
             @android.webkit.JavascriptInterface
             fun book(id: String, name: String, lat: Double, lng: Double) {
+                if (!MapWebGuard.bridgeAllowed(base, page.get())) return
                 main.post { onBookMechanic(id, name, lat, lng) }
             }
         }, "AndroidNav")

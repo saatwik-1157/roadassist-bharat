@@ -277,7 +277,7 @@ const LAYERS = [
     ["Connectivity", "Detects online, weak and off-grid, and switches the app's behaviour to match."],
   ]},
   { id: "api", name: "API gateway", tag: "Checks every request at the door", color: 0x4c8dff, comps: [
-    ["Fastify API", "68 routes, 65 under /v1. One process, one entry point."],
+    ["Fastify API", "69 routes, 66 under /v1. One process, one entry point."],
     ["Validation", "A Zod schema checks every body and query; anything malformed stops here with a clear error."],
     ["Identity", "JWT access tokens and rotating refresh sessions. Admin, officer and listed mechanic accounts sign in by email code only."],
     ["Access & limits", "Roles are checked at the resource, not the route. Rate limits bound abuse and never block an SOS."],
@@ -305,7 +305,7 @@ const LAYERS = [
   { id: "cloud", name: "Cloud & delivery", tag: "How it runs and how it ships", color: 0x8a93a6, comps: [
     ["Render", "The API and these pages run as one Docker service in Singapore."],
     ["GitHub Pages", "The project site at roadassistbharat.online."],
-    ["CI", "GitHub Actions runs the gates and test suites on every push; 760 assertions pass across six suites."],
+    ["CI", "GitHub Actions runs the gates and test suites on every push; 864 assertions pass across six suites."],
     ["Resend email", "Sign-in codes and alerts, sent from send.roadassistbharat.online."],
   ]},
 ];

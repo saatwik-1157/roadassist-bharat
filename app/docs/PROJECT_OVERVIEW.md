@@ -65,14 +65,14 @@ Pages at <https://roadassistbharat.online>.
 
 - **56 tables**, 62 foreign keys, 138 indexes, 5 GiST spatial indexes,
   7 migrations
-- **68 routes**, 65 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
+- **69 routes**, 65 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
 - **6 web surfaces**: citizen app, mechanic console, authority dashboard, live
   map, landing, showcase
 - **11 ADRs**, an enforced module-boundary check, and a 20-row failure matrix
 
 ## Verification
 
-**760 assertions executed across six suites, no failures**, against a real
+**864 assertions executed across six suites, no failures**, against a real
 PostgreSQL + PostGIS and a real Chrome:
 
 | Suite | Assertions |

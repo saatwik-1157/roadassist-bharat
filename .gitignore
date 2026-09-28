@@ -66,3 +66,12 @@ skills-lock.json
 
 # Release APKs are build output, handed over by path, never committed.
 mobile/*.apk
+
+# Signing keys and service credentials: none exist in this repo, and none may
+# ever be committed by accident.
+*.jks
+*.keystore
+*.p12
+*.pem
+google-services.json
+GoogleService-Info.plist

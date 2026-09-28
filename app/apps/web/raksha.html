@@ -392,7 +392,7 @@
         watch the no-app, no-data journey answer. The SIM is the identity — a number that has never
         been seen is registered on first contact.</p>
       <label class="field" style="margin-top:0"><span>From (MSISDN)</span>
-        <input id="sms-from" value="+919812300777"></label>
+        <input id="sms-from" value="+917000000042"></label>
       <div class="thread" id="sms-thread">
         <div class="bub in">Send a command to begin. Try HELP CAR.</div>
       </div>
@@ -998,7 +998,10 @@
       lines.push(cols.map(function (c) {
         var v = d[c]; if (v == null) return "";
         v = String(v);
-        return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+        // A leading = + - @ tab or CR makes a spreadsheet run the cell as a
+        // formula; an apostrophe keeps it text. Plain numbers stay numbers.
+        if (/^[=+\-@\t\r]/.test(v) && !/^-?\d+(\.\d+)?$/.test(v)) v = "'" + v;
+        return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
       }).join(","));
     });
     return lines.join("\n");

@@ -288,6 +288,43 @@ ok("replaying a consumed refresh token is treated as theft",
 const afterBurn = await call("POST", "/v1/auth/refresh", { body: { refreshToken: rot1.data?.refreshToken } });
 ok("…and the whole token family is burned", afterBurn.status === 401, `${afterBurn.status}`);
 
+// Sign-out. Before POST /v1/auth/logout existed there was no way to end a
+// session at all: a refresh token on a lost or shared phone stayed good for
+// its full 30 days, and the access token for its full ten minutes.
+const noAuthLogout = await call("POST", "/v1/auth/logout");
+ok("signing out requires a signed-in caller", noAuthLogout.status === 401, `${noAuthLogout.status}`);
+
+const leaver = await signIn();
+const leaverMe = await call("GET", "/v1/me", { token: leaver.token });
+ok("a fresh session works before sign-out", leaverMe.status === 200, `${leaverMe.status}`);
+// Rotate once, so the family holds an earlier access token that has not expired.
+const leaverRot = await call("POST", "/v1/auth/refresh", { body: { refreshToken: leaver.refresh } });
+ok("…and rotates normally", leaverRot.status === 200 && Boolean(leaverRot.data?.accessToken), `${leaverRot.status}`);
+const earlierToken = leaver.token;
+const currentToken = leaverRot.data?.accessToken;
+const currentRefresh = leaverRot.data?.refreshToken;
+
+const logout = await call("POST", "/v1/auth/logout", { token: currentToken });
+ok("POST /v1/auth/logout signs the session out",
+   logout.status === 200 && logout.data?.signedOut === true, `${logout.status} ${logout.error?.code ?? ""}`);
+const refreshAfter = await call("POST", "/v1/auth/refresh", { body: { refreshToken: currentRefresh } });
+ok("after sign-out the refresh token no longer works",
+   refreshAfter.status === 401 && !refreshAfter.data?.accessToken, `${refreshAfter.status} ${refreshAfter.error?.code ?? ""}`);
+const replayAfter = await call("POST", "/v1/auth/refresh", { body: { refreshToken: leaver.refresh } });
+ok("…nor does any earlier refresh token of that family",
+   replayAfter.status === 401 && !replayAfter.data?.accessToken, `${replayAfter.status}`);
+const meAfter = await call("GET", "/v1/me", { token: currentToken });
+ok("after sign-out the access token is refused",
+   meAfter.status === 401 && meAfter.error?.code === "AUTH_REVOKED", `${meAfter.status} ${meAfter.error?.code ?? ""}`);
+const earlierAfter = await call("GET", "/v1/me", { token: earlierToken });
+ok("…and so is an earlier, unexpired access token of the same family",
+   earlierAfter.status === 401, `${earlierAfter.status} ${earlierAfter.error?.code ?? ""}`);
+const logoutAgain = await call("POST", "/v1/auth/logout", { token: currentToken });
+ok("a signed-out access token cannot sign out again", logoutAgain.status === 401, `${logoutAgain.status}`);
+// Sign-out is per family: another account's session is untouched.
+const aliceStill = await call("GET", "/v1/me", { token: alice.token });
+ok("one user's sign-out does not touch another user's session", aliceStill.status === 200, `${aliceStill.status}`);
+
 // ══ 7. Webhook and payment verification ════════════════════════════════════
 section("7. Webhook and payment verification");
 
@@ -307,8 +344,12 @@ ok("a forged webhook signature is refused",
    `${badSig.status} ${badSig.error?.code ?? ""}`);
 
 const unsignedSms = await call("POST", "/v1/telecom/sms", { body: { from: newMsisdn(), text: "SOS" } });
-ok("the inbound SMS webhook is signed, or flagged as open in development",
-   unsignedSms.status === 401 || Boolean(unsignedSms.meta?.warning ?? unsignedSms.meta?.note),
+// 401: a secret is set. 503: a hosted demo with no secret refuses a real number.
+// A local environment with no secret stays open and must say so.
+ok("the inbound SMS webhook is signed, refused, or flagged as open in development",
+   unsignedSms.status === 401
+     || (unsignedSms.status === 503 && unsignedSms.error?.code === "webhook_not_configured")
+     || Boolean(unsignedSms.meta?.warning ?? unsignedSms.meta?.note),
    `${unsignedSms.status} ${JSON.stringify(unsignedSms.meta ?? {}).slice(0, 70)}`);
 
 // The client must never be able to declare its own payment settled.

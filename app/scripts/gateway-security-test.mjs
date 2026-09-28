@@ -6,8 +6,9 @@
  *   node scripts/gateway-security-test.mjs
  *
  * Needs the database up (docker compose locally, the service container in CI).
- * Spawns its own API on API_PORT (default 4101) — the dev server on :4000 is
- * untouched.
+ * Spawns its own API on API_PORT (default 4101), and afterwards a NODE_ENV=demo
+ * instance with no webhook secret on DEMO_API_PORT (default API_PORT + 1) — the
+ * dev server on :4000 is untouched.
  */
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
@@ -124,6 +125,15 @@ const signedJson = await signed.json();
 ok("correctly signed webhook accepted", signed.status === 200 && Boolean(signedJson.data?.reply),
    (signedJson.data?.reply ?? "").slice(0, 40));
 
+// The demo-number exemption exists only on a server with NO secret. Here there
+// is one, so a demo number is held to the signature like everybody else.
+const unsignedDemo = await fetch(BASE + "/v1/telecom/sms", {
+  method: "POST", headers: { "content-type": "application/json" },
+  body: JSON.stringify({ from: "+917000000042", text: "STATUS" }),
+});
+ok("an unsigned demo number is refused too when a secret is set", unsignedDemo.status === 401,
+   `got ${unsignedDemo.status}`);
+
 // ── Twilio adapter wire format (captured by the stub) ──
 ok("Twilio adapter hit the Messages endpoint",
    Boolean(lastTwilio) && lastTwilio.url === "/2010-04-01/Accounts/AC000000000000000000000000deadbeef/Messages.json",
@@ -134,6 +144,27 @@ const form = new URLSearchParams(lastTwilio?.body ?? "");
 ok("form-encoded From/To/Body present",
    (lastTwilio?.ct ?? "").includes("x-www-form-urlencoded") &&
    form.get("From") === "+15550000001" && form.get("To") === "+919812340001" && Boolean(form.get("Body")));
+
+// ── webhook rate limit, per sending number ──
+// Keyed by the number, not the IP: every signed request comes from the vendor.
+// After the Twilio checks above, because each accepted message is a stub send.
+const signedSms = (from, text) => {
+  const body = JSON.stringify({ from, text });
+  return fetch(BASE + "/v1/telecom/sms", {
+    method: "POST",
+    headers: { "content-type": "application/json",
+               "x-roadassist-signature": createHmac("sha256", SECRET).update(body).digest("hex") },
+    body,
+  });
+};
+const noisy = "+9198123" + String(Math.floor(10000 + Math.random() * 89999));
+const smsBurst = [];
+for (let i = 0; i < 31; i++) smsBurst.push((await signedSms(noisy, "STOP")).status);
+ok("thirty signed messages from one number are accepted", smsBurst.slice(0, 30).every((s) => s === 200),
+   [...new Set(smsBurst.slice(0, 30))].join(","));
+ok("the thirty-first from the same number is throttled (429)", smsBurst[30] === 429, `got ${smsBurst[30]}`);
+const neighbour = await signedSms(noisy.slice(0, -1) + ((Number(noisy.slice(-1)) + 1) % 10), "STOP");
+ok("another number from the same vendor IP is unaffected", neighbour.status === 200, `got ${neighbour.status}`);
 
 // ── Razorpay adapter: order creation + signature-gated settlement ──
 // A booking is only PAID once the *gateway* says the money arrived. This drives
@@ -342,9 +373,66 @@ ok("fourth request from the same IP is throttled (429 otp_ip_limited)", codes[3]
 // reset in between, so the debt was never visible — and the browser suite had
 // never once reached CI to collect it.
 await clearOtpAttempts();
+api.kill();
+
+// ── a demo deployment with NO webhook secret ──
+// The hosted demo is NODE_ENV=demo and never set TELECOM_WEBHOOK_SECRET, and
+// the signature was checked only when a secret existed — so the demo accepted
+// unsigned messages "from" any phone number in India. It must now refuse
+// every number except the published demo ones, and its console SMS log must
+// not print whole numbers.
+const DEMO_PORT = Number(process.env.DEMO_API_PORT ?? API_PORT + 1);
+const DEMO_BASE = `http://localhost:${DEMO_PORT}`;
+const demoEnv = { ...process.env };
+delete demoEnv.TELECOM_WEBHOOK_SECRET;
+const demoApi = spawn(process.execPath, ["--import", "tsx", "src/server.ts"], {
+  cwd: resolve(APP_DIR, "apps/api"),
+  env: {
+    ...demoEnv,
+    NODE_ENV: "demo",
+    PORT: String(DEMO_PORT),
+    DATABASE_URL,
+    // Present but empty, so an app/.env that sets one cannot leak in.
+    TELECOM_WEBHOOK_SECRET: "",
+    JWT_SECRET: "gw-demo-" + createHmac("sha256", String(Date.now())).update("jwt").digest("hex").slice(0, 32),
+    SMS_PROVIDER: "console",
+    PAYMENTS_PROVIDER: "mock",
+  },
+  stdio: ["ignore", "pipe", "pipe"],
+});
+let demoOut = "", demoErr = "";
+demoApi.stdout.on("data", (d) => (demoOut += d));
+demoApi.stderr.on("data", (d) => (demoErr += d));
+let demoUp = false;
+for (let i = 0; i < 60; i++) {
+  try { if ((await fetch(DEMO_BASE + "/health")).ok) { demoUp = true; break; } } catch { /* booting */ }
+  await new Promise((r) => setTimeout(r, 500));
+}
+ok("a NODE_ENV=demo instance with no webhook secret boots", demoUp, demoUp ? "" : demoErr.slice(0, 300));
+if (demoUp) {
+  const demoSms = (from, text) => fetch(DEMO_BASE + "/v1/telecom/sms", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from, text }),
+  });
+  const stranger = await demoSms("+919123456789", "SOS");
+  const strangerJson = await stranger.json().catch(() => ({}));
+  ok("unsigned SMS from a real number is refused (503 webhook_not_configured)",
+     stranger.status === 503 && strangerJson.error?.code === "webhook_not_configured",
+     `${stranger.status} ${strangerJson.error?.code ?? ""}`);
+
+  const demoNumber = await demoSms("+917000000042", "STATUS");
+  const demoJson = await demoNumber.json().catch(() => ({}));
+  ok("unsigned SMS from a demo number still works, and says it is unsigned",
+     demoNumber.status === 200 && /UNSIGNED DEMO INTAKE/.test(demoJson.meta?.warning ?? ""),
+     `${demoNumber.status}`);
+
+  await new Promise((r) => setTimeout(r, 300));   // let the console line flush
+  ok("the demo's console SMS log masks the number",
+     demoOut.includes("[sms:console] → +91******0042") && !demoOut.includes("+917000000042"),
+     demoOut.includes("[sms:console]") ? "" : "no console SMS line captured");
+}
+demoApi.kill();
 
 await sql.end();
-api.kill();
 stub.close();
 console.log(`\n  ${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

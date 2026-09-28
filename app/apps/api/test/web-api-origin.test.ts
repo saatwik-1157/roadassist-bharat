@@ -18,6 +18,14 @@ const WEB = new URL("../../web/", import.meta.url);
 
 function apiFor(page: string, href: string): string {
   const html = readFileSync(fileURLToPath(new URL(page, WEB)), "utf8");
+  // map.html no longer takes a #base= override (a hash could point its Bearer
+  // token at any host), so its origin is two plain lines rather than a function.
+  const flat = html.match(/var http = (location\.protocol[^;]+);\s*var BASE = ([^;]+);/);
+  if (flat) {
+    const u = new URL(href);
+    const location = { protocol: u.protocol, hostname: u.hostname, port: u.port, origin: u.protocol === "file:" ? "null" : u.origin };
+    return runInNewContext(`(function () { var http = ${flat[1]}; return ${flat[2]}; })()`, { location }) as string;
+  }
   // `var API = (function…` in four pages, `var BASE = hash.get("base") || (function…`
   // in map.html; the function itself is the same shape in all five.
   const m = html.match(/(\(function \(\) \{\s*(?:\/\/[^\n]*\n\s*)*(?:var|const) http = location\.protocol[\s\S]*?\}\)\(\))/);

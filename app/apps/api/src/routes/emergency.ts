@@ -28,7 +28,7 @@ import { db } from "../db.js";
 import { ok } from "../http.js";
 import { audit } from "../audit.js";
 import { alerts } from "../alerts.js";
-import { limit } from "../ratelimit.js";
+import { hit, limit, LIMITS } from "../ratelimit.js";
 import { sms } from "../providers.js";
 import { publish } from "../realtime.js";
 import { authenticate } from "../auth.js";
@@ -100,6 +100,29 @@ export async function emergencyRoutes(app: FastifyInstance) {
     const byModel = body.source === "crash_model";
 
     /**
+     * The vehicle must be the caller's — but the emergency goes through anyway.
+     *
+     * Any uuid used to be linked unchecked, so an account could attach its SOS
+     * to somebody else's vehicle and have a responder, the incident record and
+     * the analytics all point at the wrong owner's car. A foreign or unknown
+     * vehicle is therefore refused — as a link, not as an emergency: the id is
+     * dropped, the SOS is raised without it, and the response says so. Same rule
+     * as the off-grid sync below.
+     */
+    let vehicleId: string | undefined;
+    let vehicleRefused = false;
+    if (body.vehicleId) {
+      const [own] = await db.select({ id: S.userVehicles.vehicleId }).from(S.userVehicles)
+        .where(and(
+          eq(S.userVehicles.vehicleId, body.vehicleId),
+          eq(S.userVehicles.userId, req.user!.sub),
+          isNull(S.userVehicles.deletedAt),
+        )).limit(1);
+      vehicleId = own?.id;
+      vehicleRefused = !own;
+    }
+
+    /**
      * The incident, its position and its signal are ONE unit of work.
      *
      * They used to be three statements in a row, and the gap between the first
@@ -118,7 +141,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
      */
     const incident = await db.transaction(async (tx) => {
       const [row] = await tx.insert(S.incidents).values({
-        userId: req.user!.sub, vehicleId: body.vehicleId,
+        userId: req.user!.sub, vehicleId,
         clientIncidentId: body.clientIncidentId,
         occurredAt: new Date(),
         emergencyType: byModel ? "accident" : "other",
@@ -174,6 +197,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
         // but the audit row records only that a fix existed, since the incident
         // row already holds the location and the chain does not need it twice.
         locationKnown: true,
+        ...(vehicleRefused ? { vehicleRefused: true } : {}),
       },
       ip: req.ip,
     });
@@ -190,6 +214,12 @@ export async function emergencyRoutes(app: FastifyInstance) {
       note: byModel
         ? "Detected on device. Nothing has been dispatched — confirm or cancel within 30 seconds."
         : "Escalating now.",
+      ...(vehicleRefused ? {
+        vehicle: {
+          linked: false, code: "forbidden", title: "That vehicle is not yours",
+          detail: "The emergency was raised without a vehicle link.",
+        },
+      } : {}),
     }));
   });
 
@@ -297,6 +327,14 @@ export async function emergencyRoutes(app: FastifyInstance) {
     }), { note: "Open emergencies only; a resolved or cancelled one is history." });
   });
 
+  /**
+   * How long a claimed escalation may go without recording its "contacts" step
+   * before a retry treats the claimer as dead and alerts the contacts itself.
+   * Far longer than any send loop takes; short enough that a family is not
+   * left unalerted for long by a crash.
+   */
+  const ESCALATION_LEASE_MS = 2 * 60_000;
+
   /** Escalation ladder. Each rung is timed so the <10s claim is measured, not asserted. */
   app.post("/v1/sos/:id/confirm", { preHandler: authenticate }, async (req, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
@@ -328,10 +366,15 @@ export async function emergencyRoutes(app: FastifyInstance) {
      *     and resolve have both been compare-and-swapped for exactly this
      *     reason; this one was not, and it is the path that summons help.
      *
-     * The guard is the set of states the ladder may legally run from, not the
-     * single status read a moment ago — so two confirms arriving together still
-     * both succeed (escalating twice is idempotent, see the state machine),
-     * while a cancel that landed first excludes the row and nothing is sent.
+     * The guard is the set of states the ladder may legally run FROM — and it
+     * no longer includes RESPONDING. Escalating twice is legal in the state
+     * machine, and it used to mean texting every emergency contact twice: any
+     * holder of the incident could call confirm in a loop and pump SMS through
+     * the family's phones (and our SMS bill). Now the compare-and-swap into
+     * RESPONDING is the claim: exactly one confirm wins it and sends the alerts;
+     * a repeat, or a second tap racing the first, finds the incident already
+     * RESPONDING and gets the same 200 back with nothing re-sent. A cancel that
+     * landed first still excludes the row and nothing is sent.
      */
     const confirmed = inc.status === "AWAITING_CONFIRMATION" || inc.status === "DETECTED"
       ? applyIncident(inc.status as IncidentStatus, "confirm").to
@@ -340,23 +383,70 @@ export async function emergencyRoutes(app: FastifyInstance) {
     // so a model-detected crash cannot reach RESPONDING without a human first.
     const { to: respondingTo } = applyIncident(confirmed, "escalate");
 
-    const escalated = await db.update(S.incidents).set({
+    const claimed = await db.update(S.incidents).set({
       status: respondingTo,
       confirmedBy: inc.confirmedBy ?? "user",
       confirmedAt: inc.confirmedAt ?? new Date(),
       updatedAt: new Date(),
     }).where(and(
       eq(S.incidents.id, id),
-      raw`${S.incidents.status} IN ('DETECTED', 'AWAITING_CONFIRMATION', 'CONFIRMED', 'RESPONDING')`,
+      raw`${S.incidents.status} IN ('DETECTED', 'AWAITING_CONFIRMATION', 'CONFIRMED')`,
     )).returning({ id: S.incidents.id });
 
-    if (!escalated.length) {
-      logOp(req, { op: "sos.escalate", result: "rejected", incidentId: id,
-                   from: inc.status, errorCode: "INVALID_STATE" });
-      return reply.code(409).send({ error: {
-        code: "invalid_state",
-        title: "This emergency was closed while the request was in flight — nothing was alerted.",
-        retryable: false, requestId: req.id } });
+    let sendAlerts = claimed.length > 0;
+
+    if (!sendAlerts) {
+      const [now] = await db.select({ status: S.incidents.status, updatedAt: S.incidents.updatedAt })
+        .from(S.incidents).where(eq(S.incidents.id, id)).limit(1);
+      if (now?.status !== "RESPONDING") {
+        logOp(req, { op: "sos.escalate", result: "rejected", incidentId: id,
+                     from: inc.status, errorCode: "INVALID_STATE" });
+        return reply.code(409).send({ error: {
+          code: "invalid_state",
+          title: "This emergency was closed while the request was in flight — nothing was alerted.",
+          retryable: false, requestId: req.id } });
+      }
+
+      /**
+       * Already RESPONDING. Normally that means the contacts were texted and
+       * this is a repeat — but if the process that won the claim died before
+       * recording the "contacts" step, a retry must still be able to alert the
+       * family, or the idempotency above would make a crash permanent. The
+       * claim is treated as abandoned once it is ESCALATION_LEASE_MS old with
+       * no contacts row, and re-taken with a compare-and-swap on updated_at so
+       * that only one retry wins it.
+       */
+      const [recorded] = await db.select({ id: S.incidentResponses.id }).from(S.incidentResponses)
+        .where(and(eq(S.incidentResponses.incidentId, id), eq(S.incidentResponses.step, "contacts")))
+        .limit(1);
+      if (!recorded && now.updatedAt.getTime() < Date.now() - ESCALATION_LEASE_MS) {
+        const retaken = await db.update(S.incidents).set({ updatedAt: new Date() })
+          .where(and(eq(S.incidents.id, id), eq(S.incidents.status, "RESPONDING"),
+                     eq(S.incidents.updatedAt, now.updatedAt)))
+          .returning({ id: S.incidents.id });
+        sendAlerts = retaken.length > 0;
+      }
+    }
+
+    const nearestResponder = () => db.execute<{ id: string; name: string; km: number }>(raw`
+      SELECT r.id, r.name, ST_Distance(r.last_location::geography, i.location::geography)/1000 AS km
+        FROM responder_units r, incidents i
+       WHERE i.id = ${id} AND r.active AND r.deleted_at IS NULL
+         AND r.last_location IS NOT NULL
+       ORDER BY r.last_location <-> i.location LIMIT 1`);
+
+    if (!sendAlerts) {
+      // A repeat. Same shape as the first answer, so a client that retried
+      // after a lost response renders the same screen — but nothing is texted,
+      // no response rows are written and nothing is audited twice.
+      const again = await nearestResponder();
+      logOp(req, { op: "sos.escalate", result: "ok", duplicate: true, incidentId: id, from: inc.status });
+      return ok({
+        id, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
+        contactsAlerted: 0, alreadyEscalated: true,
+        nearestResponder: again[0] ?? null,
+        elapsedMs: Date.now() - t0,
+      }, { note: "Already escalated — emergency contacts are alerted once per incident and were not texted again." });
     }
 
     const contacts = await db.select().from(S.emergencyContacts)
@@ -372,21 +462,45 @@ export async function emergencyRoutes(app: FastifyInstance) {
     const [owner] = await db.select({ lang: S.users.preferredLanguage })
       .from(S.users).where(eq(S.users.id, inc.userId!)).limit(1);
     const contactLocale = resolveLocale({ stored: owner?.lang });
-    for (const c of contacts) {
-      await sms.send(c.msisdn, t(contactLocale, "sos.contact.alert", {
-        url: `https://roadassist.in/i/${id}`,
-      }));
-    }
-    await db.insert(S.incidentResponses).values({
-      incidentId: id, step: "contacts", latencyMs: Date.now() - t0, acknowledged: false,
-    });
 
-    const responders = await db.execute<{ id: string; name: string; km: number }>(raw`
-      SELECT r.id, r.name, ST_Distance(r.last_location::geography, i.location::geography)/1000 AS km
-        FROM responder_units r, incidents i
-       WHERE i.id = ${id} AND r.active AND r.deleted_at IS NULL
-         AND r.last_location IS NOT NULL
-       ORDER BY r.last_location <-> i.location LIMIT 1`);
+    /**
+     * A ceiling on alert batches per incident OWNER (LIMITS.sosAlerts), as the
+     * backstop behind the idempotency above: one account raising incident after
+     * incident and confirming each could still pump the same contact list. It
+     * never blocks the escalation — status, responder search and audit all go
+     * ahead — only the texts are not sent, and the response says so. No
+     * "contacts" row is written then, so a retry after the window can still
+     * alert them (see the lease above).
+     */
+    const alertCeiling = contacts.length
+      ? hit(`sosAlerts:${inc.userId}`, LIMITS.sosAlerts.max, LIMITS.sosAlerts.windowMs)
+      : null;
+    const withheld = alertCeiling !== null && !alertCeiling.allowed;
+
+    let contactsAlerted = 0, contactsFailed = 0;
+    if (!withheld) {
+      for (const c of contacts) {
+        // One contact's failed send must not stop the next contact being texted,
+        // nor the responder search below.
+        try {
+          await sms.send(c.msisdn, t(contactLocale, "sos.contact.alert", {
+            url: `https://roadassist.in/i/${id}`,
+          }));
+          contactsAlerted++;
+        } catch (err) {
+          contactsFailed++;
+          req.log.error({ err, incidentId: id }, "emergency contact alert failed");
+        }
+      }
+      await db.insert(S.incidentResponses).values({
+        incidentId: id, step: "contacts", latencyMs: Date.now() - t0, acknowledged: false,
+      });
+    } else {
+      req.log.warn({ incidentId: id, ownerId: inc.userId, resetInSeconds: alertCeiling.resetInSeconds },
+        "emergency contact alerts withheld: sosAlerts ceiling reached");
+    }
+
+    const responders = await nearestResponder();
 
     await db.insert(S.incidentResponses).values({
       incidentId: id, responderId: responders[0]?.id ?? null,
@@ -398,7 +512,9 @@ export async function emergencyRoutes(app: FastifyInstance) {
       action: "sos.escalated", entity: "incident", entityId: id,
       before: { status: inc.status },
       after: {
-        status: "RESPONDING", contactsAlerted: contacts.length,
+        status: "RESPONDING", contactsAlerted,
+        ...(contactsFailed ? { contactsFailed } : {}),
+        ...(withheld ? { contactsWithheld: contacts.length } : {}),
         responderFound: Boolean(responders[0]), elapsedMs: Date.now() - t0,
       },
       ip: req.ip,
@@ -406,21 +522,29 @@ export async function emergencyRoutes(app: FastifyInstance) {
     publish(inc.userId, {
       type: "sos.status", incidentId: id, status: respondingTo,
       stage: PUBLIC_STAGE[respondingTo],
-      contactsAlerted: contacts.length, responderFound: Boolean(responders[0]),
+      contactsAlerted, responderFound: Boolean(responders[0]),
     });
     logOp(req, {
       op: "sos.escalate", result: "ok", durationMs: Date.now() - t0, incidentId: id,
-      contactsAlerted: contacts.length, responderFound: Boolean(responders[0]),
+      contactsAlerted, responderFound: Boolean(responders[0]),
     });
 
-    alerts.sosConfirmed(id, contacts.length);
+    alerts.sosConfirmed(id, contactsAlerted);
 
     return ok({
       id, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
-      contactsAlerted: contacts.length,
+      contactsAlerted,
+      ...(contactsFailed ? { contactsFailed } : {}),
+      ...(withheld ? { contactsWithheld: contacts.length } : {}),
       nearestResponder: responders[0] ?? null,
       elapsedMs: Date.now() - t0,
-    }, { note: "ERSS 112 handoff is stubbed in development — no real emergency service is contacted." });
+    }, {
+      note: "ERSS 112 handoff is stubbed in development — no real emergency service is contacted.",
+      ...(withheld ? {
+        warning: "Emergency contacts were not texted: this account has reached the hourly ceiling on " +
+                 "contact alerts. The emergency itself was escalated.",
+      } : {}),
+    });
   });
 
   // ══ off-grid SOS sync (ADR-0009) ═══════════════════════════════════════════

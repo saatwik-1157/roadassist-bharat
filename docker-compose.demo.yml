@@ -105,7 +105,9 @@ services:
       PORT: "4000"
       HOST: 0.0.0.0
       DATABASE_URL: postgres://roadassist:demopassword@db:5432/roadassist
-      JWT_SECRET: demo-only-secret-not-used-anywhere-real
+      # Empty unless you set one: docker-start.sh then makes a random secret for
+      # this boot, so no signing key is ever written into the repository.
+      JWT_SECRET: ${JWT_SECRET:-}
       SMS_PROVIDER: console
       PAYMENTS_PROVIDER: mock
       # Local only. On anything reachable from the internet this lets a stranger

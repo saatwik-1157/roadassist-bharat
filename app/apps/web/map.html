@@ -134,27 +134,25 @@
 <script>
 (function () {
   "use strict";
-  // The Android app passes the base + token in the URL hash (not sent to server
-  // logs). Falls back to same-origin for browser testing.
+  // Base + token arrive in the URL hash (never in server logs). The token is sent
+  // as a Bearer header to BASE, so a #base= naming any other origin is ignored.
   var hash = new URLSearchParams(location.hash.slice(1));
-  // An explicit ?base= wins; otherwise the same fallback as app.html.
-  var BASE = hash.get("base") || (function () {
-    var http = location.protocol === "http:" || location.protocol === "https:";
-    if (!http) return "http://localhost:4000";
-    return location.origin;
-  })();
+  var http = location.protocol === "http:" || location.protocol === "https:";
+  var BASE = !http ? "http://localhost:4000" : location.origin;
   var TOKEN = hash.get("token") || "";
+  if (hash.has("token")) {   // read once, then off the address bar and history
+    hash.delete("token");
+    var rest = hash.toString();
+    try { history.replaceState(null, "", location.pathname + location.search + (rest ? "#" + rest : "")); } catch (e) {}
+  }
   // In the Android app a JS bridge hands us an always-current token and can
   // silently rotate it — so the map self-heals instead of showing "expired".
   function authToken() {
     try { if (window.AndroidAuth && AndroidAuth.token) return AndroidAuth.token() || TOKEN; } catch (e) {}
     return TOKEN || sessionToken();
   }
-  // Opened in a browser there is no app to hand over a token, so the map
-  // answered every load with "Unauthorized" and showed an empty India. It now
-  // uses the session of whichever surface you signed in to on this origin -
-  // the same token that page already holds, so this grants nothing a signed-in
-  // user did not have. With no session it still gets nothing, and says so.
+  // In a browser, use the session of whichever surface signed in on this origin
+  // (a token that page already holds, so it grants nothing new). None: say so.
   var SESSION_KEYS = ["ra.raksha.session", "ra.mechanic.session", "ra.app.session"];
   function sessionToken() {
     for (var i = 0; i < SESSION_KEYS.length; i++) {
@@ -246,17 +244,20 @@
   var meMarker = null, located = false;
   var mechById = {};   // id → {name, lat, lng} so a popup button can book it
 
-  // Tap "Request assistance" in a mechanic popup → hand off to the app to book
-  // that specific mechanic (falls back to a no-op outside the Android shell).
-  window.raBook = function (id) {
+  // "Request assistance" in a mechanic popup hands off to the app to book it.
+  function raBook(id) {
     var m = mechById[id]; if (!m) return;
     try {
       if (window.AndroidNav && AndroidNav.book) { AndroidNav.book(id, m.name, m.lat, m.lng); return; }
     } catch (e) {}
-    // Outside the native shell, tell the embedding page instead of blocking the
-    // WebView with a modal dialog.
+    // Outside the native shell, tell the embedding page (no modal dialog).
     try { parent.postMessage({ type: "ra.book", mechanicId: id, name: m.name }, location.origin); } catch (e) {}
-  };
+  }
+  // One delegated listener: popup HTML carries data-id, never an inline handler.
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("button.rabook[data-id]");
+    if (b) raBook(b.getAttribute("data-id"));
+  }, true);
   // Force the next refresh to redraw (used after a citizen submits a report).
   window.__refresh = function () { lastSig = ""; load(); };
   // "Locate me" — fly to the device position (asking for it if needed). The
@@ -279,8 +280,7 @@
       className: "", html: '<div class="me"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }) }).addTo(map);
   }
 
-  // In an Android WebView the map often initializes before the view has its
-  // final size, leaving tiles unpainted — nudge Leaflet to re-measure.
+  // A WebView may lay out after init, leaving tiles unpainted: re-measure.
   function fix() { map.invalidateSize(true); }
   setTimeout(fix, 300); setTimeout(fix, 900); setTimeout(fix, 1800);
   window.addEventListener("load", fix);
@@ -424,7 +424,7 @@
         var away = located ? (map.distance(center, [m.lat, m.lng]) / 1000).toFixed(1) + " km from you" : "";
         L.marker([m.lat, m.lng], { icon: icon("#e3b96a", "rgba(227,185,106,.6)", 18) })
           .bindPopup("<b>" + esc(m.display_name) + "</b><br>★ " + esc(m.rating) + (away ? " · " + esc(away) : "") +
-            '<button class="rabook" onclick="raBook(\'' + esc(m.id) + '\')">Request assistance</button>')
+            '<button class="rabook" data-id="' + esc(m.id) + '">Request assistance</button>')
           .addTo(cluster);
       });
       d.responders.forEach(function (r) {

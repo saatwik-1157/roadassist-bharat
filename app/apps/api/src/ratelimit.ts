@@ -25,7 +25,10 @@
  *     SOS with the same client reference converges on one incident instead of
  *     being refused;
  *   · and `POST /v1/sos/:id/confirm`, the call that actually summons help, is
- *     never limited at all.
+ *     never limited at all. What IS bounded is the SMS it sends: confirm is
+ *     idempotent per incident (contacts are texted once), and `sosAlerts`
+ *     caps how many incidents an hour one account can text contacts for —
+ *     past it the incident still escalates, only the texts are not sent.
  */
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -93,6 +96,27 @@ export const LIMITS = {
   accept: { max: 60, windowMs: 60_000 },
   /** Opening a live stream. Reconnect storms are the thing being bounded. */
   stream: { max: 30, windowMs: 60_000 },
+  /**
+   * Inbound SMS webhook, per SENDING NUMBER (not per IP: every signed request
+   * comes from the telecom vendor's handful of addresses). Nobody types thirty
+   * texts on a keypad phone in five minutes, so a person texting SOS is never
+   * near this; a script replaying one number is.
+   */
+  telecom: { max: 30, windowMs: 5 * 60_000 },
+  /**
+   * Unsigned SMS intake (only reachable for the demo numbers when no webhook
+   * secret is configured), per IP — so one client cannot walk the whole demo
+   * number range to get thirty messages out of each.
+   */
+  telecomUnsigned: { max: 60, windowMs: 5 * 60_000 },
+  /**
+   * Emergency-contact alert batches, per incident OWNER. Not a limit on the
+   * escalation: past this the incident still goes to RESPONDING and a responder
+   * is still searched for; only the contact texts are not sent. A real person
+   * does not have ten separate emergencies in an hour; a script pumping SMS
+   * through somebody's contact list does.
+   */
+  sosAlerts: { max: 10, windowMs: 60 * 60_000 },
 } as const;
 
 /**
@@ -101,11 +125,16 @@ export const LIMITS = {
  * Keyed by the authenticated user where there is one, and by IP otherwise —
  * so a limit follows the account rather than the coffee shop, and a signed-out
  * caller still cannot spray the endpoint from one address.
+ *
+ * `keyOf` overrides the principal for routes whose identity is neither (the SMS
+ * webhook is keyed by the sending number). Returning null skips this bucket for
+ * that request.
  */
-export function limit(name: keyof typeof LIMITS) {
+export function limit(name: keyof typeof LIMITS, keyOf?: (req: FastifyRequest) => string | null) {
   const { max, windowMs } = LIMITS[name];
   return async function rateLimiter(req: FastifyRequest, reply: FastifyReply) {
-    const principal = req.user?.sub ?? `ip:${req.ip}`;
+    const principal = keyOf ? keyOf(req) : req.user?.sub ?? `ip:${req.ip}`;
+    if (principal === null) return;
     const verdict = hit(`${name}:${principal}`, max, windowMs);
 
     reply.header("x-ratelimit-limit", String(verdict.limit));

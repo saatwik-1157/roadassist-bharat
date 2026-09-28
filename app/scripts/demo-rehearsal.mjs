@@ -205,7 +205,7 @@ const run = async () => {
   }).catch(() => { /* not fatal */ });
 
   const reg = "RC" + Math.floor(Math.random() * 90 + 10) + "DM" + Math.floor(Math.random() * 9000 + 1000);
-  const msisdn = "+9170000" + String(Math.floor(Math.random() * 90000 + 10000));
+  const msisdn = "+917000000" + String(Math.floor(Math.random() * 1000)).padStart(3, "0");
   let assignedMech = null;
 
   try {

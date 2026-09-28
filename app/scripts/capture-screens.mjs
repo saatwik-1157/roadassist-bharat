@@ -358,7 +358,7 @@ const run = async () => {
     // What counts as "the map has content".
     //
     // The "you are here" dot is added straight to the map rather than to the
-    // cluster (apps/web/map.html:251), so it satisfies a bare
+    // cluster (apps/web/map.html:280), so it satisfies a bare
     // .leaflet-marker-icon count entirely on its own. Counting it is how an
     // unauthenticated map — the sign-in gate and a single blue dot — was
     // captured and published under a caption promising clustered mechanics,

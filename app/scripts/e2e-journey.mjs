@@ -966,6 +966,59 @@ console.log("\n24. Booking read/write audience parity");
   }
 }
 
+// ── 25. hardening from the security review ────────────────────────────────
+console.log("\n25. Hardening");
+{
+  const page = await fetch(BASE + "/app.html");
+  const csp = page.headers.get("content-security-policy") ?? "";
+  ok("pages carry a content security policy that closes plugins and foreign framing",
+     csp.includes("object-src 'none'") && csp.includes("frame-ancestors 'self'") && csp.includes("base-uri 'self'"),
+     csp.slice(0, 60));
+  const api = await fetch(BASE + "/v1/ping");
+  ok("API answers are nosniff and never cached",
+     api.headers.get("x-content-type-options") === "nosniff" && api.headers.get("cache-control") === "no-store",
+     `${api.headers.get("x-content-type-options")} / ${api.headers.get("cache-control")}`);
+
+  // Neither reaches OpenStreetMap: both are refused before any fetch.
+  const offGrid = await fetch(BASE + "/basemap/3/8/0.png");
+  ok("a tile that does not exist at its zoom is refused, not fetched", offGrid.status === 404, `got ${offGrid.status}`);
+  const london = await fetch(BASE + "/basemap/12/2046/1362.png");
+  ok("a tile far outside the region is refused, not fetched", london.status === 404, `got ${london.status}`);
+
+  const sneakAccept = await call("POST", `/v1/bookings/${bookingId}/transition`, { token, body: { command: "mechanic.accept" } });
+  ok("a mechanic cannot be 'accepted' through the generic command route",
+     sneakAccept.status === 409 && sneakAccept.error?.code === "command_not_allowed",
+     `got ${sneakAccept.status} ${sneakAccept.error?.code ?? ""}`);
+
+  const borrowedKey = await call("POST", "/v1/bookings", {
+    token: otherToken, key: idem,
+    body: { vehicleId, serviceTypeCode: "battery_jumpstart", lat: 28.4595, lng: 77.0266 },
+  });
+  ok("another user's idempotency key is a conflict, never a replay of their booking",
+     borrowedKey.status === 409 && borrowedKey.error?.code === "idempotency_key_in_use" && !borrowedKey.data,
+     `got ${borrowedKey.status} ${borrowedKey.error?.code ?? ""}`);
+
+  const added = [];
+  for (let i = 0; i < 6; i++) {
+    added.push(await call("POST", "/v1/me/emergency-contacts", {
+      token: otherToken, body: { name: `Contact ${i}`, msisdn: `+91910000000${i}` },
+    }));
+  }
+  ok("at most five emergency contacts, so an SOS cannot be an SMS pump",
+     added.slice(0, 5).every((r) => r.status === 201) && added[5].status === 409 && added[5].error?.code === "too_many_contacts",
+     added.map((r) => r.status).join(","));
+  const dupe = await call("POST", "/v1/me/emergency-contacts", {
+    token: otherToken, body: { name: "Again", msisdn: "+919100000000" },
+  });
+  ok("a contact's number is listed once", dupe.status === 409 && dupe.error?.code === "contact_exists", `got ${dupe.status}`);
+
+  const relay = await call("POST", "/v1/notify/email", {
+    token: adminToken, body: { to: "someone@example.com", subject: "hello", body: "hi" },
+  });
+  ok("operator email goes only to the platform's own recipients",
+     relay.status === 403 && relay.error?.code === "recipient_not_allowed", `got ${relay.status} ${relay.error?.code ?? ""}`);
+}
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

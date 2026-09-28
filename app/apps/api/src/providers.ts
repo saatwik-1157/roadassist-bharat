@@ -9,6 +9,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { env } from "./env.js";
 import { diagnose, type Diagnosis } from "./domain/ai-rules.js";
+import { consoleEmailLine, consoleSmsLine } from "./domain/log-redaction.js";
 
 // ── SMS ───────────────────────────────────────────────────────────────────
 export interface SmsProvider {
@@ -16,11 +17,17 @@ export interface SmsProvider {
   send(to: string, body: string, opts?: { templateId?: string }): Promise<{ id: string; delivered: boolean }>;
 }
 
-/** Logs instead of sending. Also what the SMS journey is tested against. */
+/**
+ * Logs instead of sending. Also what the SMS journey is tested against.
+ *
+ * Outside development and test the hosted demo's stdout is a shared log, so the
+ * number is masked and six-digit codes are redacted there (domain/log-redaction).
+ * Development output is unchanged: that is where a developer reads their code.
+ */
 const consoleSms: SmsProvider = {
   name: "console",
   async send(to, body) {
-    console.log(`[sms:console] → ${to}\n            ${body.replace(/\n/g, "\n            ")}`);
+    console.log(consoleSmsLine(to, body, env.nodeEnv));
     return { id: `dev-${Date.now()}`, delivered: true };
   },
 };
@@ -218,7 +225,7 @@ export interface EmailProvider {
 const consoleEmail: EmailProvider = {
   name: "console",
   async send(to, subject, body) {
-    console.log(`[email:console] → ${[to].flat().join(", ")}\n  subject: ${subject}\n  ${body.replace(/\n/g, "\n  ")}`);
+    console.log(consoleEmailLine(to, subject, body, env.nodeEnv));
     return { id: `dev-${Date.now()}`, delivered: true };
   },
 };

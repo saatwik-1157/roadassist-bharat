@@ -99,6 +99,9 @@ jobs:
       # gateway suite, which spawns its OWN server with its own low ceiling and
       # asserts the fourth request is refused.
       OTP_IP_MAX: "2000"
+      # The e2e suite sends one operator email; /v1/notify/email only mails the
+      # platform's own recipients, so the suite gets one to send to.
+      ALERT_EMAIL_TO: ops@example.com
     services:
       db:
         image: postgis/postgis:16-3.4

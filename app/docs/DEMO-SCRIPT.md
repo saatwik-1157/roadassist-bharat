@@ -66,8 +66,10 @@ the response → **Verify**.
 **Expected.** Home screen, greeting, the connectivity pill reads **Online**
 green, SOS button visible.
 
-**Backup.** If the OTP is not returned, `EXPOSE_DEV_OTP` is false — say so and
-read the code from the server log; it prints on the `[sms:console]` line.
+**Backup.** If the OTP is not returned, `EXPOSE_DEV_OTP` is false — say so. On
+a local development server the code prints on the `[sms:console]` line; on the
+hosted demo that line shows the number as `+91******3210` and the code as
+`••••••`, deliberately, so the log is not a list of live sign-in codes.
 
 ## 4 · Vehicle (20s)
 
@@ -262,7 +264,7 @@ one of them, live, if there is time.
 
 > An AI-powered, cloud-connected, network-resilient emergency mobility platform
 > that keeps protecting people when connectivity becomes unreliable.
-> 760 assertions executed across six suites, no failures (22 Razorpay checks
+> 864 assertions executed across six suites, no failures (22 Razorpay checks
 > against a local stub sit outside that total and are not counted). Three real
 > vulnerabilities found by
 > our own security suite during the audit, and fixed. Nothing on that list is a
