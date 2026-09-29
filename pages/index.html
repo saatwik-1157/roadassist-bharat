@@ -29,6 +29,25 @@
   its scope. No external fonts, no analytics, no trackers, no CDN.
 -->
 <style>
+/* Fraunces and Manrope, from this origin: SIL OFL 1.1, fonts/OFL-*.txt. */
+@font-face{font-family:"Fraunces";font-style:normal;font-weight:300 700;font-display:swap;
+  src:url(fonts/fraunces-latin-ext.woff2) format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Fraunces";font-style:normal;font-weight:300 700;font-display:swap;
+  src:url(fonts/fraunces-latin.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:300 800;font-display:swap;
+  src:url(fonts/manrope-latin-ext.woff2) format("woff2");
+  unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Manrope";font-style:normal;font-weight:300 800;font-display:swap;
+  src:url(fonts/manrope-latin.woff2) format("woff2");
+  unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+
+/* The live 3D backdrop: a night highway drawn on a fixed canvas behind every
+   section (script at the end of <body>). It sits under the content, never
+   takes a pointer, and a scrim keeps the copy readable over it. */
+#bg3d{position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;display:block}
+
 :root{
   /* Near-black canvas with a gold accent — the same gold the application's own
      wordmark uses, so the site and the product read as one thing. Blue stays as
@@ -39,7 +58,12 @@
   --accent:#f0b429; --accent-dim:#3a2d08; --accent-ink:#16110120; --cyan:#5fd0d8;
   --blue:#4da3ff;
   --ok:#49c97e; --warn:#e0a640; --alert:#ef6363;
-  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  /* Manrope for text and UI, Fraunces for display - the application's own
+     pairing, served from this origin (fonts/, SIL OFL 1.1) so no visitor's
+     address goes to a font CDN. The system stacks behind them carry the
+     Indic scripts the Latin subsets do not. */
+  --sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans Devanagari",sans-serif;
+  --display:"Fraunces",Georgia,"Times New Roman",serif;
   --mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;
   --nav-h:62px;
   --r:20px;
@@ -67,8 +91,8 @@ section:first-of-type{border-top:0}
   color:var(--accent);font-weight:700;margin:0 0 14px;
 }
 h1,h2,h3{letter-spacing:-.022em;margin:0}
-h1{font-size:clamp(2.2rem,4.6vw,3.6rem);line-height:1.06;font-weight:750;letter-spacing:-.03em;max-width:15ch}
-h2{font-size:clamp(1.65rem,3.4vw,2.5rem);line-height:1.12;font-weight:700;letter-spacing:-.028em;margin-bottom:14px}
+h1{font-family:var(--display);font-size:clamp(2.4rem,5vw,4rem);line-height:1.04;font-weight:500;letter-spacing:-.022em;max-width:15ch}
+h2{font-family:var(--display);font-size:clamp(1.8rem,3.6vw,2.7rem);line-height:1.1;font-weight:500;letter-spacing:-.018em;margin-bottom:14px}
 h3{font-size:1.02rem;font-weight:650;margin-bottom:6px}
 p{margin:0 0 14px;max-width:68ch;color:var(--ink-2)}
 .lead{font-size:1.14rem;color:var(--ink-2);max-width:58ch;line-height:1.6}
@@ -198,7 +222,7 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
          border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
          padding:30px 0}
 .metric{text-align:left}
-.metric .v{font-size:clamp(1.9rem,4.4vw,2.9rem);font-weight:750;letter-spacing:-.04em;
+.metric .v{font-family:var(--display);font-size:clamp(2.1rem,4.6vw,3.1rem);font-weight:500;letter-spacing:-.02em;
            font-variant-numeric:tabular-nums;color:var(--accent);line-height:1}
 .metric .l{font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;
            color:var(--ink-3);margin-top:9px}
@@ -910,6 +934,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 </script>
 </head>
 <body>
+<canvas id="bg3d" aria-hidden="true"></canvas>
 
 <nav class="nav">
   <div class="nav-in">
@@ -2969,6 +2994,151 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   } else {
     start();
   }
+})();
+</script>
+<script>
+// ── Live 3D backdrop: a night highway, drawn in perspective ────────────────
+// Plain canvas, no library: a road grid rolling toward the viewer, oncoming
+// headlights and departing taillights in their lanes, a lit skyline on the
+// horizon and a sky of stars. The camera sways with the pointer and the
+// traffic quickens while the page scrolls. It stops drawing while the tab is
+// hidden, draws one still frame for reduced motion, and stays dim enough to
+// sit behind text.
+(function () {
+  var c = document.getElementById("bg3d");
+  if (!c || !c.getContext) return;
+  var g = c.getContext("2d");
+  var still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var W = 0, H = 0, dpr = 1, small = false, F = 0;
+  var px = 0, py = 0, cx = 0, cy = 0, boost = 0, lastY = window.scrollY, last = 0, t = 0;
+  var NEAR = 0.7, FAR = 70, CAM_H = 1.5;
+  var stars = [], cars = [], sky = [];
+
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight; small = W < 720;
+    dpr = Math.min(window.devicePixelRatio || 1, small ? 1 : 1.5);
+    c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    F = Math.max(W, H * 1.4) * 0.72;
+    stars = [];
+    for (var i = 0; i < (small ? 60 : 130); i++) stars.push({ x: Math.random(), y: Math.random() * 0.46, r: rnd(0.3, 1.2), p: rnd(0, 6.3) });
+    sky = [];
+    for (var x = -W * 0.2; x < W * 1.2;) {
+      var w = rnd(14, 46), h = rnd(8, small ? 34 : 58);
+      var lit = []; for (var k = 0; k < Math.floor(w * h / 140); k++) lit.push({ u: Math.random(), v: Math.random(), p: rnd(0, 6.3) });
+      sky.push({ x: x, w: w, h: h, lit: lit }); x += w + rnd(2, 12);
+    }
+  }
+  function spawn(z) {
+    var dir = Math.random() < 0.5 ? -1 : 1; // -1 oncoming (left lanes), +1 departing (right lanes)
+    var lane = dir < 0 ? (Math.random() < 0.5 ? -4.5 : -1.5) : (Math.random() < 0.5 ? 1.5 : 4.5);
+    return { x: lane + rnd(-0.25, 0.25), z: z == null ? (dir < 0 ? FAR : NEAR + 0.5) : z, dir: dir, v: rnd(7, 13) };
+  }
+  for (var i = 0; i < 26; i++) cars.push(spawn(rnd(NEAR + 1, FAR)));
+
+  function P(X, Y, Z, hx, hy) { return [hx + (X - cx * 2.2) / Z * F, hy + Y / Z * F]; }
+  function line(a, b) { g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); }
+
+  function frame(now) {
+    var dt = last ? Math.min((now - last) / 1000, 0.1) : 0.016; last = now;
+    t += dt * (1 + boost); boost *= 0.92;
+    cx += (px - cx) * 0.04; cy += (py - cy) * 0.04;
+    var hx = W / 2 - cx * 24, hy = H * 0.44 + cy * 14;
+
+    // sky and horizon glow
+    var sg = g.createLinearGradient(0, 0, 0, H);
+    sg.addColorStop(0, "#06070b"); sg.addColorStop(0.36, "#0b0f19"); sg.addColorStop(0.47, "#1a1609"); sg.addColorStop(0.5, "#0c0e14"); sg.addColorStop(1, "#07080b");
+    g.fillStyle = sg; g.fillRect(0, 0, W, H);
+    var glow = g.createRadialGradient(hx, hy, 0, hx, hy, W * 0.6);
+    glow.addColorStop(0, "rgba(240,180,41,0.16)"); glow.addColorStop(0.35, "rgba(95,208,216,0.05)"); glow.addColorStop(1, "rgba(0,0,0,0)");
+    g.fillStyle = glow; g.fillRect(0, 0, W, H);
+
+    // stars
+    for (var s = 0; s < stars.length; s++) {
+      var st = stars[s], a = 0.25 + 0.35 * (0.5 + 0.5 * Math.sin(t * 1.3 + st.p));
+      g.fillStyle = "rgba(220,230,255," + a.toFixed(3) + ")";
+      g.fillRect(st.x * W - cx * 6, st.y * hy, st.r, st.r);
+    }
+
+    // skyline silhouette with lit windows
+    g.fillStyle = "#07090e";
+    for (var b = 0; b < sky.length; b++) { var k = sky[b]; g.fillRect(k.x - cx * 10, hy - k.h, k.w, k.h + 1); }
+    for (b = 0; b < sky.length; b++) {
+      k = sky[b];
+      for (var l = 0; l < k.lit.length; l++) {
+        var w = k.lit[l], on = Math.sin(t * 0.4 + w.p) > -0.2;
+        if (!on) continue;
+        g.fillStyle = w.p > 4.4 ? "rgba(95,208,216,0.55)" : "rgba(240,190,90,0.6)";
+        g.fillRect(k.x - cx * 10 + 2 + w.u * (k.w - 4), hy - k.h + 3 + w.v * (k.h - 6), 1.6, 1.6);
+      }
+    }
+
+    // ground grid
+    g.lineWidth = 1;
+    g.strokeStyle = "rgba(95,160,216,0.13)"; g.beginPath();
+    for (var gx = -34; gx <= 34; gx += 2) { if (Math.abs(gx) <= 6) continue; line(P(gx, CAM_H, NEAR, hx, hy), P(gx, CAM_H, FAR, hx, hy)); }
+    var sp = 2.5, off = (t * 9) % sp;
+    for (var z = NEAR + sp - off; z < FAR; z += sp) line(P(-34, CAM_H, z, hx, hy), P(34, CAM_H, z, hx, hy));
+    g.stroke();
+
+    // the road: asphalt, gold edges and divider, moving lane dashes
+    var rl = P(-6.2, CAM_H, NEAR, hx, hy), rr = P(6.2, CAM_H, NEAR, hx, hy), fr = P(6.2, CAM_H, FAR, hx, hy), fl = P(-6.2, CAM_H, FAR, hx, hy);
+    g.fillStyle = "rgba(20,24,33,0.85)"; g.beginPath(); g.moveTo(rl[0], rl[1]); g.lineTo(rr[0], rr[1]); g.lineTo(fr[0], fr[1]); g.lineTo(fl[0], fl[1]); g.closePath(); g.fill();
+    g.strokeStyle = "rgba(240,180,41,0.55)"; g.lineWidth = 1.4; g.beginPath();
+    line(P(-6, CAM_H, NEAR, hx, hy), P(-6, CAM_H, FAR, hx, hy)); line(P(6, CAM_H, NEAR, hx, hy), P(6, CAM_H, FAR, hx, hy));
+    line(P(-0.12, CAM_H, NEAR, hx, hy), P(-0.12, CAM_H, FAR, hx, hy)); line(P(0.12, CAM_H, NEAR, hx, hy), P(0.12, CAM_H, FAR, hx, hy));
+    g.stroke();
+    g.strokeStyle = "rgba(230,236,245,0.35)"; g.lineWidth = 1.2; g.beginPath();
+    var dash = 3, doff = (t * 11) % (dash * 2);
+    for (var lx = -3; lx <= 3; lx += 6) for (z = NEAR + dash * 2 - doff; z < FAR * 0.8; z += dash * 2) line(P(lx, CAM_H, z, hx, hy), P(lx, CAM_H, Math.min(z + dash, FAR), hx, hy));
+    g.stroke();
+
+    // traffic: glowing light pairs, drawn additively
+    g.globalCompositeOperation = "lighter";
+    for (var n = 0; n < cars.length; n++) {
+      var car = cars[n];
+      car.z += car.dir * car.v * dt * (1 + boost);
+      if (car.z < NEAR + 0.2 || car.z > FAR) { cars[n] = spawn(); continue; }
+      var head = car.dir < 0, col = head ? "255,244,220" : "255,80,60";
+      // Fade in from the horizon, and out before a car gets close enough to
+      // swell into a glare that would pull the eye off the page.
+      var fade = Math.min(1, (FAR - car.z) / 18) * Math.min(1, Math.max(0, (car.z - 3) / 6));
+      if (fade <= 0.01) continue;
+      for (var side = -1; side <= 1; side += 2) {
+        var q = P(car.x + side * 0.42, CAM_H - 0.45, car.z, hx, hy), r = Math.min(4.5, Math.max(1, 18 / car.z));
+        var rg = g.createRadialGradient(q[0], q[1], 0, q[0], q[1], r * 2.4);
+        rg.addColorStop(0, "rgba(" + col + "," + (0.75 * fade).toFixed(3) + ")"); rg.addColorStop(1, "rgba(" + col + ",0)");
+        g.fillStyle = rg; g.beginPath(); g.arc(q[0], q[1], r * 2.4, 0, 6.2832); g.fill();
+        var tail = P(car.x + side * 0.42, CAM_H - 0.45, car.z - car.dir * 1.6, hx, hy);
+        g.strokeStyle = "rgba(" + col + "," + (0.22 * fade).toFixed(3) + ")"; g.lineWidth = r * 0.6;
+        g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(tail[0], tail[1]); g.stroke();
+      }
+    }
+    g.globalCompositeOperation = "source-over";
+
+    // distance fog over the far road, and a scrim so the page reads on top
+    var fog = g.createLinearGradient(0, hy - 2, 0, hy + H * 0.16);
+    fog.addColorStop(0, "rgba(10,12,18,0.9)"); fog.addColorStop(1, "rgba(10,12,18,0)");
+    g.fillStyle = fog; g.fillRect(0, hy - 2, W, H * 0.16);
+    g.fillStyle = "rgba(8,9,12,0.42)"; g.fillRect(0, 0, W, H);
+
+    if (!still) requestAnimationFrame(loop);
+  }
+  var gap = 1000 / 40, prev = 0;
+  function loop(now) {
+    if (document.hidden) { last = 0; requestAnimationFrame(loop); return; }
+    if (now - prev < gap) { requestAnimationFrame(loop); return; }
+    prev = now; frame(now);
+  }
+
+  resize();
+  window.addEventListener("resize", resize);
+  window.addEventListener("pointermove", function (e) { px = e.clientX / W - 0.5; py = e.clientY / H - 0.5; }, { passive: true });
+  window.addEventListener("scroll", function () {
+    var y = window.scrollY; boost = Math.min(3, boost + Math.abs(y - lastY) / 400); lastY = y;
+  }, { passive: true });
+  if (still) frame(performance.now()); else requestAnimationFrame(loop);
 })();
 </script>
 </body>
