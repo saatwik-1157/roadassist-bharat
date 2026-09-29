@@ -163,7 +163,38 @@
   .det .acts { display: flex; gap: 7px; margin-top: 9px; }
   .det .acts button { flex: 1; }
   .st { margin-left: auto; font-size: 10px; color: var(--text-3); letter-spacing: 0.09em; font-weight: 700; text-transform: uppercase; }
-  .detimg { margin-top: 9px; width: 100%; border-radius: var(--r-sm); border: 1px solid var(--line); cursor: pointer; }
+  /* ── hazard photos: the frame the model saw, or the citizen's own photo ── */
+  .detphoto { position: relative; display: block; margin-top: 10px; width: 100%; height: 150px; padding: 0;
+    border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--line); background: var(--surface-2); cursor: zoom-in; }
+  .detphoto img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s var(--ease); }
+  .detphoto:hover img, .detphoto:focus-visible img { transform: scale(1.04); }
+  .detphoto .cap, .phcell .cap { position: absolute; left: 7px; bottom: 7px; font-size: 10px; font-weight: 700; letter-spacing: .05em;
+    color: #fff; background: rgba(5,7,10,.72); padding: 3px 8px; border-radius: var(--r-full); pointer-events: none; }
+  .detphoto.gone { cursor: default; height: auto; padding: 12px; color: var(--text-3); font-size: 11.5px; text-align: left; }
+  .ph-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px;
+    max-height: 372px; overflow-y: auto; padding-right: 2px; overscroll-behavior: contain; }
+  .phcell { position: relative; aspect-ratio: 1 / 1; padding: 0; border: 1px solid var(--line); border-radius: var(--r-xs);
+    overflow: hidden; background: var(--surface-2); cursor: zoom-in; }
+  .phcell img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .35s var(--ease); }
+  .phcell:hover img, .phcell:focus-visible img { transform: scale(1.06); }
+  .phcell .sev { position: absolute; top: 6px; left: 6px; width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(5,7,10,.7); }
+  .popimg { display: block; width: 230px; max-width: 100%; border-radius: 8px; margin: 0 0 7px; cursor: zoom-in; }
+  .lb { position: fixed; inset: 0; z-index: 5000; background: rgba(4,6,10,.93); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; padding: 18px; }
+  .lb[hidden] { display: none; }
+  .lb figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: min(96vw, 1100px); }
+  .lb img { max-width: 100%; max-height: 72vh; border-radius: 12px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.9); background: #0b0d12; }
+  .lb figcaption { color: var(--text-2); font-size: 13px; line-height: 1.6; text-align: center; max-width: 760px; }
+  .lb figcaption b { color: var(--text); }
+  .lb .lb-src { display: block; color: var(--text-3); font-size: 11.5px; margin-top: 4px; }
+  .lb .lb-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 50%;
+    border: 1px solid var(--line-2, var(--line)); background: rgba(20,24,32,.85); color: var(--text); font-size: 22px; cursor: pointer; }
+  .lb .lb-btn:hover { border-color: var(--brand); }
+  .lb .lb-prev { left: 14px; } .lb .lb-next { right: 14px; }
+  .lb .lb-close { position: absolute; top: 14px; right: 14px; width: 42px; height: 42px; border-radius: 50%;
+    border: 1px solid var(--line); background: rgba(20,24,32,.85); color: var(--text); font-size: 20px; cursor: pointer; }
+  .lb .lb-n { color: var(--text-3); font-size: 11px; letter-spacing: .12em; font-weight: 700; }
+  @media (max-width: 640px) { .lb .lb-btn { top: auto; bottom: 16px; transform: none; } .ph-grid { grid-template-columns: repeat(3, 1fr); } }
 
   /* ── device fleet ──────────────────────────────────────────────────────── */
   .dev { padding: 9px 0; font-size: 12.5px; border-bottom: 1px solid var(--line); }
@@ -346,6 +377,13 @@
         (the filtered set, capped at 100) — not a whole-corridor aggregate.</p>
     </section>
 
+    <section class="panel" hidden id="photo-panel">
+      <h2><span class="grow">Hazard photos</span><span class="pill bare" id="ph-count"></span></h2>
+      <p class="hint" style="margin:-4px 0 0">Edge-device frames are the RDD2022 India images the model ran
+        on, with its own boxes drawn; citizen photos are the reporter's own. Select one to enlarge.</p>
+      <div class="ph-grid" id="ph-grid"></div>
+    </section>
+
     <section class="panel" hidden id="det-panel">
       <h2><span class="grow">Detections</span><span id="new-note" style="color:var(--red)"></span></h2>
       <div class="toolbar">
@@ -427,6 +465,16 @@
 
 <div class="statusbar" id="status">Loading…</div>
 
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Hazard photo">
+  <button class="lb-close" id="lb-close" type="button" aria-label="Close photo">✕</button>
+  <button class="lb-btn lb-prev" id="lb-prev" type="button" aria-label="Previous photo">‹</button>
+  <figure>
+    <img id="lb-img" alt="">
+    <figcaption id="lb-cap"></figcaption>
+    <span class="lb-n" id="lb-n"></span>
+  </figure>
+  <button class="lb-btn lb-next" id="lb-next" type="button" aria-label="Next photo">›</button>
+</div>
 <script src="vendor/leaflet.js"></script>
 <script src="email-signin.js"></script>
 <script>
@@ -457,6 +505,96 @@
   var token = null, refreshToken = null, sessionMsisdn = null;
   var map, detLayer, repLayer, segLayer, devLayer, tiles;
   var seenIds = null;          // detection ids already shown (null = first load)
+
+  // ── hazard photos ─────────────────────────────────────────────────────────
+  // Two sources, told apart by the reference itself:
+  //  · an edge-device detection names the RDD2022 India frame the model ran
+  //    on (India_000053.jpg). That frame ships with the app, with the model's
+  //    own boxes drawn by ai/road_damage/render_frames.py — public dataset
+  //    imagery, so it is a plain static asset;
+  //  · a citizen report's photo is private: fetched with the bearer token and
+  //    shown from an object URL, so the token never sits in an <img src>.
+  // Object URLs are cached per detection so the live refresh does not refetch
+  // (or leak) a blob every few seconds.
+  var FRAME_RE = /^India_\d{6}\.jpg$/;
+  var photoUrls = {};          // detection id -> url, or false once known to be gone
+  var photos = [];             // the photos in the current list, in list order
+  function isFrame(d) { return FRAME_RE.test(String(d.image_ref || "")); }
+  function photoUrl(d, done) {
+    if (photoUrls[d.id] !== undefined) return done(photoUrls[d.id]);
+    if (isFrame(d)) return done(photoUrls[d.id] = "assets/raksha-frames/" + d.image_ref.replace(/\.jpg$/, ".webp"));
+    if (!token || offline) return done(null);   // not cached: may work once back online
+    fetch(API + "/v1/raksha/detections/" + d.id + "/photo", { headers: { authorization: "Bearer " + token } })
+      .then(function (res) { return res.ok ? res.blob() : null; })
+      .then(function (blob) { done(photoUrls[d.id] = blob ? URL.createObjectURL(blob) : false); })
+      .catch(function () { done(null); });
+  }
+  function photoCaption(d) {
+    var kind = String(d.detection_type).replace(/_/g, " ");
+    var head = "<b>" + esc(kind) + "</b> · severity " + esc(d.severity) + " · " + esc(d.status);
+    if (d.source === "citizen") {
+      return head + (d.notes ? "<br>“" + esc(d.notes) + "”" : "") +
+        "<span class='lb-src'>Citizen photo · " + esc(new Date(d.created_at || d.captured_at).toLocaleString()) +
+        " · " + esc(positionOf(d).label) + "</span>";
+    }
+    return head + " · " + Math.round(d.confidence * 100) + "% confidence · " + esc(d.model_version) +
+      "<span class='lb-src'>RDD2022 India frame " + esc(d.image_ref) + " (Arya et al., CC BY-SA 4.0) · every box is the model's own output · " +
+      esc(positionOf(d).label) + "</span>";
+  }
+  var lbAt = -1, lbReturn = null;
+  function openPhoto(i) {
+    if (!photos.length) return;
+    lbAt = (i + photos.length) % photos.length;
+    var d = photos[lbAt];
+    photoUrl(d, function (url) {
+      $("lb-img").src = url || "";
+      $("lb-img").alt = url ? String(d.detection_type).replace(/_/g, " ") + " photo, severity " + d.severity : "Photo unavailable";
+    });
+    $("lb-cap").innerHTML = photoCaption(d);
+    $("lb-n").textContent = (lbAt + 1) + " / " + photos.length;
+    $("lb-prev").hidden = $("lb-next").hidden = photos.length < 2;
+    if ($("lb").hidden) { lbReturn = document.activeElement; $("lb").hidden = false; $("lb-close").focus(); }
+  }
+  function closePhoto() {
+    $("lb").hidden = true; lbAt = -1;
+    if (lbReturn && lbReturn.focus) lbReturn.focus();
+  }
+  $("lb-close").onclick = closePhoto;
+  $("lb-prev").onclick = function () { openPhoto(lbAt - 1); };
+  $("lb-next").onclick = function () { openPhoto(lbAt + 1); };
+  $("lb").addEventListener("click", function (e) { if (e.target === $("lb")) closePhoto(); });
+  // A map popup's frame opens the same viewer (popups are rebuilt, so delegate).
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (t && t.classList && t.classList.contains("popimg")) openPhoto(Number(t.getAttribute("data-ph")));
+  });
+  document.addEventListener("keydown", function (e) {
+    if ($("lb").hidden) return;
+    if (e.key === "Escape") closePhoto();
+    else if (e.key === "ArrowLeft") openPhoto(lbAt - 1);
+    else if (e.key === "ArrowRight") openPhoto(lbAt + 1);
+  });
+  function renderGallery() {
+    var grid = $("ph-grid");
+    grid.innerHTML = "";
+    $("ph-count").textContent = photos.length ? photos.length + (photos.length === 1 ? " photo" : " photos") : "";
+    if (!photos.length) {
+      grid.innerHTML = "<div class='empty' style='grid-column:1/-1;padding:18px 8px'><b>No photos in this view</b>Loosen a filter, or wait for a report with a photo.</div>";
+      return;
+    }
+    photos.forEach(function (d, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "phcell";
+      b.setAttribute("aria-label", "Open photo " + (i + 1) + ": " + String(d.detection_type).replace(/_/g, " ") + ", severity " + d.severity);
+      b.innerHTML = "<span class='sev' style='background:" + SEVHEX[d.severity] + "'></span>";
+      var img = document.createElement("img");
+      img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+      b.insertBefore(img, b.firstChild);
+      photoUrl(d, function (url) { if (url) img.src = url; else b.hidden = true; });
+      b.onclick = function () { openPhoto(i); };
+      grid.appendChild(b);
+    });
+  }
   var liveTimer = null;
   var REFRESH_MS = 10000;
   var offline = false;         // true when the last fetch fell back to cache
@@ -740,6 +878,7 @@
     if (firstLoad) seenIds = {};
     var freshCount = 0;
     var open = 0, crit = 0;
+    photos = [];
 
     r.data.forEach(function (d) {
       var isFresh = !firstLoad && !seenIds[d.id];
@@ -753,7 +892,10 @@
       var pos = positionOf(d);
       if (d.lat != null) {
         var c = SEVHEX[d.severity];
-        var popup = "<b>" + esc(String(d.detection_type).replace(/_/g, " ")) + "</b> · severity " + esc(d.severity) +
+        var popup = (isFrame(d)
+            ? "<img class='popimg' alt='The frame the model ran on' data-ph='" + photos.length + "' src='assets/raksha-frames/" +
+              esc(d.image_ref.replace(/\.jpg$/, ".webp")) + "'>" : "") +
+          "<b>" + esc(String(d.detection_type).replace(/_/g, " ")) + "</b> · severity " + esc(d.severity) +
           // Provenance first: the one line that says whether this point was
           // measured by a phone or placed by the simulator.
           "<span class='pos " + (pos.provenance === "simulated" ? "sim" : "gps") + "'>" + esc(pos.label) +
@@ -829,21 +971,35 @@
         el.appendChild(acts2);
       }
 
-      // Photo thumbnail (authenticated fetch → object URL, so the token is
-      // never placed in an <img src> URL).
-      if (d.image_ref && token && !offline) {
-        var img = document.createElement("img");
-        img.className = "detimg";
-        img.alt = "hazard photo";
-        img.onclick = function () { window.open(img.src, "_blank"); };
-        fetch(API + "/v1/raksha/detections/" + d.id + "/photo", { headers: { authorization: "Bearer " + token } })
-          .then(function (res) { return res.ok ? res.blob() : null; })
-          .then(function (blob) { if (blob) img.src = URL.createObjectURL(blob); });
-        el.appendChild(img);
+      // The hazard photo: a tile that opens the viewer (see photoUrl above).
+      if (d.image_ref) {
+        (function (d, at) {
+          var tile = document.createElement("button");
+          tile.type = "button"; tile.className = "detphoto";
+          tile.setAttribute("aria-label", "Enlarge the photo of this " + String(d.detection_type).replace(/_/g, " "));
+          var img = document.createElement("img");
+          img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+          tile.appendChild(img);
+          var cap = document.createElement("span");
+          cap.className = "cap";
+          cap.textContent = isFrame(d) ? "Model frame · RDD2022" : "Citizen photo";
+          tile.appendChild(cap);
+          tile.onclick = function () { openPhoto(at); };
+          photoUrl(d, function (url) {
+            if (url) { img.src = url; return; }
+            tile.className = "detphoto gone"; tile.disabled = true; tile.innerHTML = "";
+            tile.textContent = url === false
+              ? "Photo no longer on this server — uploads on the hosted demo do not survive a redeploy."
+              : "Photo loads once you are online.";
+          });
+          el.appendChild(tile);
+        })(d, photos.length);
+        photos.push(d);
       }
       listEl.appendChild(el);
     });
 
+    renderGallery();
     $("n-open").textContent = open;
     $("n-crit").textContent = crit;
     $("new-note").textContent = freshCount ? "+" + freshCount + " new" : "";
@@ -1075,7 +1231,7 @@
     $("who").textContent = who + " · " + rolesText;
     $("login-panel").hidden = true;
     $("signout-btn").hidden = false;
-    ["health-panel", "det-panel", "dev-panel", "sms-panel"].forEach(function (id) { $(id).hidden = false; });
+    ["health-panel", "photo-panel", "det-panel", "dev-panel", "sms-panel"].forEach(function (id) { $(id).hidden = false; });
     if (!(roles || []).includes("admin") && !(roles || []).includes("gov_officer")) {
       status("This account has no authority role — RAKSHA data is admin/gov-officer only.");
       return;
@@ -1092,7 +1248,7 @@
     $("who").textContent = "not signed in";
     $("login-panel").hidden = false;
     $("signout-btn").hidden = true;
-    ["health-panel", "det-panel", "dev-panel", "sms-panel", "export-panel"]
+    ["health-panel", "photo-panel", "det-panel", "dev-panel", "sms-panel", "export-panel"]
       .forEach(function (id) { $(id).hidden = true; });
     if (!silent) status("Signed out.");
   }
@@ -1140,7 +1296,7 @@
   $("cached-btn").onclick = function () {
     offline = true;
     $("login-panel").hidden = true;
-    ["health-panel", "det-panel", "dev-panel", "export-panel"].forEach(function (id) { $(id).hidden = false; });
+    ["health-panel", "photo-panel", "det-panel", "dev-panel", "export-panel"].forEach(function (id) { $(id).hidden = false; });
     $("who").textContent = "offline · cached snapshot";
     var liveEl = $("live");
     liveEl.classList.add("on", "offline");

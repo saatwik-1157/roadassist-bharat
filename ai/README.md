@@ -147,6 +147,25 @@ end and writes `runs/<name>/results.csv` per epoch; latency and model size come
 from `detect.py` output and the ONNX file. The severity number is a documented
 box-area heuristic — an engineering assumption, not a safety standard.
 
+## The dashboard's hazard frames
+
+The RAKSHA dashboard shows each device detection's frame: the RDD2022 India
+image the model ran on, with that model's boxes drawn. `render_frames.py`
+re-runs the same weights on the images in `cv-live-show.json` and keeps only
+the boxes whose class and confidence match a detection in that report, so every
+box on a frame is one the dashboard lists. It exits non-zero if any detection
+is not reproduced, which is how a wrong checkpoint is caught. The live set
+(46 frames, 65 detections) comes from `runs/runs/full/weights/best.pt`:
+
+```bash
+cd ai
+.venv/Scripts/python road_damage/render_frames.py --weights ../runs/runs/full/weights/best.pt \
+    --report cv-live-show.json --out ../app/apps/web/assets/raksha-frames
+```
+
+The frames are a derivative of RDD2022 (Arya et al., CC BY-SA 4.0) under the
+same licence, credited in the dashboard's photo viewer.
+
 ## Serving the model over HTTP
 
 ```bash
