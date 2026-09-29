@@ -264,7 +264,7 @@ one of them, live, if there is time.
 
 > An AI-powered, cloud-connected, network-resilient emergency mobility platform
 > that keeps protecting people when connectivity becomes unreliable.
-> 864 assertions executed across six suites, no failures (22 Razorpay checks
+> 899 assertions executed across six suites, no failures (22 Razorpay checks
 > against a local stub sit outside that total and are not counted). Three real
 > vulnerabilities found by
 > our own security suite during the audit, and fixed. Nothing on that list is a

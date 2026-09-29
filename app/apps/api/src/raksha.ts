@@ -25,6 +25,7 @@ import {
   type IncidentSeverity,
 } from "./domain/incident-review.js";
 import { describePosition, normaliseAccuracyM } from "./domain/report-position.js";
+import { uploadPath } from "./domain/upload-path.js";
 
 // Re-exported for the live map in server.ts, which labels the same points and
 // must use the same sentence (and, taken from here, adds no line to server.ts
@@ -603,8 +604,8 @@ export async function rakshaRoutes(app: FastifyInstance) {
     if (!isOwner && !isAuthority) {
       return reply.code(403).send({ error: { code: "forbidden", title: "Not allowed to view this photo", retryable: false } });
     }
-    const path = join(env.uploadDir, d.ref);
-    if (!existsSync(path)) {
+    const path = uploadPath(env.uploadDir, d.ref);   // a device-supplied ref may point anywhere
+    if (!path || !existsSync(path)) {
       return reply.code(404).send({ error: { code: "photo_missing", title: "Photo file is unavailable", retryable: false } });
     }
     const ext = d.ref.split(".").pop() ?? "";
@@ -832,7 +833,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
     }
     // Reclaim the rejected report's photo file from disk (best-effort).
     if (action === "reject" && current.imageRef) {
-      try { const p = join(env.uploadDir, current.imageRef); if (existsSync(p)) unlinkSync(p); } catch { /* already gone */ }
+      try { const p = uploadPath(env.uploadDir, current.imageRef); if (p && existsSync(p)) unlinkSync(p); } catch { /* already gone */ }
     }
     return ok(rows[0]);
   });

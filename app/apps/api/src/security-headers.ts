@@ -27,8 +27,16 @@ export interface HeaderOptions {
   razorpay: boolean;
 }
 
+/**
+ * The project site, always allowed to frame these pages - not only when
+ * CORS_ORIGINS is set. Its live mode (?live=http://localhost:4000) frames a
+ * local or docker server, which runs with no CORS list, and was refused.
+ */
+export const SHOWCASE_ORIGINS = ["https://roadassistbharat.online", "https://www.roadassistbharat.online"] as const;
+
 export function contentSecurityPolicy(o: HeaderOptions): string {
   const rzp = o.razorpay;
+  const framers = [...new Set([...SHOWCASE_ORIGINS, ...o.frameAncestors])];
   const d: Record<string, string[]> = {
     "default-src": ["'self'"],
     "script-src": ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'", ...(rzp ? ["https://checkout.razorpay.com"] : [])],
@@ -39,7 +47,7 @@ export function contentSecurityPolicy(o: HeaderOptions): string {
     "media-src": ["'self'", "blob:"],
     "worker-src": ["'self'", "blob:"],
     "frame-src": ["'self'", ...(rzp ? ["https://api.razorpay.com", "https://checkout.razorpay.com"] : [])],
-    "frame-ancestors": ["'self'", ...o.frameAncestors],
+    "frame-ancestors": ["'self'", ...framers],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],

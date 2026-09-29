@@ -9,7 +9,8 @@
 # a network hop and a CORS boundary in exchange for nothing.
 #
 # Build context is the REPOSITORY ROOT, not app/, because the demo media in
-# site/ is served at /media and lives outside the npm workspace:
+# site/ (two videos and a photo) is served at /media and lives outside the npm
+# workspace:
 #
 #   docker build -f app/Dockerfile -t roadassist:local .
 # ══════════════════════════════════════════════════════════════════════════════

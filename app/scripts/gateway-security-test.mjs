@@ -46,8 +46,11 @@ await clearOtpAttempts();
 const RZP_KEY = "rzp_test_stub";
 const RZP_SECRET = "rzp-secret-test-71c4";
 const RZP_ORDER = "order_STUB0000000001";
+const RZP_HOOK_SECRET = "rzp-webhook-test-5d2e";
 let lastTwilio = null;
 let lastRazorpay = null;
+/** Numbers the stub gateway refuses to deliver to, as a vendor outage would. */
+const UNDELIVERABLE = new Set();
 const stub = createServer((req, res) => {
   let body = "";
   req.on("data", (c) => (body += c));
@@ -57,6 +60,10 @@ const stub = createServer((req, res) => {
       lastRazorpay = captured;
       res.writeHead(200, { "content-type": "application/json" });
       return res.end(JSON.stringify({ id: RZP_ORDER, entity: "order", status: "created" }));
+    }
+    if (UNDELIVERABLE.has(new URLSearchParams(body).get("To"))) {
+      res.writeHead(503, { "content-type": "application/json" });
+      return res.end(JSON.stringify({ message: "stub outage" }));
     }
     lastTwilio = captured;
     res.writeHead(201, { "content-type": "application/json" });
@@ -82,6 +89,7 @@ const api = spawn(process.execPath, ["--import", "tsx", "src/server.ts"], {
     PAYMENTS_KEY_ID: RZP_KEY,
     PAYMENTS_KEY_SECRET: RZP_SECRET,
     PAYMENTS_BASE_URL: `http://localhost:${STUB_PORT}`,
+    PAYMENTS_WEBHOOK_SECRET: RZP_HOOK_SECRET,
   },
   stdio: ["ignore", "ignore", "pipe"],
 });
@@ -89,7 +97,7 @@ let apiErr = "";
 api.stderr.on("data", (d) => (apiErr += d));
 
 let up = false;
-for (let i = 0; i < 60; i++) {
+for (let i = 0; i < 180; i++) {   // up to 90 s: tsx compiles the API on boot, slow on a loaded machine
   try { if ((await fetch(BASE + "/health")).ok) { up = true; break; } } catch { /* booting */ }
   await new Promise((r) => setTimeout(r, 500));
 }
@@ -165,6 +173,21 @@ ok("thirty signed messages from one number are accepted", smsBurst.slice(0, 30).
 ok("the thirty-first from the same number is throttled (429)", smsBurst[30] === 429, `got ${smsBurst[30]}`);
 const neighbour = await signedSms(noisy.slice(0, -1) + ((Number(noisy.slice(-1)) + 1) % 10), "STOP");
 ok("another number from the same vendor IP is unaffected", neighbour.status === 200, `got ${neighbour.status}`);
+
+// ── a reply the gateway cannot send ──
+// The SOS is raised before the reply goes out. A failed reply used to turn the
+// whole webhook into a 500, and a vendor redelivers a failed webhook - so the
+// same text raised a second incident. It must answer 200 and say so instead.
+const unreachable = "+9197" + String(Math.floor(10000000 + Math.random() * 89999999));
+UNDELIVERABLE.add(unreachable);
+const strandedSos = await signedSms(unreachable, "SOS 28.4595 77.0266");
+const strandedJson = await strandedSos.json().catch(() => ({}));
+ok("an SOS whose reply cannot be sent still answers 200, saying so",
+   strandedSos.status === 200 && strandedJson.meta?.replyDelivered === false,
+   `got ${strandedSos.status} ${strandedJson.error?.code ?? ""}`);
+const [raised] = await sql`
+  SELECT count(*)::int AS n FROM incidents i JOIN users u ON u.id = i.user_id WHERE u.msisdn = ${unreachable}`;
+ok("and it raised exactly one incident", raised?.n === 1, `${raised?.n} incident(s)`);
 
 // ── Razorpay adapter: order creation + signature-gated settlement ──
 // A booking is only PAID once the *gateway* says the money arrived. This drives
@@ -276,6 +299,37 @@ const replayed = await api1("POST", `/v1/payments/${paymentId}/confirm`, {
 });
 ok("replaying the confirmation does not charge twice",
    replayed.status === 200 && replayed.data?.alreadySettled === true);
+
+// A capture for an invoice that is already settled - the customer paid online
+// after the mechanic recorded cash, say. The second settlement is refused by
+// payments_invoice_settled_uq, and in the webhook that refusal escaped as a
+// 500; Razorpay retries a failed webhook for a day, failing the same way each
+// time. It must answer 2xx, keep the capture PENDING for reconciliation, and
+// say it needs refunding.
+{
+  const [inv] = await sql`SELECT id, total_paise FROM invoices WHERE booking_id = ${jobId} AND deleted_at IS NULL`;
+  const lateOrder = "order_LATE" + Math.random().toString(36).slice(2, 12);
+  const [late] = inv ? await sql`
+    INSERT INTO payments (invoice_id, method, amount_paise, status, provider_ref)
+    VALUES (${inv.id}, 'upi', ${inv.total_paise}, 'PENDING', ${lateOrder}) RETURNING id` : [];
+  try {
+    const hookBody = JSON.stringify({ event: "payment.captured", payload: { payment: { entity: {
+      id: "pay_LATE0000000001", order_id: lateOrder, amount: Number(inv?.total_paise) } } } });
+    const hook = await fetch(BASE + "/v1/webhooks/razorpay", {
+      method: "POST",
+      headers: { "content-type": "application/json",
+                 "x-razorpay-signature": createHmac("sha256", RZP_HOOK_SECRET).update(hookBody).digest("hex") },
+      body: hookBody,
+    });
+    const hookJson = await hook.json().catch(() => ({}));
+    ok("a capture for an already-settled invoice answers 2xx, so the gateway stops retrying",
+       hook.status === 200 && hookJson.data?.refundRequired === true, `got ${hook.status} ${hookJson.error?.code ?? ""}`);
+    const [row] = late ? await sql`SELECT status FROM payments WHERE id = ${late.id}` : [];
+    ok("and the capture is kept PENDING for reconciliation, not a second settlement", row?.status === "PENDING", row?.status);
+  } finally {
+    if (late) await sql`DELETE FROM payments WHERE id = ${late.id}`;
+  }
+}
 
 // ── audit chain: does it actually catch an edit? ──
 // Asserting that a fresh chain verifies proves almost nothing — an unverifiable
@@ -404,7 +458,7 @@ let demoOut = "", demoErr = "";
 demoApi.stdout.on("data", (d) => (demoOut += d));
 demoApi.stderr.on("data", (d) => (demoErr += d));
 let demoUp = false;
-for (let i = 0; i < 60; i++) {
+for (let i = 0; i < 180; i++) {   // up to 90 s: tsx compiles the API on boot, slow on a loaded machine
   try { if ((await fetch(DEMO_BASE + "/health")).ok) { demoUp = true; break; } } catch { /* booting */ }
   await new Promise((r) => setTimeout(r, 500));
 }

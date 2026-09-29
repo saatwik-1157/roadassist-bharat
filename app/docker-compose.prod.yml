@@ -141,6 +141,15 @@ services:
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
       EMAIL_API_KEY: ${EMAIL_API_KEY:-}
       EMAIL_BASE_URL: ${EMAIL_BASE_URL:-}
+      # Only the variables listed here reach the container, and these were not
+      # listed, so operator alerts, email sign-in and the edge's client-address
+      # header could not be turned on at all. Empty means off (the boot log says
+      # so for alerts); EMAIL_FROM keeps env.ts's default, because an empty
+      # value would replace it rather than fall back to it.
+      EMAIL_FROM: "${EMAIL_FROM:-RoadAssist <no-reply@roadassist.in>}"
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      EMAIL_SIGNIN: ${EMAIL_SIGNIN:-}
+      CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
       # Matches the mounted volume below. Object storage would replace this.
       UPLOAD_DIR: /repo/app/var/uploads
     # Published on loopback only. TLS termination and the public port belong to

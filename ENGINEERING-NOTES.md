@@ -78,11 +78,11 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 302 unit — no I/O, the only ones that run standalone
-npm run test:e2e         # 203
-npm run test:concurrency # 77
-npm run test:gateway     # 35
-npm run test:security    # 84 attacks, every one must be refused
+npm test                 # 317 unit — no I/O, the only ones that run standalone
+npm run test:e2e         # 209
+npm run test:concurrency # 84
+npm run test:gateway     # 39
+npm run test:security    # 87 attacks, every one must be refused
 npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
 ```
 
@@ -98,15 +98,20 @@ So it is not a flaky test and not a regression — it is state. Reset before you
 trust a concurrency run, and especially before a demo:
 
 ```bash
-docker compose -f docker-compose.demo.yml down -v
-docker compose -f docker-compose.demo.yml up -d
+npm run demo:reset
 ```
+
+Run the suites against the development API (`npm run dev`), not the
+`docker-compose.demo.yml` stack. That stack runs `NODE_ENV=demo`, whose phone
+sign-in accepts only the demo numbers, and the suites sign in random ones, so
+they fail on their first sign-in there. The demo stack resets with
+`docker compose -f docker-compose.demo.yml down -v`, then `up -d`.
 
 `npm run test:razorpay` (22) needs no Razorpay account — it starts its own
 local stub of the Orders API and signs webhooks with a stub secret — but it
 refuses to run (exit 2) unless the API was started with the variables in the
 script's header (`PAYMENTS_PROVIDER=razorpay`, `PAYMENTS_BASE_URL` at the stub).
-It is **not** part of the 760 and must never be described as passing.
+It is **not** part of the 899 and must never be described as passing.
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (115
 tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
@@ -307,8 +312,13 @@ Non-negotiable #1: they never regress. In practice that means:
   must not also queue an API replay; an unconfirmed one must. Getting this wrong
   dispatches two responders to one emergency, or none.
 - `POST /v1/telecom/sms` is the feature-phone path and works with no app at all.
-  Its SMS body format is a contract with `Emergency.smsBody` on the client and
+  Its SMS body format is a contract with `SosLadder.smsBody` on the client and
   `parseSmsCoordinates` on the server; all three change together.
+- One press is one emergency: `Emergency.raise` sends a single `RA-XXXXXX`
+  reference as `clientIncidentId` on the data rung and queues that same
+  reference, so a replay converges on the incident a lost answer already
+  created. The ladder runs in `Emergency.ladderScope`, not a screen's scope, so
+  leaving Home or rotating the phone cannot cancel an SOS in flight.
 - Never let a model dispatch. ADR-0005. A prediction always waits for human
   confirmation.
 

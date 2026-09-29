@@ -190,13 +190,13 @@ await app.register(fastifyStatic, {
 // Demo media (videos, photos) live in the repo's site/ folder — served here so
 // the showcase page can embed them without duplicating megabytes into app/.
 //
-// MEDIA ONLY, and the filter is the point. site/ also holds half a dozen old
-// prototype pages, and mounting the directory whole published them: they were
-// reachable at /media/app.html and each one pulled webfonts from Google, so
-// every visitor's IP address left India to render a page nothing links to.
-// That breaks non-negotiable #4, and it broke it silently, which is why
-// check-data-residency.mjs now fails the build on it rather than trusting
-// this comment.
+// MEDIA ONLY, and the filter is the point. site/ used to hold half a dozen old
+// prototype pages, and mounting the directory whole published them at
+// /media/app.html; each pulled webfonts from Google, so every visitor's IP
+// left India for a page nothing linked to (non-negotiable #4, broken silently).
+// Those pages have since been removed; the filter stays as the guard, so any
+// page that lands in site/ again is still not served, and
+// check-data-residency.mjs fails the build on it rather than trusting this.
 const MEDIA_TYPES = /\.(mp4|webm|mov|m4v|jpe?g|png|webp|avif|gif|svg|vtt)$/i;
 await app.register(fastifyStatic, {
   root: findUp("../site"),
@@ -810,18 +810,67 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
   }
 
   const t0 = Date.now();
-  const { to } = apply(booking.status as Status, "dispatch.start");
+  /**
+   * Where a search may start, and one claim so only one search runs.
+   *
+   * REQUESTED is the first search. A retry starts from NO_SUPPLY (retry.widen)
+   * or from MATCHING with no mechanic and no live offer, which is where the
+   * customer's "Widen and retry" leaves it: that button sends retry.widen and
+   * then dispatches. This route used to accept REQUESTED alone, so the widened
+   * search always answered 409 and the booking sat in MATCHING with nobody
+   * asked. While offers are live the search is already running: 409.
+   *
+   * The claim is a compare-and-swap on status and version, taken BEFORE the
+   * wave. Two dispatches arriving together both used to send a wave, so the
+   * same mechanics got the same job twice.
+   */
+  let command: Command = "dispatch.start";
+  if (booking.status === "MATCHING") {
+    const [{ live }] = await db.select({ live: raw<number>`count(*)::int` }).from(S.dispatchOffers)
+      .where(and(eq(S.dispatchOffers.bookingId, id), eq(S.dispatchOffers.status, "SENT"),
+                 raw`${S.dispatchOffers.expiresAt} > now()`));
+    if (booking.mechanicId || live > 0) {
+      return reply.code(409).send({ error: { code: "dispatch_in_progress",
+        title: "Mechanics are already being asked about this booking. Wait for an answer, or cancel it.",
+        retryable: false, requestId: req.id } });
+    }
+  } else {
+    if (booking.status === "NO_SUPPLY") command = "retry.widen";
+    apply(booking.status as Status, command);   // anything else is an illegal transition (409)
+  }
+  const to: Status = "MATCHING";
+  const claimed = await db.update(S.bookings)
+    .set({ status: to, updatedAt: new Date(), version: booking.version + 1 })
+    .where(and(eq(S.bookings.id, id), eq(S.bookings.status, booking.status),
+               eq(S.bookings.version, booking.version), isNull(S.bookings.mechanicId)))
+    .returning({ id: S.bookings.id });
+  if (!claimed.length) {
+    return reply.code(409).send({ error: { code: "conflict",
+      title: "The booking changed while this request was in flight. Reload and retry.", retryable: true } });
+  }
+  await db.insert(S.bookingEvents).values({
+    bookingId: id, fromStatus: booking.status, toStatus: to, command, actorRole: "system",
+  });
 
-  // Wave 1 of the ladder. `sendWave` excludes providers who are off duty or
-  // already committed to another customer — the old query filtered on the duty
-  // toggle alone, so a mechanic mid-job kept receiving offers.
+  // The next wave of the ladder: rank stays monotonic across retries, and
+  // `sendWave` skips anybody already asked. It also excludes providers who are
+  // off duty or already committed to another customer.
+  const [{ sent }] = await db.select({ sent: raw<number>`count(*)::int` })
+    .from(S.dispatchOffers).where(eq(S.dispatchOffers.bookingId, id));
+  const waveNo = Math.floor(sent / limit) + 1;
   const wave = await sendWave(id, {
-    radiusKm, waveSize: limit, wave: 1, actorId: req.user!.sub,
+    radiusKm, waveSize: limit, wave: waveNo, actorId: req.user!.sub,
   });
 
   if (wave.exhausted) {
     const noSupply = apply(to, "offers.exhausted");
-    await db.update(S.bookings).set({ status: noSupply.to, updatedAt: new Date() }).where(eq(S.bookings.id, id));
+    // Guarded: a cancel that landed during the search stands.
+    const moved = await db.update(S.bookings).set({ status: noSupply.to, updatedAt: new Date() })
+      .where(and(eq(S.bookings.id, id), eq(S.bookings.status, to))).returning({ id: S.bookings.id });
+    if (!moved.length) {
+      return reply.code(409).send({ error: { code: "conflict",
+        title: "The booking changed while this request was in flight. Reload and retry.", retryable: true } });
+    }
     await db.insert(S.bookingEvents).values({
       bookingId: id, fromStatus: to, toStatus: noSupply.to, command: "offers.exhausted", actorRole: "system",
       meta: { radiusKm, skipped: wave.skipped.length },
@@ -844,15 +893,10 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
     });
   }
 
-  await db.update(S.bookings).set({ status: to, updatedAt: new Date() }).where(eq(S.bookings.id, id));
-  await db.insert(S.bookingEvents).values({
-    bookingId: id, fromStatus: booking.status, toStatus: to, command: "dispatch.start", actorRole: "system",
-  });
-
   await audit({
     actorId: req.user!.sub, actorRole: "citizen", action: "dispatch.started",
     entity: "booking", entityId: id,
-    after: { offers: wave.offers.length, radiusKm, wave: 1,
+    after: { offers: wave.offers.length, radiusKm, wave: waveNo,
              topMechanicId: wave.ranked[0]?.id ?? null, skipped: wave.skipped.length },
     ip: req.ip,
   });
@@ -865,7 +909,7 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
   });
 
   return ok({ status: to, offers: wave.offers }, {
-    rankedBy: "rules-1.0.0", radiusKm, wave: 1, waveSize: limit,
+    rankedBy: "rules-1.0.0", radiusKm, wave: waveNo, waveSize: limit,
     skippedByState: wave.skipped.reduce<Record<string, number>>((acc, s) => {
       acc[s.state] = (acc[s.state] ?? 0) + 1; return acc;
     }, {}),
@@ -1545,21 +1589,28 @@ app.post("/v1/me/emergency-contacts", { preHandler: authenticate }, async (req, 
   }).parse(req.body);
 
   // Every contact is texted on each confirmed SOS; a cap keeps that from being
-  // turned into an SMS pump, and a number is listed once.
-  const existing = await db.select({ msisdn: S.emergencyContacts.msisdn }).from(S.emergencyContacts)
-    .where(and(eq(S.emergencyContacts.userId, req.user!.sub), isNull(S.emergencyContacts.deletedAt)));
-  if (existing.some((c) => c.msisdn === body.msisdn)) {
+  // turned into an SMS pump, and a number is listed once. Counted and inserted
+  // under a per-account lock: read separately, simultaneous adds all saw four
+  // or fewer and all inserted, past the cap and with the same number twice.
+  const outcome = await db.transaction(async (tx) => {
+    await tx.execute(raw`SELECT pg_advisory_xact_lock(3, hashtext(${req.user!.sub}))`);
+    const existing = await tx.select({ msisdn: S.emergencyContacts.msisdn }).from(S.emergencyContacts)
+      .where(and(eq(S.emergencyContacts.userId, req.user!.sub), isNull(S.emergencyContacts.deletedAt)));
+    if (existing.some((c) => c.msisdn === body.msisdn)) return "contact_exists" as const;
+    if (existing.length >= 5) return "too_many_contacts" as const;
+    const [row] = await tx.insert(S.emergencyContacts).values({
+      userId: req.user!.sub, name: body.name, msisdn: body.msisdn,
+      relation: body.relation, priority: body.priority ?? 1,
+    }).returning();
+    return row;
+  });
+  if (outcome === "contact_exists") {
     return reply.code(409).send({ error: { code: "contact_exists", title: "That number is already one of your contacts.", retryable: false } });
   }
-  if (existing.length >= 5) {
+  if (outcome === "too_many_contacts") {
     return reply.code(409).send({ error: { code: "too_many_contacts", title: "You can list up to five emergency contacts. Remove one first.", retryable: false } });
   }
-
-  const [row] = await db.insert(S.emergencyContacts).values({
-    userId: req.user!.sub, name: body.name, msisdn: body.msisdn,
-    relation: body.relation, priority: body.priority ?? 1,
-  }).returning();
-  return reply.code(201).send(ok(row));
+  return reply.code(201).send(ok(outcome));
 });
 
 app.delete("/v1/me/emergency-contacts/:id", { preHandler: authenticate }, async (req, reply) => {

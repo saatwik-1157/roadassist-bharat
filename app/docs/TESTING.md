@@ -1,11 +1,11 @@
 # Testing
 
-Six suites, 864 assertions, all executed against a real PostgreSQL + PostGIS and a
+Six suites, 899 assertions, all executed against a real PostgreSQL + PostGIS and a
 real Chrome, with no failures. A seventh — 22 payment-gateway checks in
 `scripts/razorpay-test.mjs` — needs **no** Razorpay account (it runs its own
 local stub of the Orders API), but refuses to run unless the API was started
 with `PAYMENTS_PROVIDER=razorpay` pointed at that stub; it is therefore outside
-the 760, was not re-run for these figures, and is never described as passing.
+the 899, was not re-run for these figures, and is never described as passing.
 Nothing here is mocked except the third-party vendors, and each
 of those has a stub that speaks the vendor's actual wire format.
 
@@ -44,12 +44,12 @@ expected outcome of each, and times it. It fails if any beat fails.
 
 | Suite | Assertions | What it exists for |
 |---|---|---|
-| `npm test` (node:test) | **225** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. |
-| `scripts/e2e-journey.mjs` | **194** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. |
-| `scripts/concurrency-test.mjs` | **77** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
-| `scripts/gateway-security-test.mjs` | **27** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |
-| `scripts/razorpay-test.mjs` | **22** — not in the 760 | Payment negative space, against a local stub (no account); only runs against an API started with `PAYMENTS_PROVIDER=razorpay`, and not re-run for these figures: forged signature, replayed delivery, wrong amount, wrong order, unconfigured secret — each must fail closed. |
-| `scripts/security-audit.mjs` | **74** | Application-level penetration checks — every case is an attack that must FAIL: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error-body leakage, rate limits. Three real vulnerabilities were found by this suite and fixed. |
+| `npm test` (node:test) | **302** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. |
+| `scripts/e2e-journey.mjs` | **209** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. |
+| `scripts/concurrency-test.mjs` | **84** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
+| `scripts/gateway-security-test.mjs` | **39** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |
+| `scripts/razorpay-test.mjs` | **22** — not in the 899 | Payment negative space, against a local stub (no account); only runs against an API started with `PAYMENTS_PROVIDER=razorpay`, and not re-run for these figures: forged signature, replayed delivery, wrong amount, wrong order, unconfigured secret — each must fail closed. |
+| `scripts/security-audit.mjs` | **87** | Application-level penetration checks — every case is an attack that must FAIL: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error-body leakage, rate limits. Three real vulnerabilities were found by this suite and fixed. |
 | `scripts/ui-journey.mjs` | **163** | What only a browser can prove: the app boots without a console error, a session survives a reload, an offline payment is refused rather than queued, live updates arrive without polling, and the complete Off-Grid Mode scenario end to end. |
 
 ## Verified against the production image, not just the source
@@ -169,11 +169,11 @@ that reach the people with the worst connections and the cheapest phones, first.
 | Surface | Covered | Not covered |
 |---|---|---|
 | API (SMS + OTP) | **Everything the platform sends**, in all 8 — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
-| Android | **The user-facing UI**, in all 8 — 123 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer and the user-facing toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | Seven literals remain, all of them diagnostics or wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
+| Android | **Most of the user-facing UI**, in all 8 — 123 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer, the SOS rung results and most toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | English literals remain in `MainActivity.kt`: the SOS countdown's explanation and the data-rung summary (`Escalated (…)`), the online/offline pill, the hazard dialog's type names, button and confirmation toasts, the Trip Guardian button, `No rescues yet`, the Book service picker, the tracking-screen command labels, and the `Failed` fallbacks; plus diagnostics and wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
 | Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 30 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 
-That is **126 server strings, 441 Android strings and 210 web strings** for the
+That is **126 server strings, 861 Android strings and 210 web strings** for the
 seven non-English locales.
 
 A feature phone has no settings screen, so **`LANG <code>` over SMS** is the

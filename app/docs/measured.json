@@ -14,14 +14,14 @@
   "measuredOn": "2026-09-29",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 864,
+    "total": 899,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 302,
-      "e2e": 203,
-      "concurrency": 77,
-      "gatewaySecurity": 35,
-      "securityAudit": 84,
+      "unit": 317,
+      "e2e": 209,
+      "concurrency": 84,
+      "gatewaySecurity": 39,
+      "securityAudit": 87,
       "browser": 163
     },
     "notExecuted": {
@@ -91,7 +91,7 @@
       "",
       "  grep -rnE 'app[.](get|post|put|patch|delete)[(]' apps/api/src | wc -l",
       "",
-      "65 of the 68 are under /v1. The other three are infrastructure, all in",
+      "66 of the 69 are under /v1. The other three are infrastructure, all in",
       "server.ts: GET /tiles/:z/:x/:file, GET /basemap/:z/:x/:file and GET /health.",
       "",
       "The SPLIT moves whenever a route group is lifted out of server.ts — it was",

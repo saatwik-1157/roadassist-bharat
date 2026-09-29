@@ -11,6 +11,8 @@ import { describe, it } from "node:test";
 import {
   DEMO_CITIZEN,
   DEMO_NUMBER_REQUIRED,
+  DEMO_PRIVILEGED_ACCOUNTS,
+  localDemoPrivilegedProblem,
   EMAIL_SIGNIN_REQUIRED,
   demoRestrictionsApply,
   holdsPrivilegedRole,
@@ -98,6 +100,7 @@ describe("phoneSignInRefusal under NODE_ENV=demo with the demo's policy", () => 
     assert.equal(r?.code, "demo_number_required");
     assert.match(r!.title, /\+91 70000 00000 to \+91 70000 09999/);
     assert.match(r!.title, /\+91 98765 43210/);
+    assert.match(r!.title, /\+91 96000 00000 to \+91 96000 00099/, "the mechanic range is named too");
   });
 
   it("lets a demo number through", () => {
@@ -127,6 +130,44 @@ describe("phoneSignInRefusal under NODE_ENV=demo with the demo's policy", () => 
 
   it("keeps an email-listed number on email, as before", () => {
     assert.deepEqual(demo("+917000000003", [], true), EMAIL_SIGNIN_REQUIRED);
+  });
+});
+
+describe("LOCAL_DEMO_PRIVILEGED_OTP (the local docker demo's opt-in)", () => {
+  const local = (msisdn: string, roles: string[] = [], emailBlocked = false, nodeEnv = "demo") =>
+    phoneSignInRefusal({ msisdn, nodeEnv, policy: DEMO_POLICY, emailBlocked, roles, localDemoPrivileged: true });
+
+  it("lets the seeded authority sign in with the on-screen code", () => {
+    assert.deepEqual([...DEMO_PRIVILEGED_ACCOUNTS], ["+919999900001"]);
+    assert.equal(local("+919999900001", ["admin"]), null);
+  });
+
+  it("opens nothing else: other admins, officers and real numbers are refused as before", () => {
+    assert.deepEqual(local("+919999900002", ["admin"]), DEMO_NUMBER_REQUIRED);
+    assert.deepEqual(local("+919123456789"), DEMO_NUMBER_REQUIRED);
+    assert.deepEqual(local("+917000000002", ["gov_officer"]), EMAIL_SIGNIN_REQUIRED);
+  });
+
+  it("does not override EMAIL_SIGNIN", () => {
+    assert.deepEqual(local("+919999900001", ["admin"], true), EMAIL_SIGNIN_REQUIRED);
+  });
+
+  it("is ignored in production even if it were set", () => {
+    assert.deepEqual(local("+919999900001", ["admin"], false, "production"), DEMO_NUMBER_REQUIRED);
+  });
+
+  it("is off unless set: the hosted demo still refuses the authority", () => {
+    assert.deepEqual(
+      phoneSignInRefusal({ msisdn: "+919999900001", nodeEnv: "demo", policy: DEMO_POLICY, emailBlocked: false, roles: ["admin"] }),
+      DEMO_NUMBER_REQUIRED,
+    );
+  });
+
+  it("stops a production boot, and nothing else", () => {
+    assert.match(localDemoPrivilegedProblem("production", true) ?? "", /LOCAL_DEMO_PRIVILEGED_OTP/);
+    assert.equal(localDemoPrivilegedProblem("production", false), null);
+    assert.equal(localDemoPrivilegedProblem("demo", true), null);
+    assert.equal(localDemoPrivilegedProblem("development", true), null);
   });
 });
 

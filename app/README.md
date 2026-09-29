@@ -21,12 +21,12 @@ npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Deskt
 npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run share                                               # → public HTTPS url, for real phones
-npm run verify && npm run test:e2e                          # 302 unit + 203 end-to-end
-npm run test:gateway                                        # 35 gateway-security checks
-npm run test:concurrency                                    # 77 race / idempotency / real-time
-npm run test:security                                       # 84 attacks, all must be refused
+npm run verify && npm run test:e2e                          # 317 unit + 209 end-to-end
+npm run test:gateway                                        # 39 gateway-security checks
+npm run test:concurrency                                    # 84 race / idempotency / real-time
+npm run test:security                                       # 87 attacks, all must be refused
 npm run test:ui                                             # 163 browser-journey checks
-npm run test:razorpay                                       # 22 payment-gateway checks: not in the 760, see below
+npm run test:razorpay                                       # 22 payment-gateway checks: not in the 899, see below
 ```
 
 > `db:seed` is not idempotent — against an already-seeded database run
@@ -361,7 +361,7 @@ The gateway suite proves all of this against a stub vendor endpoint.
 the dispatch candidate query executes in **29 ms**, the whole dispatch endpoint
 in **~100 ms** p50 (PostGIS KNN, provider-state exclusions, offer inserts, SSE
 fan-out and audit writes; it varies roughly 89-115 ms run to run) · emergency escalation **37 ms** median, measured end
-to end through the API · **194** end-to-end assertions covering illegal transitions,
+to end through the API · **203** end-to-end assertions covering illegal transitions,
 idempotent replay, refresh-token theft detection, cross-tenant isolation, the
 full citizen-report loop (submit → photo → authority verify → status), and
 settlement that no client can assert for itself.

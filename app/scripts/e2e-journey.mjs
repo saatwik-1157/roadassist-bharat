@@ -118,6 +118,48 @@ ok("offers ranked nearest-first", Boolean(first?.mechanic),
    first ? `top: ${first.mechanic.displayName} ${first.mechanic.distanceKm}km eta ${first.etaMinutes}min` : "");
 ok("distances are within the requested radius",
    (disp.data?.offers ?? []).every((o) => o.mechanic.distanceKm <= 30));
+const redispatch = await call("POST", `/v1/bookings/${bookingId}/dispatch`, { token, body: { radiusKm: 30, limit: 5 } });
+ok("a second dispatch while offers are live is refused", redispatch.status === 409 &&
+   redispatch.error?.code === "dispatch_in_progress", `got ${redispatch.status} ${redispatch.error?.code ?? ""}`);
+
+// ── 7b. nobody in range, then the app's "Widen and retry" ──────────────────
+// The app answers NO_SUPPLY with a button that sends retry.widen (NO_SUPPLY →
+// MATCHING) and then dispatches with a larger radius. Dispatch accepted
+// REQUESTED alone, so that search always answered 409 and the booking sat in
+// MATCHING with nobody asked. A fresh account keeps the booking limit clear.
+console.log("\n7b. No supply, then a widened retry");
+{
+  const nsNumber = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+  const nsReq = await call("POST", "/v1/auth/otp/request", { body: { msisdn: nsNumber } });
+  const nsVer = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: nsNumber, code: nsReq.meta?.devOtp } });
+  const nsToken = nsVer.data?.accessToken;
+  const nsVeh = await call("POST", "/v1/vehicles", {
+    token: nsToken,
+    body: { registrationNo: "NS" + Math.floor(1000 + Math.random() * 8999) + Math.random().toString(36).slice(2, 5).toUpperCase(), vehicleClass: "car" },
+  });
+  // The Arabian Sea, hundreds of kilometres from any seeded mechanic.
+  const nsBooking = await call("POST", "/v1/bookings", {
+    token: nsToken, body: { vehicleId: nsVeh.data?.id, serviceTypeCode: "battery_jumpstart", lat: 15.0, lng: 65.0 },
+  });
+  const nsId = nsBooking.data?.id;
+  const dispatchAt = (radiusKm) => call("POST", `/v1/bookings/${nsId}/dispatch`, { token: nsToken, body: { radiusKm, limit: 5 } });
+  const none = await dispatchAt(10);
+  ok("a search that finds nobody leaves the booking in NO_SUPPLY",
+     none.status === 200 && none.data?.status === "NO_SUPPLY", `got ${none.status} ${none.data?.status ?? none.error?.code}`);
+  const retry = await dispatchAt(25);
+  ok("dispatching again from NO_SUPPLY runs a new search",
+     retry.status === 200 && retry.data?.status === "NO_SUPPLY", `got ${retry.status} ${retry.data?.status ?? retry.error?.code}`);
+  const widen = await call("POST", `/v1/bookings/${nsId}/transition`, { token: nsToken, body: { command: "retry.widen" } });
+  ok("retry.widen moves NO_SUPPLY back to MATCHING", widen.status === 200 && widen.data?.status === "MATCHING",
+     `got ${widen.status} ${widen.data?.status ?? widen.error?.code}`);
+  const widened = await dispatchAt(50);
+  ok("the widened search then runs instead of answering 409",
+     widened.status === 200 && widened.data?.status === "NO_SUPPLY", `got ${widened.status} ${widened.data?.status ?? widened.error?.code}`);
+  const nsDetail = await call("GET", `/v1/bookings/${nsId}`, { token: nsToken });
+  ok("every search is on the booking's history", (nsDetail.data?.events ?? [])
+     .filter((e) => e.command === "offers.exhausted").length === 3, `${nsDetail.data?.events?.length ?? 0} events`);
+  await call("POST", `/v1/bookings/${nsId}/transition`, { token: nsToken, body: { command: "cancel" } });
+}
 
 // ── 8. state machine ───────────────────────────────────────────────────────
 console.log("\n8. Booking state machine");

@@ -101,20 +101,38 @@ export async function revokeSessionFamily(db: Db, sid: string, userId: string): 
   const [row] = await db.select({ familyId: S.sessions.familyId, userId: S.sessions.userId })
     .from(S.sessions).where(eq(S.sessions.id, sid)).limit(1);
   if (!row || row.userId !== userId) return 0;
-  const now = new Date();
-  const stillMinting = new Date(now.getTime() - env.accessTtlSeconds * 1000);
-  const revoked = await db.update(S.sessions)
-    .set({
-      revokedAt: sql`coalesce(${S.sessions.revokedAt}, now())`,
-      revokedReason: LOGOUT_REASON,
-      updatedAt: now,
-    })
-    .where(and(
-      eq(S.sessions.familyId, row.familyId),
-      or(isNull(S.sessions.revokedAt), gt(S.sessions.createdAt, stillMinting)),
-    ))
-    .returning({ id: S.sessions.id });
-  return revoked.length;
+  // Under the family lock rotateSession also takes: a refresh in flight had
+  // already claimed its token and was about to insert the next session, which
+  // this UPDATE could not see - so sign-out answered 200 and that new session
+  // went on working.
+  return db.transaction(async (tx) => {
+    await lockFamily(tx, row.familyId);
+    const now = new Date();
+    const stillMinting = new Date(now.getTime() - env.accessTtlSeconds * 1000);
+    const revoked = await tx.update(S.sessions)
+      .set({
+        revokedAt: sql`coalesce(${S.sessions.revokedAt}, now())`,
+        revokedReason: LOGOUT_REASON,
+        updatedAt: now,
+      })
+      .where(and(
+        eq(S.sessions.familyId, row.familyId),
+        or(isNull(S.sessions.revokedAt), gt(S.sessions.createdAt, stillMinting)),
+      ))
+      .returning({ id: S.sessions.id });
+    return revoked.length;
+  });
+}
+
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/**
+ * Serialise sign-out and rotation within one refresh-token family. Rotation is
+ * claim-then-insert; without this, a sign-out landing between the two revoked
+ * the claimed row and never saw the one inserted after it.
+ */
+async function lockFamily(tx: Tx, familyId: string) {
+  await tx.execute(sql`SELECT pg_advisory_xact_lock(4, hashtext(${familyId}))`);
 }
 
 /** Creates a session and returns both tokens. */
@@ -185,21 +203,40 @@ export async function rotateSession(db: Db, presented: string, meta: { ip?: stri
    * on, so it gets the same answer — the family burns and both sides sign in
    * again.
    */
-  const claimed = await db.update(S.sessions)
-    .set({ revokedAt: new Date(), revokedReason: "rotated", updatedAt: new Date() })
-    .where(and(eq(S.sessions.id, row.id), isNull(S.sessions.revokedAt)))
-    .returning({ id: S.sessions.id });
+  // Claim and successor in one transaction, under the family lock that
+  // revokeSessionFamily takes (see lockFamily).
+  const outcome = await db.transaction(async (tx) => {
+    await lockFamily(tx, row.familyId);
+    const claimed = await tx.update(S.sessions)
+      .set({ revokedAt: new Date(), revokedReason: "rotated", updatedAt: new Date() })
+      .where(and(eq(S.sessions.id, row.id), isNull(S.sessions.revokedAt)))
+      .returning({ id: S.sessions.id });
 
-  if (!claimed.length) {
-    await burnFamily();
-    return { ok: false as const, reason: "reuse_detected", familyId: row.familyId };
+    if (!claimed.length) {
+      // Signed out while this request waited for the lock: not theft.
+      const [now] = await tx.select({ reason: S.sessions.revokedReason })
+        .from(S.sessions).where(eq(S.sessions.id, row.id)).limit(1);
+      if (now?.reason === LOGOUT_REASON) return { reason: "signed_out" as const };
+      await tx.update(S.sessions)
+        .set({ revokedAt: new Date(), revokedReason: "reuse_detected", updatedAt: new Date() })
+        .where(and(eq(S.sessions.familyId, row.familyId), isNull(S.sessions.revokedAt)));
+      return { reason: "reuse_detected" as const };
+    }
+
+    const [created] = await tx.insert(S.sessions).values({
+      userId: row.userId, familyId: row.familyId, refreshHash: next.hash,
+      expiresAt: new Date(Date.now() + env.refreshTtlDays * 864e5),
+      ip: meta.ip, userAgent: meta.ua,
+    }).returning({ id: S.sessions.id });
+    return { created };
+  });
+
+  if ("reason" in outcome) {
+    return outcome.reason === "signed_out"
+      ? { ok: false as const, reason: "signed_out" }
+      : { ok: false as const, reason: "reuse_detected", familyId: row.familyId };
   }
-
-  const [created] = await db.insert(S.sessions).values({
-    userId: row.userId, familyId: row.familyId, refreshHash: next.hash,
-    expiresAt: new Date(Date.now() + env.refreshTtlDays * 864e5),
-    ip: meta.ip, userAgent: meta.ua,
-  }).returning({ id: S.sessions.id });
+  const { created } = outcome;
 
   const roles = await rolesFor(db, row.userId);
   return {

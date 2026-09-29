@@ -12,6 +12,9 @@
 #
 # Sign in with any of these; the OTP is returned by the API and auto-fills:
 #   +919876543210  citizen      +919999900001  authority      +919600000000  mechanic
+# NODE_ENV=demo otherwise accepts only the demo numbers on the phone path and
+# never an admin or officer (apps/api/src/domain/demo-numbers.ts). The authority
+# signs in here only because this file sets LOCAL_DEMO_PRIVILEGED_OTP below.
 #
 # To fill the RAKSHA dashboard with the 65 real detections (it is empty by
 # design until an edge device posts them), run this once the stack is up:
@@ -37,11 +40,12 @@ services:
       POSTGRES_USER: roadassist
       POSTGRES_PASSWORD: demopassword
       POSTGRES_DB: roadassist
-    # Published on 5434 — the port this project documents everywhere — so the
-    # suites can be pointed at the demo stack too. One e2e section compares what
-    # each role may READ against what the schema allows, which it can only do by
-    # connecting to Postgres directly. 5434 rather than 5432 so it does not
-    # collide with a Postgres already running on the machine.
+    # Published on 5434 — the port this project documents everywhere — so a
+    # local client or psql can reach the demo data. The suites are NOT run
+    # against this stack: the api below is NODE_ENV=demo, whose phone sign-in
+    # refuses the random numbers they sign in (ENGINEERING-NOTES.md). 5434
+    # rather than 5432 so it does not collide with a Postgres already running
+    # on the machine.
     ports:
       - "5434:5432"
     healthcheck:
@@ -93,6 +97,12 @@ services:
 
   api:
     image: ${IMAGE:-ghcr.io/saatwik-1157/roadassist-bharat:latest}
+    # docker-start.sh, not the image's bare `node server.js`: it is what makes
+    # the per-boot JWT_SECRET below when none is given. Without it the API ran
+    # with JWT_SECRET empty under NODE_ENV=demo, which validateEnv refuses, so
+    # the container exited at boot and restarted for ever. It migrates again
+    # first, which is idempotent and costs about a second.
+    command: ["./docker-start.sh"]
     restart: unless-stopped
     ports:
       - "4000:4000"
@@ -110,16 +120,21 @@ services:
       JWT_SECRET: ${JWT_SECRET:-}
       SMS_PROVIDER: console
       PAYMENTS_PROVIDER: mock
-      # Local only. On anything reachable from the internet this lets a stranger
-      # sign in as the authority — see DEPLOYMENT.md.
+      # Local only. The code is shown on screen, so anyone who can reach this
+      # port can sign in as a demo number — see DEPLOYMENT.md.
       EXPOSE_DEV_OTP: "true"
+      # LOCAL ONLY: lets the seeded RAKSHA authority sign in with the on-screen
+      # code in this one-command demo. env.ts refuses it under production, and
+      # render.yaml must never set it: on a reachable host it hands the
+      # authority account to anyone who can read the screen.
+      LOCAL_DEMO_PRIVILEGED_OTP: "true"
       UPLOAD_DIR: /repo/app/var/uploads
       # The per-IP OTP limiter is a real control and it defaults to 30 per 15
-      # minutes. Every suite signs in as many users from one address, so running
-      # them back to back against this stack exhausts it and the next suite dies
-      # on an undefined OTP rather than on anything it was testing. CI raises it
-      # for the same reason. This is a LOCAL demo value: a deployment must leave
-      # the default alone, and render.yaml does.
+      # minutes. A local demo signs everybody in from one address (the laptop,
+      # or the emulator through it), so a rehearsed walk-through can exhaust it
+      # and then fail on a refused code rather than on anything it was showing.
+      # This is a LOCAL demo value: a deployment must leave the default alone,
+      # and render.yaml does.
       OTP_IP_MAX: "2000"
     depends_on:
       seed:

@@ -28,14 +28,14 @@ re-exported to PDF on 2026-09-25.
 | 13–14 | "Real screenshots — captured from the running app" | True; `capture-screens.mjs` asserts before capturing | `docs/screenshots/` | **GREEN** | None |
 | 15 | "Three states, three honest answers" | ONLINE / LIMITED / OFF-GRID from measured evidence | `connectivity.js` | **GREEN** | None |
 | 16 | "The client never decides that money arrived" | Amount is the invoice total; signature recomputed server-side. The 22 Razorpay checks are labelled "Checked, not counted" | gateway suite | **GREEN** | None |
-| 17 | "Seven layers, and 84 attacks that fail" | 74 executed, all refused | `security-audit.mjs` | **GREEN** | None |
+| 17 | "Seven layers, and 87 attacks that fail" | 87 executed, all refused | `security-audit.mjs` | **GREEN** | None |
 | 18 | "56 tables · 62 foreign keys · 138 indexes" | Verified exactly against the live database | this phase | **GREEN** | None |
 | 19 | "Consumer of IaaS and PaaS, provider of SaaS to three user classes" | Accurate | `providers.ts`, three surfaces | **GREEN** | None |
 | 20 | "Four genuinely built; one is partial and says so" | Matches the mapping | `SWE4004-MAPPING.md` | **GREEN** | None |
 | 21 | "Full test suite passes AGAINST the image" | True — verified in an earlier phase | — | **GREEN** | None |
 | 22 | "Two are built. Six are design. I will not show you an animation and call it an autoscaler." | Workload distribution + resource pooling built; rest design | `dispatch.ts` | **GREEN** | None — the strongest slide in the deck |
 | 23 | "Static vs dynamic scheduling" | Both real | `OFFER_SWEEP_SECONDS`, `dispatch.ts` | **GREEN** | None |
-| 24 | **"864 assertions, all executed"** | 760 execute across six suites; 22 payment checks sit outside the total, not executed | `app/docs/measured.json` | **GREEN** *(was RED)* | **Already fixed** — see below |
+| 24 | **"899 assertions, all executed"** | 899 execute across six suites; 22 payment checks sit outside the total, not executed | `app/docs/measured.json` | **GREEN** *(was RED)* | **Already fixed** — see below |
 | 25 | "Twenty rows in the failure matrix" | `architecture/failure-matrix.md` has 20 | — | **GREEN** | None |
 | 26 | "Marked from the code, not from intent" | Consistent with the mapping | — | **GREEN** | None |
 | 27 | "The demo is one free-tier instance in Singapore (Render + Neon) — no India region, no cluster." | True — live at `app.roadassistbharat.online` | `render.yaml` | **GREEN** *(was RED: "Nothing is deployed")* | **Fixed 2026-09-25.** Volunteering the limits is still worth marks |
@@ -59,8 +59,8 @@ executed. Presenting it as passing is precisely the failure this deck otherwise
 avoids, and a professor who asked *"show me the seventh suite"* would have found
 it was never part of the run.
 
-**Applied:** slide retitled **"864 assertions, all executed"**; the footer should
-read "864 assertions · 6 suites · 0 failures · 56 tables · 69 routes · 11 ADRs".
+**Applied:** slide retitled **"899 assertions, all executed"**; the footer should
+read "899 assertions · 6 suites · 0 failures · 56 tables · 69 routes · 11 ADRs".
 The deck was rebuilt (`python ppt/make_final.py`) and re-exported to PDF (32 pages,
 verified). The same correction was applied to six documents — see
 `CLAIM_VERIFICATION_FINAL.md`.
@@ -75,7 +75,7 @@ the PDF re-exported (32 pages; text checked with `pypdf`):
 |---|---|
 | Slide 27: "Nothing is deployed to a cloud — no account, no domain, no cluster." | Demo live at `app.roadassistbharat.online` — one Render service + Neon Postgres (Singapore); still no cluster |
 | Footer "65 routes · 10 ADRs"  <!-- claims-check:ignore: quotes the stale deck footer on purpose --> | 68 routes (65 under `/v1`) · 11 ADRs |
-| Testing slide "Unit 101" | Unit 225 |
+| Testing slide "Unit 101" | Unit 317 |
 
 ## Wording to use if asked about the seventh suite
 

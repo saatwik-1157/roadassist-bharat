@@ -127,9 +127,20 @@ export async function telecomRoutes(app: FastifyInstance) {
     let locale = DEFAULT_LOCALE;
     const reply = async (key: string, params: Record<string, string | number> = {}) => {
       const body = t(locale, key, params);
-      await sms.send(from, body);
+      // By now the text has been acted on - an SOS raised, a booking cancelled.
+      // A reply the gateway fails to send used to throw a 500 over that, and a
+      // telecom vendor redelivers a webhook that failed: the SOS came in again
+      // and raised a second incident. The reply is still in the body here.
+      let delivered = true;
+      try {
+        await sms.send(from, body);
+      } catch (err) {
+        delivered = false;
+        req.log.error({ err: err instanceof Error ? err.message.slice(0, 200) : String(err) }, "sms reply not delivered");
+      }
       return ok({ reply: body }, {
         channel: "sms", to: from,
+        ...(delivered ? {} : { replyDelivered: false }),
         // Said out loud on every response, not buried in a code comment. This
         // endpoint can raise an SOS for the phone number it is handed, so an
         // operator must be able to see from the wire whether the intake is

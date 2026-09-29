@@ -65,6 +65,13 @@ test("a privileged sign-in always alerts, whatever the cap", () => {
   assert.deepEqual(sent.map((a) => a.kind), ["privileged-signin", "privileged-signin"]);
 });
 
+test("an officer's sign-in is privileged, not a capped ordinary one", () => {
+  // gov_officer is the authority role in the schema; "authority" is not a role.
+  const { g, sent } = gate({ signinsPerHour: 0 });
+  g.signin(NUMBER, ["gov_officer"], false);
+  assert.deepEqual(sent.map((a) => a.kind), ["privileged-signin"]);
+});
+
 test("a burst of wrong codes alerts once per number per window", () => {
   const { g, sent, advance } = gate({ otpBurst: 3 });
   g.otpFailure(NUMBER); g.otpFailure(NUMBER);

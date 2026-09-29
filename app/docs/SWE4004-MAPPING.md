@@ -119,7 +119,7 @@ other six. That is a stronger answer.
 | Auditing | Hash-chained append-only log, DB rules block UPDATE/DELETE | `audit.ts`, `migrate.ts` | IMPLEMENTED |
 | Privacy | Log redaction of credentials, OTP, phone numbers, medical fields, coordinates | `observability.ts` + tests | IMPLEMENTED |
 | Data residency | `check-data-residency.mjs` fails the build if a page we serve loads a third-party subresource (only `checkout.razorpay.com` is allowed), if a server-side outbound host is undeclared — each is declared with its region: MSG91 and Razorpay India, OSM tiles EU, Open-Meteo Germany, Resend USA (email processor: masked number, role, event, time; sign-in codes to the listed address), Twilio USA (optional), figshare (training time only) — if an analytics/crash SDK appears, or if PII goes into a query string. It does **not** check where the platform itself is hosted: the demo runs in Singapore, so visitors' requests leave India | `scripts/check-data-residency.mjs` | PARTIAL — egress controls implemented; India-region hosting (e.g. Mumbai) is the production target |
-| Penetration testing | 84 attacks, all refused — self-written, not an external pen test | `scripts/security-audit.mjs` | IMPLEMENTED (self-audit) |
+| Penetration testing | 87 attacks, all refused — self-written, not an external pen test | `scripts/security-audit.mjs` | IMPLEMENTED (self-audit) |
 
 ---
 

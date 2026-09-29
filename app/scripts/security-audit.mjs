@@ -473,6 +473,63 @@ const meLeak = await call("GET", "/v1/me", { token: bob.token });
 ok("the profile response carries no password or token field",
    !/password|passwordHash|refreshToken|codeHash/i.test(meLeak.raw));
 
+// ══ 12. A device's image reference cannot name a server file ══════════════
+// Device ingestion stores the image_ref the device sends, and the photo read
+// and an officer's "reject" (which deletes the photo) both used it as a path
+// under UPLOAD_DIR. A captured device credential could then have a routine
+// rejection delete any file the API can write, and the photo endpoint serve
+// any file it can read. The reference climbs to the filesystem root and back
+// down to a sentinel this run creates, so it lands on the sentinel whatever
+// UPLOAD_DIR is. Needs the API on this machine and the seeded operator.
+section("12. Upload references stay inside the upload directory");
+{
+  const { writeFileSync, existsSync, unlinkSync } = await import("node:fs");
+  const { resolve: resolvePath, parse: parsePath } = await import("node:path");
+  const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(BASE);
+  const opReq = local ? await call("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } }) : null;
+  const opVer = opReq?.meta?.devOtp
+    ? await call("POST", "/v1/auth/otp/verify", { body: { msisdn: "+919999900001", code: opReq.meta.devOtp } })
+    : null;
+  const op = opVer?.data?.roles?.includes("admin") ? opVer.data.accessToken : null;
+  if (!op) {
+    skipped("device image references", local ? "the seeded operator could not sign in" : "the API is not on this machine");
+  } else {
+    const tag = Math.random().toString(36).slice(2, 10);
+    const sentinel = resolvePath(`.security-audit-sentinel-${tag}.txt`);
+    writeFileSync(sentinel, `sentinel ${tag}`);
+    const climb = "../".repeat(24) + sentinel.slice(parsePath(sentinel).root.length).replaceAll("\\", "/");
+    try {
+      const dev = await call("POST", "/v1/raksha/devices", {
+        token: op, body: { name: `audit device ${tag}`, lat: 28.45, lng: 77.03, simulated: true },
+      });
+      const devTok = await call("POST", "/v1/raksha/devices/token", {
+        body: { deviceId: dev.data?.id, deviceSecret: dev.data?.deviceSecret },
+      });
+      const ingest = await call("POST", "/v1/raksha/detections", {
+        token: devTok.data?.accessToken,
+        body: { detections: [{
+          opId: `audit-${tag}`, type: "pothole", confidence: 0.9, severity: 2, lat: 28.45, lng: 77.03,
+          capturedAt: new Date().toISOString(), modelVersion: "audit", imageRef: climb,
+        }] },
+      });
+      const detectionId = ingest.data?.results?.[0]?.detectionId;
+      ok("a device can submit a detection to probe with", Boolean(detectionId), `${ingest.status}`);
+      if (detectionId) {
+        const photo = await call("GET", `/v1/raksha/detections/${detectionId}/photo`, { token: op });
+        ok("the photo endpoint does not serve a file outside the upload directory",
+           photo.status === 404 && !photo.raw.includes(`sentinel ${tag}`), `got ${photo.status}`);
+        const rejected = await call("POST", `/v1/raksha/detections/${detectionId}/verify`, {
+          token: op, body: { action: "reject", notes: "security audit" },
+        });
+        ok("rejecting the detection does not delete a file outside the upload directory",
+           rejected.status === 200 && existsSync(sentinel), `reject ${rejected.status}, file ${existsSync(sentinel) ? "kept" : "DELETED"}`);
+      }
+    } finally {
+      if (existsSync(sentinel)) unlinkSync(sentinel);
+    }
+  }
+}
+
 // ── clean up anything still holding a provider ─────────────────────────────
 if (bookingId) await call("POST", `/v1/bookings/${bookingId}/transition`, { token: alice.token, body: { command: "cancel" } });
 if (bobBooking?.data?.id) await call("POST", `/v1/bookings/${bobBooking.data.id}/transition`, { token: bob.token, body: { command: "cancel" } });

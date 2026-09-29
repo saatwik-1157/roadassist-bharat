@@ -1,5 +1,5 @@
 > Written after inspecting the actual repository on 2026-09-06 and re-measured
-> against it on 2026-09-12 — 56 tables, 69 routes, 864 executed assertions.
+> against it on 2026-09-12 — 56 tables, 69 routes, 899 executed assertions.
 > Nothing here is assumed. This is prep to be spoken aloud, not a dated record:
 > when the code moves, the numbers here move with it.
 >
@@ -278,7 +278,7 @@ What follows is what actually loses marks in each round.
 | 46 | Circuit breaker? | Stop calling a failing dependency; fail fast. |
 | 47 | Backoff with jitter? | Retry after growing, randomised delays to avoid thundering herds. |
 | 48 | Our AI model version? | `rules-1.0.0`. |
-| 49 | Our test total? | 760 executed, 0 failures, six suites. |
+| 49 | Our test total? | 899 executed, 0 failures, six suites. |
 | 50 | Our biggest limitation? | Single instance — three in-process components. |
 
 ---
@@ -299,7 +299,7 @@ What follows is what actually loses marks in each round.
 | "Can you prove synchronization?" | `await window.__ra.listOffGrid()` → `SYNCED` with a server id. Then sync again — count unchanged. | DevTools |
 | "Show me the audit record." | `/v1/ops/overview` — live counts plus a chain verification. | browser |
 | "Show me payment verification." | `apps/api/src/routes/payments.ts:374` webhook — signature recomputed server-side; forged signature returns 402. | editor |
-| "Show me the security implementation." | Run `npm run test:security` — 74 passed, 0 failed, live. | terminal |
+| "Show me the security implementation." | Run `npm run test:security` — 87 passed, 0 failed, live. | terminal |
 | "Is that real data?" | "Generated seed data — no real customer information. 6,038 bookings, 600 mechanics." | — |
 
 **If something breaks mid-demo:** say what failed, what it means, and move on.
@@ -317,11 +317,11 @@ Not inflated. This is my estimate as an examiner, given the evidence that exists
 | Project idea | 8 | **7–8** | Genuine, specific problem; clear differentiator | Sounds like an aggregator if pitched badly | Lead with the connectivity failure, not the marketplace |
 | Architecture | 10 | **8–9** | Modular monolith, CI-enforced boundaries, ADRs | Monolith read as unambitious | Say "enforced, not agreed" and run the check |
 | Cloud concepts | 15 | **10–12** | 9 implemented, 6 partial, 6 design | **Highest risk** — 6 are design | Lead with pooling + distribution + scheduling; name blockers precisely |
-| Implementation | 15 | **13–14** | 864 assertions, 6 real bugs found and fixed | Little | Show the row lock |
+| Implementation | 15 | **13–14** | 899 assertions, 6 real bugs found and fixed | Little | Show the row lock |
 | AI | 10 | **6–7** | Rules engine, labelled; trained YOLO11n separate | "Not real AI" | Agree instantly, pivot to asymmetry + CI guard |
 | Database | 10 | **9** | 56 tables, hash-chained audit, PostGIS | Little | Show the append-only RULES |
-| Security | 10 | **8–9** | 84 attacks refused; real CVE fixed | No pentest | Volunteer that before asked |
-| Testing | 8 | **8** | 760 executed across six suites, plus timed rehearsal | Little | Run a suite live |
+| Security | 10 | **8–9** | 87 attacks refused; real CVE fixed | No pentest | Volunteer that before asked |
+| Testing | 8 | **8** | 899 executed across six suites, plus timed rehearsal | Little | Run a suite live |
 | UI/UX | 5 | **4** | Real screenshots, phone-first | Sparse on a projector | Demo at 430 px |
 | Offline resilience | 10 | **9–10** | The strongest area; unanswerable demo | Overclaiming offline reach | Give the three-way split unprompted |
 | Demo | 5 | **4–5** | Rehearsed, timed, 9 clean runs | Live failure | Backups ready |
@@ -389,7 +389,7 @@ CVE class in this release. Payment: the client never decides money arrived. The
 amount is the invoice total, the signature is recomputed server-side, and a
 booking can't be marked paid without a settled payment."
 
-**4:30 — Testing.** "864 assertions across six suites, zero failures, run twice
+**4:30 — Testing.** "899 assertions across six suites, zero failures, run twice
 — once on a fresh database and again after a full reset. Plus a timed demo
 rehearsal that walks all fifteen beats in two browser windows. Six real bugs
 were found by tooling we wrote to attack our own project, including two
@@ -452,7 +452,7 @@ infrastructure beyond one instance. AI is 7 for the same reason: correctly label
 **Strongest areas**
 1. Offline / off-grid resilience — the tab-close demo is unanswerable.
 2. Concurrency and data integrity — row lock, idempotency, hash-chained audit.
-3. Testing honesty — 864 assertions and six self-found bugs.
+3. Testing honesty — 899 assertions and six self-found bugs.
 
 **Weakest areas**
 1. One hosted instance in Singapore — eight cloud concepts remain design.
@@ -471,7 +471,7 @@ infrastructure beyond one instance. AI is 7 for the same reason: correctly label
 2. Dispatch score: proximity 60% / rating 34% / newcomer bonus; wave 5; 90 s TTL.
 3. `SELECT … FOR UPDATE` on the booking row, expiry checked inside the transaction.
 4. The offline three-way split: works / queued / needs network.
-5. 864 assertions, six suites, zero failures — and that the 22 payment checks sit outside the total, not executed.
+5. 899 assertions, six suites, zero failures — and that the 22 payment checks sit outside the total, not executed.
 
 **Must show in the demo**
 1. The `rules-1.0.0` badge.

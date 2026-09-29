@@ -114,10 +114,18 @@ jobs:
           done
           # The other half of non-negotiable #4: site/ is mounted at /media for
           # video, and mounting it whole once published prototype pages that
-          # pulled webfonts from Google. A 200 here is a privacy regression.
-          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8099/media/app.html)
-          echo "  /media/app.html -> $code (must NOT be 200)"
+          # pulled webfonts from Google. Those pages have since been deleted, so
+          # asking for /media/app.html now answers 404 whether or not the media
+          # filter works, and the check passed while testing nothing. A page is
+          # planted in site/ instead: it must be refused, while a video beside
+          # it must still be served, which proves /media is mounted at all.
+          docker exec ra-api sh -c 'echo "<p>canary</p>" > /repo/site/ci-canary.html'
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8099/media/ci-canary.html)
+          echo "  /media/ci-canary.html -> $code (must NOT be 200)"
           [ "$code" = "200" ] && fail=1
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8099/media/roadassist-app-demo.mp4)
+          echo "  /media/roadassist-app-demo.mp4 -> $code"
+          [ "$code" = "200" ] || fail=1
           exit $fail
 
       # DATABASE_URL is here because one e2e section ("booking read/write

@@ -110,9 +110,11 @@ services:
 
       # DELIBERATE, and the one setting to think about before sharing the URL:
       # with no SMS provider, this returns the OTP in the response so anyone
-      # can sign in — including as the seeded authority account. That is what
-      # makes the demo usable and it is also an open door. Set it to false and
-      # the deployment becomes unusable without a real SMS provider.
+      # can sign in. Because NODE_ENV is "demo", the API accepts only the demo
+      # numbers on that path (apps/api/src/domain/demo-numbers.ts) and never an
+      # admin or officer, who sign in by emailed code (EMAIL_SIGNIN below). Set
+      # it to false and the deployment becomes unusable without a real SMS
+      # provider.
       - key: EXPOSE_DEV_OTP
         value: "true"
 

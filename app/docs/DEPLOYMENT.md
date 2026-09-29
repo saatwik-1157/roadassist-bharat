@@ -13,7 +13,7 @@ this project does not have.
 |---|---|
 | Production Docker image builds | ✅ **Verified** — `docker build`, 321 MB, runs as `node` (uid 1000) |
 | Image runs and serves the whole platform | ✅ **Verified** — API, citizen app, mechanic console, authority dashboard, media |
-| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 203 e2e assertions and 84 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
+| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 209 e2e assertions and 87 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
 | Health check reports the database honestly | ✅ **Verified** — 503 with `database: "down"` when Postgres is unreachable |
 | Graceful shutdown | ✅ **Verified** — SIGTERM → exit code 0, no force kill |
 | Production CORS allowlist | ✅ **Verified** — allowed origin reflected, other origins refused |
@@ -146,7 +146,7 @@ enforced by `assertProductionSafe()` in `apps/api/src/env.ts`.
 | `DATABASE_URL` | Without it the API falls back to a *localhost development* database, starts cleanly, passes its health check, and serves an empty platform. |
 | `JWT_SECRET` | The development default is a literal string in the repository. Anyone could mint a token for any account. Use 32+ random bytes: `openssl rand -base64 32`. |
 | `CORS_ORIGINS` | Unset means "reflect whatever Origin you are sent", which is functionally "every website may call this API with your users' credentials". |
-| `EXPOSE_DEV_OTP=false` | When true the OTP is returned in the response body. Anyone with the URL signs in as anyone. |
+| `EXPOSE_DEV_OTP=false` | When true the OTP is returned in the response body, so anyone with the URL signs in. Outside development the API then accepts only the published demo numbers (`domain/demo-numbers.ts`), which is a demo, not a deployment. |
 | `SMS_PROVIDER` | `console` logs the OTP instead of sending it — nobody could sign in, and the emergency SMS path would be silent. |
 | `TELECOM_WEBHOOK_SECRET` | Without it the inbound SMS webhook accepts unsigned requests, so anyone can raise an SOS as any phone number. |
 | `PAYMENTS_PROVIDER` | `mock` settles invoices with no money moving — jobs marked PAID for free. |

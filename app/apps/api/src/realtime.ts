@@ -120,6 +120,12 @@ export function subscribe(userId: string, reply: FastifyReply, id: string): Subs
   };
   reply.raw.on("close", drop);
   reply.raw.on("error", drop);
+  // A client that hung up while the request was still being authenticated has
+  // already fired 'close', and never will again - nor does writing to it throw.
+  // Kept, it would hold one of the account's MAX_STREAMS_PER_USER slots until
+  // the process restarts; four such reconnects and the account's live stream
+  // is refused for good.
+  if (reply.raw.destroyed) drop();
 
   if (!heartbeat) {
     heartbeat = setInterval(() => {

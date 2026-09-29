@@ -3,7 +3,7 @@
 Threat model: [`security/threat-model.md`](security/threat-model.md) — STRIDE,
 20 threats mapped to controls.
 Penetration suite: [`../scripts/security-audit.mjs`](../scripts/security-audit.mjs) —
-**84 attacks, every one refused.**
+**87 attacks, every one refused.**
 
 Everything below has been executed. A control described here without a test
 beside it says so.
@@ -12,7 +12,7 @@ beside it says so.
 
 ## The one-line summary
 
-`npm run test:security` fires 74 application-level attacks at a running server.
+`npm run test:security` fires 87 application-level attacks at a running server.
 The suite passes when the platform **refuses** — "we tried and could not get in"
 is a materially different claim from "the code looks right". It runs in CI.
 
@@ -287,6 +287,14 @@ answers 404 on the live hosts. What changed:
 | Database connections to a remote host did not require TLS | Low | `ssl: "require"` unless the URL says otherwise or the host is local | `database-tls.test.ts` |
 | Pages: `innerHTML` with server strings, CSV formula injection, a token left in the map URL | Low | Escaped, neutralised, cleared | Code review; the browser suite still passes |
 | Android: map WebView could navigate anywhere and its bridge answered any page; app data was backed up | Low | Origin allow-list for navigation, bridge and geolocation; file access off; `allowBackup=false` | `MapWebGuardTest.kt` |
+| A device-supplied `imageRef` was joined onto the upload folder unchecked: the photo route could read, and an officer's reject could delete, a file outside it | High | Any path that resolves outside `UPLOAD_DIR` is refused (`domain/upload-path.ts`) | `upload-path.test.ts`, `security-audit.mjs` §12 |
+| A refresh racing a sign-out could still mint a working session | Medium | Sign-out and rotation serialise on a per-family advisory lock; the loser gets `signed_out` | `concurrency-test.mjs` §7a |
+| The five-contact cap was count-then-insert: eight parallel adds stored eight | Medium | Count and insert in one transaction under a per-user lock | `concurrency-test.mjs` §6e |
+| Three parallel dispatches each sent a wave (12 offers to 4 mechanics) | Medium | The booking is claimed by compare-and-swap before a wave is sent | `concurrency-test.mjs` §6d |
+| A failed SMS reply or a Razorpay capture on an already-settled invoice returned 500, so the vendor redelivered | Low | Logged and answered 200; the payment is kept for reconciliation and audited | `gateway-security-test.mjs` |
+| A client that disconnected mid-authentication kept its live-stream slot, locking the account out after four | Low | The subscriber is dropped when the response is already closed | `realtime.test.ts` |
+| Officer (`gov_officer`) sign-ins were not alerted as privileged | Low | Added to the privileged set | `alerts.test.ts` |
+| Android sign-out only cleared the phone; the session stayed valid on the server | Low | The app calls `POST /v1/auth/logout` | Emulator run |
 
 Dependencies were updated within their ranges (Fastify 5.12.5, Drizzle ORM
 0.45.3) and an unused direct dependency was removed. `npm audit` still

@@ -260,6 +260,24 @@ object Api {
 
     fun clear() { token = null; refreshToken = null }
 
+    /**
+     * End the session on the server it was issued by, best effort.
+     *
+     * Signing out used to be [clear] alone: the tokens left this phone's memory
+     * and stayed valid on the server, so a refresh token copied before sign-out
+     * kept minting access for its whole lifetime. `POST /v1/auth/logout`
+     * revokes the session's family. The caller snapshots the access token and
+     * the address BEFORE clearing, because a server switch signs out after
+     * [base] has already changed. No network is fine: the local sign-out has
+     * already happened, and the session then simply expires.
+     */
+    suspend fun logout(access: String?, at: String) {
+        if (access.isNullOrBlank()) return
+        try {
+            raw("POST", "/v1/auth/logout", JSONObject(), bearer = access, baseUrl = at)
+        } catch (_: Exception) { /* signed out locally either way */ }
+    }
+
     private suspend fun request(method: String, path: String, body: JSONObject?): JSONObject {
         val (code, json) = raw(method, path, body)
         if (code == 401 && refreshToken != null && !path.startsWith("/v1/auth/")) {
@@ -336,15 +354,18 @@ object Api {
         json.optJSONObject("error")?.optString("title")?.takeIf { it.isNotBlank() }
 
     /** A single HTTP round-trip with no retry logic. Returns (statusCode, body). */
-    private suspend fun raw(method: String, path: String, body: JSONObject?): Pair<Int, JSONObject> =
+    private suspend fun raw(
+        method: String, path: String, body: JSONObject?,
+        bearer: String? = token, baseUrl: String = base,
+    ): Pair<Int, JSONObject> =
         withContext(Dispatchers.IO) {
-            val conn = URL(base.trimEnd('/') + path).openConnection() as HttpURLConnection
+            val conn = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
             try {
                 conn.requestMethod = method
                 conn.connectTimeout = 8000
                 conn.readTimeout = 15000
                 conn.setRequestProperty("accept", "application/json")
-                token?.let { conn.setRequestProperty("authorization", "Bearer $it") }
+                bearer?.let { conn.setRequestProperty("authorization", "Bearer $it") }
                 if (body != null) {
                     conn.doOutput = true
                     conn.setRequestProperty("content-type", "application/json")
@@ -352,7 +373,19 @@ object Api {
                 }
                 val stream = if (conn.responseCode in 200..299) conn.inputStream else conn.errorStream
                 val text = stream?.bufferedReader()?.use { it.readText() } ?: ""
-                val json = if (text.isBlank()) JSONObject() else JSONObject(text)
+                // A proxy's HTML error page (a 502 while the host wakes up) is
+                // not an envelope. Parsed blindly it surfaced as "Value <html of
+                // type java.lang.String cannot be converted to JSONObject"; as
+                // an empty body it becomes "Request failed (502)". A 2xx that is
+                // not JSON is still an error: nothing the caller reads is there.
+                val json = if (text.isBlank()) JSONObject() else try {
+                    JSONObject(text)
+                } catch (_: org.json.JSONException) {
+                    if (conn.responseCode in 200..299) {
+                        throw ApiException("Unexpected answer from the server", status = conn.responseCode)
+                    }
+                    JSONObject()
+                }
                 conn.responseCode to json
             } finally {
                 conn.disconnect()

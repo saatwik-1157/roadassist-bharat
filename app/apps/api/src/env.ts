@@ -6,6 +6,7 @@
 import { resolve } from "node:path";
 import { loadDotEnv } from "@roadassist/db";
 import { DEV_JWT_SECRET, jwtSecretProblem } from "./domain/jwt-secret.js";
+import { localDemoPrivilegedProblem } from "./domain/demo-numbers.js";
 
 // Shared with the migrator and the seeders so every entry point reads the same
 // file regardless of which workspace directory it was launched from.
@@ -218,6 +219,8 @@ export const env = {
   },
 
   exposeDevOtp: bool(process.env.EXPOSE_DEV_OTP, true),
+  /** The local docker demo's opt-in for the seeded authority (domain/demo-numbers.ts). */
+  localDemoPrivilegedOtp: bool(process.env.LOCAL_DEMO_PRIVILEGED_OTP),
 
   /**
    * Local disk store for hazard-report photos. Honours ADR-0006: raw frames
@@ -339,6 +342,8 @@ export function validateEnv(): void {
   // NODE_ENV=demo, which assertProductionSafe never looked at.
   const jwtProblem = jwtSecretProblem(env.nodeEnv, process.env.JWT_SECRET);
   if (jwtProblem) problems.push(jwtProblem);
+  const demoOptIn = localDemoPrivilegedProblem(env.nodeEnv, env.localDemoPrivilegedOtp);
+  if (demoOptIn) problems.push(demoOptIn);
 
   if (!/^postgres(ql)?:\/\//.test(env.databaseUrl)) {
     problems.push(

@@ -88,8 +88,30 @@ export const DEMO_NUMBER_REQUIRED: PhoneSignInRefusal = {
   status: 403,
   code: "demo_number_required",
   title: "This demo signs in demo numbers only (real SMS is not connected). " +
-    "Use +91 70000 00000 to +91 70000 09999, or the demo citizen +91 98765 43210.",
+    "Use +91 70000 00000 to +91 70000 09999, the demo citizen +91 98765 43210, " +
+    "or a demo mechanic +91 96000 00000 to +91 96000 00099.",
 };
+
+/**
+ * The seeded privileged demo accounts (seed-raksha.ts's authority), and the
+ * only ones LOCAL_DEMO_PRIVILEGED_OTP opens.
+ *
+ * The one-command local demo (docker-compose.demo.yml) runs NODE_ENV=demo with
+ * the code echoed, which refuses the authority account - so the documented
+ * local walkthrough could not reach the RAKSHA dashboard. That compose file
+ * sets LOCAL_DEMO_PRIVILEGED_OTP=true on a machine nobody else can reach. The
+ * hosted demo never sets it, and production refuses to boot with it
+ * (localDemoPrivilegedProblem). It opens these numbers and nothing else: every
+ * other number, and every number behind EMAIL_SIGNIN, is refused as before.
+ */
+export const DEMO_PRIVILEGED_ACCOUNTS: ReadonlySet<string> = new Set(["+919999900001"]);
+
+/** A description of why LOCAL_DEMO_PRIVILEGED_OTP may not be on here, or null. */
+export function localDemoPrivilegedProblem(nodeEnv: string | undefined, enabled: boolean): string | null {
+  if (!enabled || nodeEnv !== "production") return null;
+  return "LOCAL_DEMO_PRIVILEGED_OTP is on and NODE_ENV is \"production\" - it lets the on-screen demo code " +
+    "sign in the seeded admin, and is only for a local docker demo. Unset it.";
+}
 
 /**
  * The whole phone-path decision, applied both where the code is issued and
@@ -112,9 +134,13 @@ export function phoneSignInRefusal(input: {
   emailBlocked: boolean;
   /** roles currently held by the account with this number; [] when there is none */
   roles: readonly string[];
+  /** LOCAL_DEMO_PRIVILEGED_OTP: the local docker demo's opt-in, see above. */
+  localDemoPrivileged?: boolean;
 }): PhoneSignInRefusal | null {
   if (input.emailBlocked) return EMAIL_SIGNIN_REQUIRED;
   if (!demoRestrictionsApply(input)) return null;
+  if (input.localDemoPrivileged && input.nodeEnv !== "production" &&
+      DEMO_PRIVILEGED_ACCOUNTS.has(input.msisdn)) return null;
   if (!isDemoNumber(input.msisdn)) return DEMO_NUMBER_REQUIRED;
   if (holdsPrivilegedRole(input.roles)) return EMAIL_SIGNIN_REQUIRED;
   return null;

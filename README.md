@@ -13,7 +13,7 @@ built for the roads where coverage is worst.
 [![CI](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/ci.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/ci.yml)
 [![Image](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/publish-image.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/publish-image.yml)
 [![Pages](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/pages.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/pages.yml)
-![Assertions](https://img.shields.io/badge/assertions-864%20passing-2ea44f)
+![Assertions](https://img.shields.io/badge/assertions-899%20passing-2ea44f)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)
 ![PostGIS](https://img.shields.io/badge/PostgreSQL%2016-PostGIS-336791?logo=postgresql&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-Kotlin%20%2B%20Compose-3DDC84?logo=android&logoColor=white)
@@ -219,7 +219,7 @@ with it.
 
 | | |
 |---|---|
-| **864 assertions**, six suites, zero failures | 302 unit · 203 e2e · 77 concurrency · 84 attacks · 35 gateway security · 163 browser |
+| **899 assertions**, six suites, zero failures | 317 unit · 209 e2e · 84 concurrency · 87 attacks · 39 gateway security · 163 browser |
 | Android | 115 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`), run against a local stub of Razorpay's Orders API. They need an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so they sit outside the six suites and are never described as passing |
@@ -237,7 +237,7 @@ re-verifies the audit hash chain on the restored copy.
 
 ## Security
 
-The security suite fires **84 attacks that must every one be refused**:
+The security suite fires **87 attacks that must every one be refused**:
 - cross-tenant reads and writes;
 - role escalation and id manipulation;
 - SQL injection;

@@ -451,7 +451,7 @@ concrete example) · *Code* (where to open it).
 *Code:* `apps/api/src/env.ts`, GHSA-3m5p-2c4r-xxw2
 
 **84. Have you had a penetration test?**
-*Short:* No. 101 self-written attacks (74 security + 35 gateway-security) is not the same thing, and I will not claim it is.
+*Short:* No. 126 self-written attacks (87 security + 39 gateway-security) is not the same thing, and I will not claim it is.
 *Code:* `SECURITY_FINAL_VERIFICATION.md`
 
 **85. Are any secrets in the repository?**
@@ -594,7 +594,7 @@ concrete example) · *Code* (where to open it).
 > assumed. Off-grid, an SOS becomes a real incident on the device, and a unique
 > key makes a duplicate impossible on sync.
 >
-> **Result.** 864 assertions across six suites, zero failures, including 74
+> **Result.** 899 assertions across six suites, zero failures, including 87
 > attacks that must fail. Every claim on our slides is something I can show you.
 
 ## 3 minutes — architecture

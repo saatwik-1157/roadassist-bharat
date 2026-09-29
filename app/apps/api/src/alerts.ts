@@ -33,8 +33,13 @@ export type AlertKind =
 
 export interface Alert { kind: AlertKind; subject: string; lines: string[] }
 
-/** Roles whose every sign-in is worth a look, whatever the hourly cap says. */
-const PRIVILEGED = new Set(["admin", "authority", "ops", "operator"]);
+/**
+ * Roles whose every sign-in is worth a look, whatever the hourly cap says.
+ * gov_officer is the platform's authority role (break-glass medical reads,
+ * the RAKSHA dashboard) and was missing: an officer's sign-in went out as an
+ * ordinary, capped one.
+ */
+const PRIVILEGED = new Set(["admin", "gov_officer", "authority", "ops", "operator"]);
 
 /**
  * Code-guessing alerts across ALL numbers, per hour. The per-number rule alone

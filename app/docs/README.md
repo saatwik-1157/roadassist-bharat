@@ -18,14 +18,14 @@ document itself — never left to be inferred.
 |---|---|
 | [`../README.md`](../README.md) | Quick start, scope, feature status |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Deploy, configure, back up, roll back — the live Render + Neon deployment (Singapore), and exactly what external accounts are still needed |
-| [`TESTING.md`](TESTING.md) | Six executed suites (864 assertions), the 22 Razorpay checks kept outside that total, what each proves, and what is deliberately not covered |
+| [`TESTING.md`](TESTING.md) | Six executed suites (899 assertions), the 22 Razorpay checks kept outside that total, what each proves, and what is deliberately not covered |
 
 ## The two things this project is actually about
 
 | Document | What it answers |
 |---|---|
 | [`OFFLINE.md`](OFFLINE.md) | Off-Grid Mode: capability matrix, the three tiers, storage, retention, sync journal |
-| [`SECURITY.md`](SECURITY.md) | Every control, the 84 attacks, the findings and the known gaps |
+| [`SECURITY.md`](SECURITY.md) | Every control, the 87 attacks, the findings and the known gaps |
 
 ## Course and submission
 

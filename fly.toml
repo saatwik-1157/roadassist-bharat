@@ -35,11 +35,12 @@ primary_region = "bom"          # Mumbai — closest to the users this serves
   PORT = "8080"
   HOST = "0.0.0.0"
   TRUST_PROXY = "true"          # Fly proxies; without this the per-IP OTP limiter sees one client
+  CLIENT_IP_HEADER = "fly-client-ip"   # set by Fly's edge; X-Forwarded-For's leftmost entry is the client's own claim
   SMS_PROVIDER = "console"
   PAYMENTS_PROVIDER = "mock"
   EXPOSE_DEV_OTP = "true"       # see the warning in DEPLOYMENT.md before sharing the URL
   UPLOAD_DIR = "/repo/app/var/uploads"
-  CORS_ORIGINS = "https://roadassist.dpdns.org"
+  CORS_ORIGINS = "https://roadassistbharat.online,https://www.roadassistbharat.online"
 
 # Secrets are set out of band, never in this file:
 #   fly secrets set JWT_SECRET="$(openssl rand -hex 32)"

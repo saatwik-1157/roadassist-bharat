@@ -22,6 +22,9 @@ export function maskMsisdn(msisdn: string): string {
   if (digits.length < 5) return "****";
   const prefix = msisdn.startsWith("+91") ? "+91" : msisdn.startsWith("+") ? "+" : "";
   const rest = prefix === "+91" ? digits.slice(2) : digits;
+  // "+91" plus four digits or fewer: the last four would be all of them, and
+  // three or fewer threw a RangeError from repeat(-1) inside the SMS provider.
+  if (rest.length <= 4) return prefix + "****";
   return prefix + "*".repeat(rest.length - 4) + rest.slice(-4);
 }
 

@@ -332,8 +332,8 @@ jobs:
 
       # Wired up while it was still a no-op, so that the first test anyone wrote
       # would run automatically rather than wait for someone to remember a CI
-      # step. It has not been a no-op for a while: six classes now, and the SOS
-      # path — the one non-negotiable #1 is about — is the best covered of them,
+      # step. It has not been a no-op for a while: every class under
+      # mobile/app/src/test runs here, and the SOS path — the one non-negotiable #1 is about — is the best covered of them,
       # because its decisions were lifted out of Emergency.kt into SosLadder.kt
       # as pure functions precisely so a JVM test could reach them.
       #

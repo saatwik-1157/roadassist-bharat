@@ -108,8 +108,10 @@ their NH-48 **positions are simulated**, because RDD2022 images carry no GPS.
 It runs only when the table is empty, so a restart is a no-op.
 
 **Do not point `npm run demo:raksha` at the hosted API.** The simulator signs in
-as the demo admin with the on-screen phone code, and once that admin is listed
-in `EMAIL_SIGNIN` the phone path answers `403 email_signin_required`. To upload
+as the demo admin (`+919999900001`) with the on-screen phone code, and the hosted
+demo refuses that on the phone path: the number is outside the demo ranges
+(`403 demo_number_required`), and an admin is email-only whatever its number
+(`403 email_signin_required`). To upload
 detections by hand, sign in to RAKSHA by email, **Register an edge device**,
 copy the `deviceId` and `deviceSecret` it shows once, and run:
 
@@ -156,8 +158,11 @@ would put a key in the page and every visitor's IP address abroad.
 ## Optional · Email sign-in for the team — **YOU**
 
 The demo shows the phone OTP on screen, because there is no SMS gateway. That
-makes it usable, and it also means anyone who types an account's number
-becomes that account. Email sign-in closes that for the accounts you name.
+makes it usable, and it also means anyone who types a demo number becomes that
+account. Under `NODE_ENV=demo` the phone path already refuses every number
+outside the demo ranges and every admin or officer
+(`apps/api/src/domain/demo-numbers.ts`); email sign-in closes it for the
+demo-range accounts you name, such as a team member's mechanic.
 
 Set `EMAIL_SIGNIN` in Render → **Environment** to `email=+91XXXXXXXXXX` pairs,
 comma-separated, each pointing an address at an existing account:
@@ -213,11 +218,13 @@ Two settings in `render.yaml` are deliberate, and one of them is a door.
 
 **`EXPOSE_DEV_OTP=true`.** With no SMS provider there is no way to receive a
 code, so the API returns it in the response. That is what makes the demo usable
-and it also means **anyone with the URL can sign in as any seeded account that
-is not listed in `EMAIL_SIGNIN`**. On the live demo the admin, the RAKSHA
-officer and the listed mechanics are listed, so their phone path answers
-`403 email_signin_required` and they can only be entered with a code emailed to
-their address (see *Email sign-in for the team* above). For the remaining
+and it also means **anyone with the URL can sign in as any demo-number account
+that is not listed in `EMAIL_SIGNIN`**: `+91 70000 00000` to `+91 70000 09999`,
+`+91 98765 43210` and `+91 96000 00000` to `+91 96000 00099`. Every other
+number answers `403 demo_number_required`, and an admin or RAKSHA officer is
+refused on the phone path whatever its number, so those accounts and the
+listed mechanics can only be entered with a code emailed to their address (see
+*Email sign-in for the team* above). For the remaining
 throwaway demo accounts that is a reasonable trade. It would not be acceptable against real data, and the moment
 this holds anything real, set it to `false` and configure MSG91.
 
@@ -235,13 +242,16 @@ The image is not trusted because it built. `.github/workflows/publish-image.yml`
 boots it against a real PostGIS and runs the suites **against the running
 container** before publishing:
 
-- 203 end-to-end assertions and 84 security attacks, `API=` pointed at the
+- 209 end-to-end assertions and 87 security attacks, `API=` pointed at the
   container
 - every surface answers 200: `/app.html`, `/mechanic.html`, `/raksha.html`,
   `/map.html`, `/health`, `/v1/ping`
-- `/media/app.html` must **not** answer 200 — `site/` is mounted at `/media` for
-  demo video, and mounting it whole once published prototype pages that pulled
-  webfonts from Google, so a 200 there is a privacy regression
+- a page planted in `site/` must **not** be served at `/media`, while a demo
+  video beside it must — `site/` is mounted at `/media` for demo video, and
+  mounting it whole once published prototype pages that pulled webfonts from
+  Google, so a 200 for the page is a privacy regression. Those pages have since
+  been deleted from `site/` (it now holds two videos and a photo), which is why
+  the check plants its own page rather than asking for `/media/app.html`
 
 An image that boots but cannot take a booking is not a passing build, and only
 running the suites against it can tell the difference.

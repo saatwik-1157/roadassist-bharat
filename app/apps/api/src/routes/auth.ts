@@ -63,6 +63,7 @@ async function phoneRefusal(msisdn: string, policy: OtpPolicy): Promise<PhoneSig
     // that is merely not printed - either would make the email pointless.
     emailBlocked: phoneSignInBlocked(msisdn, emailSignin, policy),
     roles: restricted ? await rolesForMsisdn(db, msisdn) : [],
+    localDemoPrivileged: env.localDemoPrivilegedOtp,
   });
 }
 

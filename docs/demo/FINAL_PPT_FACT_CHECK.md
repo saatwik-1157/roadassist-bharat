@@ -23,14 +23,14 @@ slide 27's old "nothing is deployed" became FALSE; the deck was rebuilt on
 | **Emergency services** | Slide 7 footnote | **TRUE as written** | The deck already says *"We never claim emergency services were contacted. The 112 handoff is a stub and the API says so."* Leave it exactly as it is. |
 | **Scalability** | Slide 22 | **PARTIAL** | *"Stateless and cloud-ready; autoscaling designed and not provisioned."* |
 | **Real-time** | Slide 12 | **TRUE** | *"Server-sent events — persist first, publish second, with polling underneath."* Never say WebSocket. |
-| **Security** | Slide 17 | **TRUE** | *"84 attacks that must fail, plus 27 gateway checks."* Add: *"no independent penetration test."* |
+| **Security** | Slide 17 | **TRUE** | *"87 attacks that must fail, plus 39 gateway checks."* Add: *"no independent penetration test."* |
 | **Deployment** | Slides 5, 19, 27 | **TRUE after the 2026-09-25 rebuild** *(old slide 27 "nothing is deployed" was FALSE)* | *"Deployed as a demo: one Render web service (Docker, free plan, Singapore) at app.roadassistbharat.online, Neon Postgres in Singapore, a showcase on GitHub Pages. Single instance — no cluster, no autoscaling, no replication. Hosted in Singapore because the free tiers have no India region; an India region is the production target."* |
 | **Predictive maintenance** | Slide 28 (roadmap) | **PARTIAL — labelled FUTURE** | Correct as-is. Do not describe it in the present tense. |
 | **Autoscaling** | Slide 22 | **PARTIAL — labelled DESIGN** | *"Designed, not provisioned. The readiness gate is the one piece that is real."* |
 | **Replication** | Slide 21 | **PARTIAL — labelled CONCEPTUAL** | *"Not built. The API is stateless, but three in-process components would break it."* |
 | **Load balancing** | Slide 22 | **PARTIAL** | *"No infrastructure balancer. Workload distribution across a provider pool is real."* |
 | **Satellite** | Slide 28 | **PARTIAL — labelled FUTURE** | Correct as-is. If asked offline: *"No satellite link exists."* |
-| **864 assertions** | Slide 24 | **TRUE** *(was FALSE)* | Corrected from the old "600 across seven suites". Volunteer that 22 payment checks sit outside the total: they need no Razorpay account (local stub), but were not executed because they need the API started separately in Razorpay mode. |
+| **899 assertions** | Slide 24 | **TRUE** *(was FALSE)* | Corrected from the old "600 across seven suites". Volunteer that 22 payment checks sit outside the total: they need no Razorpay account (local stub), but were not executed because they need the API started separately in Razorpay mode. |
 
 ## Corrected in this phase — root README
 

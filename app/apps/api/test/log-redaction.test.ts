@@ -19,6 +19,11 @@ describe("maskMsisdn", () => {
   it("never reveals a short value", () => {
     assert.equal(maskMsisdn("1234"), "****");
   });
+  it("hides a short +91 value entirely rather than throwing or showing it", () => {
+    assert.equal(maskMsisdn("+91123"), "+91****");
+    assert.equal(maskMsisdn("+911234"), "+91****");
+    assert.equal(maskMsisdn("+9112345"), "+91*2345");
+  });
 });
 
 describe("redactCodes", () => {

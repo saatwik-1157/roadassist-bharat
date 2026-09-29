@@ -475,6 +475,56 @@ section("6c. An invoice cannot be settled twice through the other door");
     await uqSql.end({ timeout: 5 });
   }
 }
+// ══ 6d. Two dispatches of one booking send one wave ═══════════════════════
+// Dispatch sent its wave first and moved the booking to MATCHING after, so
+// simultaneous dispatches all read REQUESTED, all sent a wave, and the same
+// mechanics were offered the same job two and three times. The search now
+// claims the booking first; exactly one claim wins.
+section("6d. Two dispatches of one booking send one wave");
+{
+  const dActor = await makeCustomer();
+  const b = await call("POST", "/v1/bookings", {
+    token: dActor.token,
+    body: { vehicleId: dActor.vehicleId, serviceTypeCode: "battery_jumpstart", lat: 28.4595, lng: 77.0266 },
+  });
+  createdBookings.push({ id: b.data?.id, token: dActor.token });
+  const runs = await Promise.all([1, 2, 3].map(() => call("POST", `/v1/bookings/${b.data?.id}/dispatch`, {
+    token: dActor.token, body: { radiusKm: 60, limit: 5 },
+  })));
+  const statuses = runs.map((r) => r.status).join(",");
+  ok("exactly one of three simultaneous dispatches runs", runs.filter((r) => r.status === 200).length === 1, statuses);
+  ok("the others are refused with a 409, not a 500", runs.filter((r) => r.status === 409).length === 2, statuses);
+  const offered = runs.flatMap((r) => r.data?.offers ?? []).map((o) => o.mechanicId);
+  ok("no mechanic is offered the same job twice", offered.length > 0 && new Set(offered).size === offered.length,
+     `${offered.length} offers to ${new Set(offered).size} mechanics`);
+  await release(b.data?.id, dActor.token);
+}
+
+// ══ 6e. The five-contact cap holds under simultaneous adds ════════════════
+// Every contact is texted on each confirmed SOS, which is why there is a cap.
+// It was a count followed by an insert, so adds sent together all counted
+// four or fewer and all went in - and one number sent together went in twice.
+section("6e. The five-contact cap holds under simultaneous adds");
+{
+  const cActor = await signIn();
+  const adds = await Promise.all(Array.from({ length: 8 }, (_, i) => call("POST", "/v1/me/emergency-contacts", {
+    token: cActor.token, body: { name: `Contact ${i}`, msisdn: `+9197${String(40000000 + i * 1111).padStart(8, "0")}` },
+  })));
+  const list = await call("GET", "/v1/me/emergency-contacts", { token: cActor.token });
+  ok("eight simultaneous adds store five contacts, not more", list.data?.length === 5, `${list.data?.length} stored`);
+  ok("the three over the cap are refused with a 409",
+     adds.filter((r) => r.status === 201).length === 5 && adds.filter((r) => r.status === 409).length === 3,
+     adds.map((r) => r.status).join(","));
+
+  const dActor = await signIn();
+  const same = await Promise.all([1, 2, 3].map(() => call("POST", "/v1/me/emergency-contacts", {
+    token: dActor.token, body: { name: "Same", msisdn: "+919740001234" },
+  })));
+  const sameList = await call("GET", "/v1/me/emergency-contacts", { token: dActor.token });
+  ok("one number added three times at once is stored once", sameList.data?.length === 1,
+     `${sameList.data?.length} stored; ${same.map((r) => r.status).join(",")}`);
+}
+
 // ══ 7. Rate limiting protects without breaking the emergency path ══════════
 section("7. Rate limits bound abuse and spare the emergency path");
 
@@ -504,6 +554,32 @@ ok("twelve genuine SOS in a row are all accepted",
 
 const escalate = await call("POST", `/v1/sos/${sosBurst[0].data.id}/confirm`, { token: spammer.token });
 ok("escalation itself is never rate limited", escalate.status === 200, `${escalate.status}`);
+
+section("7a. Signing out while a refresh is in flight ends that session too");
+
+// Rotation claims the refresh token, then inserts the next session. A sign-out
+// landing between the two revoked the claimed row and never saw the new one,
+// so it answered 200 while the refresh it raced kept a working session - about
+// one race in three on a local database. Both now take the family's lock.
+{
+  let survived = 0, raced = 0;
+  for (let i = 0; i < 12; i++) {
+    const who = newMsisdn();
+    const r = await call("POST", "/v1/auth/otp/request", { body: { msisdn: who } });
+    const v = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: who, code: r.meta?.devOtp } });
+    const [out, ref] = await Promise.all([
+      call("POST", "/v1/auth/logout", { token: v.data?.accessToken }),
+      call("POST", "/v1/auth/refresh", { body: { refreshToken: v.data?.refreshToken } }),
+    ]);
+    if (out.status !== 200 || ref.status !== 200) continue;
+    raced++;
+    const again = await call("POST", "/v1/auth/refresh", { body: { refreshToken: ref.data.refreshToken } });
+    const me = await call("GET", "/v1/me", { token: ref.data.accessToken });
+    if (again.status === 200 || me.status === 200) survived++;
+  }
+  ok("no session minted by a racing refresh outlives the sign-out", survived === 0,
+     `${survived} of ${raced} racing refreshes kept a working session`);
+}
 
 section("7b. Sign-in codes hold their limits under simultaneous requests");
 

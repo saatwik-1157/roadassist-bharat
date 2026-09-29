@@ -17,6 +17,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.location.LocationManagerCompat
 import androidx.core.os.CancellationSignal
 import kotlin.coroutines.resume
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
@@ -70,15 +73,36 @@ object Emergency {
             PackageManager.PERMISSION_GRANTED
 
     /**
+     * Where the ladder runs: the process, not a screen.
+     *
+     * It used to run in HomeScreen's rememberCoroutineScope, and that scope is
+     * cancelled the moment Home leaves the composition. The bottom bar stays
+     * live while the ladder works (up to 8 s for a GPS fix, then up to 23 s
+     * per API call, then 12 s for the SMS receipt), so tapping another tab, or
+     * turning the phone and recreating the activity, cancelled an emergency
+     * mid-flight: no API call, no SMS, no dialer and nothing queued. An SOS the
+     * person has already committed to has to finish whatever the UI does.
+     */
+    val ladderScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    /**
      * Run the ladder. `apiSos` performs rungs 1's network calls and returns a
      * human summary, or throws if the API is unreachable — keeping all the
      * Compose/coroutine wiring in the caller.
+     *
+     * [ref] is this emergency's one client reference. The data rung must send
+     * it as `clientIncidentId`, and the queue rungs store the SAME one, so a
+     * data attempt that the server committed but whose answer was lost (or
+     * whose confirm failed) is replayed onto that incident rather than raising
+     * a second one. Minting the queue's reference separately, as before, made
+     * exactly that case two emergencies.
      */
     suspend fun raise(
         ctx: Context,
         lat: Double,
         lng: Double,
-        apiSos: suspend () -> String,
+        ref: String = SosLadder.newIncidentRef(),
+        apiSos: suspend (ref: String) -> String,
     ): Result {
         // Rung 1 — data path (only attempted when the OS reports validated
         // internet). "Has internet" and "the API answered" are separate facts: a
@@ -86,7 +110,7 @@ object Emergency {
         // the second, and stopping at rung 1 on that basis is a silent emergency.
         var apiSummary: String? = null
         if (hasData(ctx)) {
-            apiSummary = try { apiSos() } catch (_: Exception) { null }
+            apiSummary = try { apiSos(ref) } catch (_: Exception) { null }
         }
         if (SosLadder.dataSettledIt(hasData = true, apiSucceeded = apiSummary != null)) {
             return Result(SosLadder.Rung.DATA, apiSummary!!)
@@ -98,7 +122,7 @@ object Emergency {
         // argument there.
         if (SosLadder.shouldTrySms(dataSettledIt = false, hasSmsPermission = canSendSms(ctx))) {
             val verdict = SosLadder.afterSms(sendSosSms(ctx, SosLadder.smsBody(lat, lng)))
-            if (verdict.queueBackup) queue(ctx, lat, lng)
+            if (verdict.queueBackup) queue(ctx, lat, lng, ref)
             if (verdict.settles) {
                 return Result(
                     SosLadder.Rung.SMS,
@@ -116,7 +140,7 @@ object Emergency {
         // tower. Reaching here means no RoadAssist channel carried the report, so
         // the local copy is the only record that exists: queue BEFORE the handoff,
         // because startActivity can throw and the queue is the last resort.
-        queue(ctx, lat, lng)
+        queue(ctx, lat, lng, ref)
         val dial = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$NATIONAL_EMERGENCY"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val opened = try { ctx.startActivity(dial); true } catch (_: Exception) { false }
@@ -240,16 +264,17 @@ object Emergency {
 
     // ── local queue: survives no-signal and replays when data returns ──────
     /**
-     * A queued SOS carries a client reference minted HERE, not at replay time.
+     * A queued SOS carries a client reference minted when it was RAISED (the
+     * one [raise] already sent on the data rung), not at replay time.
      *
      * The reference is what makes the replay idempotent, so it has to be the
      * same on every attempt: minting it in [flush] would produce a fresh one
      * per try and defeat the whole point. See [SosLadder.newIncidentRef].
      */
-    fun queue(ctx: Context, lat: Double, lng: Double) {
+    fun queue(ctx: Context, lat: Double, lng: Double, ref: String = SosLadder.newIncidentRef()) {
         val entry = JSONObject()
             .put("lat", lat).put("lng", lng)
-            .put("ref", SosLadder.newIncidentRef())
+            .put("ref", ref)
             .put("at", System.currentTimeMillis())
         // Read-modify-write on one preferences key, so it has to be atomic
         // against a concurrent flush rewriting the same key. Nothing slow

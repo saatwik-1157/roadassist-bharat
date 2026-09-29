@@ -9,7 +9,7 @@ roadassist-bharat/
 ├── app/                  ← the platform (backend + web + database + docs + infra)
 ├── mobile/               ← native Android app (Kotlin + Compose)
 ├── ai/                   ← computer-vision toolchain (Python)
-├── site/                 ← marketing & showcase pages (static)
+├── site/                 ← demo videos and a photo, served at /media
 ├── docs/                 ← planning corpus + RAKSHA design docs
 └── .github/workflows/    ← CI
 ```
@@ -107,8 +107,8 @@ The data models and everything that shapes the schema.
 | `.github/workflows/ci.yml` | 3 CI jobs: verify (lint/typecheck/test/scan), integration (e2e + gateway vs real PostGIS), boundaries |
 | `app/docker-compose.yml` | Local PostGIS + Redis + Redpanda |
 | `app/scripts/check-boundaries.mjs` | Architecture fitness function |
-| `app/scripts/e2e-journey.mjs` | 126-assertion end-to-end suite |
-| `app/scripts/gateway-security-test.mjs` | 8-check gateway/OTP security suite |
+| `app/scripts/e2e-journey.mjs` | The end-to-end suite: 209 e2e checks |
+| `app/scripts/gateway-security-test.mjs` | Gateway/OTP security suite (39 checks) |
 | `app/scripts/raksha-simulator.mjs` | Edge simulator (SIMULATED / real-CV modes) |
 | `app/.env.example` | All config keys, documented, no secrets |
 

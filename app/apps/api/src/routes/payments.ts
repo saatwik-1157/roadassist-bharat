@@ -437,10 +437,28 @@ export async function paymentRoutes(app: FastifyInstance) {
     }
 
     if (payment.status !== "SETTLED") {
-      await db.update(S.payments)
-        .set({ status: "SETTLED", settledAt: new Date(), updatedAt: new Date(),
-               version: payment.version + 1 })
-        .where(and(eq(S.payments.id, payment.id), eq(S.payments.status, "PENDING")));
+      try {
+        await db.update(S.payments)
+          .set({ status: "SETTLED", settledAt: new Date(), updatedAt: new Date(),
+                 version: payment.version + 1 })
+          .where(and(eq(S.payments.id, payment.id), eq(S.payments.status, "PENDING")));
+      } catch (err) {
+        if (!isInvoiceAlreadySettled(err)) throw err;
+        // The invoice was settled through another door first (cash at the
+        // roadside, another order). This escaped as a 500, and Razorpay retries
+        // a failed webhook for a day - every retry failing the same way. The
+        // money was captured, so this is a refund: the row stays PENDING as the
+        // record reconciliation finds, and the gateway gets its 2xx.
+        req.log.error({ orderId, paymentId: payment.id }, "razorpay capture for an invoice already settled - refund needed");
+        await audit({
+          actorId: null, actorRole: "system", action: "payment.webhook.captured",
+          entity: "payment", entityId: payment.id,
+          after: { orderId, paymentRef: entity.id, bookingSettled: false, invoiceAlreadySettled: true },
+          ip: req.ip,
+        });
+        return ok({ orderId, paymentId: payment.id, bookingSettled: false, refundRequired: true },
+          { note: "Another payment already settled this invoice, so this capture was not recorded as settled. It needs refunding." });
+      }
     }
 
     const [invoice] = await db.select().from(S.invoices)

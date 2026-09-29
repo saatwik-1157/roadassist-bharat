@@ -20,10 +20,14 @@ test("the policy closes plugins, <base> hijacking and cross-origin form posts", 
   assert.deepEqual(dir(csp, "default-src"), ["'self'"]);
 });
 
-test("only the project site may frame the pages; with no list, only this origin", () => {
+test("only this origin and the project site may frame the pages, with or without a CORS list", () => {
   assert.deepEqual(dir(contentSecurityPolicy({ frameAncestors: SITE, razorpay: false }), "frame-ancestors"),
     ["'self'", ...SITE]);
-  assert.deepEqual(dir(contentSecurityPolicy({ frameAncestors: [], razorpay: false }), "frame-ancestors"), ["'self'"]);
+  // A local or docker server has no CORS list; the site's live mode still frames it.
+  assert.deepEqual(dir(contentSecurityPolicy({ frameAncestors: [], razorpay: false }), "frame-ancestors"),
+    ["'self'", ...SITE]);
+  assert.deepEqual(dir(contentSecurityPolicy({ frameAncestors: ["https://app.example.in"], razorpay: false }), "frame-ancestors"),
+    ["'self'", ...SITE, "https://app.example.in"]);
 });
 
 test("Razorpay is allowed only when the real gateway is configured", () => {

@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -380,6 +381,9 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
     // Photo picker for hazard reports is hoisted here (not inside the dialog) so
     // it survives the external picker activity round-trip and the dialog stays put.
     val photoScope = rememberCoroutineScope()
+    // Outlives the signed-in screens, so the server-side sign-out is not
+    // cancelled by the very recomposition that sign-out causes.
+    val sessionScope = rememberCoroutineScope()
     var reportPhotoB64 by remember { mutableStateOf<String?>(null) }
     var reportPhotoThumb by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     val reportPhotoPicker = rememberLauncherForActivityResult(
@@ -408,6 +412,17 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                     requestedMechanic = JSONObject()
                         .put("id", id).put("name", name).put("lat", lat).put("lng", lng)
                     tab = 1   // jump to the booking flow with this mechanic in focus
+                }
+            }
+            // Retained for the session, and destroyed with it. Signing out drops
+            // this branch, and a WebView that is merely detached keeps running
+            // its page: every sign-out/sign-in cycle left another map.html alive,
+            // still polling through AndroidAuth, which by then answered with the
+            // NEXT user's token. LayersScreen destroys its WebView the same way.
+            DisposableEffect(mapWebView) {
+                onDispose {
+                    mapWebView.stopLoading()
+                    mapWebView.destroy()
                 }
             }
             // Pause the retained map WebView (its JS timers, polling and drawing)
@@ -533,7 +548,14 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                         else -> Box(Modifier.fillMaxSize().background(Bg)) {
                             MoreScreen(
                                 msisdn = msisdn,
-                                onSignOut = { Api.clear(); signedIn = false; bookingId = null },
+                                onSignOut = {
+                                    // Snapshot first: a server switch has already
+                                    // moved Api.base, and clear() drops the token.
+                                    val access = Api.token
+                                    val at = Api.base
+                                    Api.clear(); signedIn = false; bookingId = null
+                                    sessionScope.launch { Api.logout(access, at) }
+                                },
                             )
                         }
                     }
@@ -648,7 +670,10 @@ private fun buildMapWebView(
             @android.webkit.JavascriptInterface
             fun token(): String = MapWebGuard.bridgeToken(base, page.get(), Api.currentToken())
             @android.webkit.JavascriptInterface
-            fun refresh(): Boolean = MapWebGuard.bridgeAllowed(base, page.get()) && Api.refreshBlocking()
+            fun refresh(): Boolean = MapWebGuard.bridgeAllowed(base, page.get()) &&
+                // No network is "not refreshed", not an exception thrown back
+                // across the bridge from a binder thread.
+                runCatching { Api.refreshBlocking() }.getOrDefault(false)
         }, "AndroidAuth")
         // Bridge for "Request assistance" tapped on a mechanic's map popup. Runs
         // on a binder thread, so hop to the main thread to touch Compose state.
@@ -670,8 +695,18 @@ private fun buildMapWebView(
 private fun processReportImage(ctx: android.content.Context, uri: android.net.Uri): Pair<String, android.graphics.Bitmap>? {
     return try {
         val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
-        var bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
         val max = 1280
+        // Decode at a power-of-two reduction close to the target, not at full
+        // size. A 48 MP camera photo is ~190 MB as a full ARGB bitmap, and that
+        // OutOfMemoryError is an Error, which the catch below never sees.
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= max) sample *= 2
+        var bmp = android.graphics.BitmapFactory.decodeByteArray(
+            bytes, 0, bytes.size, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample },
+        ) ?: return null
         if (bmp.width > max || bmp.height > max) {
             val scale = max.toFloat() / maxOf(bmp.width, bmp.height)
             bmp = android.graphics.Bitmap.createScaledBitmap(
@@ -745,7 +780,9 @@ private fun ReportHazardDialog(
                         ) { Text("$s", color = if (sel) GoldInk else Cream, fontWeight = FontWeight.Bold) }
                     }
                 }
-                Field(note, { note = it }, stringResource(R.string.field_note_optional))
+                // The server takes at most 280 characters (POST /v1/raksha/report) and
+                // refuses the whole report past that, so the field stops there.
+                Field(note, { note = it.take(280) }, stringResource(R.string.field_note_optional))
 
                 // Optional photo — downscaled on-device before upload.
                 Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1108,8 +1145,11 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                         serverUnreachable = false
                         scope.launch {
                             if (Api.reachable(serverUrl)) {
-                                commitApiBase(ctx, serverUrl)
+                                // Sign out FIRST, while Api.base is still the
+                                // server that issued the session, so the
+                                // revocation goes there and not to the new one.
                                 onSignOut()
+                                commitApiBase(ctx, serverUrl)
                             } else {
                                 serverUnreachable = true
                                 serverBusy = false
@@ -1561,8 +1601,10 @@ private fun HomeScreen(
             ActivityResultContracts.RequestMultiplePermissions(),
         ) { /* granted or not, the ladder degrades gracefully per rung */ }
 
-        var sosArmed by remember { mutableStateOf(false) }
-        var sosLeft by remember { mutableIntStateOf(SOS_GRACE_S) }
+        // Saveable: an armed SOS is a decision the person has already made, and
+        // turning the phone during the countdown used to disarm it silently.
+        var sosArmed by rememberSaveable { mutableStateOf(false) }
+        var sosLeft by rememberSaveable { mutableIntStateOf(SOS_GRACE_S) }
 
         // Any queued SOS flushes automatically when data returns.
         LaunchedEffect(Unit) {
@@ -1587,16 +1629,21 @@ private fun HomeScreen(
         // pins all of them, which is what non-negotiable #1 actually asks for.
         val fireSos: () -> Unit = {
             busy = true
-            scope.launch {
+            // The process-wide ladder scope and the application context, not
+            // this screen's: leaving Home or rotating the phone must never
+            // cancel an emergency already committed to (see Emergency.ladderScope).
+            val app = ctx.applicationContext
+            Emergency.ladderScope.launch {
                 // Ask for a fix rather than hoping one is cached: an emergency
                 // is exactly when nothing else has recently used GPS.
-                val loc = Emergency.currentLocation(ctx)
+                val loc = Emergency.currentLocation(app)
                 val lat = loc?.first ?: DEMO_LAT
                 val lng = loc?.second ?: DEMO_LNG
-                val result = Emergency.raise(ctx, lat, lng) {
+                val result = Emergency.raise(app, lat, lng) { ref ->
                     val raised = Api.post(
                         "/v1/sos",
-                        JSONObject().put("lat", lat).put("lng", lng).put("source", "manual"),
+                        JSONObject().put("lat", lat).put("lng", lng).put("source", "manual")
+                            .put("clientIncidentId", ref),
                     ).getJSONObject("data")
                     val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
                     val responder = c.optJSONObject("nearestResponder")?.optString("name") ?: "—"
@@ -1902,6 +1949,10 @@ private fun BookScreen(
                 s.getString("code") to s.getString("label")
             }
             service = services.firstOrNull()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Leaving the tab mid-load is not a failure; toasting it printed
+            // "StandaloneCoroutine was cancelled" over whichever tab came next.
+            throw e
         } catch (e: Exception) {
             loadError = true
             onToast(e.message ?: "Failed to load services")
@@ -1994,7 +2045,8 @@ private fun BookScreen(
                 }
             }
         }
-        Field(symptoms, { symptoms = it }, stringResource(R.string.field_what_happened))
+        // POST /v1/bookings takes at most 500 characters of symptoms.
+        Field(symptoms, { symptoms = it.take(500) }, stringResource(R.string.field_what_happened))
 
         GoldButton(stringResource(R.string.action_book_dispatch), enabled = !busy && vehicleId != null && service != null) { bookAndDispatch() }
 
@@ -2101,16 +2153,18 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
     var invoice by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
 
-    remember {
-        scope.launch {
-            try {
-                val r = Api.get("/v1/bookings/$bookingId")
-                status = r.getJSONObject("data").getString("status")
-                val next = r.optJSONObject("meta")?.optJSONArray("nextCommands") ?: JSONArray()
-                commands = (0 until next.length()).map { next.getString(it) }
-            } catch (e: Exception) { onToast(e.message ?: "Failed") }
-        }
-        true
+    // A LaunchedEffect keyed on the booking, not `remember { scope.launch }`:
+    // that launched from inside composition and was never keyed, so a new
+    // bookingId kept showing the previous booking's status and commands.
+    LaunchedEffect(bookingId) {
+        try {
+            val r = Api.get("/v1/bookings/$bookingId")
+            status = r.getJSONObject("data").getString("status")
+            val next = r.optJSONObject("meta")?.optJSONArray("nextCommands") ?: JSONArray()
+            commands = (0 until next.length()).map { next.getString(it) }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) { onToast(e.message ?: "Failed") }
     }
 
     ScreenColumn {
