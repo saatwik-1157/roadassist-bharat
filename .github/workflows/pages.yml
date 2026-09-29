@@ -53,6 +53,12 @@ jobs:
           # app/apps/web/assets/3d/, so a sleeping platform cannot blank it.
           mkdir -p _site/3d
           cp pages/3d/*.webp _site/3d/
+          # The hero's NH-48 aerial photo (1920 and 1080 wide) and the eight
+          # RDD2022 India frames the RAKSHA feed plays, each boxed by the
+          # trained model. Web-sized copies, committed like the thumbs.
+          mkdir -p _site/hero _site/feed
+          cp pages/hero/*.webp _site/hero/
+          cp pages/feed/*.webp _site/feed/
           # A custom domain would go here as pages/CNAME, copied into the
           # artefact. It is deliberately absent: setting one BEFORE the
           # domain's DNS points at GitHub makes the working github.io URL
@@ -75,9 +81,8 @@ jobs:
           # screenshots by pages/scenes/*.py and committed like the thumbs.
           mkdir -p _site/shots/scene
           cp app/docs/screenshots/scene/*.webp  _site/shots/scene/
-          # Only the two the page actually embeds. The rest are large and
-          # nothing links to them, and an unreferenced 29 MB of video is a
-          # slower page for no reason.
+          # The two the page embeds, named rather than globbed, so a video
+          # added to site/ for some other use is not published by accident.
           cp site/roadassist-app-demo.mp4 _site/media/
           cp site/raksha-full-demo.mp4    _site/media/
           # The generated 3D visuals, all of them: naming three by hand meant

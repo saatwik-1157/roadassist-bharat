@@ -123,7 +123,26 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
   background:radial-gradient(58% 52% at 22% 38%,rgba(240,180,41,.13),transparent 70%),
              radial-gradient(46% 46% at 80% 22%,rgba(77,163,255,.10),transparent 70%);
 }
-.hero-in{position:relative;display:grid;grid-template-columns:1.08fr .92fr;gap:56px;align-items:center}
+.hero-in{position:relative;z-index:2;display:grid;grid-template-columns:1.08fr .92fr;gap:56px;align-items:center}
+/* The NH-48 expressway from the air, behind everything else in the hero. The
+   scrim is darkest on the left where the headline sits and fades into the
+   page at the bottom edge, so no seam shows. Only the backdrop is new: the
+   copy, buttons and figure above it are unchanged. */
+.hero-photo{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:url("hero/nh48-expressway-1920.webp") center 30%/cover no-repeat;
+  filter:saturate(1.08) brightness(.85)}
+.hero-photo::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,rgba(6,7,10,.5) 0%,rgba(6,7,10,.18) 55%,rgba(6,7,10,0) 100%),
+             linear-gradient(180deg,rgba(6,7,10,.74) 0%,rgba(6,7,10,.32) 42%,rgba(6,7,10,.72) 88%,var(--bg) 100%)}
+.hero::before{z-index:1}
+/* The device render carries its own dark backdrop; feathering its edges lets
+   the devices sit on the photo instead of inside a black rectangle. */
+.hero-3d img{-webkit-mask-image:radial-gradient(ellipse 64% 60% at 50% 50%,#000 52%,transparent 100%);
+             mask-image:radial-gradient(ellipse 64% 60% at 50% 50%,#000 52%,transparent 100%)}
+@media (max-width:980px){
+  .hero-photo{background-image:url("hero/nh48-expressway-1080.webp")}
+  .hero-photo::after{background:linear-gradient(180deg,rgba(6,7,10,.74) 0%,rgba(6,7,10,.45) 45%,rgba(6,7,10,.72) 85%,var(--bg) 100%)}
+}
 .pill{
   display:inline-flex;align-items:center;gap:9px;font-size:.76rem;font-weight:700;
   letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);
@@ -137,6 +156,42 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
           background:var(--surface);box-shadow:0 20px 60px -24px rgba(0,0,0,.85)}
 .hero-fig img{width:100%}
 .hero-note{font-size:.8rem;color:var(--ink-3);margin-top:10px}
+
+/* ── RAKSHA edge feed: real frames, boxed by the trained model ─── */
+/* The frames are square, so the screen is square and shows every pixel. A wide
+   screen cropped them, and cropping cut the model's boxes off at the edge. */
+.feed{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:26px;align-items:center;margin:0 0 30px}
+.feed-screen{position:relative;aspect-ratio:1/1;border-radius:16px;overflow:hidden;background:#05070a;
+  border:1px solid rgba(95,208,216,.35);box-shadow:0 0 0 1px rgba(95,208,216,.08),0 24px 70px -28px rgba(95,208,216,.35)}
+.feed-screen img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .55s ease}
+.feed-screen img.on{opacity:1}
+.feed-tag{position:absolute;z-index:2;top:12px;font:700 .68rem/1 var(--mono);letter-spacing:.12em;
+  padding:6px 10px;border-radius:999px;background:rgba(5,7,10,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.feed-tag.rec{left:12px;color:#ff7a7a}
+.feed-tag.rec::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#ff5a5a;
+  margin-right:7px;vertical-align:1px;animation:feed-blink 1.6s infinite}
+.feed-tag.model{right:12px;color:var(--cyan)}
+@keyframes feed-blink{50%{opacity:.25}}
+.feed-side h3{font-size:1.35rem;margin-bottom:8px}
+.feed-side h3 em{font-style:italic;color:var(--accent)}
+.feed-facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0 18px;padding:0;list-style:none}
+.feed-facts li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.feed-facts b{display:block;font:700 1rem/1.2 var(--mono);color:var(--ink)}
+.feed-facts span{font-size:.78rem;color:var(--ink-3)}
+.feed-thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.feed-thumbs button{padding:0;border:2px solid transparent;border-radius:9px;overflow:hidden;background:none;cursor:pointer;
+  opacity:.55;transition:opacity .25s,border-color .25s}
+.feed-thumbs button:hover{opacity:.85}
+.feed-thumbs button[aria-current="true"]{opacity:1;border-color:var(--cyan)}
+.feed-thumbs img{width:100%;aspect-ratio:1/1;object-fit:cover}
+.feed-ctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.feed-ctl button{font:600 .82rem var(--sans);color:var(--ink);background:var(--surface);border:1px solid var(--line);
+  border-radius:999px;padding:7px 14px;cursor:pointer}
+.feed-ctl button:hover{border-color:var(--cyan)}
+.feed-cnt{margin-left:auto;font:700 .74rem var(--mono);letter-spacing:.1em;color:var(--ink-2)}
+.feed-cred{font-size:.74rem;color:var(--ink-3);margin:12px 0 0}
+@media (max-width:860px){.feed{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.feed-screen img{transition:none}.feed-tag.rec::before{animation:none}}
 
 /* ── evidence strip ─────────────────────────────────────────── */
 .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:28px;
@@ -882,6 +937,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 
 <!-- ═══ HERO ═══ -->
 <header class="hero">
+  <div class="hero-photo" aria-hidden="true"></div>
   <div class="wrap hero-in">
     <div>
       <span class="pill"><span class="dot"></span> Project showcase · source and image public</span>
@@ -1267,6 +1323,90 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
            style="border:1px solid var(--line);border-radius:14px"
            alt="RAKSHA authority dashboard showing a live map, road-health scoring and detection triage" loading="lazy">
     </figure>
+
+    <div class="feed" id="rkfeed">
+      <div class="feed-screen" aria-live="polite">
+        <img src="feed/feed-00.webp" width="720" height="720" class="on" loading="lazy"
+             alt="Indian road frame 1 of 8, with the road-damage box the trained model drew">
+        <img width="720" height="720" alt="" loading="lazy">
+        <span class="feed-tag rec">REC · EDGE-01</span>
+        <span class="feed-tag model">YOLO11n · RDD2022-IN</span>
+      </div>
+      <div class="feed-side">
+        <h3>Through the device's <em>eyes</em></h3>
+        <p>Real Indian road frames, boxed by the trained model — nothing hand-drawn. Each box
+          and its confidence are the model's own output on that frame.</p>
+        <ul class="feed-facts">
+          <li><b>YOLO11n</b><span>Detector on the edge device</span></li>
+          <li><b>RDD2022-IN</b><span>Indian road-damage frames</span></li>
+          <li><b>≥ 0.35</b><span>Confidence to report</span></li>
+          <li><b>65 ms</b><span>Per frame</span></li>
+        </ul>
+        <div class="feed-thumbs" role="group" aria-label="Choose a frame">
+          <button type="button" aria-current="true" aria-label="Frame 1"><img src="feed/feed-00.webp" width="720" height="720" alt="" loading="lazy"></button>
+          <button type="button" aria-label="Frame 2"><img src="feed/feed-01.webp" width="720" height="720" alt="" loading="lazy"></button>
+          <button type="button" aria-label="Frame 3"><img src="feed/feed-02.webp" width="720" height="720" alt="" loading="lazy"></button>
+          <button type="button" aria-label="Frame 4"><img src="feed/feed-03.webp" width="720" height="720" alt="" loading="lazy"></button>
+          <button type="button" aria-label="Frame 5"><img src="feed/feed-04.webp" width="720" height="720" alt="" loading="lazy"></button>
+          <button type="button" aria-label="Frame 6"><img src="feed/feed-05.webp" width="720" height="720" alt="" loading="lazy"></button>
+          <button type="button" aria-label="Frame 7"><img src="feed/feed-06.webp" width="720" height="720" alt="" loading="lazy"></button>
+          <button type="button" aria-label="Frame 8"><img src="feed/feed-07.webp" width="720" height="720" alt="" loading="lazy"></button>
+        </div>
+        <div class="feed-ctl">
+          <button type="button" data-feed="prev" aria-label="Previous frame">‹ Prev</button>
+          <button type="button" data-feed="play" aria-label="Pause the feed">Pause</button>
+          <button type="button" data-feed="next" aria-label="Next frame">Next ›</button>
+          <span class="feed-cnt" id="rkfeed-cnt">FRAME 01/08</span>
+        </div>
+        <p class="feed-cred">Frames: RDD2022 India subset — <a href="https://arxiv.org/abs/2209.08538" target="_blank" rel="noopener">Arya et al.</a>, CC BY-SA 4.0 · detection boxes are the model's own output</p>
+      </div>
+    </div>
+    <script>
+    // Edge feed: crossfades the eight model-annotated frames. It advances only
+    // while on screen and while the tab is visible, stops for reduced motion,
+    // and hands control to the visitor the moment they pick a frame.
+    (function () {
+      var root = document.getElementById("rkfeed");
+      if (!root) return;
+      var N = 8, cur = 0, buf = 0, timer = null, onScreen = false;
+      var shots = root.querySelectorAll(".feed-screen img");
+      var thumbs = root.querySelectorAll(".feed-thumbs button");
+      var cnt = document.getElementById("rkfeed-cnt");
+      var play = root.querySelector('[data-feed="play"]');
+      var playing = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      function src(i) { return "feed/feed-0" + i + ".webp"; }
+      function show(i) {
+        i = (i + N) % N;
+        if (i === cur && shots[buf].classList.contains("on")) return;
+        var next = shots[1 - buf], pre = new Image();
+        pre.onload = function () {
+          next.src = pre.src;
+          next.alt = "Indian road frame " + (i + 1) + " of " + N + ", with the road-damage box the trained model drew";
+          shots[buf].alt = "";
+          next.classList.add("on"); shots[buf].classList.remove("on"); buf = 1 - buf;
+        };
+        pre.src = src(i);
+        cur = i;
+        cnt.textContent = "FRAME 0" + (i + 1) + "/0" + N;
+        thumbs.forEach(function (t, k) { t.setAttribute("aria-current", k === i ? "true" : "false"); });
+      }
+      function tick() { if (playing && onScreen && !document.hidden) show(cur + 1); }
+      function setPlaying(p) {
+        playing = p;
+        play.textContent = p ? "Pause" : "Play";
+        play.setAttribute("aria-label", p ? "Pause the feed" : "Play the feed");
+      }
+      setPlaying(playing);
+      timer = setInterval(tick, 3200);
+      thumbs.forEach(function (t, k) { t.addEventListener("click", function () { setPlaying(false); show(k); }); });
+      root.querySelector('[data-feed="prev"]').addEventListener("click", function () { setPlaying(false); show(cur - 1); });
+      root.querySelector('[data-feed="next"]').addEventListener("click", function () { setPlaying(false); show(cur + 1); });
+      play.addEventListener("click", function () { setPlaying(!playing); });
+      if ("IntersectionObserver" in window) {
+        new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; }, { threshold: 0.25 }).observe(root);
+      } else onScreen = true;
+    })();
+    </script>
 
     <div class="x3d rk" id="rk3d" data-x3d data-step="0">
       <div class="x3d-stage" aria-hidden="true">
@@ -1733,8 +1873,10 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       <a href="https://app.roadassistbharat.online/">app.roadassistbharat.online</a>, against a
       managed PostGIS database. There, the accounts the team uses (the authority account among
       them) sign in with <em>Sign in with email</em>: the code goes to that person's inbox and is
-      never shown on screen, so typing the number above gets you nowhere. Any other number signs in
-      as an ordinary citizen with the on-screen demo code.</p>
+      never shown on screen, so typing the number above gets you nowhere. The on-screen demo code
+      signs in only the demo numbers: <code>+917000000000</code> to <code>+917000009999</code>,
+      <code>+919876543210</code>, and the mechanics <code>+919600000000</code> to
+      <code>+919600000099</code>. Every other number is refused.</p>
     </div>
   </div>
 </section>

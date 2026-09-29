@@ -3789,9 +3789,8 @@
           var st = d.status === "VERIFIED" ? "ok" : d.status === "REJECTED" ? "bad" : "warn";
           return "<div class='row'>" +
             (d.has_photo
-              ? "<img src='" + API + "/v1/raksha/detections/" + esc(d.id) + "/photo' alt='' " +
-                "style='width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none' " +
-                "onerror=\"this.style.display='none'\">"
+              ? "<img data-photo='" + esc(d.id) + "' alt='Your hazard photo' hidden " +
+                "style='width:44px;height:44px;border-radius:10px;object-fit:cover;flex:none'>"
               : "<span class='avatar' style='font-size:14px'>" + esc(d.severity) + "</span>") +
             "<span class='grow'><b>" + esc(String(d.detection_type).replace(/_/g, " ")) + "</b>" +
             "<small>severity " + esc(d.severity) + " · " + new Date(d.created_at).toLocaleDateString() +
@@ -3800,6 +3799,15 @@
         }).join("") + "</div>" +
           "<p class='hint' style='margin-top:10px'>DETECTED means it is queued for an authority to review. " +
           "A citizen report never auto-raises an incident.</p>";
+        // The photo needs the bearer token, which an <img src> cannot send: it
+        // answered 401 and hid itself. Fetched instead and shown as a blob.
+        box.querySelectorAll("img[data-photo]").forEach(function (img) {
+          fetch(API + "/v1/raksha/detections/" + img.getAttribute("data-photo") + "/photo",
+            { headers: { authorization: "Bearer " + state.token } })
+            .then(function (res) { return res.ok ? res.blob() : null; })
+            .then(function (blob) { if (blob) { img.src = URL.createObjectURL(blob); img.hidden = false; } })
+            .catch(function () { /* offline: the row reads without it */ });
+        });
       }
     } catch (e) {
       box.innerHTML = "<div class='card'><p class='meta'>" + esc(e.message) + "</p></div>";

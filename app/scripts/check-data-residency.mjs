@@ -109,11 +109,11 @@ const SKIP_DIRS = new Set([
 /**
  * What the browser loads, and therefore what discloses a visitor's address.
  *
- * `site/` is deliberately NOT here. It holds demo video plus some dead
- * prototype pages, and the API serves it at /media/ with a media-type filter,
- * so those pages are unreachable. That filter is the whole protection, so
- * `checkMediaMountIsFiltered` below asserts it still exists - without it the
- * prototypes return, and each one pulls webfonts from Google.
+ * `site/` is deliberately NOT here. It holds demo video, and the API serves
+ * it at /media/ with a media-type filter. It once also held prototype pages
+ * that pulled webfonts from Google (removed in September 2026); the filter
+ * stays, and `checkMediaMountIsFiltered` below asserts it still exists, so an
+ * HTML page dropped into site/ can never be published by accident.
  */
 const CLIENT_ROOTS = ["app/apps/web", "pages"];   // pages/ is the public GitHub Pages showcase
 /** What we run ourselves. */
@@ -248,8 +248,8 @@ function checkMediaMountIsFiltered() {
   }
   if (!/allowedPath\s*:/.test(mount[0])) {
     violations.push("app/apps/api/src/server.ts: the /media/ mount lost its allowedPath filter. " +
-      "site/ holds prototype pages that load webfonts from Google; serving the directory whole " +
-      "publishes them and every visitor's IP address leaves India.");
+      "Serving site/ whole would publish any HTML page placed there - the prototype pages it once " +
+      "held loaded webfonts from Google, so every visitor's IP address left India.");
   }
 }
 

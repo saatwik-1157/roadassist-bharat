@@ -13,7 +13,8 @@
 // Bump whenever SHELL_ASSETS changes: the old cache is dropped on activate, so
 // a viewer who already installed v1 does not keep a shell missing the new files.
 // v10: keys are the bare pathname, so v9's query-string entries are dropped.
-const VERSION = "ra-v10";
+// v11: the hazard-report photo, the mechanic sign-in hint (app.html, mechanic.html).
+const VERSION = "ra-v11";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
