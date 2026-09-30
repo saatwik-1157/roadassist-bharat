@@ -223,10 +223,10 @@ export const env = {
   localDemoPrivilegedOtp: bool(process.env.LOCAL_DEMO_PRIVILEGED_OTP),
 
   /**
-   * Local disk store for hazard-report photos. Honours ADR-0006: raw frames
-   * never enter the database — only a reference (the file key) is stored. In a
-   * real deployment UPLOAD_DIR would be a mounted volume or swapped for object
-   * storage; here it is a plain directory so the platform runs with no cloud.
+   * Disk store for hazard-report photos when PHOTO_STORE is disk (the default
+   * in development/test/ci); demo and production default to the database
+   * (ADR-0013, raksha.ts). Only a reference is stored in the detection row. In
+   * production this would be a mounted volume or, better, object storage.
    */
   uploadDir: process.env.UPLOAD_DIR ?? resolve(process.cwd(), "uploads"),
   /** Max decoded photo size accepted by the report endpoint (bytes). */

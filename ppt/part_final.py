@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════
-#  RoadAssist Bharat — final submission deck, 35 slides
+#  RoadAssist Bharat — final submission deck, 37 slides
 #
 #  Every figure in this file is measured, not estimated, and every capability
 #  claim carries a status. The rule the deck follows throughout:
@@ -20,6 +20,13 @@
 from pathlib import Path as _P
 
 SHOTS = _P(__file__).resolve().parent.parent / "app" / "docs" / "screenshots"
+
+# The schema counts move whenever a migration lands, so the slides read them
+# from the measurement file at build time instead of carrying a copy that rots.
+import json as _json
+MEASURED = _json.loads((_P(__file__).resolve().parent.parent / "app" / "docs" / "measured.json")
+                       .read_text(encoding="utf8"))
+SCHEMA = MEASURED["schema"]
 
 
 def shot(slide, x, y, w, h, name, caption=None, tag=None):
@@ -187,7 +194,8 @@ for i, (t, sub) in enumerate([("AUTH + RBAC", "OTP · JWT · rotation"),
                               ("PAYMENTS", "order · webhook")]):
     node(s, 1.0 + i * 2.32, 4.98, 2.2, 0.75, t, sub, color=AMBER, tsize=9.5, ssize=8)
 down_arrow(s, 6.75, 5.77, 0.24)
-node(s, 3.6, 6.05, 6.3, 0.62, "PostgreSQL 16 + PostGIS  ·  57 tables  ·  62 FKs  ·  5 GiST indexes",
+node(s, 3.6, 6.05, 6.3, 0.62,
+     f"PostgreSQL 16 + PostGIS  ·  {SCHEMA['tables']} tables  ·  {SCHEMA['foreignKeys']} FKs  ·  {SCHEMA['gistIndexes']} GiST indexes",
      color=GREEN, tsize=11.5)
 footer(s); page_no(s, 5)
 notes(s, """Note what is NOT here: no Kubernetes, no load balancer, no message
@@ -456,10 +464,124 @@ txt(s, 0.85, 6.0, 11.6, 0.5,
     size=10, color=GREY, align=PP_ALIGN.CENTER, line=1.35)
 footer(s); page_no(s, 15)
 
+# ── 15a · LOCATION SERVICES ──────────────────────────────────────────────────
+# Sources: apps/api/src/routes/geo.ts, domain/geo.ts, apps/web/near.js, ADR-0012.
+s = new_slide()
+title_block(s, "Location services from open data",
+            eyebrow="OPENSTREETMAP · OSRM · OPEN-METEO · USGS · ADR-0012",
+            badge=IMPL)
+visual(s, 0.85, 2.05, 4.0, 2.96, str(ASSETS / "src_android_near_card.png"), "android_near")
+txt(s, 0.85, 5.08, 4.0, 0.3, "Android · the Near you card on the emulator, real OpenStreetMap data",
+    size=8.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
+
+panel(s, 5.1, 2.05, 3.6, 3.18, fill=INK_2, line_col=CYAN, line_w=1.25)
+txt(s, 5.3, 2.2, 3.2, 0.28, "WHAT IT ANSWERS", size=9.5, color=CYAN, bold=True, spacing=1.8)
+for i, (head, body, yy) in enumerate([
+        ("NEAR YOU · WEB AND ANDROID",
+         "Nearest address; the nearest hospital, police, fuel, EV charger and repair shop. "
+         "Call only where the map has a number, and call 112 under every result.", 2.52),
+        ("TRACKING CARD",
+         "Road distance and time beside the straight-line figure, labelled as no live traffic.", 3.47),
+        ("RAKSHA CORRIDOR",
+         "Lowest visibility, US AQI at both ends (smog flagged above 150), magnitude 4+ "
+         "earthquakes in the last 7 days.", 4.2)]):
+    txt(s, 5.3, yy, 3.2, 0.24, head, size=8, color=GREY, bold=True, spacing=1.2)
+    txt(s, 5.3, yy + 0.24, 3.25, 0.8, body, size=9.5, color=WHITE, line=1.2)
+
+panel(s, 8.85, 2.05, 3.6, 3.18, fill=INK_2, line_col=GREEN, line_w=1.25)
+txt(s, 9.05, 2.2, 3.2, 0.28, "PRIVACY, BY DESIGN", size=9.5, color=GREEN, bold=True, spacing=1.8)
+for i, line in enumerate([
+        "Server-side only: the page calls this platform, so no visitor's IP reaches a provider",
+        "Coarsened first: about 110 m for an address or route, about 1 km for a search",
+        "Cached (10 min to 24 h) and paced to about one request a second",
+        "Off in development, test and CI: no test run calls a donated service",
+        "Five hosts declared, all outside India: a stated exception to “no PII leaves India”"]):
+    txt(s, 9.05, 2.55 + i * 0.52, 3.25, 0.5, "— " + line, size=9, color=WHITE, line=1.2)
+
+panel(s, 5.1, 5.42, 7.35, 0.82, fill=INK_2, line_col=LINE)
+txt(s, 5.28, 5.5, 7.0, 0.24, "SAMPLE LOOKUP AT THE NH-48 DEMO POINT · MEASURED IN TESTING",
+    size=8, color=AMBER, bold=True, spacing=1.2)
+x = 5.28
+for i, (lab, w) in enumerate([("Sector 12, Gurgaon, Haryana 122001", 2.4),
+                              ("Aarvy Hospital · 290 m", 1.52),
+                              ("Road 28.4 km · 33 min", 1.47),
+                              ("US AQI 195 · Unhealthy", 1.52)]):
+    chip(s, x, 5.82, w, 0.3, lab, color=AMBER if i == 3 else CYAN, size=8)
+    x += w + 0.06
+txt(s, 0.85, 6.4, 11.6, 0.4,
+    "Community map data: a place can be missing or closed, and the card says to call before relying on it. "
+    "Dispatch still ranks by PostGIS distance; the road time decides nothing.",
+    size=9.5, color=GREY, align=PP_ALIGN.CENTER, line=1.3)
+footer(s); page_no(s)
+notes(s, """The question a stranded driver actually has is "where is the nearest hospital, and
+how long will the mechanic take by road". All of it is open data; the design problem is
+privacy, because every one of these hosts is outside India.
+
+So the server makes every call, never the browser; positions are rounded to about 110 m
+(about 1 km for a nearby search) before they leave; answers are cached and paced to the
+providers' terms; and it is off in development, test and CI. ADR-0012 states the tension
+with "no PII leaves India" rather than hiding it: acceptable for a demo that already runs
+in Singapore, not for production, where self-hosted Nominatim and OSRM in an Indian
+region is the answer.
+
+If challenged on testing: the live providers are not covered by any automated suite,
+because the routes are off where tests run. Unit tests cover coarsening, the region
+check, the cache, the pacer and the parsers; the e2e journey covers auth, the region
+refusal and the disabled answer. The figures in the amber strip are one sample lookup.""")
+
+# ── 15b · RAKSHA FRAMES ──────────────────────────────────────────────────────
+# Sources: ai/road_damage/render_frames.py, ai/cv-live-show.json, apps/web/raksha.html,
+# the dismiss route in apps/api/src/raksha.ts, ADR-0011.
+s = new_slide()
+title_block(s, "RAKSHA: the frame the model saw",
+            eyebrow="RDD2022 INDIA · YOLO11 · EVERY BOX IS THE MODEL'S OWN OUTPUT",
+            badge=IMPL)
+for i, (name, cap) in enumerate([("India_000914", "India_000914 · 3 road damage, 1 pothole"),
+                                 ("India_000053", "India_000053 · road damage 0.89, pothole 0.41"),
+                                 ("India_000970", "India_000970 · road damage 0.92")]):
+    x = 0.85 + i * 2.47
+    visual(s, x, 2.05, 2.3, 2.3, str(ASSETS / f"src_raksha_{name}.png"), f"raksha_{i}")
+    txt(s, x - 0.05, 4.42, 2.4, 0.3, cap, size=8, color=GREY_DIM, align=PP_ALIGN.CENTER)
+
+panel(s, 0.85, 4.85, 7.24, 1.9, fill=INK_2, line_col=CYAN, line_w=1.25)
+txt(s, 1.05, 5.0, 6.8, 0.28, "HOW THE FRAMES WERE MADE", size=9.5, color=CYAN, bold=True, spacing=1.8)
+for i, (n, label) in enumerate([("46", "RDD2022 India frames"), ("65 / 65", "live detections matched"),
+                                ("0", "unmatched")]):
+    x = 1.05 + i * 2.28
+    txt(s, x, 5.32, 2.15, 0.42, n, size=20, color=GREEN if i < 2 else WHITE, bold=True,
+        font=SANS_SEMI)
+    txt(s, x, 5.76, 2.15, 0.26, label, size=8.5, color=GREY)
+txt(s, 1.05, 6.08, 6.85, 0.6,
+    "render_frames.py re-runs the SAME weights (runs/runs/full) on the images behind the live detections "
+    "and keeps only boxes whose class and confidence match a listed one. An unmatched detection fails the run.",
+    size=9, color=WHITE, line=1.25)
+
+panel(s, 8.35, 2.05, 4.1, 4.7, fill=INK_2, line_col=GREEN, line_w=1.25)
+txt(s, 8.6, 2.22, 3.6, 0.28, "ON THE DASHBOARD", size=9.5, color=GREEN, bold=True, spacing=1.8)
+for i, (head, body) in enumerate([
+        ("HAZARD PHOTOS", "A gallery of the frames and citizen photos, and a photo tile on each detection."),
+        ("THE VIEWER", "Full screen, with the dataset credit (Arya et al., CC BY-SA 4.0) and “location SIMULATED”: RDD2022 images carry no GPS."),
+        ("MAP POPUPS", "Each detection's popup shows its frame and opens the same viewer."),
+        ("DISMISS AS FALSE POSITIVE", "Admin or officer only, with a written reason, recorded in the audit chain. It is the state machine's cancel: it closes, never dispatches (ADR-0011).")]):
+    y = 2.6 + i * 1.0
+    txt(s, 8.6, y, 3.6, 0.24, head, size=8, color=GREY, bold=True, spacing=1.2)
+    txt(s, 8.6, y + 0.24, 3.65, 0.75, body, size=9.5, color=WHITE, line=1.22)
+footer(s); page_no(s)
+notes(s, """Before this, each live detection named an RDD2022 frame the server never had, so
+every photo request returned 404 and the tile stayed blank.
+
+The honest way to show a frame is to show the model's own output, not a picture with boxes
+drawn by hand. render_frames.py runs the same checkpoint the detections came from and keeps
+only boxes that match a listed detection by class and confidence. 65 of 65 matched; a wrong
+checkpoint would fail the run instead of publishing.
+
+Positions are simulated, and the viewer says so. A false positive can now be dismissed by
+an authority with a reason, audited; it can close an incident, never dispatch one.""")
+
 # ── 16 · THE ANDROID APP ──────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "The Android app, on the emulator",
-            eyebrow="KOTLIN + JETPACK COMPOSE · 109 TESTS · CAPTURED FROM ANDROID STUDIO'S EMULATOR")
+            eyebrow="KOTLIN + JETPACK COMPOSE · 137 TESTS · CAPTURED FROM ANDROID STUDIO'S EMULATOR")
 for i, (name, cap) in enumerate([("src_android_home.png", "Home · the new Layers in 3D card"),
                                  ("src_android_layers.png", "Layers in 3D · live, in a WebView"),
                                  ("src_android_journey.png", "A journey playing · step 5 of 8"),
@@ -468,7 +590,7 @@ for i, (name, cap) in enumerate([("src_android_home.png", "Home · the new Layer
     visual(s, x, 2.0, 2.2, 3.95, str(ASSETS / name), "android_" + str(i))
     txt(s, x - 0.2, 6.02, 2.6, 0.3, cap, size=8.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.45, 11.6, 0.3,
-    "135 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
+    "137 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
     size=9.5, color=GREY, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 16)
 notes(s, """Run it from Android Studio 2026.1: device Medium_Phone, then Run 'app'.
@@ -515,67 +637,115 @@ rows = [("Amount", "Never taken from the request — it is the invoice total, an
         ("Two paths", "Browser callback AND webhook. The webhook is the one that matters: a customer can pay and close the tab"),
         ("Idempotent", "Delivery is at-least-once, so a replayed webhook settles nothing twice"),
         ("Refuses to boot", "Production will not start on a real gateway with no webhook secret"),
-        ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 920")]
+        ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 1091")]
 bullet_rows(s, 0.9, 4.15, rows, w=11.5, gap=0.5, size=10.5)
 footer(s); page_no(s, 18)
 
 # ── 19 · SECURITY ARCHITECTURE ─────────────────────────────────────────────
+# Sources: app/docs/SECURITY.md, "The September 2026 hardening pass" and "Closed since".
 s = new_slide()
-title_block(s, "Security", eyebrow="SEVEN LAYERS, AND 74 ATTACKS THAT FAIL",
-            sub="The suite passes when the platform refuses — “we tried and could not get in” is a stronger statement than “the code looks right”.")
-layers = [("AUTHENTICATION", "OTP → JWT, rotating refresh\nwith reuse detection"),
-          ("RBAC", "role gates on every\noperator surface"),
-          ("RESOURCE OWNERSHIP", "checked at the resource,\nnot just the route"),
-          ("RATE LIMITING", "per principal — and never\non SOS escalation"),
-          ("INPUT VALIDATION", "zod at every boundary,\nparameterised SQL"),
-          ("PAYMENT VERIFICATION", "server-side amount,\nsigned webhook"),
-          ("AUDIT LOG", "hash-chained, append-only,\nverified live")]
+title_block(s, "Security", eyebrow="NINE LAYERS, AND 106 ATTACKS THAT FAIL",
+            sub="Refreshed by the September 2026 hardening pass. The suite passes when the platform refuses.")
+layers = [("AUTHENTICATION", "OTP → 10-minute JWT; rotating\nrefresh, reuse burns the family"),
+          ("DEMO SIGN-IN", "an echoed code works only for demo\nnumbers, never a privileged role"),
+          ("REFRESH COOKIE", "web: HttpOnly cookie, CSRF-guarded\nby a custom X-RA-Client header"),
+          ("SERVER LOGOUT", "revokes the whole session family;\na racing refresh loses"),
+          ("STRICT CSP", "no 'unsafe-inline' scripts: SHA-256\nhashes at boot, tested for gaps"),
+          ("RBAC + OWNERSHIP", "role gates on operator surfaces,\nchecked at the resource"),
+          ("RATE LIMITS", "client IP from CF-Connecting-IP;\nnever on SOS escalation"),
+          ("WEBHOOKS", "unsigned SMS intake refuses real\nnumbers; payments HMAC-signed"),
+          ("AUDIT LOG", "hash-chained, append-only; whole\nchain verified from a checkpoint")]
 for i, (t, sub) in enumerate(layers):
-    node(s, 0.85 + (i % 4) * 2.95, 2.25 + (i // 4) * 1.35, 2.75, 1.15, t, sub,
+    node(s, 0.85 + (i % 3) * 2.95, 2.3 + (i // 3) * 1.12, 2.8, 0.98, t, sub,
          color=CYAN, tsize=9.5, ssize=8)
-panel(s, 9.7, 3.6, 2.75, 1.15, fill=INK_2, line_col=GREEN, line_w=1.5)
-txt(s, 9.95, 3.8, 2.3, 0.8, "74 / 74\nattacks refused", size=15, color=GREEN,
-    bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER, line=1.25)
-txt(s, 0.85, 5.15, 11.6, 1.05,
-    "Sensitive data: medical break-glass needs a role, a LIVE incident and a written reason, and writes a tamper-evident row.\n"
-    "Logs redact credentials, OTP codes, phone numbers, medical fields and coordinates — and that redaction is unit-tested.\n"
-    "Three real vulnerabilities were found by this suite during the audit and fixed: missing request ids on 401s, a 500 on malformed JSON, an unsigned SMS intake that did not say so.",
-    size=10.5, color=GREY, line=1.5)
+panel(s, 9.7, 2.3, 2.75, 3.22, fill=INK_2, line_col=GREEN, line_w=1.5)
+txt(s, 9.85, 2.6, 2.45, 0.9, "106 / 106\nattacks refused", size=17, color=GREEN,
+    bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER, line=1.2)
+txt(s, 9.9, 3.75, 2.35, 1.6,
+    "security-audit.mjs, run in CI.\n\nSelf-written attacks. No external penetration test has been done.",
+    size=9, color=GREY, align=PP_ALIGN.CENTER, line=1.3)
+txt(s, 0.85, 5.75, 11.6, 1.05,
+    "Every source file, the Git history and the live hosts were searched for secrets first: none found; /.env, /.git/config and source maps answer 404.\n"
+    "Medical break-glass needs a role, a LIVE incident and a written reason, and writes a tamper-evident row. Logs redact codes, numbers and coordinates.\n"
+    "Still open, and said so: the 10-minute access token sits in sessionStorage, and style-src keeps 'unsafe-inline'.",
+    size=10, color=GREY, line=1.45)
 footer(s); page_no(s, 19)
+notes(s, """The September hardening pass was a checklist review. What changed, in the order
+worth saying:
+
+Sign-in on the hosted demo echoes the code, so before the fix any number, including a
+privileged one, could be signed into. Now only the published demo numbers, never a
+privileged role.
+
+The web refresh token left localStorage for an HttpOnly cookie. Refresh reads the
+cookie only with a custom header, which a cross-site form cannot send: that is the CSRF
+guard. The CSP no longer allows inline scripts; each one is allowed by a SHA-256 hash
+computed at boot, and a test fails if a served page has an inline script it does not
+cover. Sign-out now happens on the server and revokes the whole family.
+
+The unsigned SMS webhook refuses real numbers, and behind Cloudflare the client address
+comes from CF-Connecting-IP rather than X-Forwarded-For, which the caller writes.
+
+If challenged: 106 self-written attacks is not an external penetration test, and the
+slide says so.""")
 
 # ── 20 · FOUND IN THE RECHECK ─────────────────────────────────────────────
 s = new_slide()
 title_block(s, "Found in the recheck, and proved",
             eyebrow="EACH NEW TEST FAILS ON THE OLD CODE AND PASSES ON THE NEW")
-for x, w, head, col in [(0.85, 5.6, "WHAT WAS WRONG", CYAN), (6.6, 2.85, "BEFORE", RED), (9.6, 2.85, "AFTER", GREEN)]:
+for x, w, head, col in [(0.85, 4.5, "WHAT WAS WRONG", CYAN), (5.5, 3.0, "BEFORE", RED), (8.65, 3.6, "AFTER", GREEN)]:
     txt(s, x + 0.15, 2.05, w, 0.3, head, size=9, color=col, bold=True, spacing=1.6)
-rows = [("Twelve simultaneous code requests for one number", "12 codes sent", "5 · the cap holds"),
-        ("One sign-in code redeemed eight times at once", "4 sessions", "1 session"),
-        ("A customer marks their own job done", "mechanic's public count 23 → 24", "unchanged"),
-        ("Email sign-in answered slower for real accounts", "revealed who is registered", "same answer for all"),
-        ("Code-guessing alerts on protected accounts", "could be crowded out", "always sent"),
-        ("App restarted mid-emergency", "could not close it", "card: I'm safe · False alarm")]
+rows = [("Two dispatches of one booking at the same instant", "both sent a wave · 200, 200, 409",
+         "per-booking try-lock: one wins, the rest 409"),
+        ("An SMS SOS recorded a “contacts alerted” step", "texted nobody",
+         "texts through the confirm guards, count recorded"),
+        ("The audit check re-verified only the oldest 2,000–5,000 rows", "still said “intact”",
+         "whole chain from a checkpoint, range stated"),
+        ("A device's image reference, joined to the upload folder", "could read and delete files outside it",
+         "refused"),
+        ("Sign-out while a refresh was in flight", "session survived · 8 of 8",
+         "session ended"),
+        ("Break-glass response to the responder", "always “the subject has been notified”",
+         "sent · opted out · failed · no number")]
 for i, (what, before, after) in enumerate(rows):
-    y = 2.45 + i * 0.56
-    panel(s, 0.85, y, 11.6, 0.48, fill=INK_2, line_col=LINE)
-    txt(s, 1.0, y + 0.1, 5.5, 0.3, what, size=10.5, color=WHITE)
-    txt(s, 6.75, y + 0.1, 2.8, 0.3, before, size=10, color=RED)
-    txt(s, 9.75, y + 0.1, 2.65, 0.3, after, size=10, color=GREEN, bold=True)
-txt(s, 0.85, 5.95, 11.6, 0.6,
-    "Also fixed: a map tile retried once on a network blip, a 10 s deadline on the email service, a lock on the demo seed, "
-    "a map that no longer asks for a request it knows will be refused, and eight fixes in the 3D page from a code review.",
+    y = 2.45 + i * 0.54
+    panel(s, 0.85, y, 11.6, 0.46, fill=INK_2, line_col=LINE)
+    txt(s, 1.0, y + 0.11, 4.45, 0.3, what, size=10, color=WHITE)
+    txt(s, 5.65, y + 0.12, 3.0, 0.3, before, size=9.5, color=RED)
+    txt(s, 8.8, y + 0.12, 3.55, 0.3, after, size=9.5, color=GREEN, bold=True)
+txt(s, 0.85, 5.8, 11.6, 0.7,
+    "Also fixed: STOP/START opt-out is actually stored and honoured, a cancelled booking withdraws its open offers, "
+    "the five-contact cap no longer races past five, hazard photos no longer always answer 401 for citizens, "
+    "and the Android Near you card no longer goes stale after a location-permission grant.",
     size=10, color=GREY, line=1.4)
 footer(s); page_no(s, 20)
-notes(s, """The first three rows have numbers because each test was run against the old
-code first and failed with exactly those figures: 12 codes, 4 sessions, 23 to 24.
-That is the standard for "fixed" on this project.""")
+notes(s, """Six bugs, each found, then proved by a test that failed on the old code before the
+fix went in. That is the standard for "fixed" on this project.
+
+Dispatch: two dispatches of one booking could both send a wave if the second arrived after
+the first's claim but before its offers existed. The concurrency suite (6d) caught it
+intermittently as 200, 200, 409. A per-booking try-lock now covers the claim and the wave.
+
+SMS SOS: the most serious in spirit. The record said contacts were alerted and nobody was
+texted. It now goes through the confirm path's guards and records how many were sent.
+
+Audit: the verifier re-hashed only the first 2,000 rows (operations view) or 5,000 (audit
+endpoint) and still answered "intact". It now verifies the whole chain from a checkpoint
+and names the range it checked.
+
+Sign-out race: 8 of 8 racing refreshes kept a working session on the old code. Sign-out
+and rotation now serialise on the family's lock.
+
+Break-glass: the response claimed the subject had been notified even when the SMS failed.
+It now reports what actually happened.""")
 
 # ── 21 · DATABASE ──────────────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "PostgreSQL 16 + PostGIS", eyebrow="DATABASE ARCHITECTURE",
             sub="Chosen for one query, and kept for four more reasons.")
-stats = [("56", "tables"), ("62", "foreign keys"), ("138", "indexes"),
-         ("5", "GiST spatial"), ("5", "check constraints"), ("5", "migrations")]
+stats = [(str(SCHEMA["tables"]), "tables"), (str(SCHEMA["foreignKeys"]), "foreign keys"),
+         (str(SCHEMA["indexes"]), "indexes"), (str(SCHEMA["gistIndexes"]), "GiST spatial"),
+         (str(SCHEMA["checkConstraints"]), "check constraints"), (str(SCHEMA["migrations"]), "migrations")]
 for i, (n, label) in enumerate(stats):
     panel(s, 0.85 + i * 1.95, 2.2, 1.8, 1.0, fill=INK_2, line_col=LINE)
     txt(s, 0.85 + i * 1.95, 2.36, 1.8, 0.45, n, size=25, color=CYAN, bold=True,
@@ -708,13 +878,13 @@ footer(s); page_no(s, 26)
 
 # ── 27 · TESTING ───────────────────────────────────────────────────────────
 s = new_slide()
-title_block(s, "1065 assertions, all executed", eyebrow="TESTING",
+title_block(s, "1091 assertions, all executed", eyebrow="TESTING",
             sub="Against a real PostgreSQL + PostGIS and a real Chrome. 22 Razorpay stub checks sit outside this total.")
-suites = [("Unit", "225", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
-          ("End-to-end", "194", "the whole API journey against real Postgres"),
-          ("Concurrency + real-time", "77", "races a sequential suite structurally cannot make"),
-          ("Security", "74", "attacks that must FAIL"),
-          ("Gateway security", "27", "webhook signatures, append-only rules, OTP ceilings"),
+suites = [("Unit", "433", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
+          ("End-to-end", "239", "the whole API journey against real Postgres"),
+          ("Concurrency + real-time", "92", "races a sequential suite structurally cannot make"),
+          ("Security", "106", "attacks that must FAIL"),
+          ("Gateway security", "58", "webhook signatures, append-only rules, OTP ceilings"),
           ("Browser / offline", "163", "what only a browser can prove")]
 for i, (name, n, what) in enumerate(suites):
     y = 2.25 + i * 0.6
@@ -725,7 +895,7 @@ for i, (name, n, what) in enumerate(suites):
     txt(s, 5.35, y + 0.11, 6.9, 0.3, what, size=9.5, color=GREY)
 panel(s, 0.85, 6.5, 11.6, 0.0, fill=INK_2, line_col=None)
 txt(s, 0.85, 6.5, 11.6, 0.4,
-    "920 passed · 0 failed · 0 skipped   •   0 server errors across the sweep",
+    "1091 passed · 0 failed   •   0 server errors across the sweep",
     size=12, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 27)
 
@@ -768,17 +938,19 @@ feats = [("AI diagnosis", "PARTIAL", "rules engine + trained YOLO11 for road dam
          ("Dispatch", "IMPLEMENTED", "ladder, timeout, busy-exclusion, race-safe"),
          ("Real-time", "IMPLEMENTED", "SSE, measured 65 ms"),
          ("Payment", "IMPLEMENTED", "mock on the demo — never a live account"),
+         ("Location services", "IMPLEMENTED", "server-side, coarsened, cached, off in tests"),
+         ("RAKSHA photo review", "IMPLEMENTED", "model frames, viewer, false-positive dismiss"),
          ("Fleet", "PARTIAL", "schema + roles exist; no dedicated UI"),
          ("Analytics", "PARTIAL", "ops overview with live counts; no BI layer"),
          ("Cloud autoscaling", "TARGET", "designed; no cluster"),
          ("Replication / load balancing", "TARGET", "stateless API is the precondition, and is met")]
 for i, (name, kind, ev) in enumerate(feats):
-    y = 2.2 + (i % 6) * 0.66
-    x = 0.85 + (i // 6) * 5.9
-    panel(s, x, y, 5.6, 0.56, fill=INK_2, line_col=LINE)
-    txt(s, x + 0.2, y + 0.07, 2.5, 0.28, name, size=10, color=WHITE, bold=True, font=SANS_SEMI)
-    txt(s, x + 0.2, y + 0.31, 4.0, 0.24, ev, size=8, color=GREY)
-    status_chip(s, x + 4.35, y + 0.15, kind, w=1.05)
+    y = 2.12 + (i % 7) * 0.58
+    x = 0.85 + (i // 7) * 5.9
+    panel(s, x, y, 5.6, 0.5, fill=INK_2, line_col=LINE)
+    txt(s, x + 0.2, y + 0.05, 2.9, 0.26, name, size=10, color=WHITE, bold=True, font=SANS_SEMI)
+    txt(s, x + 0.2, y + 0.27, 4.0, 0.22, ev, size=8, color=GREY)
+    status_chip(s, x + 4.35, y + 0.12, kind, w=1.05)
 txt(s, 0.85, 6.35, 11.6, 0.35,
     "GREEN = code exists, database persists it, UI consumes it, AND a test exercises it.  AMBER = some of that.  BLUE = architecture only.",
     size=10, color=GREY_DIM, align=PP_ALIGN.CENTER)
@@ -788,15 +960,15 @@ footer(s); page_no(s, 29)
 s = new_slide()
 title_block(s, "Limitations", eyebrow="STATED BEFORE YOU ASK",
             sub="In order of importance. Every one of these is also written in the code or the docs.")
-lims = ["The demo is one free-tier instance in Singapore (Render + Neon) — no India region, no cluster.",
+lims = ["The demo is one free-tier Render + Neon instance in Singapore, no India region, no cluster; it sleeps after 15 min idle (keep-awake ping in progress).",
         "Single instance only: SSE registry, rate limiter and offer sweeper are in-process.",
+        "Location lookups send positions, coarsened to about 110 m, to OpenStreetMap and OSRM servers in Germany/EU. Declared (ADR-0012).",
         "The ERSS 112 handoff is a stub, and the API response says so. Emergency isolation (ADR-0005) is a design, not a deployment.",
-        "Payment checks run only against a local stub of Razorpay's API, outside the 920 — never a real account.",
+        "Payment checks run only against a local stub of Razorpay's API, outside the 1091 — never a real account.",
         "The diagnosis “AI” is a deterministic rules engine. Labelled as such everywhere.",
         "No load test, no external penetration test, no coverage on the HTTP layer (suites run out-of-process).",
         "Device encryption protects a storage dump, not script on the same origin — and the UI says exactly that.",
-        "GPS cold start can take minutes and may never fix indoors. The app shows “Unknown” rather than a guess.",
-        "No historical volume yet for predictive maintenance — the dead-zone heuristic is labelled heuristic v1."]
+        "GPS cold start can take minutes and may never fix indoors. The app shows “Unknown” rather than a guess."]
 for i, line in enumerate(lims):
     y = 2.2 + i * 0.5
     chip(s, 0.9, y, 0.36, 0.3, str(i + 1), color=AMBER, size=9)
@@ -811,7 +983,8 @@ title_block(s, "Roadmap", eyebrow="FUTURE — LABELLED AS SUCH")
 phases = [("NEXT", GREEN, ["Redis-backed rate limiting", "Outbox → event bus for SSE fan-out",
                            "WAL archiving (RPO under a day)", "Object storage for photos"]),
           ("THEN", AMBER, ["Multi-region deployment", "Database read replicas",
-                           "External APM + error reporting", "Automated backup schedule"]),
+                           "External APM + error reporting", "Automated backup schedule",
+                           "Self-hosted map services in an Indian region"]),
           ("LATER", BLUE, ["Predictive maintenance at volume", "Fleet management UI",
                            "Satellite emergency communication", "Mesh networking between devices",
                            "Government emergency-network integration"])]
@@ -907,7 +1080,7 @@ panel(s, 0.85, 5.05, 11.6, 1.0, fill=INK_2, line_col=RED, line_w=1.75)
 txt(s, 1.1, 5.28, 11.1, 0.55, "“RoadAssist doesn't stop when the network stops.”",
     size=22, color=WHITE, bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.3, 11.6, 0.35,
-    "1065 assertions · 6 suites · 0 failures  •  57 tables · 74 routes · 12 ADRs  •  every claim on these slides is testable",
+    f"1091 assertions · 6 suites · 0 failures  •  {SCHEMA['tables']} tables · 74 routes · 13 ADRs  •  every claim on these slides is testable",
     size=10.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 footer(s)
 notes(s, """Close on the promise, then stop talking. If there is time, offer to run

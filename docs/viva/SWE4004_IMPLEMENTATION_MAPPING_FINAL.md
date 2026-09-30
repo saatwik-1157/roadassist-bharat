@@ -45,7 +45,7 @@ Four labels, used strictly:
 | Topic | Status | Where to show the professor |
 |---|---|---|
 | Network perimeter / virtual server | **PARTIAL** | Container isolation and a private compose network; production publishes no database port. No VPC, no security groups — the demo is a single Render web service, not a network we operate. |
-| Cloud storage | **PARTIAL** | Three real forms: block (the database volume), file (`UPLOAD_DIR` for hazard photos, ADR-0006 keeps only the reference in the database), and **client-side** — IndexedDB encrypted with AES-GCM-256 under a non-extractable key. The third is the interesting one and it is genuinely implemented. Object storage is TARGET. |
+| Cloud storage | **PARTIAL** | Three real forms: block (the database volume), file (`UPLOAD_DIR` for hazard photos locally; on the hosted demo they are kept in Postgres instead, ADR-0013, because its disk is ephemeral), and **client-side** — IndexedDB encrypted with AES-GCM-256 under a non-extractable key. The third is the interesting one and it is genuinely implemented. Object storage is TARGET. |
 | Cloud usage monitoring | **PARTIAL** | Structured JSON logs with a per-request correlation id; `observability.ts` logs operation, duration and result with a redaction denylist; `/health` separates application from database; `/v1/ops/overview` shows live counts and verifies the audit hash chain. No external APM. |
 | Resource replication | **CONCEPTUAL** | The *precondition* is built — the API is stateless, session state lives in the JWT. Say plainly that the three things which would break replication today are the in-process SSE registry, rate limiter and offer sweeper, each documented at its definition. Naming them is stronger than claiming replication. |
 

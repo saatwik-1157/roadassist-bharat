@@ -95,7 +95,12 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # The owner by default. With the least-privilege role in place
+      # (packages/db/sql/least-privilege-role.sql), set MIGRATION_DATABASE_URL to
+      # the owner's string and DATABASE_URL to roadassist_app's: migrations keep
+      # their DDL rights and the api below gets rows only. Unset, both stay the
+      # owner, as before.
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:-postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}}
     command: ["node", "packages/db/dist/src/migrate.js"]
 
   api:
@@ -113,7 +118,9 @@ services:
       NODE_ENV: production
       PORT: 4000
       HOST: 0.0.0.0
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # The app role's string when DATABASE_URL is given (see migrate above),
+      # otherwise the owner, as before.
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}}
       # Required. The API will not start without these — see .env.example.
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET to 32+ random bytes}
       CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS to your https front-end origins}

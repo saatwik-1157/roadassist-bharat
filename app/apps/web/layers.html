@@ -299,7 +299,7 @@ const LAYERS = [
   ]},
   { id: "data", name: "Data", tag: "The single source of truth", color: 0x29b6c9, comps: [
     ["PostgreSQL + PostGIS", "Hosted on Neon in Singapore. Geography queries run inside the database."],
-    ["Schema", "57 tables and 140 indexes, built by 8 migrations."],
+    ["Schema", "58 tables and 142 indexes, built by 9 migrations."],
     ["Audit log", "An append-only record of sign-ins and state changes."],
     ["Idempotency keys", "Op ids are stored per device, so a replayed sync is counted as duplicates."],
   ]},
@@ -312,7 +312,7 @@ const LAYERS = [
   { id: "cloud", name: "Cloud & delivery", tag: "How it runs and how it ships", color: 0x8a93a6, comps: [
     ["Render", "The API and these pages run as one Docker service in Singapore."],
     ["GitHub Pages", "The project site at roadassistbharat.online."],
-    ["CI", "GitHub Actions runs the gates and test suites on every push; 1065 assertions pass across six suites."],
+    ["CI", "GitHub Actions runs the gates and test suites on every push; 1091 assertions pass across six suites."],
     ["Resend email", "Sign-in codes and alerts, sent from send.roadassistbharat.online."],
   ]},
 ];

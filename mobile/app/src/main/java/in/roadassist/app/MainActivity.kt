@@ -689,6 +689,10 @@ private fun buildMapWebView(
     }
 }
 
+/** The server's cap on one stored report photo: 600 KiB (DB_PHOTO_MAX_BYTES in
+ *  apps/api/src/domain/photo-store.ts, ADR-0013). The web app aims at the same. */
+private const val REPORT_PHOTO_MAX_BYTES = 600 * 1024
+
 /** Downscale a picked image to a sane size and JPEG-encode it as base64 —
  *  keeps the upload small and strips the original's metadata. Runs off the main
  *  thread. Returns (base64, preview bitmap) or null if it couldn't be read. */
@@ -712,9 +716,23 @@ private fun processReportImage(ctx: android.content.Context, uri: android.net.Ur
             bmp = android.graphics.Bitmap.createScaledBitmap(
                 bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true)
         }
-        val out = java.io.ByteArrayOutputStream()
-        bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
-        android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP) to bmp
+        // 1280 px at quality 80 fits the cap for any ordinary photo; the rougher
+        // rungs (the same ladder as apps/web/photo-shrink.js) are for a frame
+        // that does not. If even the last is over, it is sent anyway and the
+        // server's 413 names the limit, rather than this saying "unreadable".
+        var jpeg = ByteArray(0)
+        for ((side, quality) in listOf(1280 to 80, 1280 to 70, 1024 to 70, 1024 to 60, 800 to 60)) {
+            val s = if (maxOf(bmp.width, bmp.height) <= side) bmp else {
+                val k = side.toFloat() / maxOf(bmp.width, bmp.height)
+                android.graphics.Bitmap.createScaledBitmap(
+                    bmp, maxOf(1, (bmp.width * k).toInt()), maxOf(1, (bmp.height * k).toInt()), true)
+            }
+            val out = java.io.ByteArrayOutputStream()
+            s.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+            jpeg = out.toByteArray()
+            if (jpeg.size <= REPORT_PHOTO_MAX_BYTES) break
+        }
+        android.util.Base64.encodeToString(jpeg, android.util.Base64.NO_WRAP) to bmp
     } catch (_: Exception) { null }
 }
 

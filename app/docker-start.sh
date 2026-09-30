@@ -37,8 +37,23 @@ if [ -z "${JWT_SECRET:-}" ]; then
   echo "→ no JWT_SECRET given: generated a random one for this boot"
 fi
 
-echo "→ migrating"
-node packages/db/dist/src/migrate.js
+# Two credentials, when the host supplies two (DEPLOYMENT.md, "Least-privilege
+# database role"): migrations need DDL - CREATE EXTENSION, ALTER TABLE, the
+# indexes and the audit RULES - so they run as the owner in
+# MIGRATION_DATABASE_URL, while DATABASE_URL is the app role, which can read and
+# write rows and nothing else. Unset, migrations use DATABASE_URL exactly as
+# they always have, so nothing changes until the owner opts in.
+if [ -n "${MIGRATION_DATABASE_URL:-}" ]; then
+  echo "→ migrating (as the migration role in MIGRATION_DATABASE_URL)"
+  DATABASE_URL="$MIGRATION_DATABASE_URL" node packages/db/dist/src/migrate.js
+else
+  echo "→ migrating"
+  node packages/db/dist/src/migrate.js
+fi
+# The owner's credential has done its job. The seeds below write rows only (no
+# DDL), so they run as the app role like the API, and neither the seeds nor the
+# server inherit a connection string that could drop the schema.
+unset MIGRATION_DATABASE_URL
 
 # A failed fleet seed is logged and then ignored, deliberately: a demo with no
 # mechanics can still sign people in, take SOS calls and show the map, while a

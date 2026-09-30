@@ -115,6 +115,35 @@ export const rakshaDetections = pgTable("raksha_detections", {
   segmentIdx: index("raksha_detections_segment_idx").on(t.segmentId),
 }));
 
+/** Postgres bytea. drizzle-orm 0.45 has no built-in for it; postgres.js hands back a Buffer. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() { return "bytea"; },
+});
+
+/**
+ * A citizen report's photo, held in the database when PHOTO_STORE=db
+ * (ADR-0013, which amends the "only a reference in the database" rule).
+ *
+ * One row per detection. The detection's image_ref then reads
+ * `db:hazards/<id>.<ext>`, so the photo route knows which store to ask. A
+ * device's image_ref is never one of these: device ingestion stores whatever
+ * the device sent, and a device-supplied `db:` string only ever finds its own
+ * detection's (absent) row.
+ *
+ * The size cap is a CHECK in migrate.ts (octet_length ≤ 600 KiB), backing the
+ * API's own refusal (apps/api/src/domain/photo-store.ts). A rejected report's
+ * row is DELETEd, not soft-deleted: the point of rejecting is to stop holding
+ * the bytes, and deleted_at would keep every one of them.
+ */
+export const rakshaPhotos = pgTable("raksha_photos", {
+  ...base,
+  detectionId: uuid("detection_id").notNull().references(() => rakshaDetections.id),
+  mime: varchar("mime", { length: 32 }).notNull(),
+  bytes: bytea("bytes").notNull(),
+}, (t) => ({
+  detectionUq: uniqueIndex("raksha_photos_detection_uq").on(t.detectionId),
+}));
+
 /** Device health over time (battery, storage, queue) — fleet observability. */
 export const edgeDeviceTelemetry = pgTable("edge_device_telemetry", {
   ...base,

@@ -16,7 +16,8 @@
 // v11: the hazard-report photo, the mechanic sign-in hint (app.html, mechanic.html).
 // v12: near.js ("Near you", road ETA) joins the shell; app.html and ds.css changed.
 // v13: session.js (the refresh cookie) joins the shell; app, mechanic and email-signin changed.
-const VERSION = "ra-v13";
+// v14: photo-shrink.js (hazard photos shrunk to the server's cap, ADR-0013) joins the shell; app.html changed.
+const VERSION = "ra-v14";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -38,6 +39,8 @@ const SHELL_ASSETS = [
   "/journey.js",
   // "Near you" and road ETAs; it degrades to "needs a connection" offline.
   "/near.js",
+  // Shrinks a hazard photo before upload; without it a report cannot attach one.
+  "/photo-shrink.js",
   "/manifest.webmanifest",
   // Off-Grid Mode (ADR-0009). Without these cached, the feature that exists for
   // a dead network would need the network to load.

@@ -657,7 +657,7 @@ ok("the reporter sees it VERIFIED with the original note preserved (not clobbere
    verifiedMine?.status === "VERIFIED" && verifiedMine?.notes === reportNote,
    `status=${verifiedMine?.status} note="${verifiedMine?.notes}"`);
 
-// photo attachment (stored on disk, never in the DB — ADR-0006)
+// photo attachment (on disk or in raksha_photos, whichever PHOTO_STORE the server runs — ADR-0013)
 const PNG_1x1 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const photoReport = await call("POST", "/v1/raksha/report", {
   token, body: { type: "road_damage", severity: 2, lat: 28.45, lng: 77.06, photoBase64: PNG_1x1, photoMime: "image/png" },
@@ -1195,6 +1195,78 @@ console.log("\n28. Dismissing a false positive");
   ok("an incident with an owner is never dismissed from the dashboard",
      ownedTry.status === 409 && ownedTry.error?.code === "not_dismissable", `got ${ownedTry.status} ${ownedTry.error?.code ?? ""}`);
   if (owned.data?.id) await call("POST", `/v1/sos/${owned.data.id}/cancel`, { token });
+}
+
+// ── 29. hazard photos in the database (ADR-0013) ──────────────────────────
+// The hosted demo's disk is wiped on every redeploy, so a PHOTO_STORE=db server
+// keeps report photos in raksha_photos, capped at 600 KiB. Runs only against a
+// server started with PHOTO_STORE=db (CI's is); a disk server skips it, saying so.
+console.log("\n29. Hazard photos in the database");
+{
+  const { randomBytes } = await import("node:crypto");
+  const pm = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+  const pReq = await call("POST", "/v1/auth/otp/request", { body: { msisdn: pm } });
+  const pVer = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: pm, code: pReq.meta?.devOtp } });
+  const pToken = pVer.data?.accessToken;
+  const CAP = 600 * 1024;
+  const report = (bytes) => call("POST", "/v1/raksha/report", {
+    token: pToken, body: { type: "pothole", severity: 2, lat: 28.452, lng: 77.061,
+      photoBase64: bytes.toString("base64"), photoMime: "image/jpeg" },
+  });
+  // Random bytes, not a real JPEG: nothing compresses them, and any byte the
+  // round trip changed would show.
+  const photo = randomBytes(150_000);
+  const first = await report(photo);
+  if (first.meta?.photoStore !== "db") {
+    console.log(`  - skipped: this server keeps photos on ${first.meta?.photoStore ?? "an unknown store"} ` +
+      `(status ${first.status}); start it with PHOTO_STORE=db to run this section`);
+    // Reclaim the probe's photo from that disk.
+    if (first.data?.id) await call("POST", `/v1/raksha/detections/${first.data.id}/verify`, { token: adminToken, body: { action: "reject" } });
+  } else {
+    ok("a report's photo is accepted into the database store", first.status === 201 && first.data?.hasPhoto === true,
+       `got ${first.status}`);
+    const url = `${BASE}/v1/raksha/detections/${first.data.id}/photo`;
+    const back = await fetch(url, { headers: { authorization: `Bearer ${pToken}` } });
+    const got = Buffer.from(await back.arrayBuffer());
+    ok("it is served back byte-identical, with its type",
+       back.status === 200 && got.equals(photo) && back.headers.get("content-type") === "image/jpeg",
+       `${back.status} ${got.length} bytes ${back.headers.get("content-type")}`);
+    const stranger = await fetch(url, { headers: { authorization: `Bearer ${otherToken}` } });
+    ok("another citizen still cannot fetch it", stranger.status === 403, `got ${stranger.status}`);
+
+    const atCap = await report(randomBytes(CAP));
+    ok("a photo of exactly 600 KiB is accepted", atCap.status === 201, `got ${atCap.status} ${atCap.error?.code ?? ""}`);
+    const before = await call("GET", "/v1/me/reports", { token: pToken });
+    const over = await report(randomBytes(CAP + 1));
+    ok("one byte over is refused with 413 photo_too_large",
+       over.status === 413 && over.error?.code === "photo_too_large" && over.error?.maxBytes === CAP,
+       `got ${over.status} ${over.error?.code ?? ""}`);
+    const after = await call("GET", "/v1/me/reports", { token: pToken });
+    ok("…and the refused photo created no report", after.meta?.count === before.meta?.count,
+       `${before.meta?.count} → ${after.meta?.count}`);
+
+    const { default: postgres } = await import("postgres");
+    const sql = postgres(process.env.DATABASE_URL ??
+      "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+    try {
+      const [row] = await sql`
+        SELECT octet_length(p.bytes)::int AS n, d.image_ref FROM raksha_photos p
+          JOIN raksha_detections d ON d.id = p.detection_id WHERE p.detection_id = ${first.data.id}`;
+      ok("the bytes are in raksha_photos and the row points there, not at a file",
+         row?.n === photo.length && /^db:hazards\//.test(row?.image_ref ?? ""), `${row?.n} bytes, ref ${row?.image_ref}`);
+
+      const rejected = await call("POST", `/v1/raksha/detections/${first.data.id}/verify`, {
+        token: adminToken, body: { action: "reject" },
+      });
+      const gone = await fetch(url, { headers: { authorization: `Bearer ${pToken}` } });
+      const [{ n: left }] = await sql`SELECT count(*)::int AS n FROM raksha_photos WHERE detection_id = ${first.data.id}`;
+      ok("rejecting the report deletes its photo row", rejected.data?.status === "REJECTED" && gone.status === 404 && left === 0,
+         `${rejected.data?.status}, photo ${gone.status}, ${left} rows left`);
+      await call("POST", `/v1/raksha/detections/${atCap.data?.id}/verify`, { token: adminToken, body: { action: "reject" } });
+    } finally {
+      await sql.end({ timeout: 5 });
+    }
+  }
 }
 
 console.log(`\n${"─".repeat(58)}`);

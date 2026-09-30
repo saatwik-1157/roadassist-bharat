@@ -13,7 +13,7 @@ this project does not have.
 |---|---|
 | Production Docker image builds | ✅ **Verified** — `docker build`, 321 MB, runs as `node` (uid 1000) |
 | Image runs and serves the whole platform | ✅ **Verified** — API, citizen app, mechanic console, authority dashboard, media |
-| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 231 e2e assertions and 87 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
+| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 239 e2e assertions and 87 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
 | Health check reports the database honestly | ✅ **Verified** — 503 with `database: "down"` when Postgres is unreachable |
 | Graceful shutdown | ✅ **Verified** — SIGTERM → exit code 0, no force kill |
 | Production CORS allowlist | ✅ **Verified** — allowed origin reflected, other origins refused |
@@ -123,7 +123,7 @@ docker compose -f docker-compose.prod.yml exec api \
   node packages/db/dist/src/seed.js --reference-only
 ```
 
-**Verified.** Run against a fresh database in this audit: 57 tables, 7 roles,
+**Verified.** Run against a fresh database in this audit: 58 tables, 7 roles,
 8 service types, 10 DTC codes, 12 vehicle models — and **0 users, 0 mechanics,
 0 bookings, 0 incidents**. The API was then started against it, `/health`
 returned 200, the service catalogue served, and a first account signed in and
@@ -319,7 +319,7 @@ the reliable order.
 
 ### Rehearsed in this audit — not a paper procedure
 
-Measured against the development database (57 tables, 666 users, 1,601 bookings,
+Measured against the development database (58 tables, 666 users, 1,601 bookings,
 638 audit entries):
 
 | Step | Result |
@@ -397,16 +397,19 @@ copy first, and verify the health check there.
    for events. Both are documented at their definitions.
 2. **The offer sweeper is in-process.** Safe to run on one instance; on several,
    run it on exactly one.
-3. **No object storage.** Hazard photos go to a Docker volume. Fine for one
-   host, wrong for more than one.
+3. **No object storage.** Hazard photos go into Postgres (`raksha_photos`,
+   600 KiB each, ADR-0013) under `NODE_ENV=demo` or `production`, or to a
+   Docker volume with `PHOTO_STORE=disk`. Both work for one host. Neither is
+   the answer at scale: that is object storage in an Indian region.
 4. **No error-monitoring service.** Structured JSON logs on stdout are the whole
    story. `logOp` is the integration point for Sentry or equivalent.
 5. **No load test.** Latency figures in the reports are single-user
    measurements against a local database.
 6. **Hosted outside India.** The demo runs in Singapore (Render + Neon) because
    the free tiers offer no Indian region; an Indian region (e.g. Mumbai) is the
-   production target. On Render's free plan hazard photos are ephemeral and the
-   service sleeps after 15 idle minutes.
+   production target. On Render's free plan the disk is ephemeral, so hazard
+   photos are kept in the database instead (ADR-0013; the ones uploaded before
+   that change were lost), and the service sleeps after 15 idle minutes.
 
 ---
 
@@ -450,7 +453,7 @@ Real prices change and are not invented here. The categories are:
 |---|---|---|
 | Host | 1 small VM (2 GB) | The whole application is one container |
 | Database | Managed Postgres + PostGIS, or self-hosted on the same VM | PostGIS support narrows the managed options |
-| Object storage | Hazard photos | Not yet used; a volume today |
+| Object storage | Hazard photos | Not yet used; the database today (ADR-0013), a volume with `PHOTO_STORE=disk` |
 | Maps | **₹0** | Keyless OSM tiles; respect their tile-usage policy at scale |
 | AI | **₹0** | Rules engine by default |
 | Payments | Per-transaction gateway fee | Razorpay's published rate |

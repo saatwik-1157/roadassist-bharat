@@ -970,6 +970,7 @@
 <script src="session.js"></script>
 <script src="journey.js"></script>
 <script src="near.js"></script>
+<script src="photo-shrink.js"></script>
 <script>
 (function () {
   "use strict";
@@ -3636,7 +3637,7 @@
     4: "4 — serious, a two-wheeler could be thrown.",
     5: "5 — dangerous, the lane should be closed.",
   };
-  var report = { severity: 3, photo: null, mime: null };
+  var report = { severity: 3, photo: null, mime: null, pending: null };
 
   function openSheet() {
     $("scrim").classList.add("show");
@@ -3673,20 +3674,15 @@
   });
 
   $("r-photo").onchange = function () {
-    var f = this.files && this.files[0];
-    report.photo = null; report.mime = null;
-    var thumb = $("r-thumb");
-    if (!f) { thumb.hidden = true; return; }
-    if (f.size > 4_000_000) { toast("Photo must be under 4 MB", "bad"); this.value = ""; thumb.hidden = true; return; }
-    var reader = new FileReader();
-    reader.onload = function () {
-      // The API takes raw base64 without the data: prefix.
-      report.photo = String(reader.result).split(",")[1];
-      report.mime = f.type;
-      thumb.src = String(reader.result);
-      thumb.hidden = false;
-    };
-    reader.readAsDataURL(f);
+    var input = this, f = input.files && input.files[0], thumb = $("r-thumb");
+    report.photo = null; report.mime = null; thumb.hidden = true;
+    if (!f) { report.pending = null; return; }
+    // Shrunk here to fit the server's 600 KB cap (photo-shrink.js, ADR-0013):
+    // a camera file is 3-5 MB, this sends a ~1280 px JPEG with no metadata.
+    var job = report.pending = RAPhotoShrink.shrink(f).then(function (p) {
+      if (report.pending !== job) return;   // a newer pick replaced this one
+      report.photo = p.base64; report.mime = p.mime; thumb.src = p.dataUrl; thumb.hidden = false;
+    }, function (e) { if (report.pending === job) { toast(e.message, "bad"); input.value = ""; } });
   };
 
   $("r-send").onclick = busy($("r-send"), async function () {
@@ -3709,6 +3705,7 @@
         accuracyM: typeof pos.accuracy === "number" && isFinite(pos.accuracy) ? pos.accuracy : null,
         note: $("r-note").value.trim() || undefined,
       };
+      if (report.pending) await report.pending;   // a photo still shrinking goes with the report
       if (report.photo) { body.photoBase64 = report.photo; body.photoMime = report.mime; }
       var r = await api("POST", "/v1/raksha/report", body, { force: true });
       closeSheet();
@@ -3716,7 +3713,7 @@
         (r.data.position ? " (" + r.data.position.label + ")" : ""), "ok"); buzz([10, 40, 10]);
       // Reset for the next report and refresh the map so the pin appears.
       $("r-note").value = ""; $("r-photo").value = ""; $("r-thumb").hidden = true;
-      report.photo = null; report.mime = null;
+      report.photo = null; report.mime = null; report.pending = null;
       try {
         var f = $("map-frame");
         if (f.contentWindow && f.contentWindow.__refresh) f.contentWindow.__refresh();

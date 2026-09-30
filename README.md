@@ -203,7 +203,7 @@ flowchart LR
     API --> MOD
   end
 
-  DB[("Neon PostgreSQL 16 + PostGIS<br/>57 tables · hash-chained audit log")]
+  DB[("Neon PostgreSQL 16 + PostGIS<br/>58 tables · hash-chained audit log")]
   X["Resend (email) · OpenStreetMap tiles<br/>Nominatim · Overpass · OSRM · USGS<br/>Open-Meteo · SMS / payment gateways"]
 
   W & A & F & E --> CF --> API
@@ -214,7 +214,7 @@ flowchart LR
 | Layer | Technology |
 |---|---|
 | API | Node 22, TypeScript, Fastify 5, zod, jose (JWT) |
-| Data | PostgreSQL 16 + PostGIS 3.4, Drizzle ORM, 8 migrations |
+| Data | PostgreSQL 16 + PostGIS 3.4, Drizzle ORM, 9 migrations |
 | Realtime | Server-sent events with a heartbeat and a per-user cap, and polling underneath |
 | Web | Plain HTML, CSS and JavaScript served by the API. No bundler, so there is no second deploy unit and no CORS boundary |
 | Offline | Service worker, plus IndexedDB encrypted with AES-GCM-256 under a non-extractable key |
@@ -258,11 +258,11 @@ with it.
 
 | | |
 |---|---|
-| **1065 assertions**, six suites, zero failures | 334 unit · 231 e2e · 92 concurrency · 106 attacks · 58 gateway security · 163 browser |
+| **1091 assertions**, six suites, zero failures | 433 unit · 239 e2e · 92 concurrency · 106 attacks · 58 gateway security · 163 browser |
 | Android | 135 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`), run against a local stub of Razorpay's Orders API. They need an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so they sit outside the six suites and are never described as passing |
-| Schema | 57 tables · 140 indexes · 8 migrations |
+| Schema | 58 tables · 142 indexes · 9 migrations |
 | API | 74 routes: 71 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
 | Localisation | 8 languages, **not native-reviewed** |
 
@@ -483,7 +483,7 @@ wrong one.
 | [Frontend workstream](docs/03-frontend-lead-roadmap.md) | Design system, screens, offline client, maps, accessibility, localisation |
 | [AI workstream](docs/04-ai-lead-roadmap.md) | The 9 planned AI systems with inputs, algorithms, metrics and baselines |
 | [DevOps / QA workstream](docs/05-devops-qa-lead-roadmap.md) | CI/CD, observability, telecom gateway, load and chaos testing, DR |
-| [ADRs](app/docs/adr/) | Twelve decision records, including the five above |
+| [ADRs](app/docs/adr/) | Thirteen decision records, including the five above |
 | [Claims audit](app/docs/CLAIMS-AUDIT.md) | Every over-claim found, what it was, and what it actually is |
 
 The roadmap documents describe the **plan**, in the present tense, including

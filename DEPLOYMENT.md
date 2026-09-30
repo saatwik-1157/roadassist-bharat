@@ -66,11 +66,18 @@ lives on Neon, whose free tier supports the PostGIS this schema requires.
 The service migrates on boot — `migrate.ts` is idempotent — so there is no
 separate migration step for the first deploy.
 
-**Hazard photos are not durable on the free plan.** Render's persistent disks
-need a paid instance type, so `UPLOAD_DIR` is ephemeral: an upload does not
-survive a restart or redeploy. ADR-0006 keeps only a reference in the database,
-so the row outlives the file and the photo endpoint 404s rather than corrupting
-anything — but say that out loud rather than letting anyone assume otherwise.
+**Hazard photos are kept in the database on this deployment.** Render's
+persistent disks need a paid instance type, so `UPLOAD_DIR` is ephemeral: a file
+there does not survive a restart or redeploy. Under `NODE_ENV=demo` the API
+therefore defaults to `PHOTO_STORE=db` and keeps each photo in the
+`raksha_photos` table, capped at 600 KiB. Both clients shrink photos to about
+1280 px before upload
+([ADR-0013](app/docs/adr/0013-hazard-photos-in-the-database.md)). This takes
+effect from the first deploy that runs migration 0008. Photos uploaded before
+that lived on the ephemeral disk and are gone; the dashboard says so rather than
+showing a broken image. The cost is Neon storage: 0.5 GB on the free plan, which
+is roughly 750 photos at the cap. Object storage in an Indian region is still
+the production answer.
 
 **The free plan sleeps after 15 minutes idle and takes about a minute to wake.**
 That is fine for a demo. It is *not* fine for the emergency response times this
@@ -216,6 +223,48 @@ The boot log does not report the setting. A lookup's answer is how to tell:
 `geo_disabled` means off; `geo_unavailable` means on, with the provider not
 answering.
 
+## Optional · Least-privilege database role — **YOU**
+
+Until this is done the API connects as the Neon owner, so a flaw that let
+someone run SQL through the API could drop tables or the audit log's
+append-only rules. The fix is prepared; only the owner can apply it.
+
+[`app/packages/db/sql/least-privilege-role.sql`](app/packages/db/sql/least-privilege-role.sql)
+creates `roadassist_app` with no password: `CONNECT`, `USAGE` on `public`,
+`SELECT/INSERT/UPDATE/DELETE` on the application tables (`audit_log`: `SELECT`
+and `INSERT` only), `USAGE/SELECT` on sequences, and default privileges so
+tables that later migrations add are covered too. It gets no `CREATE`,
+`TEMPORARY`, `TRUNCATE`, `REFERENCES` or ownership of anything. Migrations keep
+running as the owner through `MIGRATION_DATABASE_URL`, which `docker-start.sh`
+uses for the migrate step only and then drops, so the server never holds it.
+
+1. **Neon → SQL editor**, connected as the owner (`neondb_owner`, the role
+   migrations run as): paste the whole file and run it. It ends with a table
+   of what was granted; `create_in_schema` and `temp_in_database` must be
+   `false`. Running it again is safe. Do **not** create the role with Neon's
+   **New role** button first: console-created roles join `neon_superuser`, and
+   the file refuses such a role.
+2. **Neon → Roles → `roadassist_app` → Reset password**, and copy the value
+   shown. If the console does not offer it for this role, run
+   `ALTER ROLE roadassist_app WITH PASSWORD '<long random value>';` in the SQL
+   editor instead (Neon requires a strong one). Never put it in the repository.
+3. **Render → roadassist → Environment**:
+   - `MIGRATION_DATABASE_URL` = the current owner string (the value
+     `DATABASE_URL` holds today);
+   - `DATABASE_URL` = the same **direct** string with the user and password
+     replaced by `roadassist_app` and its password:
+     `postgresql://roadassist_app:<password>@<same direct host>/<same db>?sslmode=require`.
+4. **Save and redeploy.** The deploy log should read
+   `→ migrating (as the migration role in MIGRATION_DATABASE_URL)` and then
+   `→ starting api`, and `/health` should answer 200 with `"database":"ok"`.
+
+To undo it, put the owner string back in `DATABASE_URL` and delete
+`MIGRATION_DATABASE_URL`. Seeding by hand (section 2) still uses the owner
+string. To check a role from your own machine, run
+`LEAST_PRIVILEGE_DB_URL=<app role string> node --import tsx --test packages/db/test/least-privilege.test.ts`
+from `app/`: it asserts that the role cannot drop or alter `audit_log`, drop
+its rules, truncate, or create anything, and rolls every attempt back.
+
 ## 3 · Point the domain — **YOU**
 
 In Render: **Settings → Custom Domains → Add** `app.roadassistbharat.online`.
@@ -318,7 +367,7 @@ The image is not trusted because it built. `.github/workflows/publish-image.yml`
 boots it against a real PostGIS and runs the suites **against the running
 container** before publishing:
 
-- 231 end-to-end assertions and 87 security attacks, `API=` pointed at the
+- 239 end-to-end assertions and 87 security attacks, `API=` pointed at the
   container
 - every surface answers 200: `/app.html`, `/mechanic.html`, `/raksha.html`,
   `/map.html`, `/health`, `/v1/ping`

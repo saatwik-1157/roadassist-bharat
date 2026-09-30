@@ -67,6 +67,16 @@ services:
       - key: DATABASE_URL
         sync: false
 
+      # Optional, and the other half of the least-privilege setup (DEPLOYMENT.md,
+      # "Least-privilege database role"). When set, docker-start.sh runs the
+      # migrations - which need DDL - with this OWNER connection string, and
+      # DATABASE_URL above becomes the roadassist_app role's string, which can
+      # read and write rows but cannot create, alter or drop anything. The
+      # server and the demo seeds never see this value. Left empty, migrations
+      # use DATABASE_URL exactly as before. Neon's direct string, set by hand.
+      - key: MIGRATION_DATABASE_URL
+        sync: false
+
       # Generated once by Render and then fixed. Never commit one.
       - key: JWT_SECRET
         generateValue: true
@@ -118,15 +128,15 @@ services:
       - key: EXPOSE_DEV_OTP
         value: "true"
 
-      # Hazard-report photos land here. On the free plan this is EPHEMERAL:
-      # Render's persistent disks need a paid instance type, so an upload does
-      # not survive a restart or a redeploy. ADR-0006 keeps only a reference in
-      # the database, so the row outlives the file and the photo endpoint 404s
-      # rather than corrupting anything - but say "photos are not durable on
-      # this tier" rather than letting someone assume they are.
+      # On the free plan this disk is EPHEMERAL: Render's persistent disks need
+      # a paid instance type, so a file here does not survive a restart or a
+      # redeploy. Hazard-report photos therefore do NOT land here any more:
+      # NODE_ENV=demo defaults to PHOTO_STORE=db, which keeps them in Neon
+      # (raksha_photos, 600 KiB cap - ADR-0013). Photos from before that change
+      # were here and are gone. UPLOAD_DIR stays set for PHOTO_STORE=disk.
       #
-      # To make them durable: move to a paid instance type and restore the
-      # disk block that used to sit here -
+      # For disk-stored photos to be durable instead: move to a paid instance
+      # type, restore the disk block that used to sit here, and set PHOTO_STORE=disk -
       #   disk: { name: uploads, mountPath: /repo/app/var, sizeGB: 1 }
       - key: UPLOAD_DIR
         value: /repo/app/var/uploads

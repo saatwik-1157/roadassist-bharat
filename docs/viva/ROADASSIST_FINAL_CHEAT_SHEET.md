@@ -28,8 +28,8 @@ No cluster, no autoscaling, no replication.
 9 implemented · 6 partial · 6 design, of 21 concepts.
 
 ### Database
-57 tables · 62 FKs · 140 indexes (5 GiST) · 6 checks · 86 unique indexes ·
-8 migrations. Money in **integer paise**. Audit log **hash-chained and
+58 tables · 63 FKs · 142 indexes (5 GiST) · 7 checks · 88 unique indexes ·
+9 migrations. Money in **integer paise**. Audit log **hash-chained and
 append-only** — Postgres RULES make UPDATE/DELETE change nothing.
 
 ### AI

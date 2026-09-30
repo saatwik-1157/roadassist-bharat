@@ -154,9 +154,10 @@ and every one is refused with 403.
 **Short.** Storage consumed as a service, in block, file or object form.
 
 **In RoadAssist.** Block — the Postgres volume. File — hazard photos on a
-mounted volume (`UPLOAD_DIR`; ADR-0006 keeps only the reference in the database)
-— ephemeral on the free Render tier, so a photo does not survive a redeploy.
-Object storage is DESIGN. The interesting one is **client-side** storage:
+mounted volume (`UPLOAD_DIR`, `PHOTO_STORE=disk`) on a developer's machine. On the
+hosted demo they go into Postgres (`raksha_photos`, 600 KiB cap, ADR-0013),
+because the free Render disk is wiped on every redeploy and there is no
+object-storage account. Object storage is DESIGN. The interesting one is **client-side** storage:
 IndexedDB with AES-GCM-256 at rest, which is what makes off-grid work.
 
 **Status.** Block/file IMPLEMENTED, object DESIGN, client-side IMPLEMENTED.
@@ -439,7 +440,7 @@ Stated plainly, in order of importance:
 
 1. **Deployed as a demo, not as production.** One free-plan Render service and
    a Neon database, both in Singapore (no India region on the free tiers),
-   `NODE_ENV=demo`, sleeps after 15 min idle, photos ephemeral. No cluster,
+   `NODE_ENV=demo`, sleeps after 15 min idle, photos in the database (ADR-0013). No cluster,
    no autoscaling, no replication.
 2. **Single instance only** — SSE registry, rate limiter and offer sweeper are
    in-process.
@@ -501,7 +502,7 @@ labels it as such. The road-damage models are genuinely trained YOLO11
 detectors with measured metrics — best run YOLO11s mAP50 0.472; the YOLO11n
 India model RAKSHA shows scored 0.443. I will not call the first one AI.
 
-**"Did you actually test it, or does it just look right?"** — 1065 assertions
+**"Did you actually test it, or does it just look right?"** — 1091 assertions
 across six suites, all executed with no failures, including 106 attacks that must
 fail and a concurrency suite that fires ten simultaneous accepts. The 22 Razorpay
 checks need no account — they run against their own local stub — but only when

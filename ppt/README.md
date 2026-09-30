@@ -1,6 +1,6 @@
 # RoadAssist Bharat — SWE4004 presentation
 
-`RoadAssist-Bharat-FINAL.pptx` — the current deck: 35 slides, 16:9, speaker
+`RoadAssist-Bharat-FINAL.pptx` — the current deck: 37 slides, 16:9, speaker
 notes on the slides that need them. `RoadAssist-Bharat-FINAL.pdf` is its
 PowerPoint export.
 
@@ -18,7 +18,7 @@ place and the slide regenerated. Edit `part_final.py`, never the `.pptx`.
 | File | Contents |
 |------|----------|
 | `build_deck.py` | Palette, background generation, and every slide primitive |
-| `part_final.py` | The final deck's 35 slides, in order |
+| `part_final.py` | The final deck's 37 slides, in order |
 | `make_final.py` | Concatenates the two above into `make_final_generated.py`, runs it and saves the deck |
 | `part_a.py` … `part_g.py`, `make.py` | The superseded Review-1 deck (`RoadAssist-Bharat-SWE4004.pptx`, 30 slides, no longer in the tree) |
 | `assets/` | Generated background images (deleted → regenerated) |
@@ -83,7 +83,7 @@ those terms is part of the build check.
 Facts that *are* asserted, all verified against the running system:
 
 - TypeScript · Fastify 5 · Drizzle ORM · Zod · jose
-- PostgreSQL 16 + PostGIS 3.4.3, 57 tables, 74 API routes (71 under `/v1`)
+- PostgreSQL 16 + PostGIS 3.4.3, 58 tables, 74 API routes (71 under `/v1`)
 - Seven roles: citizen, mechanic, admin, gov_officer, fleet_admin, fleet_driver, support
 - PWA with a service worker caching 23 shell assets; manifest with 5 shortcuts
 - Rules-based AI diagnosis (ADR-0006), with an optional HTTP model provider
@@ -91,7 +91,7 @@ Facts that *are* asserted, all verified against the running system:
   webhook — default provider is `mock`, which the live demo runs; live keys need a KYC-verified account
 - Docker Compose provides PostGIS, Redis and Redpanda locally — **Redis and
   Redpanda are provisioned but not used by application code**, and the deck says so
-- 1065 automated assertions across six suites: 334 unit · 203 API e2e · 92 concurrency
+- 1091 automated assertions across six suites: 334 unit · 203 API e2e · 92 concurrency
   · 87 security · 58 gateway security · 163 browser. A seventh — 22 payment-gateway
   checks — runs against a local stub of Razorpay's API and needs no account, but
   only against an API started with `PAYMENTS_PROVIDER=razorpay`; it is **not**
@@ -99,7 +99,7 @@ Facts that *are* asserted, all verified against the running system:
 - A live demo deployment: one Render web service and Neon Postgres, both in
   Singapore (no India region on the free tiers; an Indian region is the
   production target), with the showcase on GitHub Pages
-- 12 ADRs; trained YOLO11 road-damage detectors — best YOLO11s mAP50 0.472, and
+- 13 ADRs; trained YOLO11 road-damage detectors — best YOLO11s mAP50 0.472, and
   the YOLO11n (mAP50 0.443) whose detections the RAKSHA demo shows at simulated
   positions
 - Eight languages (en hi ta te bn mr kn gu) across SMS, OTP, the Android UI and the

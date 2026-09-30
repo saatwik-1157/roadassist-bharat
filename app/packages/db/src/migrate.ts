@@ -160,6 +160,10 @@ async function main() {
     // legal, which is what every row written before migration 0005 holds.
     ["raksha_detections", "raksha_location_accuracy_nonneg", "CHECK (location_accuracy_m IS NULL OR location_accuracy_m >= 0)"],
     ["road_health_scores", "road_health_score_range", "CHECK (score BETWEEN 0 AND 100)"],
+    // A stored photo is 1 byte to 600 KiB (614400), the API's DB_PHOTO_MAX_BYTES
+    // in apps/api/src/domain/photo-store.ts - ADR-0013 says why that number. The
+    // API refuses first with a clear 413; this is the backstop for every other path.
+    ["raksha_photos", "raksha_photos_size_cap", "CHECK (octet_length(bytes) BETWEEN 1 AND 614400)"],
     // Ratings must be 1..5 and money is never negative — CHECKs the ORM does not generate.
     ["reviews", "reviews_rating_range", "CHECK (rating BETWEEN 1 AND 5)"],
     ["invoices", "invoices_total_nonneg", "CHECK (total_paise >= 0)"],

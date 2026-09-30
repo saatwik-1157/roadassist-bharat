@@ -1059,7 +1059,7 @@
             if (url) { img.src = url; return; }
             tile.className = "detphoto gone"; tile.disabled = true; tile.innerHTML = "";
             tile.textContent = url === false
-              ? "Photo no longer on this server — uploads on the hosted demo do not survive a redeploy."
+              ? "Photo no longer on this server — it was kept on disk, and the hosted demo's disk does not survive a redeploy."
               : "Photo loads once you are online.";
           });
           el.appendChild(tile);

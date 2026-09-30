@@ -6,8 +6,8 @@ Ticked only where the artefact exists **and** has been verified in this session.
 
 | | Item | Where | Status |
 |---|---|---|---|
-| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 57-table schema, 74 routes (71 under `/v1`), 6 web surfaces, native Kotlin Android client |
-| ✅ | Database migrations | `app/packages/db/drizzle/` | 8 migrations, run from an **empty** database in this session |
+| ✅ | Source code | `app/apps`, `app/packages`, `mobile/`, `ai/` | 58-table schema, 74 routes (71 under `/v1`), 6 web surfaces, native Kotlin Android client |
+| ✅ | Database migrations | `app/packages/db/drizzle/` | 9 migrations, run from an **empty** database in this session |
 | ✅ | Seed data | `app/packages/db/src/seed.ts` | Two modes — full demo, and `--reference-only` for production (0 demo rows, verified) |
 | ✅ | README | `app/README.md`, root `README.md` | |
 | ✅ | Project overview | `app/docs/PROJECT_OVERVIEW.md` | |
@@ -17,7 +17,7 @@ Ticked only where the artefact exists **and** has been verified in this session.
 | ✅ | Offline documentation | `app/docs/OFFLINE.md` | Capability matrix, tiers, storage, retention |
 | ✅ | Deployment instructions | `app/docs/DEPLOYMENT.md` | Docker, config, backup, rollback, DR, cost |
 | ✅ | Live deployment | https://app.roadassistbharat.online · showcase https://roadassistbharat.online | One Render web service (Docker, free plan, Singapore) + Neon Postgres/PostGIS (Singapore); showcase on GitHub Pages. `NODE_ENV=demo`, mock payments, on-screen OTP |
-| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (1065 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
+| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (1091 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
 | ✅ | SWE4004 mapping | `app/docs/SWE4004-MAPPING.md` | Modules 1–6, 21-row cloud-concept audit |
 | ✅ | Claims audit | `app/docs/CLAIMS-AUDIT.md` | Every claim checked against the code |
 | ✅ | Presentation | `ppt/RoadAssist-Bharat-FINAL.pptx` | **35 slides**, generated, 0 over-claims |
@@ -87,7 +87,8 @@ demo every visitor's request does leave India.
 
 1. Deployed as a **demo**, not a production service: one free-plan Render
    service (`NODE_ENV=demo`, sleeps after 15 min idle, ~1 min to wake, uploaded
-   photos ephemeral) and a Neon database, both in Singapore rather than India.
+   photos kept in the database because its disk is ephemeral, ADR-0013) and a
+   Neon database, both in Singapore rather than India.
    No autoscaling, no cluster, no replication, no load balancer.
 2. Single instance only — SSE registry, rate limiter and offer sweeper are
    in-process.

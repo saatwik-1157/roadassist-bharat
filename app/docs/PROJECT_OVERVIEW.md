@@ -63,27 +63,27 @@ PostGIS database. Live at <https://app.roadassistbharat.online>: one Render web
 service in Singapore over Neon Postgres in Singapore, with the showcase on GitHub
 Pages at <https://roadassistbharat.online>.
 
-- **57 tables**, 62 foreign keys, 140 indexes, 5 GiST spatial indexes,
-  8 migrations
+- **58 tables**, 63 foreign keys, 142 indexes, 5 GiST spatial indexes,
+  9 migrations
 - **74 routes**, 71 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
 - **6 web surfaces**: citizen app, mechanic console, authority dashboard, live
   map, landing, showcase
-- **12 ADRs**, an enforced module-boundary check, and a 20-row failure matrix
+- **13 ADRs**, an enforced module-boundary check, and a 20-row failure matrix
 
 ## Verification
 
-**1065 assertions executed across six suites, no failures**, against a real
+**1091 assertions executed across six suites, no failures**, against a real
 PostgreSQL + PostGIS and a real Chrome:
 
 | Suite | Assertions |
 |---|---|
-| Unit | 415 |
-| End-to-end | 231 |
+| Unit | 433 |
+| End-to-end | 239 |
 | Concurrency + real-time | 92 |
 | Security (attacks that must fail) | 106 |
 | Gateway security | 58 |
 | Browser / offline | 163 |
-| **Total** | **1065** |
+| **Total** | **1091** |
 
 Not in that total: 22 Razorpay checks (`npm run test:razorpay`). They need no
 Razorpay account — the script stubs the Orders API locally — but they only run

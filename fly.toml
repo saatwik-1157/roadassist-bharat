@@ -62,9 +62,10 @@ primary_region = "bom"          # Mumbai — closest to the users this serves
     timeout = "5s"
     grace_period = "20s"
 
-# Hazard photos. ADR-0006 keeps only a reference in the database, so without a
-# volume the row outlives the file and the photo endpoint 404s rather than
-# corrupting anything — but attach one if the photos should survive a restart:
+# Hazard photos. Outside development they are stored in the database
+# (PHOTO_STORE=db, ADR-0013), so no volume is needed. Only with PHOTO_STORE=disk
+# does the row outlive the file on a restart (the photo endpoint then 404s
+# rather than corrupting anything); attach a volume in that case:
 #   fly volumes create roadassist_data --region bom --size 1
 # [mounts]
 #   source = "roadassist_data"

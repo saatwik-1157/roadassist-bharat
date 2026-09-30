@@ -89,8 +89,9 @@ COPY --chown=node:node app/apps/web ./apps/web
 # Demo media, served at /media. Outside the workspace, hence the root context.
 COPY --chown=node:node site ./../site
 
-# Hazard-report photos land here (ADR-0006 keeps only a reference in the
-# database). Declared as a volume so a container restart does not lose them.
+# Hazard-report photos land here only with PHOTO_STORE=disk; the default
+# outside development is the database (ADR-0013). Declared as a volume so a
+# container restart does not lose disk-stored photos.
 RUN mkdir -p /repo/app/var/uploads && chown -R node:node /repo/app/var
 VOLUME ["/repo/app/var"]
 

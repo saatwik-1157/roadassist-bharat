@@ -28,6 +28,9 @@ import {
 } from "./domain/incident-review.js";
 import { describePosition, normaliseAccuracyM } from "./domain/report-position.js";
 import { uploadPath } from "./domain/upload-path.js";
+import {
+  DB_REF_PREFIX, describeCap, isDbPhotoRef, photoByteCap, photoSizeVerdict, photoStoreFor,
+} from "./domain/photo-store.js";
 import { airQuality } from "./routes/geo.js";
 
 // Re-exported for the live map in server.ts, which labels the same points and
@@ -42,14 +45,22 @@ const latLng = {
   lng: z.number().min(-180).max(180),
 };
 
-// Hazard-report photos live on disk (ADR-0006: never in the DB). The detection
-// row keeps only the key, e.g. "hazards/<id>.jpg".
+// Hazard-report photos go to one of two stores (ADR-0013, domain/photo-store.ts):
+// disk, where the row keeps the key "hazards/<id>.jpg", or the raksha_photos
+// table, where it keeps "db:hazards/<id>.jpg". PHOTO_STORE picks; unset, it is
+// disk on a developer's machine and db on the hosted demo, whose disk is wiped
+// on every redeploy. A bad value stops the server here, at boot.
+export const PHOTO_STORE = photoStoreFor(process.env.PHOTO_STORE, env.nodeEnv);
+const PHOTO_MAX_BYTES = photoByteCap(PHOTO_STORE, env.uploadMaxBytes);
 const PHOTO_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
-function savePhoto(detectionId: string, buf: Buffer, mime: string): string {
-  const ext = PHOTO_EXT[mime] ?? "bin";
-  const dir = join(env.uploadDir, "hazards");
-  mkdirSync(dir, { recursive: true });
-  const key = `hazards/${detectionId}.${ext}`;
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+async function savePhoto(tx: Tx, detectionId: string, buf: Buffer, mime: string): Promise<string> {
+  const key = `hazards/${detectionId}.${PHOTO_EXT[mime] ?? "bin"}`;
+  if (PHOTO_STORE === "db") {
+    await tx.insert(S.rakshaPhotos).values({ detectionId, mime, bytes: buf });
+    return DB_REF_PREFIX + key;
+  }
+  mkdirSync(join(env.uploadDir, "hazards"), { recursive: true });
   writeFileSync(join(env.uploadDir, key), buf);
   return key;
 }
@@ -531,8 +542,15 @@ export async function rakshaRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: { code: "photo_mime_required", title: "A photo needs its image type", retryable: false } });
       }
       photoBuf = Buffer.from(body.photoBase64, "base64");
-      if (photoBuf.length === 0 || photoBuf.length > env.uploadMaxBytes) {
-        return reply.code(400).send({ error: { code: "photo_too_large", title: `Photo must be 1 byte–${Math.round(env.uploadMaxBytes / 1e6)}MB`, retryable: false } });
+      const verdict = photoSizeVerdict(photoBuf.length, PHOTO_MAX_BYTES);
+      if (verdict === "photo_empty") {
+        return reply.code(400).send({ error: { code: "photo_empty", title: "The photo is empty", retryable: false } });
+      }
+      if (verdict === "photo_too_large") {
+        return reply.code(413).send({ error: {
+          code: "photo_too_large", retryable: false, maxBytes: PHOTO_MAX_BYTES,
+          title: `Photo must be at most ${describeCap(PHOTO_MAX_BYTES)} — pick a smaller one or update the app, which shrinks photos before sending`,
+        } });
       }
     }
 
@@ -554,7 +572,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
     const deviceId = device.id;
     const opId = "cit-" + randomBytes(12).toString("hex");
 
-    const detectionId = await db.transaction(async (tx) => {
+    const { detectionId, imageRef } = await db.transaction(async (tx) => {
       const [ins] = await tx.insert(S.rakshaDetections).values({
         deviceId, opId, detectionType: body.type,
         confidence: 1, severity: body.severity,
@@ -578,23 +596,24 @@ export async function rakshaRoutes(app: FastifyInstance) {
                  ORDER BY path <-> ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
                  LIMIT 1) seg
          WHERE rd.id = ${id}`);
-      return id;
+      // The photo is stored in the same transaction, so a photo that cannot be
+      // stored leaves no report behind claiming one.
+      let ref: string | null = null;
+      if (photoBuf && body.photoMime) {
+        ref = await savePhoto(tx, id, photoBuf, body.photoMime);
+        await tx.update(S.rakshaDetections).set({ imageRef: ref, updatedAt: new Date() })
+          .where(eq(S.rakshaDetections.id, id));
+      }
+      return { detectionId: id, imageRef: ref };
     });
-
-    // Persist the photo to disk (never the DB) and record only its key.
-    let imageRef: string | null = null;
-    if (photoBuf && body.photoMime) {
-      imageRef = savePhoto(detectionId, photoBuf, body.photoMime);
-      await db.update(S.rakshaDetections).set({ imageRef, updatedAt: new Date() })
-        .where(eq(S.rakshaDetections.id, detectionId));
-    }
 
     return reply.code(201).send(ok(
       {
         id: detectionId, status: "DETECTED", type: body.type, severity: body.severity, hasPhoto: Boolean(imageRef),
         position: describePosition({ source: "citizen", simulated: null, modelVersion: "citizen-report", accuracyM }),
       },
-      { source: "citizen", note: "Queued for authority verification; now visible on the live map." },
+      { source: "citizen", note: "Queued for authority verification; now visible on the live map.",
+        ...(imageRef ? { photoStore: PHOTO_STORE } : {}) },
     ));
   });
 
@@ -613,6 +632,18 @@ export async function rakshaRoutes(app: FastifyInstance) {
     const isAuthority = (req.user!.roles ?? []).some((r) => r === "admin" || r === "gov_officer");
     if (!isOwner && !isAuthority) {
       return reply.code(403).send({ error: { code: "forbidden", title: "Not allowed to view this photo", retryable: false } });
+    }
+    // Served from whichever store holds it, whatever PHOTO_STORE says today: a
+    // disk photo from before the switch still serves while its disk survives.
+    // A db ref is looked up by THIS detection's id, never by the ref's text, so
+    // a device that sends "db:..." as its image_ref reaches nobody's photo.
+    if (isDbPhotoRef(d.ref)) {
+      const [p] = await db.select({ mime: S.rakshaPhotos.mime, bytes: S.rakshaPhotos.bytes })
+        .from(S.rakshaPhotos).where(eq(S.rakshaPhotos.detectionId, id)).limit(1);
+      if (!p) {
+        return reply.code(404).send({ error: { code: "photo_missing", title: "Photo is unavailable", retryable: false } });
+      }
+      return reply.header("cache-control", "private, max-age=3600").type(p.mime).send(p.bytes);
     }
     const path = uploadPath(env.uploadDir, d.ref);   // a device-supplied ref may point anywhere
     if (!path || !existsSync(path)) {
@@ -844,8 +875,11 @@ export async function rakshaRoutes(app: FastifyInstance) {
         error: { code: "already_reviewed", title: `This detection is already ${current.status} and cannot be re-judged`, retryable: false },
       });
     }
-    // Reclaim the rejected report's photo file from disk (best-effort).
-    if (action === "reject" && current.imageRef) {
+    // Reclaim the rejected report's photo: its raksha_photos row, or its file
+    // on disk (best-effort). The row is DELETEd - a soft delete keeps the bytes.
+    if (action === "reject" && isDbPhotoRef(current.imageRef)) {
+      await db.delete(S.rakshaPhotos).where(eq(S.rakshaPhotos.detectionId, id));
+    } else if (action === "reject" && current.imageRef) {
       try { const p = uploadPath(env.uploadDir, current.imageRef); if (p && existsSync(p)) unlinkSync(p); } catch { /* already gone */ }
     }
     return ok(rows[0]);

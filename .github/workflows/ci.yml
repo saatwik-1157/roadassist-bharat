@@ -102,6 +102,10 @@ jobs:
       # The e2e suite sends one operator email; /v1/notify/email only mails the
       # platform's own recipients, so the suite gets one to send to.
       ALERT_EMAIL_TO: ops@example.com
+      # The hosted demo keeps hazard photos in the database (ADR-0013), but a
+      # development server defaults to disk. Run CI's on the demo's store so
+      # e2e §29 exercises it instead of skipping.
+      PHOTO_STORE: db
     services:
       db:
         image: postgis/postgis:16-3.4

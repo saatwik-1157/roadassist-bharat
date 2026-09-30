@@ -14,11 +14,11 @@
   "measuredOn": "2026-09-30",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 1065,
+    "total": 1091,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 415,
-      "e2e": 231,
+      "unit": 433,
+      "e2e": 239,
       "concurrency": 92,
       "gatewaySecurity": 58,
       "securityAudit": 106,
@@ -45,14 +45,14 @@
     }
   },
   "schema": {
-    "tables": 57,
-    "primaryKeys": 57,
-    "foreignKeys": 62,
-    "indexes": 140,
-    "uniqueIndexes": 86,
+    "tables": 58,
+    "primaryKeys": 58,
+    "foreignKeys": 63,
+    "indexes": 142,
+    "uniqueIndexes": 88,
     "gistIndexes": 5,
-    "checkConstraints": 6,
-    "migrations": 8,
+    "checkConstraints": 7,
+    "migrations": 9,
     "how": [
       "Count through pg_depend, NEVER bare information_schema.",
       "CREATE EXTENSION postgis installs spatial_ref_sys into public, which",
@@ -122,5 +122,5 @@
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."
   },
-  "adrs": 12
+  "adrs": 13
 }
