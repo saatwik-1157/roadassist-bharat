@@ -83,7 +83,7 @@ those terms is part of the build check.
 Facts that *are* asserted, all verified against the running system:
 
 - TypeScript · Fastify 5 · Drizzle ORM · Zod · jose
-- PostgreSQL 16 + PostGIS 3.4.3, 56 tables, 69 API routes (66 under `/v1`)
+- PostgreSQL 16 + PostGIS 3.4.3, 56 tables, 73 API routes (70 under `/v1`)
 - Seven roles: citizen, mechanic, admin, gov_officer, fleet_admin, fleet_driver, support
 - PWA with a service worker caching 23 shell assets; manifest with 5 shortcuts
 - Rules-based AI diagnosis (ADR-0006), with an optional HTTP model provider
@@ -91,7 +91,7 @@ Facts that *are* asserted, all verified against the running system:
   webhook — default provider is `mock`, which the live demo runs; live keys need a KYC-verified account
 - Docker Compose provides PostGIS, Redis and Redpanda locally — **Redis and
   Redpanda are provisioned but not used by application code**, and the deck says so
-- 899 automated assertions across six suites: 317 unit · 203 API e2e · 84 concurrency
+- 920 automated assertions across six suites: 334 unit · 203 API e2e · 84 concurrency
   · 87 security · 39 gateway security · 163 browser. A seventh — 22 payment-gateway
   checks — runs against a local stub of Razorpay's API and needs no account, but
   only against an API started with `PAYMENTS_PROVIDER=razorpay`; it is **not**
@@ -99,7 +99,7 @@ Facts that *are* asserted, all verified against the running system:
 - A live demo deployment: one Render web service and Neon Postgres, both in
   Singapore (no India region on the free tiers; an Indian region is the
   production target), with the showcase on GitHub Pages
-- 11 ADRs; trained YOLO11 road-damage detectors — best YOLO11s mAP50 0.472, and
+- 12 ADRs; trained YOLO11 road-damage detectors — best YOLO11s mAP50 0.472, and
   the YOLO11n (mAP50 0.443) whose detections the RAKSHA demo shows at simulated
   positions
 - Eight languages (en hi ta te bn mr kn gu) across SMS, OTP, the Android UI and the

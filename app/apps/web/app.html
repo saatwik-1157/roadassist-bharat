@@ -479,6 +479,7 @@
           <li data-ready="network"><span class="ready-k">Network</span><span class="ready-v">Checking…</span></li>
           <li data-ready="contacts"><span class="ready-k">Contacts</span><span class="ready-v">Checking…</span></li>
         </ul>
+        <div id="home-near" style="margin-top:16px" hidden></div>
 
         <div class="quick">
           <button data-nav="book">
@@ -959,6 +960,7 @@
 
 <script src="email-signin.js"></script>
 <script src="journey.js"></script>
+<script src="near.js"></script>
 <script>
 (function () {
   "use strict";
@@ -2751,6 +2753,7 @@
     if (!m || m.distanceKm == null) { el.textContent = ""; return; }
     el.textContent = m.distanceKm + " km away" +
       (b.etaMinutes ? " · ETA " + b.etaMinutes + " min" : "");
+    if (window.RANear) RANear.roadEta({ booking: b, el: el, api: api });
   }
 
   /**
@@ -3193,6 +3196,7 @@
         : loc === "denied" ? "Permission needed"
         : loc === "unsupported" ? "Not supported"
         : "Asks when used");
+    if (window.RANear && state.token) RANear.mount({ el: $("home-near"), api: api, locate: locate, online: function () { return state.online; }, auto: loc === "granted" });
 
     if (!state.token) { setReady("contacts", "warn", "Sign in"); return; }
     try {
@@ -4488,7 +4492,8 @@
         "<h3 class='title grow'>Weather ahead</h3>" +
         (w ? "<span class='pill " + (RISK_PILL[w.risk] || "") + "'>" + esc(w.risk) + "</span>" : "") +
       "</div><p class='meta' style='margin-top:7px'>" +
-      (w ? esc(w.factors.join(" · ")) + " (next " + esc(w.horizonHours) + " h, live forecast)"
+      (w ? esc(w.factors.join(" · ")) + " (next " + esc(w.horizonHours) + " h, live forecast)" +
+        (w.airQuality && (w.airQuality.start || w.airQuality.end) ? "<br>Air quality: US AQI " + esc((w.airQuality.start || w.airQuality.end).usAqi) + " · " + esc((w.airQuality.start || w.airQuality.end).band) : "")
          : "Forecast service unreachable — prepare again when online.") +
       "</p></div>";
 

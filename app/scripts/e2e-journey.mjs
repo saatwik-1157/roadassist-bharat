@@ -1061,6 +1061,31 @@ console.log("\n25. Hardening");
      relay.status === 403 && relay.error?.code === "recipient_not_allowed", `got ${relay.status} ${relay.error?.code ?? ""}`);
 }
 
+// ── 26. location services (routes/geo.ts) ─────────────────────────────────
+// The providers are donated public services, so a test run must never call
+// them: GEO_SERVICES is off in development, test and CI, and these check the
+// gate around the lookups rather than the lookups themselves (those are
+// unit-tested against recorded responses in apps/api/test/geo.test.ts).
+console.log("\n26. Location services");
+{
+  const anon = await call("GET", "/v1/geo/address?lat=28.46&lng=77.03");
+  ok("an address lookup needs a signed-in caller", anon.status === 401, `got ${anon.status}`);
+  const abroad = await call("GET", "/v1/geo/nearby?lat=51.5&lng=-0.12", { token });
+  ok("a point outside India is refused, not sent to a provider",
+     abroad.status === 400 && abroad.error?.code === "outside_region", `got ${abroad.status} ${abroad.error?.code ?? ""}`);
+  const off = await Promise.all([
+    call("GET", "/v1/geo/address?lat=28.46&lng=77.03", { token }),
+    call("GET", "/v1/geo/nearby?lat=28.46&lng=77.03", { token }),
+    call("GET", "/v1/geo/route?fromLat=28.46&fromLng=77.03&toLat=28.61&toLng=77.21", { token }),
+    call("GET", "/v1/geo/earthquakes", { token }),
+  ]);
+  ok("with GEO_SERVICES off every lookup says so instead of inventing a place",
+     off.every((r) => r.status === 503 && r.error?.code === "geo_disabled"),
+     off.map((r) => `${r.status} ${r.error?.code ?? ""}`).join(", "));
+  const bad = await call("GET", "/v1/geo/address?lat=north&lng=77.03", { token });
+  ok("a malformed coordinate is a 400", bad.status === 400, `got ${bad.status}`);
+}
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

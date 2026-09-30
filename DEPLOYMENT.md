@@ -184,6 +184,38 @@ you@example.com=+919999900001, teammate@example.com=+919600000000
 The boot log prints `email sign-in: N account(s)`, and any malformed entry is
 logged as ignored rather than half-applied.
 
+## Optional · Location services — on by default, **YOU** decide
+
+The citizen app's "Near you" card, the road ETA on a live rescue, the RAKSHA
+"Corridor conditions" panel and the corridor report's air quality come from open
+data, fetched by the server: OpenStreetMap Nominatim and Overpass, the OSRM demo
+router, Open-Meteo air quality and the USGS earthquake feed
+([ADR-0012](app/docs/adr/0012-open-map-location-services.md)). None needs an
+account or a key.
+
+`GEO_SERVICES` controls them:
+
+| Value | Effect |
+|---|---|
+| unset | **Off** under `NODE_ENV` `development`, `test` or `ci`; **on** anywhere else. The blueprint runs `demo`, so the live service has them on |
+| `on` | On, whatever `NODE_ENV` says. Use it to try them on a development machine |
+| `off` | Off. `/v1/geo/*` answer `503 geo_disabled`, the corridor report has no air quality, and the screens say the lookup is unavailable |
+
+Two things to know before leaving them on:
+
+- Every host is outside India, and Nominatim, Overpass and OSRM receive a
+  signed-in user's position, coarsened to about 110 m or 1 km. That is a stated
+  exception to non-negotiable #4; set `off` for any deployment with real users
+  until self-hosted instances in an Indian region replace them.
+- `docker-compose.demo.yml` also runs `NODE_ENV=demo`, so the one-command demo
+  calls these services too. It does not pass `GEO_SERVICES` through from your
+  shell, so to keep it offline add `GEO_SERVICES: "off"` to the api service's
+  `environment` block in that file.
+
+The boot log does not report the setting. A lookup's answer is how to tell:
+`geo_disabled` means off; `geo_unavailable` means on, with the provider not
+answering.
+
 ## 3 · Point the domain — **YOU**
 
 In Render: **Settings → Custom Domains → Add** `app.roadassistbharat.online`.
@@ -242,7 +274,7 @@ The image is not trusted because it built. `.github/workflows/publish-image.yml`
 boots it against a real PostGIS and runs the suites **against the running
 container** before publishing:
 
-- 209 end-to-end assertions and 87 security attacks, `API=` pointed at the
+- 213 end-to-end assertions and 87 security attacks, `API=` pointed at the
   container
 - every surface answers 200: `/app.html`, `/mechanic.html`, `/raksha.html`,
   `/map.html`, `/health`, `/v1/ping`

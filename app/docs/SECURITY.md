@@ -238,6 +238,38 @@ names, environment, uptime and live stream counts moved behind `?detail=1` plus
 an operator role — that detail is useful to an operator and equally useful to
 somebody mapping the deployment.
 
+### Outbound calls for location services
+
+`apps/api/src/routes/geo.ts` ([ADR-0012](adr/0012-open-map-location-services.md))
+adds five egress hosts, each declared with its region and what it receives in
+`scripts/check-data-residency.mjs`: `nominatim.openstreetmap.org`,
+`overpass-api.de`, `router.project-osrm.org`, `air-quality-api.open-meteo.com`
+and `earthquake.usgs.gov`. All five are outside India.
+
+- **Server-side only.** The pages call `/v1/geo/*` on this platform, so no
+  visitor's IP address reaches a provider. The routes require a signed-in
+  caller and share a per-principal limit of 40 requests a minute.
+- **Coarsened first.** Address and route lookups round to 3 decimal places
+  (about 110 m), a nearby search to 2 (about 1 km). Air quality is asked only
+  at the RAKSHA corridor's fixed segment midpoints, and the earthquake query
+  carries only a fixed bounding box and a date. A point outside India is
+  refused with `400 outside_region` before any provider is asked.
+- **Paced and cached.** One request at a time per provider, at least about a
+  second apart (two for Overpass), with a bounded queue that answers
+  `503 geo_unavailable` when full rather than growing. Caches: address 24 h,
+  nearby 6 h, route 10 min, earthquakes 15 min, air quality 30 min. Every call
+  carries an identifying User-Agent, as the providers' terms ask.
+- **Off by default where tests run.** `GEO_SERVICES` unset means off under
+  `NODE_ENV` `development`, `test` and `ci`, and on anywhere else; `on`/`off`
+  override it. Off answers `503 geo_disabled`, so no test run or CI job sends a
+  position anywhere.
+
+**Still open:** coarsening reduces what leaves but does not anonymise it. A
+position rounded to about 110 m is still personal data, sent outside India.
+That is a stated exception to non-negotiable #4, acceptable only because the
+demo already runs in Singapore. Self-hosted Nominatim and OSRM in an Indian
+region is the production answer, and is not built.
+
 ## Secrets
 
 No secret is in source, in the image, in Git or in logs. The production image
@@ -317,3 +349,8 @@ least-privilege role needs the Neon console.
 4. **No live payment gateway** has ever been exercised.
 5. **No WAF, no DDoS protection** — those belong to infrastructure that is not
    provisioned.
+6. **Location lookups send coarsened positions outside India** (Nominatim,
+   Overpass, OSRM) wherever `GEO_SERVICES` is on. That is the default under
+   `NODE_ENV=demo`, which is what the live demo and `docker-compose.demo.yml`
+   run.
+   See "Outbound calls for location services" above.

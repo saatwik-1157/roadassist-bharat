@@ -78,8 +78,8 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 317 unit — no I/O, the only ones that run standalone
-npm run test:e2e         # 209
+npm test                 # 334 unit — no I/O, the only ones that run standalone
+npm run test:e2e         # 213
 npm run test:concurrency # 84
 npm run test:gateway     # 39
 npm run test:security    # 87 attacks, every one must be refused
@@ -111,9 +111,9 @@ they fail on their first sign-in there. The demo stack resets with
 local stub of the Orders API and signs webhooks with a stub secret — but it
 refuses to run (exit 2) unless the API was started with the variables in the
 script's header (`PAYMENTS_PROVIDER=razorpay`, `PAYMENTS_BASE_URL` at the stub).
-It is **not** part of the 899 and must never be described as passing.
+It is **not** part of the 920 and must never be described as passing.
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (115
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (135
 tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
 
 ## Toolchain traps
@@ -182,6 +182,21 @@ launch. The Server card in **More** changes it after sign-in.
 It is written here rather than drawn on the screen, which is the whole point —
 so it has to be written here. The field is only committed when it is visible, so
 a stale value cannot overwrite what `MainActivity.onCreate` restored.
+
+## Open map services
+
+The `/v1/geo/*` routes (`apps/api/src/routes/geo.ts`, ADR-0012) are **off in
+development, test and CI**, so a local "Near you" card answering
+`geo_disabled` is the correct result, not a bug. Start the API with
+`GEO_SERVICES=on` to try them against the real providers.
+
+**The public Overpass server is the slow one.** A nearby search takes about
+10 s, and when the server is busy, which is often, it answers 429 or 504
+instead. So the route gets one paced retry after a 429/502/503/504 and caches
+each answer for six hours per ~1 km cell. The first lookup in a new area can
+still fail, and the card then says so and offers "Try again". A mirror is not
+the way out yet: the kumi.systems and private.coffee Overpass mirrors both
+timed out when tried on 2026-09-30.
 
 ## Migrations
 

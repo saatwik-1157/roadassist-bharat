@@ -13,7 +13,7 @@ this project does not have.
 |---|---|
 | Production Docker image builds | ✅ **Verified** — `docker build`, 321 MB, runs as `node` (uid 1000) |
 | Image runs and serves the whole platform | ✅ **Verified** — API, citizen app, mechanic console, authority dashboard, media |
-| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 209 e2e assertions and 87 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
+| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 213 e2e assertions and 87 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
 | Health check reports the database honestly | ✅ **Verified** — 503 with `database: "down"` when Postgres is unreachable |
 | Graceful shutdown | ✅ **Verified** — SIGTERM → exit code 0, no force kill |
 | Production CORS allowlist | ✅ **Verified** — allowed origin reflected, other origins refused |
@@ -158,6 +158,19 @@ the proxy (`127.0.0.1,::1`), never `true`. Trusting every hop lets any client se
 `X-Forwarded-For` itself, mint a fresh address per request, and walk straight
 through the per-IP OTP ceiling. It is off by default and the server logs a
 warning if you set it to `true`.
+
+**`GEO_SERVICES` is not mandatory, but its default flips.** It switches the
+location services (`/v1/geo/*` and the corridor report's air quality,
+[ADR-0012](adr/0012-open-map-location-services.md)), which call OpenStreetMap
+Nominatim and Overpass, the OSRM demo router, Open-Meteo and the USGS from the
+server. Unset, it is **off** when `NODE_ENV` is `development`, `test` or `ci`,
+so no test run calls a donated service, and **on** anywhere else, including
+`demo` and `production`. `on` or `off` overrides that. Off, the routes answer
+`503 geo_disabled` and the screens say the lookup is unavailable. Three of the
+hosts receive a user's position, coarsened but outside India, so a deployment
+for real users should set `off` until self-hosted instances in an Indian region
+replace them. Nothing is logged at boot about it; the first lookup's answer is
+how to tell.
 
 ### Verified failure behaviour
 
@@ -362,6 +375,7 @@ IMAGE_TAG=<previous-tag> docker compose -f docker-compose.prod.yml \
 # restart, not a code change.
 PAYMENTS_PROVIDER=mock   # settles nothing, and refuses to boot in production
 AI_PROVIDER=rules        # the permanent fallback, always safe
+GEO_SERVICES=off         # /v1/geo/* answer 503 geo_disabled; corridor report drops air quality
 ```
 
 **Migration rollback.** Migrations `0000`–`0004` are all additive — new columns,

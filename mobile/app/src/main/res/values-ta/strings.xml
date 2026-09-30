@@ -139,4 +139,26 @@
     <string name="incident_keep_open">திறந்தே வைத்திரு</string>
     <string name="toast_incident_closed">அவசரநிலை மூடப்பட்டது</string>
     <string name="toast_incident_false_alarm">தவறான எச்சரிக்கை பதிவு செய்யப்பட்டது</string>
+    <string name="near_title">உங்கள் அருகில்</string>
+    <string name="near_intro">உங்களைச் சுற்றியுள்ள மருத்துவமனைகள், காவல் நிலையங்கள், எரிபொருள், EV சார்ஜர்கள், பழுதுபார்க்கும் கடைகள், உங்கள் அருகிலுள்ள முகவரியுடன்.</string>
+    <string name="near_find">என் அருகில் உதவி தேடு</string>
+    <string name="near_loading">உங்கள் அருகில் உதவி தேடுகிறது…</string>
+    <string name="near_offline">இதற்கு இணைப்பு தேவை. உங்கள் SOS ஆஃப்லைனிலும் இயங்கும்.</string>
+    <string name="near_disabled">இந்த சர்வரில் இருப்பிடச் சேவைகள் முடக்கப்பட்டுள்ளன.</string>
+    <string name="near_unreachable">வரைபடச் சேவை பதிலளிக்கவில்லை.</string>
+    <string name="near_no_address">வரைபடத்தில் இந்த இடத்துக்குத் தெரு முகவரி இல்லை.</string>
+    <string name="near_demo_no_permission">இருப்பிட அனுமதி வழங்கப்படவில்லை, எனவே இது NH-48, குருகிராமின் டெமோ புள்ளி, நீங்கள் இருக்கும் இடம் அல்ல.</string>
+    <string name="near_demo_no_fix">இன்னும் இருப்பிடம் கிடைக்கவில்லை, எனவே இது NH-48, குருகிராமின் டெமோ புள்ளி, நீங்கள் இருக்கும் இடம் அல்ல.</string>
+    <string name="near_kind_hospital">மருத்துவமனை</string>
+    <string name="near_kind_police">காவல்துறை</string>
+    <string name="near_kind_fuel">எரிபொருள்</string>
+    <string name="near_kind_charging">EV சார்ஜிங்</string>
+    <string name="near_kind_repair">பழுதுபார்ப்பு / டயர்</string>
+    <string name="near_none">%1$d கி.மீ.க்குள் வரைபடத்தில் எதுவும் இல்லை</string>
+    <string name="near_unnamed">பெயரில்லா இடம்</string>
+    <string name="near_more">+%1$d மேலும் அருகில்</string>
+    <string name="near_call">அழை</string>
+    <string name="near_cd_call">%1$s ஐ அழை</string>
+    <string name="near_footer">சமூக வரைபடத் தரவிலிருந்து நேர்கோட்டுத் தூரம்.</string>
+    <string name="near_call_112">அவசரத்தில் 112 ஐ அழையுங்கள்</string>
 </resources>

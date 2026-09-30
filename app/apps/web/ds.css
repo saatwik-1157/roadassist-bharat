@@ -625,3 +625,16 @@ body { background: transparent; }
     transition-duration: 0.001ms !important; scroll-behavior: auto !important;
   }
 }
+
+/* ── "Near you" card (near.js): nearest help from open map data ─────────── */
+.near-card { padding: 16px 18px; }
+.near-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.near-src { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.near-addr { margin: 8px 0 0; font-weight: 600; line-height: 1.45; }
+.near-demo { margin: 4px 0 0; }
+.near-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.near-row { display: grid; grid-template-columns: 7.2em 1fr; gap: 10px; font-size: 13px; line-height: 1.45; }
+.near-k { color: var(--text-3); font-weight: 600; }
+.near-v small { display: block; }
+.near-foot { margin: 12px 0 0; font-size: 11.5px; }
+.road-eta { color: var(--text-2); }

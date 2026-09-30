@@ -14,7 +14,8 @@
 // a viewer who already installed v1 does not keep a shell missing the new files.
 // v10: keys are the bare pathname, so v9's query-string entries are dropped.
 // v11: the hazard-report photo, the mechanic sign-in hint (app.html, mechanic.html).
-const VERSION = "ra-v11";
+// v12: near.js ("Near you", road ETA) joins the shell; app.html and ds.css changed.
+const VERSION = "ra-v12";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -32,6 +33,8 @@ const SHELL_ASSETS = [
   "/email-signin.js",
   // app.html runs on it before its own script does — uncached, no screen draws.
   "/journey.js",
+  // "Near you" and road ETAs; it degrades to "needs a connection" offline.
+  "/near.js",
   "/manifest.webmanifest",
   // Off-Grid Mode (ADR-0009). Without these cached, the feature that exists for
   // a dead network would need the network to load.

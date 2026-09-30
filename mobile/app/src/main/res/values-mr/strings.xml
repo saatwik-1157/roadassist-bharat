@@ -139,4 +139,26 @@
     <string name="incident_keep_open">सुरू ठेवा</string>
     <string name="toast_incident_closed">आणीबाणी बंद केली</string>
     <string name="toast_incident_false_alarm">खोटा इशारा नोंदवला</string>
+    <string name="near_title">तुमच्या जवळ</string>
+    <string name="near_intro">तुमच्या आसपासची रुग्णालये, पोलीस, इंधन, EV चार्जर आणि दुरुस्तीची दुकाने, तुमच्या जवळच्या पत्त्यासह.</string>
+    <string name="near_find">माझ्या जवळ मदत शोधा</string>
+    <string name="near_loading">तुमच्या जवळ मदत शोधत आहोत…</string>
+    <string name="near_offline">यासाठी कनेक्शन हवे. तुमचा SOS ऑफलाइनही चालतो.</string>
+    <string name="near_disabled">या सर्व्हरवर लोकेशन सेवा बंद आहेत.</string>
+    <string name="near_unreachable">नकाशा सेवेने उत्तर दिले नाही.</string>
+    <string name="near_no_address">नकाशावर या जागेचा रस्त्याचा पत्ता नाही.</string>
+    <string name="near_demo_no_permission">लोकेशनची परवानगी दिलेली नाही, म्हणून हा NH-48, गुरुग्राम येथील डेमो बिंदू आहे, तुमचे ठिकाण नाही.</string>
+    <string name="near_demo_no_fix">अजून लोकेशन मिळाले नाही, म्हणून हा NH-48, गुरुग्राम येथील डेमो बिंदू आहे, तुमचे ठिकाण नाही.</string>
+    <string name="near_kind_hospital">रुग्णालय</string>
+    <string name="near_kind_police">पोलीस</string>
+    <string name="near_kind_fuel">इंधन</string>
+    <string name="near_kind_charging">EV चार्जिंग</string>
+    <string name="near_kind_repair">दुरुस्ती / टायर</string>
+    <string name="near_none">%1$d किमीच्या आत नकाशावर काही नाही</string>
+    <string name="near_unnamed">नाव नसलेली जागा</string>
+    <string name="near_more">+%1$d आणखी जवळपास</string>
+    <string name="near_call">कॉल करा</string>
+    <string name="near_cd_call">%1$s ला कॉल करा</string>
+    <string name="near_footer">सामुदायिक नकाशा डेटावरून सरळ रेषेतील अंतर.</string>
+    <string name="near_call_112">आपत्कालीन परिस्थितीत 112 वर कॉल करा</string>
 </resources>

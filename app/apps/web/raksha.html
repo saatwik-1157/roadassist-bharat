@@ -194,6 +194,17 @@
   .lb .lb-close { position: absolute; top: 14px; right: 14px; width: 42px; height: 42px; border-radius: 50%;
     border: 1px solid var(--line); background: rgba(20,24,32,.85); color: var(--text); font-size: 20px; cursor: pointer; }
   .lb .lb-n { color: var(--text-3); font-size: 11px; letter-spacing: .12em; font-weight: 700; }
+  .cond-h { font-size: 12px; font-weight: 700; margin: 16px 0 6px; color: var(--text-2); }
+  .cond-h small { font-weight: 500; color: var(--text-3); }
+  .cond-row { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .cond-row:last-child { border-bottom: 0; }
+  .cond-row .k { color: var(--text-3); min-width: 8.5em; }
+  .cond-row .v { flex: 1; }
+  .quake { display: flex; gap: 9px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .quake:last-child { border-bottom: 0; }
+  .quake .mag { font-weight: 800; min-width: 3.2em; }
+  .quake small { display: block; color: var(--text-3); font-size: 11px; }
+  .lb .lb-addr { display: block; color: var(--text); font-size: 12.5px; margin-top: 4px; }
   @media (max-width: 640px) { .lb .lb-btn { top: auto; bottom: 16px; transform: none; } .ph-grid { grid-template-columns: repeat(3, 1fr); } }
 
   /* ── device fleet ──────────────────────────────────────────────────────── */
@@ -377,6 +388,15 @@
         (the filtered set, capped at 100) — not a whole-corridor aggregate.</p>
     </section>
 
+    <section class="panel" hidden id="cond-panel">
+      <h2><span class="grow">Corridor conditions</span><span class="pill bare" id="cond-at"></span></h2>
+      <div id="cond"><p class="hint">Loading weather and air quality…</p></div>
+      <h3 class="cond-h">Earthquakes in and around India <small>· last 7 days · magnitude 4+</small></h3>
+      <div id="quakes"><p class="hint">Loading…</p></div>
+      <p class="hint" style="margin-top:10px">Weather, visibility and air quality from Open-Meteo at the corridor's two
+        ends; earthquakes from the USGS. Fetched by this server, never by your browser.</p>
+    </section>
+
     <section class="panel" hidden id="photo-panel">
       <h2><span class="grow">Hazard photos</span><span class="pill bare" id="ph-count"></span></h2>
       <p class="hint" style="margin:-4px 0 0">Edge-device frames are the RDD2022 India images the model ran
@@ -551,10 +571,61 @@
       $("lb-img").alt = url ? String(d.detection_type).replace(/_/g, " ") + " photo, severity " + d.severity : "Photo unavailable";
     });
     $("lb-cap").innerHTML = photoCaption(d);
+    placeFor(d, function (label) {
+      if (!label || lbAt < 0 || photos[lbAt] !== d) return;
+      var line = document.createElement("span");
+      line.className = "lb-addr";
+      line.textContent = (d.source === "citizen" ? "Near " : "Simulated point near ") + label;
+      $("lb-cap").appendChild(line);
+    });
     $("lb-n").textContent = (lbAt + 1) + " / " + photos.length;
     $("lb-prev").hidden = $("lb-next").hidden = photos.length < 2;
     if ($("lb").hidden) { lbReturn = document.activeElement; $("lb").hidden = false; $("lb-close").focus(); }
   }
+  // The readable place for a detection, from OpenStreetMap via this server
+  // (/v1/geo/address). Asked once per detection, only when its photo is
+  // opened, so the dashboard never fires a burst of lookups.
+  var places = {};
+  function placeFor(d, done) {
+    if (d.lat == null || !token || offline) return done(null);
+    if (places[d.id] !== undefined) return done(places[d.id]);
+    call("GET", "/v1/geo/address?lat=" + d.lat + "&lng=" + d.lng)
+      .then(function (r) { done(places[d.id] = (r.data.address && r.data.address.label) || null); })
+      .catch(function () { done(null); });
+  }
+
+  // ── corridor conditions: weather, visibility, air quality, earthquakes ───
+  var condAt = 0;
+  function loadConditions(force) {
+    if (!token || offline || (!force && Date.now() - condAt < 10 * 60 * 1000)) return;
+    condAt = Date.now();
+    call("GET", "/v1/trip/prepare").then(function (r) {
+      var w = r.data && r.data.weather, rows = [];
+      if (!w) { $("cond").innerHTML = "<p class='hint'>The forecast service did not answer. It retries in 10 minutes.</p>"; return; }
+      rows.push(["Weather risk", "<b>" + esc(w.risk) + "</b> · " + esc(w.factors.join(" · "))]);
+      var vis = [w.start, w.end].filter(Boolean).map(function (x) { return x.minVisibilityM; });
+      if (vis.length) rows.push(["Lowest visibility", esc(Math.min.apply(null, vis).toLocaleString()) + " m in the next " + esc(w.horizonHours) + " h"]);
+      var aq = w.airQuality;
+      [["Air quality (start)", aq && aq.start], ["Air quality (end)", aq && aq.end]].forEach(function (p) {
+        if (p[1]) rows.push([p[0], "US AQI <b>" + esc(p[1].usAqi) + "</b> · " + esc(p[1].band) +
+          (p[1].pm25 != null ? " · PM2.5 " + esc(p[1].pm25) + " µg/m³" : "")]);
+      });
+      if (!aq) rows.push(["Air quality", "<span class='hint'>not available right now</span>"]);
+      $("cond").innerHTML = rows.map(function (x) {
+        return "<div class='cond-row'><span class='k'>" + x[0] + "</span><span class='v'>" + x[1] + "</span></div>";
+      }).join("");
+      $("cond-at").textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }).catch(function (e) { $("cond").innerHTML = "<p class='hint'>" + esc(e.message) + "</p>"; });
+    call("GET", "/v1/geo/earthquakes").then(function (r) {
+      var q = r.data.quakes || [];
+      $("quakes").innerHTML = q.length ? q.map(function (x) {
+        return "<div class='quake'><span class='mag' style='color:" + (x.magnitude >= 6 ? "#ff4d5a" : x.magnitude >= 5 ? "#ff9f43" : "#ffd166") + "'>M" +
+          esc(x.magnitude.toFixed(1)) + "</span><span>" + esc(x.place) + "<small>" + esc(new Date(x.time).toLocaleString()) +
+          " · depth " + esc(x.depthKm) + " km" + (x.url ? " · <a href='" + esc(x.url) + "' target='_blank' rel='noopener'>USGS</a>" : "") + "</small></span></div>";
+      }).join("") : "<p class='hint'>None of magnitude 4 or more in the last 7 days.</p>";
+    }).catch(function (e) { $("quakes").innerHTML = "<p class='hint'>" + esc(e.message) + "</p>"; });
+  }
+
   function closePhoto() {
     $("lb").hidden = true; lbAt = -1;
     if (lbReturn && lbReturn.focus) lbReturn.focus();
@@ -1082,6 +1153,7 @@
   function refresh() {
     if (refreshInFlight) return Promise.resolve();
     refreshInFlight = true;
+    loadConditions();
     return Promise.all([loadSegments(), loadDetections(), loadDevices()])
       .then(function (results) {
         var fresh = results[1];
@@ -1231,7 +1303,7 @@
     $("who").textContent = who + " · " + rolesText;
     $("login-panel").hidden = true;
     $("signout-btn").hidden = false;
-    ["health-panel", "photo-panel", "det-panel", "dev-panel", "sms-panel"].forEach(function (id) { $(id).hidden = false; });
+    ["health-panel", "cond-panel", "photo-panel", "det-panel", "dev-panel", "sms-panel"].forEach(function (id) { $(id).hidden = false; });
     if (!(roles || []).includes("admin") && !(roles || []).includes("gov_officer")) {
       status("This account has no authority role — RAKSHA data is admin/gov-officer only.");
       return;
@@ -1248,7 +1320,7 @@
     $("who").textContent = "not signed in";
     $("login-panel").hidden = false;
     $("signout-btn").hidden = true;
-    ["health-panel", "photo-panel", "det-panel", "dev-panel", "sms-panel", "export-panel"]
+    ["health-panel", "cond-panel", "photo-panel", "det-panel", "dev-panel", "sms-panel", "export-panel"]
       .forEach(function (id) { $(id).hidden = true; });
     if (!silent) status("Signed out.");
   }
@@ -1296,7 +1368,7 @@
   $("cached-btn").onclick = function () {
     offline = true;
     $("login-panel").hidden = true;
-    ["health-panel", "photo-panel", "det-panel", "dev-panel", "export-panel"].forEach(function (id) { $(id).hidden = false; });
+    ["health-panel", "cond-panel", "photo-panel", "det-panel", "dev-panel", "export-panel"].forEach(function (id) { $(id).hidden = false; });
     $("who").textContent = "offline · cached snapshot";
     var liveEl = $("live");
     liveEl.classList.add("on", "offline");

@@ -21,12 +21,12 @@ npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Deskt
 npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run share                                               # → public HTTPS url, for real phones
-npm run verify && npm run test:e2e                          # 317 unit + 209 end-to-end
+npm run verify && npm run test:e2e                          # 334 unit + 213 end-to-end
 npm run test:gateway                                        # 39 gateway-security checks
 npm run test:concurrency                                    # 84 race / idempotency / real-time
 npm run test:security                                       # 87 attacks, all must be refused
 npm run test:ui                                             # 163 browser-journey checks
-npm run test:razorpay                                       # 22 payment-gateway checks: not in the 899, see below
+npm run test:razorpay                                       # 22 payment-gateway checks: not in the 920, see below
 ```
 
 > `db:seed` is not idempotent — against an already-seeded database run
@@ -121,11 +121,11 @@ against a fresh PostGIS container on every push.
 |---|---|---|
 | 0 · Research | Problem validation, integration feasibility, constraints | ✅ [`../docs/`](../docs/) |
 | 1 · Planning | Backlog, repo scaffold, CI pipeline, quality gates | ✅ |
-| 2 · Architecture | C4 diagrams, 11 ADRs, event catalogue, API style guide, failure matrix, threat model | ✅ [`docs/`](docs/) |
+| 2 · Architecture | C4 diagrams, 12 ADRs, event catalogue, API style guide, failure matrix, threat model | ✅ [`docs/`](docs/) |
 | 3 · Database | 56 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
 | 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS, gateway-verified payments | ◐ slice complete, full surface pending |
-| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 115 tests); no React Native app |
+| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 135 tests); no React Native app |
 | 7 · AI | Rules engine + trained CV model on RDD2022: best YOLO11s (`yolo11s-multi-rich`, 4 countries, mAP50 0.472 · mAP50-95 0.226); YOLO11n on the full India set, mAP50 0.443 · mAP50-95 0.183 (`ai/train-full.log`) — the model whose detections RAKSHA shows (see ai/) | ◐ undertrained (epoch 13 of 100); its recorded detections feed RAKSHA, the model itself is not served on the hosted demo; GPU training is the path up |
 | R · RAKSHA | Edge simulator → offline queue → idempotent sync → segments → road health → authority verify/close | ◐ MVP slice live. Demo detections are real YOLO11 output at SIMULATED NH-48 positions; the edge simulator's own detector (`sim-rules-0.1.0`) is SIMULATED (ADR-0007) |
 | O · Off-Grid | Connectivity manager (ONLINE/LIMITED/OFF-GRID), offline SOS, on-device diagnosis, encrypted sync journal, cached maps | ✅ (ADR-0009); satellite/mesh explicitly NOT implemented |
@@ -373,7 +373,7 @@ settlement that no client can assert for itself.
 ```
 app/
 ├── docs/
-│   ├── adr/                  11 architecture decision records
+│   ├── adr/                  12 architecture decision records
 │   ├── architecture/         C4 diagrams · events · degraded modes · failure matrix · API style guide
 │   └── security/             STRIDE threat model, 20 threats mapped to controls
 ├── apps/

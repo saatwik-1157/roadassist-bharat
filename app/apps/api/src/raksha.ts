@@ -26,6 +26,7 @@ import {
 } from "./domain/incident-review.js";
 import { describePosition, normaliseAccuracyM } from "./domain/report-position.js";
 import { uploadPath } from "./domain/upload-path.js";
+import { airQuality } from "./routes/geo.js";
 
 // Re-exported for the live map in server.ts, which labels the same points and
 // must use the same sentence (and, taken from here, adds no line to server.ts
@@ -160,9 +161,13 @@ export async function rakshaRoutes(app: FastifyInstance) {
 
     const withMid = segOut.filter((s) => s.mid);
     const first = withMid[0]?.mid, last = withMid[withMid.length - 1]?.mid;
-    const [wStart, wEnd] = await Promise.all([
+    const [wStart, wEnd, aStart, aEnd] = await Promise.all([
       first ? forecast(first.lat, first.lng) : null,
       last ? forecast(last.lat, last.lng) : null,
+      // Air quality at the same two corridor points (fixed segment midpoints,
+      // not anybody's position). Winter smog on NH-48 is a visibility hazard.
+      first ? airQuality(first.lat, first.lng) : null,
+      last ? airQuality(last.lat, last.lng) : null,
     ]);
     const worst = [wStart, wEnd].filter(Boolean) as NonNullable<typeof wStart>[];
     const factors: string[] = [];
@@ -175,6 +180,8 @@ export async function rakshaRoutes(app: FastifyInstance) {
       else if (rain >= 30) factors.push(`rain possible (${rain}% peak probability)`);
       if (vis < 2000) factors.push(`low visibility ahead (${vis} m minimum)`);
       if (wind >= 40) factors.push(`strong wind (${wind} km/h peak)`);
+      const aqi = Math.max(aStart?.usAqi ?? 0, aEnd?.usAqi ?? 0);
+      if (aqi > 150) factors.push(`poor air quality (US AQI ${aqi}: smog can cut visibility)`);
       weatherRisk = factors.length >= 2 ? "HIGH" : factors.length === 1 ? "MEDIUM" : "LOW";
       if (!factors.length) factors.push("no significant weather flags in the next 6 hours");
     }
@@ -203,7 +210,8 @@ export async function rakshaRoutes(app: FastifyInstance) {
       preparedAt: new Date().toISOString(),
       segments: segOut,
       weather: worst.length
-        ? { risk: weatherRisk, factors, start: wStart, end: wEnd, horizonHours: 6 }
+        ? { risk: weatherRisk, factors, start: wStart, end: wEnd, horizonHours: 6,
+            airQuality: aStart || aEnd ? { start: aStart, end: aEnd, source: "Open-Meteo air quality" } : null }
         : null,
       tiles: [...tiles].slice(0, 120),
     }, { notes });

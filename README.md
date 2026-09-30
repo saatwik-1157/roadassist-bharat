@@ -13,7 +13,7 @@ built for the roads where coverage is worst.
 [![CI](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/ci.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/ci.yml)
 [![Image](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/publish-image.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/publish-image.yml)
 [![Pages](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/pages.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/pages.yml)
-![Assertions](https://img.shields.io/badge/assertions-899%20passing-2ea44f)
+![Assertions](https://img.shields.io/badge/assertions-920%20passing-2ea44f)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)
 ![PostGIS](https://img.shields.io/badge/PostgreSQL%2016-PostGIS-336791?logo=postgresql&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-Kotlin%20%2B%20Compose-3DDC84?logo=android&logoColor=white)
@@ -103,6 +103,7 @@ how the work was split.
 | Architecture in live 3D | [`/layers.html`](https://app.roadassistbharat.online/layers.html) | Ships. It reads live figures from the running platform |
 | Native Android client | [`mobile/`](mobile/) | Ships. Kotlin + Compose, release APK under R8 |
 | Feature phone over SMS | `POST /v1/telecom/sms` | Ships. A complete booking with no app at all |
+| "Near you" card in the citizen app | `/app.html` home screen | Ships. Nearest address and help from OpenStreetMap, [below](#location-services) |
 | iOS · Android Auto · IVR · USSD | n/a | **Designed, not built** |
 
 <table>
@@ -125,6 +126,7 @@ how the work was split.
 | **Edge** | Cloudflare in front of Render. The client address comes from `CF-Connecting-IP`, which the caller cannot forge |
 | **Showcase** | <https://roadassistbharat.online>: a static page on GitHub Pages that embeds the live platform |
 | **Email** | Alert emails and sign-in codes go through Resend from a verified domain |
+| **Open data** | Server-side only: Open-Meteo weather and air quality, OpenStreetMap Nominatim and Overpass, the OSRM demo router and the USGS earthquake feed. All are outside India |
 | **Mode** | `NODE_ENV=demo` with the `mock` payment provider and no SMS gateway, and every screen says so |
 
 **Signing in to the demo.** With no SMS gateway, the server shows the one-time
@@ -137,6 +139,43 @@ sign in by emailed code only.
 **Simulated data, labelled as such.** The 24 mechanics and the police and
 ambulance responders on the live map are seeded and marked "(simulated)".
 RAKSHA's detections are real YOLO11 output placed at simulated NH-48 positions.
+
+### Location services
+
+Open map data, fetched by the server and never by the browser
+([ADR-0012](app/docs/adr/0012-open-map-location-services.md)). Four signed-in
+routes in `apps/api/src/routes/geo.ts`:
+
+| Route | What it answers | Source |
+|---|---|---|
+| `GET /v1/geo/address` | A readable place for a point | OpenStreetMap Nominatim |
+| `GET /v1/geo/nearby` | Hospitals, police, fuel, EV charging, repair and tyres around a point | OpenStreetMap Overpass |
+| `GET /v1/geo/route` | Road distance and driving time, with no live traffic | OSRM demo router |
+| `GET /v1/geo/earthquakes` | Magnitude 4+ in and around India, last 7 days | USGS |
+
+The RAKSHA corridor report (`GET /v1/trip/prepare`) also reads air quality
+from Open-Meteo at the corridor's two ends and adds a "poor air quality" risk
+factor above US AQI 150.
+
+- **Where it shows.** The citizen home screen's "Near you" card (nearest
+  address and help, `tel:` links only when the map has a number, and "call
+  112"). It loads by itself only if location permission is already granted,
+  and otherwise waits for a tap. A live rescue's tracking card adds a road ETA,
+  and Trip Guardian an air-quality line. RAKSHA gains a "Corridor conditions"
+  panel and a nearest address in the photo viewer, labelled "Simulated point
+  near …" for device detections.
+- **What leaves.** Coordinates are rounded to about 110 m (address, route) or
+  about 1 km (nearby) first, and a point outside India is refused with
+  `400 outside_region` before any provider is asked. Calls carry an
+  identifying User-Agent, are cached (address 24 h, nearby 6 h, route 10 min,
+  earthquakes 15 min, air quality 30 min) and are paced to about one a second.
+- **Off in development, test and CI** so no test run calls a donated service;
+  on by default anywhere else. `GEO_SERVICES=on|off` overrides it. Off answers
+  `503 geo_disabled`, a provider that fails answers `503 geo_unavailable`, and
+  the screens say the lookup is unavailable rather than inventing a place.
+- **Limits.** Community map data can be missing or stale, and the nearby list's
+  distances are straight-line. Every provider is outside India; see
+  non-negotiable #4 below.
 
 ---
 
@@ -159,13 +198,13 @@ flowchart LR
   end
 
   subgraph Render["Render · Docker · Singapore"]
-    API["Fastify API · 69 routes<br/>zod validation · JWT + rotating refresh<br/>CSP & security headers · rate limits"]
+    API["Fastify API · 73 routes<br/>zod validation · JWT + rotating refresh<br/>CSP & security headers · rate limits"]
     MOD["Modules: auth · bookings · dispatch<br/>emergency · telecom · payments · RAKSHA"]
     API --> MOD
   end
 
   DB[("Neon PostgreSQL 16 + PostGIS<br/>56 tables · hash-chained audit log")]
-  X["Resend (email) · OpenStreetMap tiles<br/>Open-Meteo · SMS / payment gateways"]
+  X["Resend (email) · OpenStreetMap tiles<br/>Nominatim · Overpass · OSRM · USGS<br/>Open-Meteo · SMS / payment gateways"]
 
   W & A & F & E --> CF --> API
   MOD --> DB
@@ -219,12 +258,12 @@ with it.
 
 | | |
 |---|---|
-| **899 assertions**, six suites, zero failures | 317 unit · 209 e2e · 84 concurrency · 87 attacks · 39 gateway security · 163 browser |
-| Android | 115 tests, zero lint errors, release APK under R8 |
+| **920 assertions**, six suites, zero failures | 334 unit · 213 e2e · 84 concurrency · 87 attacks · 39 gateway security · 163 browser |
+| Android | 135 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`), run against a local stub of Razorpay's Orders API. They need an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so they sit outside the six suites and are never described as passing |
 | Schema | 56 tables · 138 indexes · 7 migrations |
-| API | 69 routes: 66 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
+| API | 73 routes: 70 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
 | Localisation | 8 languages, **not native-reviewed** |
 
 CI also kills PostgreSQL under a running API and checks that the platform is
@@ -299,7 +338,7 @@ npm run verify               # typecheck · lint · boundaries · claims · cita
 ```
 
 **Android:** `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease`
-(115 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
+(135 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
 install talks to the live platform. To use a local API instead, long-press the
 wordmark on the sign-in screen and enter its address, for example
 `10.0.2.2:4000` from the emulator.
@@ -375,7 +414,7 @@ idempotently.
 
 | Path | What | Toolchain |
 |---|---|---|
-| [`app/apps/api`](app/apps/api) | Fastify API: 69 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
+| [`app/apps/api`](app/apps/api) | Fastify API: 73 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
 | [`app/apps/web`](app/apps/web) | Citizen, mechanic, authority, map and 3D surfaces | Plain HTML/CSS/JS |
 | [`app/packages/db`](app/packages/db) | Drizzle schema, migrations, seeds | PostgreSQL 16 + PostGIS |
 | [`app/scripts`](app/scripts) | Six test runners, the claims and citation gates, the RAKSHA simulator | Node |
@@ -403,6 +442,15 @@ idempotently.
    - no page loads a third-party resource;
    - every server-side outbound host is declared with its region;
    - no analytics or crash-reporting SDK is present.
+
+   The location services add five declared hosts, all outside India:
+   `nominatim.openstreetmap.org`, `overpass-api.de`, `router.project-osrm.org`,
+   `air-quality-api.open-meteo.com` and `earthquake.usgs.gov`. The first three
+   receive a signed-in user's position, coarsened to about 110 m or 1 km. That
+   is still personal data, so it is a stated exception to this rule, not
+   compliance with it. The production answer is a self-hosted Nominatim and
+   OSRM in an Indian region
+   ([ADR-0012](app/docs/adr/0012-open-map-location-services.md)).
 5. **Nothing is faked in a demo.** If something is mocked, the screen says so.
 
 ---
@@ -435,7 +483,7 @@ wrong one.
 | [Frontend workstream](docs/03-frontend-lead-roadmap.md) | Design system, screens, offline client, maps, accessibility, localisation |
 | [AI workstream](docs/04-ai-lead-roadmap.md) | The 9 planned AI systems with inputs, algorithms, metrics and baselines |
 | [DevOps / QA workstream](docs/05-devops-qa-lead-roadmap.md) | CI/CD, observability, telecom gateway, load and chaos testing, DR |
-| [ADRs](app/docs/adr/) | Eleven decision records, including the five above |
+| [ADRs](app/docs/adr/) | Twelve decision records, including the five above |
 | [Claims audit](app/docs/CLAIMS-AUDIT.md) | Every over-claim found, what it was, and what it actually is |
 
 The roadmap documents describe the **plan**, in the present tense, including

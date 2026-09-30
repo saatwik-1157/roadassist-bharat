@@ -139,4 +139,26 @@
     <string name="incident_keep_open">తెరిచే ఉంచండి</string>
     <string name="toast_incident_closed">అత్యవసర పరిస్థితి మూసివేయబడింది</string>
     <string name="toast_incident_false_alarm">తప్పుడు హెచ్చరిక నమోదైంది</string>
+    <string name="near_title">మీ దగ్గర</string>
+    <string name="near_intro">మీ చుట్టూ ఉన్న ఆసుపత్రులు, పోలీసు, ఇంధనం, EV ఛార్జర్లు, మరమ్మతు దుకాణాలు, మీ దగ్గరి చిరునామాతో.</string>
+    <string name="near_find">నా దగ్గర సహాయం వెతకండి</string>
+    <string name="near_loading">మీ దగ్గర సహాయం వెతుకుతోంది…</string>
+    <string name="near_offline">దీనికి కనెక్షన్ అవసరం. మీ SOS ఆఫ్‌లైన్‌లోనూ పనిచేస్తుంది.</string>
+    <string name="near_disabled">ఈ సర్వర్‌లో లొకేషన్ సేవలు ఆఫ్‌లో ఉన్నాయి.</string>
+    <string name="near_unreachable">మ్యాప్ సేవ స్పందించలేదు.</string>
+    <string name="near_no_address">మ్యాప్‌లో ఈ ప్రదేశానికి వీధి చిరునామా లేదు.</string>
+    <string name="near_demo_no_permission">లొకేషన్ అనుమతి ఇవ్వలేదు, కాబట్టి ఇది NH-48, గురుగ్రామ్ డెమో బిందువు, మీరు ఉన్న చోటు కాదు.</string>
+    <string name="near_demo_no_fix">ఇంకా లొకేషన్ దొరకలేదు, కాబట్టి ఇది NH-48, గురుగ్రామ్ డెమో బిందువు, మీరు ఉన్న చోటు కాదు.</string>
+    <string name="near_kind_hospital">ఆసుపత్రి</string>
+    <string name="near_kind_police">పోలీసు</string>
+    <string name="near_kind_fuel">ఇంధనం</string>
+    <string name="near_kind_charging">EV ఛార్జింగ్</string>
+    <string name="near_kind_repair">మరమ్మతు / టైర్లు</string>
+    <string name="near_none">%1$d కి.మీ. లోపు మ్యాప్‌లో ఏదీ లేదు</string>
+    <string name="near_unnamed">పేరులేని ప్రదేశం</string>
+    <string name="near_more">+%1$d మరిన్ని దగ్గరలో</string>
+    <string name="near_call">కాల్ చేయండి</string>
+    <string name="near_cd_call">%1$sకు కాల్ చేయండి</string>
+    <string name="near_footer">కమ్యూనిటీ మ్యాప్ డేటా నుండి సరళరేఖ దూరాలు.</string>
+    <string name="near_call_112">అత్యవసరంలో 112కు కాల్ చేయండి</string>
 </resources>

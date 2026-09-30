@@ -1749,7 +1749,13 @@ private fun HomeScreen(
             modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
         )
 
+        // Nearest hospital, police, fuel, charger and repair shop (NearYouCard.kt).
+        // Below the SOS area and in its own composable scope: it pauses while an
+        // SOS is armed or being raised, and never touches Emergency.ladderScope.
         Spacer(Modifier.height(18.dp))
+        NearYouSection(online = online, sosActive = sosArmed || busy)
+
+        Spacer(Modifier.height(12.dp))
         Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Panel),

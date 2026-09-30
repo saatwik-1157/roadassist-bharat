@@ -30,6 +30,7 @@ import { emailAuthRoutes, emailSignin } from "./routes/email-auth.js";
 import { emergencyRoutes } from "./routes/emergency.js";
 import { telecomRoutes } from "./routes/telecom.js";
 import { mechanicRoutes } from "./routes/mechanic.js";
+import { geoRoutes } from "./routes/geo.js";
 import { paymentRoutes, invoiceIsSettled } from "./routes/payments.js";
 import { bookingAudience, notYours } from "./booking-access.js";
 import { audit, verifyAuditChain } from "./audit.js";
@@ -2014,6 +2015,7 @@ await app.register(telecomRoutes);
 await app.register(mechanicRoutes);
 await app.register(paymentRoutes);
 await app.register(rakshaRoutes);
+await app.register(geoRoutes);
 
 // ══ boot ═══════════════════════════════════════════════════════════════════
 // The dispatch timeout. Without this an unanswered offer simply stopped being

@@ -60,6 +60,25 @@ const DECLARED_EGRESS = {
     "SERVER-SIDE so no visitor address reaches it. Each email carries a phone number MASKED to its " +
     "last three digits, a role, an event and a time, addressed to the project owner. Never a name, " +
     "a position, an IP address or a device - apps/api/test/alerts.test.ts fails if the number leaks.",
+  "nominatim.openstreetmap.org":
+    "OUTSIDE INDIA (OSMF, EU) - addresses for a point (routes/geo.ts). Carries a signed-in user's " +
+    "position COARSENED to 3 decimals (~110 m) - still personal data, so it is in the same tension " +
+    "with non-negotiable #4 as Open-Meteo. Server-side, cached 24 h, one request a second, off in " +
+    "development/test/CI. The production answer is a self-hosted Nominatim in an Indian region.",
+  "overpass-api.de":
+    "OUTSIDE INDIA (Germany) - nearest hospitals, police, fuel, EV chargers and repair shops " +
+    "(routes/geo.ts). Carries a search point coarsened to 2 decimals (~1 km) and a radius. " +
+    "Server-side, cached 6 h, paced.",
+  "router.project-osrm.org":
+    "OUTSIDE INDIA (FOSSGIS, Germany) - road distance and driving time between a mechanic and a " +
+    "customer (routes/geo.ts). Carries both points coarsened to ~110 m, no identifier. Demo router: " +
+    "fair use only, so server-side, cached, one request a second.",
+  "air-quality-api.open-meteo.com":
+    "OUTSIDE INDIA (Germany) - air quality for the RAKSHA corridor report. Carries only the fixed " +
+    "corridor segment midpoints, never a user's position.",
+  "earthquake.usgs.gov":
+    "OUTSIDE INDIA (USA) - recent earthquakes in and around India for the RAKSHA dashboard. " +
+    "Carries nothing about any user: a fixed bounding box and a date.",
   "api.twilio.com":
     "OUTSIDE INDIA (USA) - an OPTIONAL fallback SMS provider, selected only by setting " +
     "SMS_PROVIDER=twilio. Carries a phone number and message body, so enabling it for Indian " +
@@ -134,8 +153,13 @@ const URL_RE = /https?:\/\/([a-zA-Z0-9._-]+)/g;
  */
 const SUBRESOURCE = /(\bsrc\s*=|<link\b[^>]*\bhref\s*=|@import\b|\burl\(|\bfetch\(|\bimport\(|rel\s*=\s*["']?(preconnect|dns-prefetch|preload|stylesheet))/i;
 
-/** A server-side URL only matters if we actually call it. */
-const OUTBOUND_CALL = /(\bfetch\(|\brequests?\.(get|post|put)|\burlopen\(|HttpURLConnection|\baxios|\b(base|url|endpoint|host|origin|uri)\b\s*[:=]|["'`]\s*\+|\$\{)/i;
+/**
+ * A server-side URL only matters if we actually call it. The last alternative
+ * is any function handed a URL literal as its first argument - a wrapper such
+ * as routes/geo.ts's getJson("https://…") is a call like any other, and the
+ * pattern list without it let exactly that line through unseen.
+ */
+const OUTBOUND_CALL = /(\bfetch\(|\brequests?\.(get|post|put)|\burlopen\(|HttpURLConnection|\baxios|\b(base|url|endpoint|host|origin|uri)\b\s*[:=]|["'`]\s*\+|\$\{|\b[A-Za-z_$][\w$]*\(\s*["'`]https?:\/\/)/i;
 
 function within(rel, roots) {
   return roots.some((r) => rel === r || rel.startsWith(r + "/"));

@@ -139,4 +139,26 @@
     <string name="incident_keep_open">ખુલ્લી રાખો</string>
     <string name="toast_incident_closed">કટોકટી બંધ કરાઈ</string>
     <string name="toast_incident_false_alarm">ખોટી ચેતવણી નોંધાઈ</string>
+    <string name="near_title">તમારી નજીક</string>
+    <string name="near_intro">તમારી આસપાસની હૉસ્પિટલ, પોલીસ, ઇંધણ, EV ચાર્જર અને રિપેરની દુકાનો, તમારા નજીકના સરનામા સાથે.</string>
+    <string name="near_find">મારી નજીક મદદ શોધો</string>
+    <string name="near_loading">તમારી નજીક મદદ શોધી રહ્યાં છીએ…</string>
+    <string name="near_offline">આ માટે કનેક્શન જોઈએ. તમારું SOS ઑફલાઇન પણ કામ કરે છે.</string>
+    <string name="near_disabled">આ સર્વર પર લોકેશન સેવાઓ બંધ છે.</string>
+    <string name="near_unreachable">નકશા સેવાએ જવાબ ન આપ્યો.</string>
+    <string name="near_no_address">નકશા પર આ જગ્યાનું કોઈ શેરી સરનામું નથી.</string>
+    <string name="near_demo_no_permission">લોકેશનની પરવાનગી આપી નથી, તેથી આ NH-48, ગુરુગ્રામનું ડેમો બિંદુ છે, તમારું સ્થાન નહીં.</string>
+    <string name="near_demo_no_fix">હજી લોકેશન મળ્યું નથી, તેથી આ NH-48, ગુરુગ્રામનું ડેમો બિંદુ છે, તમારું સ્થાન નહીં.</string>
+    <string name="near_kind_hospital">હૉસ્પિટલ</string>
+    <string name="near_kind_police">પોલીસ</string>
+    <string name="near_kind_fuel">ઇંધણ</string>
+    <string name="near_kind_charging">EV ચાર્જિંગ</string>
+    <string name="near_kind_repair">રિપેર / ટાયર</string>
+    <string name="near_none">%1$d કિમીની અંદર નકશા પર કંઈ નથી</string>
+    <string name="near_unnamed">નામ વગરની જગ્યા</string>
+    <string name="near_more">+%1$d વધુ નજીકમાં</string>
+    <string name="near_call">કૉલ કરો</string>
+    <string name="near_cd_call">%1$s ને કૉલ કરો</string>
+    <string name="near_footer">સમુદાયના નકશા ડેટા પરથી સીધી રેખાનું અંતર.</string>
+    <string name="near_call_112">કટોકટીમાં 112 પર કૉલ કરો</string>
 </resources>

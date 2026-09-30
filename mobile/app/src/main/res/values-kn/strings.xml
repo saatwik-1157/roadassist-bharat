@@ -139,4 +139,26 @@
     <string name="incident_keep_open">ತೆರೆದೇ ಇರಿಸಿ</string>
     <string name="toast_incident_closed">ತುರ್ತು ಪರಿಸ್ಥಿತಿ ಮುಚ್ಚಲಾಗಿದೆ</string>
     <string name="toast_incident_false_alarm">ತಪ್ಪು ಎಚ್ಚರಿಕೆ ದಾಖಲಾಗಿದೆ</string>
+    <string name="near_title">ನಿಮ್ಮ ಹತ್ತಿರ</string>
+    <string name="near_intro">ನಿಮ್ಮ ಸುತ್ತಲಿನ ಆಸ್ಪತ್ರೆ, ಪೊಲೀಸ್, ಇಂಧನ, EV ಚಾರ್ಜರ್ ಮತ್ತು ದುರಸ್ತಿ ಅಂಗಡಿಗಳು, ನಿಮ್ಮ ಹತ್ತಿರದ ವಿಳಾಸದೊಂದಿಗೆ.</string>
+    <string name="near_find">ನನ್ನ ಹತ್ತಿರ ಸಹಾಯ ಹುಡುಕಿ</string>
+    <string name="near_loading">ನಿಮ್ಮ ಹತ್ತಿರ ಸಹಾಯ ಹುಡುಕಲಾಗುತ್ತಿದೆ…</string>
+    <string name="near_offline">ಇದಕ್ಕೆ ಸಂಪರ್ಕ ಬೇಕು. ನಿಮ್ಮ SOS ಆಫ್‌ಲೈನ್‌ನಲ್ಲೂ ಕೆಲಸ ಮಾಡುತ್ತದೆ.</string>
+    <string name="near_disabled">ಈ ಸರ್ವರ್‌ನಲ್ಲಿ ಸ್ಥಳ ಸೇವೆಗಳು ಆಫ್ ಆಗಿವೆ.</string>
+    <string name="near_unreachable">ನಕ್ಷೆ ಸೇವೆ ಉತ್ತರಿಸಲಿಲ್ಲ.</string>
+    <string name="near_no_address">ನಕ್ಷೆಯಲ್ಲಿ ಈ ಸ್ಥಳಕ್ಕೆ ರಸ್ತೆ ವಿಳಾಸವಿಲ್ಲ.</string>
+    <string name="near_demo_no_permission">ಸ್ಥಳದ ಅನುಮತಿ ನೀಡಿಲ್ಲ, ಆದ್ದರಿಂದ ಇದು NH-48, ಗುರುಗ್ರಾಮದ ಡೆಮೊ ಬಿಂದು, ನೀವಿರುವ ಸ್ಥಳವಲ್ಲ.</string>
+    <string name="near_demo_no_fix">ಇನ್ನೂ ಸ್ಥಳ ಸಿಕ್ಕಿಲ್ಲ, ಆದ್ದರಿಂದ ಇದು NH-48, ಗುರುಗ್ರಾಮದ ಡೆಮೊ ಬಿಂದು, ನೀವಿರುವ ಸ್ಥಳವಲ್ಲ.</string>
+    <string name="near_kind_hospital">ಆಸ್ಪತ್ರೆ</string>
+    <string name="near_kind_police">ಪೊಲೀಸ್</string>
+    <string name="near_kind_fuel">ಇಂಧನ</string>
+    <string name="near_kind_charging">EV ಚಾರ್ಜಿಂಗ್</string>
+    <string name="near_kind_repair">ದುರಸ್ತಿ / ಟೈರ್</string>
+    <string name="near_none">%1$d ಕಿ.ಮೀ ಒಳಗೆ ನಕ್ಷೆಯಲ್ಲಿ ಯಾವುದೂ ಇಲ್ಲ</string>
+    <string name="near_unnamed">ಹೆಸರಿಲ್ಲದ ಸ್ಥಳ</string>
+    <string name="near_more">+%1$d ಇನ್ನಷ್ಟು ಹತ್ತಿರದಲ್ಲಿ</string>
+    <string name="near_call">ಕರೆ ಮಾಡಿ</string>
+    <string name="near_cd_call">%1$s ಗೆ ಕರೆ ಮಾಡಿ</string>
+    <string name="near_footer">ಸಮುದಾಯ ನಕ್ಷೆ ಡೇಟಾದಿಂದ ನೇರ ರೇಖೆಯ ದೂರ.</string>
+    <string name="near_call_112">ತುರ್ತು ಸಂದರ್ಭದಲ್ಲಿ 112 ಗೆ ಕರೆ ಮಾಡಿ</string>
 </resources>

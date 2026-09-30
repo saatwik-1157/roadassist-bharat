@@ -141,4 +141,26 @@
     <string name="incident_keep_open">इसे खुला रखें</string>
     <string name="toast_incident_closed">आपात स्थिति बंद हुई</string>
     <string name="toast_incident_false_alarm">झूठा अलार्म दर्ज किया गया</string>
+    <string name="near_title">आपके आस-पास</string>
+    <string name="near_intro">आपके आस-पास के अस्पताल, पुलिस, ईंधन, EV चार्जर और मरम्मत की दुकानें, आपके नज़दीकी पते के साथ।</string>
+    <string name="near_find">मेरे पास मदद खोजें</string>
+    <string name="near_loading">आपके आस-पास मदद खोज रहे हैं…</string>
+    <string name="near_offline">इसके लिए कनेक्शन चाहिए। आपका SOS ऑफ़लाइन भी काम करता है।</string>
+    <string name="near_disabled">इस सर्वर पर लोकेशन सेवाएँ बंद हैं।</string>
+    <string name="near_unreachable">नक्शा सेवा ने जवाब नहीं दिया।</string>
+    <string name="near_no_address">नक्शे पर इस जगह का कोई सड़क पता नहीं है।</string>
+    <string name="near_demo_no_permission">लोकेशन की अनुमति नहीं दी गई है, इसलिए यह NH-48, गुरुग्राम का डेमो बिंदु है, आपकी जगह नहीं।</string>
+    <string name="near_demo_no_fix">अभी तक लोकेशन नहीं मिली, इसलिए यह NH-48, गुरुग्राम का डेमो बिंदु है, आपकी जगह नहीं।</string>
+    <string name="near_kind_hospital">अस्पताल</string>
+    <string name="near_kind_police">पुलिस</string>
+    <string name="near_kind_fuel">ईंधन</string>
+    <string name="near_kind_charging">EV चार्जिंग</string>
+    <string name="near_kind_repair">मरम्मत / टायर</string>
+    <string name="near_none">%1$d किमी के भीतर नक्शे पर कोई नहीं</string>
+    <string name="near_unnamed">बिना नाम की जगह</string>
+    <string name="near_more">+%1$d और आस-पास</string>
+    <string name="near_call">कॉल करें</string>
+    <string name="near_cd_call">%1$s को कॉल करें</string>
+    <string name="near_footer">सामुदायिक नक्शा डेटा से सीधी रेखा की दूरी।</string>
+    <string name="near_call_112">आपात स्थिति में 112 पर कॉल करें</string>
 </resources>

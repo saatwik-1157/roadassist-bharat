@@ -177,7 +177,7 @@ for i, (t, sub) in enumerate([("CUSTOMER", "PWA · Android WebView"),
 node(s, 1.0, 3.1, 11.5, 0.62, "WEB / PWA  ·  service worker, IndexedDB, connectivity manager",
      color=CYAN, tsize=11.5)
 down_arrow(s, 6.75, 3.74, 0.26)
-node(s, 1.0, 4.04, 11.5, 0.62, "FASTIFY API  ·  69 routes, 66 under /v1  ·  zod validation  ·  SSE stream",
+node(s, 1.0, 4.04, 11.5, 0.62, "FASTIFY API  ·  73 routes, 70 under /v1  ·  zod validation  ·  SSE stream",
      color=CYAN, tsize=11.5)
 down_arrow(s, 6.75, 4.68, 0.26)
 for i, (t, sub) in enumerate([("AUTH + RBAC", "OTP · JWT · rotation"),
@@ -468,7 +468,7 @@ for i, (name, cap) in enumerate([("src_android_home.png", "Home · the new Layer
     visual(s, x, 2.0, 2.2, 3.95, str(ASSETS / name), "android_" + str(i))
     txt(s, x - 0.2, 6.02, 2.6, 0.3, cap, size=8.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.45, 11.6, 0.3,
-    "115 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
+    "135 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
     size=9.5, color=GREY, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 16)
 notes(s, """Run it from Android Studio 2026.1: device Medium_Phone, then Run 'app'.
@@ -515,7 +515,7 @@ rows = [("Amount", "Never taken from the request — it is the invoice total, an
         ("Two paths", "Browser callback AND webhook. The webhook is the one that matters: a customer can pay and close the tab"),
         ("Idempotent", "Delivery is at-least-once, so a replayed webhook settles nothing twice"),
         ("Refuses to boot", "Production will not start on a real gateway with no webhook secret"),
-        ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 899")]
+        ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 920")]
 bullet_rows(s, 0.9, 4.15, rows, w=11.5, gap=0.5, size=10.5)
 footer(s); page_no(s, 18)
 
@@ -626,7 +626,7 @@ rows = [("Data centre", "Compose stack: PostGIS + Redis + Redpanda on a private 
         ("Virtualization", "Multi-stage container, non-root (uid 1000), tini as PID 1, healthcheck. Built and run — 321 MB.", "IMPLEMENTED"),
         ("Web technology", "REST over HTTPS with a uniform envelope, server-sent events for real-time, PWA with a service worker", "IMPLEMENTED"),
         ("Multitenancy", "Row-scoped shared schema. 12 cross-tenant attacks fired; all 12 refused.", "IMPLEMENTED"),
-        ("Service technology", "Versioned /v1, 69 routes (66 under /v1), zod validation, stable error codes, idempotency keys", "IMPLEMENTED")]
+        ("Service technology", "Versioned /v1, 73 routes (70 under /v1), zod validation, stable error codes, idempotency keys", "IMPLEMENTED")]
 for i, (topic, detail, kind) in enumerate(rows):
     y = 2.3 + i * 0.82
     panel(s, 0.85, y, 11.6, 0.7, fill=INK_2, line_col=LINE)
@@ -708,7 +708,7 @@ footer(s); page_no(s, 26)
 
 # ── 27 · TESTING ───────────────────────────────────────────────────────────
 s = new_slide()
-title_block(s, "899 assertions, all executed", eyebrow="TESTING",
+title_block(s, "920 assertions, all executed", eyebrow="TESTING",
             sub="Against a real PostgreSQL + PostGIS and a real Chrome. 22 Razorpay stub checks sit outside this total.")
 suites = [("Unit", "225", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
           ("End-to-end", "194", "the whole API journey against real Postgres"),
@@ -725,7 +725,7 @@ for i, (name, n, what) in enumerate(suites):
     txt(s, 5.35, y + 0.11, 6.9, 0.3, what, size=9.5, color=GREY)
 panel(s, 0.85, 6.5, 11.6, 0.0, fill=INK_2, line_col=None)
 txt(s, 0.85, 6.5, 11.6, 0.4,
-    "899 passed · 0 failed · 0 skipped   •   0 server errors across the sweep",
+    "920 passed · 0 failed · 0 skipped   •   0 server errors across the sweep",
     size=12, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 27)
 
@@ -791,7 +791,7 @@ title_block(s, "Limitations", eyebrow="STATED BEFORE YOU ASK",
 lims = ["The demo is one free-tier instance in Singapore (Render + Neon) — no India region, no cluster.",
         "Single instance only: SSE registry, rate limiter and offer sweeper are in-process.",
         "The ERSS 112 handoff is a stub, and the API response says so. Emergency isolation (ADR-0005) is a design, not a deployment.",
-        "Payment checks run only against a local stub of Razorpay's API, outside the 899 — never a real account.",
+        "Payment checks run only against a local stub of Razorpay's API, outside the 920 — never a real account.",
         "The diagnosis “AI” is a deterministic rules engine. Labelled as such everywhere.",
         "No load test, no external penetration test, no coverage on the HTTP layer (suites run out-of-process).",
         "Device encryption protects a storage dump, not script on the same origin — and the UI says exactly that.",
@@ -907,7 +907,7 @@ panel(s, 0.85, 5.05, 11.6, 1.0, fill=INK_2, line_col=RED, line_w=1.75)
 txt(s, 1.1, 5.28, 11.1, 0.55, "“RoadAssist doesn't stop when the network stops.”",
     size=22, color=WHITE, bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.3, 11.6, 0.35,
-    "899 assertions · 6 suites · 0 failures  •  56 tables · 69 routes · 11 ADRs  •  every claim on these slides is testable",
+    "920 assertions · 6 suites · 0 failures  •  56 tables · 73 routes · 12 ADRs  •  every claim on these slides is testable",
     size=10.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 footer(s)
 notes(s, """Close on the promise, then stop talking. If there is time, offer to run

@@ -139,4 +139,26 @@
     <string name="incident_keep_open">খোলা রাখুন</string>
     <string name="toast_incident_closed">জরুরি অবস্থা বন্ধ হয়েছে</string>
     <string name="toast_incident_false_alarm">ভুল সতর্কতা নথিভুক্ত হয়েছে</string>
+    <string name="near_title">আপনার কাছাকাছি</string>
+    <string name="near_intro">আপনার আশেপাশের হাসপাতাল, পুলিশ, জ্বালানি, EV চার্জার ও মেরামতের দোকান, সঙ্গে আপনার নিকটতম ঠিকানা।</string>
+    <string name="near_find">আমার কাছে সাহায্য খুঁজুন</string>
+    <string name="near_loading">আপনার কাছে সাহায্য খোঁজা হচ্ছে…</string>
+    <string name="near_offline">এর জন্য সংযোগ দরকার। আপনার SOS অফলাইনেও কাজ করে।</string>
+    <string name="near_disabled">এই সার্ভারে লোকেশন পরিষেবা বন্ধ আছে।</string>
+    <string name="near_unreachable">মানচিত্র পরিষেবা সাড়া দেয়নি।</string>
+    <string name="near_no_address">মানচিত্রে এই জায়গার কোনো রাস্তার ঠিকানা নেই।</string>
+    <string name="near_demo_no_permission">লোকেশনের অনুমতি দেওয়া হয়নি, তাই এটি NH-48, গুরুগ্রামের ডেমো বিন্দু, আপনার অবস্থান নয়।</string>
+    <string name="near_demo_no_fix">এখনও লোকেশন পাওয়া যায়নি, তাই এটি NH-48, গুরুগ্রামের ডেমো বিন্দু, আপনার অবস্থান নয়।</string>
+    <string name="near_kind_hospital">হাসপাতাল</string>
+    <string name="near_kind_police">পুলিশ</string>
+    <string name="near_kind_fuel">জ্বালানি</string>
+    <string name="near_kind_charging">EV চার্জিং</string>
+    <string name="near_kind_repair">মেরামত / টায়ার</string>
+    <string name="near_none">%1$d কিমির মধ্যে মানচিত্রে কিছু নেই</string>
+    <string name="near_unnamed">নামহীন জায়গা</string>
+    <string name="near_more">+%1$d আরও কাছাকাছি</string>
+    <string name="near_call">কল করুন</string>
+    <string name="near_cd_call">%1$s-এ কল করুন</string>
+    <string name="near_footer">কমিউনিটি মানচিত্রের ডেটা থেকে সরলরেখায় দূরত্ব।</string>
+    <string name="near_call_112">জরুরি অবস্থায় 112-এ কল করুন</string>
 </resources>

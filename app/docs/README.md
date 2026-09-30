@@ -18,7 +18,7 @@ document itself — never left to be inferred.
 |---|---|
 | [`../README.md`](../README.md) | Quick start, scope, feature status |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Deploy, configure, back up, roll back — the live Render + Neon deployment (Singapore), and exactly what external accounts are still needed |
-| [`TESTING.md`](TESTING.md) | Six executed suites (899 assertions), the 22 Razorpay checks kept outside that total, what each proves, and what is deliberately not covered |
+| [`TESTING.md`](TESTING.md) | Six executed suites (920 assertions), the 22 Razorpay checks kept outside that total, what each proves, and what is deliberately not covered |
 
 ## The two things this project is actually about
 
@@ -40,7 +40,7 @@ document itself — never left to be inferred.
 
 ## Decision records
 
-Eleven ADRs in [`adr/`](adr/). The four that matter most:
+Twelve ADRs in [`adr/`](adr/). The four that matter most:
 
 - [ADR-0004](adr/0004-offline-conflict-rules.md) — offline conflict rules,
   decided before any sync code was written

@@ -30,7 +30,7 @@ slide 27's old "nothing is deployed" became FALSE; the deck was rebuilt on
 | **Replication** | Slide 21 | **PARTIAL — labelled CONCEPTUAL** | *"Not built. The API is stateless, but three in-process components would break it."* |
 | **Load balancing** | Slide 22 | **PARTIAL** | *"No infrastructure balancer. Workload distribution across a provider pool is real."* |
 | **Satellite** | Slide 28 | **PARTIAL — labelled FUTURE** | Correct as-is. If asked offline: *"No satellite link exists."* |
-| **899 assertions** | Slide 24 | **TRUE** *(was FALSE)* | Corrected from the old "600 across seven suites". Volunteer that 22 payment checks sit outside the total: they need no Razorpay account (local stub), but were not executed because they need the API started separately in Razorpay mode. |
+| **920 assertions** | Slide 24 | **TRUE** *(was FALSE)* | Corrected from the old "600 across seven suites". Volunteer that 22 payment checks sit outside the total: they need no Razorpay account (local stub), but were not executed because they need the API started separately in Razorpay mode. |
 
 ## Corrected in this phase — root README
 

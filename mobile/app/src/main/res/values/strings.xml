@@ -161,4 +161,33 @@
     <string name="incident_keep_open">Keep it open</string>
     <string name="toast_incident_closed">Emergency closed</string>
     <string name="toast_incident_false_alarm">False alarm recorded</string>
+    <!-- Near you: the Home card worded like the web's near.js. It says what it
+         knows and no more: a fallback position is named as the demo point, a
+         kind with nothing mapped says so, and a failed lookup says it failed.
+         The source name and the ODbL attribution stay as OpenStreetMap
+         publishes them, so they are not translated. -->
+    <string name="near_source" translatable="false">OpenStreetMap</string>
+    <string name="near_attribution" translatable="false">© OpenStreetMap contributors</string>
+    <string name="near_title">Near you</string>
+    <string name="near_intro">Hospitals, police, fuel, EV chargers and repair shops around you, with your nearest address.</string>
+    <string name="near_find">Find help near me</string>
+    <string name="near_loading">Finding help near you…</string>
+    <string name="near_offline">Needs a connection. Your SOS still works offline.</string>
+    <string name="near_disabled">Location services are off on this server.</string>
+    <string name="near_unreachable">The map service did not answer.</string>
+    <string name="near_no_address">No street address on the map for this spot.</string>
+    <string name="near_demo_no_permission">Location permission is not granted, so this is the demo point on NH-48, Gurugram, not where you are.</string>
+    <string name="near_demo_no_fix">No location fix yet, so this is the demo point on NH-48, Gurugram, not where you are.</string>
+    <string name="near_kind_hospital">Hospital</string>
+    <string name="near_kind_police">Police</string>
+    <string name="near_kind_fuel">Fuel</string>
+    <string name="near_kind_charging">EV charging</string>
+    <string name="near_kind_repair">Repair / tyres</string>
+    <string name="near_none">none mapped within %1$d km</string>
+    <string name="near_unnamed">Unnamed place</string>
+    <string name="near_more">Also nearby: %1$d</string>
+    <string name="near_call">Call</string>
+    <string name="near_cd_call">Call %1$s</string>
+    <string name="near_footer">Straight-line distances from community map data.</string>
+    <string name="near_call_112">In an emergency, call 112</string>
 </resources>

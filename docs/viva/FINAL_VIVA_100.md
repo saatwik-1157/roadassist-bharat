@@ -56,7 +56,7 @@ concrete example) · *Code* (where to open it).
 **8. How large is the codebase?**
 *Short:* About 7,800 lines of TypeScript plus six web surfaces and an Android client.
 *Detail:* 16 API files (6,261 lines), 13 database files (1,564), 12 test/tooling scripts.
-*RoadAssist:* 69 routes, 56 tables.
+*RoadAssist:* 73 routes, 56 tables.
 *Code:* `FINAL_REPOSITORY_STATUS.md`
 
 **9. What would you do differently?**
@@ -594,7 +594,7 @@ concrete example) · *Code* (where to open it).
 > assumed. Off-grid, an SOS becomes a real incident on the device, and a unique
 > key makes a duplicate impossible on sync.
 >
-> **Result.** 899 assertions across six suites, zero failures, including 87
+> **Result.** 920 assertions across six suites, zero failures, including 87
 > attacks that must fail. Every claim on our slides is something I can show you.
 
 ## 3 minutes — architecture
@@ -604,7 +604,7 @@ concrete example) · *Code* (where to open it).
 > step, no second deployment unit. It is a PWA: service worker, manifest,
 > installable, and it keeps its shell offline.
 >
-> **API.** Fastify — 69 routes, 66 under `/v1` — with zod validation at every
+> **API.** Fastify — 73 routes, 70 under `/v1` — with zod validation at every
 > boundary, a uniform `{data, meta}` / `{error}` envelope and stable error
 > codes. Every error says whether it is retryable, so a client never guesses.
 >
