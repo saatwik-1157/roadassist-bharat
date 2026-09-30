@@ -1,0 +1,39 @@
+# Keep the hosted demo awake.
+#
+# Render's free web service sleeps after 15 minutes without traffic and then
+# takes about a minute to wake - long enough for a reviewer to decide the
+# platform is down. A GET every ten minutes keeps it warm.
+#
+# What it costs: nothing extra. The free plan's allowance is 750 instance hours
+# a month per workspace; one service awake all month is about 720-744. If a
+# second free service ever shares the workspace, the two together will exceed
+# it - then limit this to review weeks (edit the cron) or disable the workflow
+# in the Actions tab.
+#
+# It sends no credentials and reads only public, unauthenticated endpoints.
+# GitHub may delay scheduled runs under load, so treat this as "usually awake",
+# and still open the site a few minutes before presenting.
+name: keep-awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-awake
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake the platform and the showcase
+        run: |
+          for url in https://app.roadassistbharat.online/health https://roadassistbharat.online/; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 120 --retry 2 --retry-delay 10 "$url" || echo 000)
+            echo "$url -> $code"
+          done
