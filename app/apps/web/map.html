@@ -151,13 +151,13 @@
     try { if (window.AndroidAuth && AndroidAuth.token) return AndroidAuth.token() || TOKEN; } catch (e) {}
     return TOKEN || sessionToken();
   }
-  // In a browser, use the session of whichever surface signed in on this origin
-  // (a token that page already holds, so it grants nothing new). None: say so.
+  // In a browser, use the session of whichever surface signed in on this origin in
+  // this tab (the access token it keeps in sessionStorage - session.js).
   var SESSION_KEYS = ["ra.raksha.session", "ra.mechanic.session", "ra.app.session"];
   function sessionToken() {
     for (var i = 0; i < SESSION_KEYS.length; i++) {
       try {
-        var s = JSON.parse(localStorage.getItem(SESSION_KEYS[i]) || "null");
+        var s = JSON.parse(sessionStorage.getItem(SESSION_KEYS[i]) || "null");
         if (s && typeof s.token === "string" && s.token) return s.token;
       } catch (e) { /* storage blocked or corrupt - try the next one */ }
     }

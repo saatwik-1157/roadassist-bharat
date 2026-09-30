@@ -317,10 +317,13 @@ const run = async () => {
 
     // ══ 4. Session survives a reload ════════════════════════════════════════
     section("4. Session persistence (the PWA relaunch case)");
+    // The refresh token is an HttpOnly cookie now (routes/auth.ts): the page
+    // keeps a flag that a session exists, and no token is readable by script.
     const stored = await page.eval(`
-      return Boolean(JSON.parse(localStorage.getItem("ra.app.session") || "null")?.refresh);
+      const s = JSON.parse(localStorage.getItem("ra.app.session") || "null");
+      return Boolean(s?.cookie) && !s.refresh && !s.token && !/ra_rt_/.test(document.cookie);
     `);
-    check(stored, "a refresh token is persisted");
+    check(stored, "the session persists as an HttpOnly cookie, with no token in localStorage");
 
     await page.goto(`${BASE}/app.html`);
     await page.waitFor(`document.getElementById("scr-home").classList.contains("active")`, 15000);
@@ -329,16 +332,16 @@ const run = async () => {
     // ══ 5. Expired access token is refreshed, not surfaced ══════════════════
     section("5. Token refresh");
     await page.eval(`
-      const s = JSON.parse(localStorage.getItem("ra.app.session"));
+      const s = JSON.parse(sessionStorage.getItem("ra.app.session"));
       s.token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJib2d1cyJ9.deadbeef";  // forced expiry
-      localStorage.setItem("ra.app.session", JSON.stringify(s));
+      sessionStorage.setItem("ra.app.session", JSON.stringify(s));
       return true;
     `);
     await page.goto(`${BASE}/app.html`);
     await page.waitFor(`document.getElementById("scr-home").classList.contains("active")`, 15000);
     ok("a dead access token is silently exchanged for a live one");
     const newTok = await page.eval(`
-      return JSON.parse(localStorage.getItem("ra.app.session")).token.split(".")[1];
+      return JSON.parse(sessionStorage.getItem("ra.app.session")).token.split(".")[1];
     `);
     check(newTok && newTok.length > 20, "the stored token was actually replaced");
 
@@ -605,7 +608,7 @@ const run = async () => {
 
     // 14–15. It really is in the database, and a replay makes no second one.
     const backend = await page.eval(`
-      const tok = JSON.parse(localStorage.getItem("ra.app.session")).token;
+      const tok = JSON.parse(sessionStorage.getItem("ra.app.session")).token;
       const list = await window.__ra.listOffGrid();
       const res = await fetch("/v1/sos/offline-sync", {
         method: "POST",
@@ -655,7 +658,7 @@ const run = async () => {
 
     const pushed = await page.eval(`
       const before = window.__ra.stream().events;
-      const tok = JSON.parse(localStorage.getItem("ra.app.session")).token;
+      const tok = JSON.parse(sessionStorage.getItem("ra.app.session")).token;
       // Raise an SOS through the API directly — the server publishes to this
       // user, so anything that arrives came over the wire, not from a refetch.
       const res = await fetch("/v1/sos", {
@@ -967,7 +970,7 @@ const run = async () => {
     const persisted = await page.eval(`
       const r = await fetch("/v1/mechanic/jobs", {
         headers: { authorization: "Bearer " +
-          JSON.parse(localStorage.getItem("ra.mechanic.session")).token },
+          JSON.parse(sessionStorage.getItem("ra.mechanic.session")).token },
       });
       const j = await r.json();
       return String(j.data.mechanic.isAvailable);
@@ -1009,21 +1012,22 @@ const run = async () => {
         who: document.getElementById("who").textContent,
         live: document.getElementById("live").textContent,
         signout: document.getElementById("signout-btn").hidden === false,
-        stored: Boolean(JSON.parse(localStorage.getItem("ra.raksha.session") || "null")?.refresh),
+        stored: Boolean(JSON.parse(localStorage.getItem("ra.raksha.session") || "null")?.cookie)
+          && !JSON.parse(localStorage.getItem("ra.raksha.session")).refresh,
         panels: ["health-panel","det-panel","dev-panel"]
           .filter(id => document.getElementById(id).hidden === false).length,
       };
     `);
     check(/gov_officer|admin/.test(authority.who), "the role is shown", authority.who);
-    check(authority.stored, "the refresh token is persisted (it used to be discarded)");
+    check(authority.stored, "the session is persisted, as an HttpOnly cookie (it used to be discarded)");
     check(authority.signout, "a sign-out control exists");
     check(authority.panels === 3, "the dashboard panels are populated", `${authority.panels}/3`);
 
     // Corrupt the access token and confirm the polling loop recovers silently.
     await page.eval(`
-      const s = JSON.parse(localStorage.getItem("ra.raksha.session"));
+      const s = JSON.parse(sessionStorage.getItem("ra.raksha.session"));
       s.token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJib2d1cyJ9.deadbeef";
-      localStorage.setItem("ra.raksha.session", JSON.stringify(s));
+      sessionStorage.setItem("ra.raksha.session", JSON.stringify(s));
       return true;
     `);
     await page.goto(`${BASE}/raksha.html`);
@@ -1056,7 +1060,7 @@ const run = async () => {
     // stored session, so the browser can stay on the customer's screen and
     // prove the polling actually delivers.
     const drive = await page.eval(`
-      const tok = JSON.parse(localStorage.getItem("ra.mechanic.session")).token;
+      const tok = JSON.parse(sessionStorage.getItem("ra.mechanic.session")).token;
       const call = async (m, p, b) => {
         const r = await fetch(p, {
           method: m,
@@ -1145,7 +1149,7 @@ const run = async () => {
       ok("review submitted with its comment");
 
       const dup = await page.eval(`
-        const tok = JSON.parse(localStorage.getItem("ra.app.session")).token;
+        const tok = JSON.parse(sessionStorage.getItem("ra.app.session")).token;
         const r = await fetch("/v1/bookings/${drive.id}/review", {
           method: "POST",
           headers: { "content-type": "application/json", authorization: "Bearer " + tok },

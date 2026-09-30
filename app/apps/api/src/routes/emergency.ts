@@ -35,6 +35,8 @@ import { authenticate } from "../auth.js";
 import { t, resolveLocale } from "../i18n.js";
 import { fail } from "../errors.js";
 import { logOp } from "../observability.js";
+import { optedOutAmong } from "../sms-opt-out.js";
+import { partitionByOptOut } from "../domain/sms-consent.js";
 import {
   allowedIncidentCommands, applyIncident, PUBLIC_STAGE, type IncidentStatus,
 } from "../domain/incident-machine.js";
@@ -449,8 +451,13 @@ export async function emergencyRoutes(app: FastifyInstance) {
       }, { note: "Already escalated — emergency contacts are alerted once per incident and were not texted again." });
     }
 
-    const contacts = await db.select().from(S.emergencyContacts)
+    const listed = await db.select().from(S.emergencyContacts)
       .where(and(eq(S.emergencyContacts.userId, inc.userId!), isNull(S.emergencyContacts.deletedAt)));
+    // A contact who texted STOP is not texted (domain/sms-consent.ts: the legal
+    // norm is that opt-out is honoured, and the STOP reply told them this). They
+    // are counted and reported as contactsOptedOut, never folded into "alerted".
+    const { reachable: contacts, optedOut } =
+      partitionByOptOut(listed, await optedOutAmong(listed.map((c) => c.msisdn)));
 
     /**
      * In the language of the person in trouble, not the platform's default.
@@ -515,6 +522,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
         status: "RESPONDING", contactsAlerted,
         ...(contactsFailed ? { contactsFailed } : {}),
         ...(withheld ? { contactsWithheld: contacts.length } : {}),
+        ...(optedOut.length ? { contactsOptedOut: optedOut.length } : {}),
         responderFound: Boolean(responders[0]), elapsedMs: Date.now() - t0,
       },
       ip: req.ip,
@@ -536,6 +544,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
       contactsAlerted,
       ...(contactsFailed ? { contactsFailed } : {}),
       ...(withheld ? { contactsWithheld: contacts.length } : {}),
+      ...(optedOut.length ? { contactsOptedOut: optedOut.length } : {}),
       nearestResponder: responders[0] ?? null,
       elapsedMs: Date.now() - t0,
     }, {
@@ -543,6 +552,10 @@ export async function emergencyRoutes(app: FastifyInstance) {
       ...(withheld ? {
         warning: "Emergency contacts were not texted: this account has reached the hourly ceiling on " +
                  "contact alerts. The emergency itself was escalated.",
+      } : {}),
+      ...(optedOut.length ? {
+        optedOut: `${optedOut.length} of your emergency contacts were not texted: they replied STOP to ` +
+                  "RoadAssist SMS, and that opt-out is honoured. Call them yourself if you can.",
       } : {}),
     });
   });

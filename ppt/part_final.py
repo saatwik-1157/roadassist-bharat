@@ -177,7 +177,7 @@ for i, (t, sub) in enumerate([("CUSTOMER", "PWA · Android WebView"),
 node(s, 1.0, 3.1, 11.5, 0.62, "WEB / PWA  ·  service worker, IndexedDB, connectivity manager",
      color=CYAN, tsize=11.5)
 down_arrow(s, 6.75, 3.74, 0.26)
-node(s, 1.0, 4.04, 11.5, 0.62, "FASTIFY API  ·  73 routes, 70 under /v1  ·  zod validation  ·  SSE stream",
+node(s, 1.0, 4.04, 11.5, 0.62, "FASTIFY API  ·  74 routes, 71 under /v1  ·  zod validation  ·  SSE stream",
      color=CYAN, tsize=11.5)
 down_arrow(s, 6.75, 4.68, 0.26)
 for i, (t, sub) in enumerate([("AUTH + RBAC", "OTP · JWT · rotation"),
@@ -187,7 +187,7 @@ for i, (t, sub) in enumerate([("AUTH + RBAC", "OTP · JWT · rotation"),
                               ("PAYMENTS", "order · webhook")]):
     node(s, 1.0 + i * 2.32, 4.98, 2.2, 0.75, t, sub, color=AMBER, tsize=9.5, ssize=8)
 down_arrow(s, 6.75, 5.77, 0.24)
-node(s, 3.6, 6.05, 6.3, 0.62, "PostgreSQL 16 + PostGIS  ·  56 tables  ·  62 FKs  ·  5 GiST indexes",
+node(s, 3.6, 6.05, 6.3, 0.62, "PostgreSQL 16 + PostGIS  ·  57 tables  ·  62 FKs  ·  5 GiST indexes",
      color=GREEN, tsize=11.5)
 footer(s); page_no(s, 5)
 notes(s, """Note what is NOT here: no Kubernetes, no load balancer, no message
@@ -626,7 +626,7 @@ rows = [("Data centre", "Compose stack: PostGIS + Redis + Redpanda on a private 
         ("Virtualization", "Multi-stage container, non-root (uid 1000), tini as PID 1, healthcheck. Built and run — 321 MB.", "IMPLEMENTED"),
         ("Web technology", "REST over HTTPS with a uniform envelope, server-sent events for real-time, PWA with a service worker", "IMPLEMENTED"),
         ("Multitenancy", "Row-scoped shared schema. 12 cross-tenant attacks fired; all 12 refused.", "IMPLEMENTED"),
-        ("Service technology", "Versioned /v1, 73 routes (70 under /v1), zod validation, stable error codes, idempotency keys", "IMPLEMENTED")]
+        ("Service technology", "Versioned /v1, 74 routes (71 under /v1), zod validation, stable error codes, idempotency keys", "IMPLEMENTED")]
 for i, (topic, detail, kind) in enumerate(rows):
     y = 2.3 + i * 0.82
     panel(s, 0.85, y, 11.6, 0.7, fill=INK_2, line_col=LINE)
@@ -708,7 +708,7 @@ footer(s); page_no(s, 26)
 
 # ── 27 · TESTING ───────────────────────────────────────────────────────────
 s = new_slide()
-title_block(s, "920 assertions, all executed", eyebrow="TESTING",
+title_block(s, "1064 assertions, all executed", eyebrow="TESTING",
             sub="Against a real PostgreSQL + PostGIS and a real Chrome. 22 Razorpay stub checks sit outside this total.")
 suites = [("Unit", "225", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
           ("End-to-end", "194", "the whole API journey against real Postgres"),
@@ -900,14 +900,14 @@ for i, (t, sub) in enumerate([("AI", "explainable\nrules engine"),
                               ("CLOUD", "consumed and\nprovided"),
                               ("OFFLINE", "the whole emergency\npath on-device"),
                               ("REAL-TIME", "65 ms, and never\nthe only path"),
-                              ("SECURITY", "87 attacks,\nall refused"),
+                              ("SECURITY", "106 attacks,\nall refused"),
                               ("DISPATCH", "dynamic, race-safe\nscheduling")]):
     node(s, 0.85 + i * 1.96, 3.6, 1.82, 1.1, t, sub, color=CYAN, tsize=12, ssize=8)
 panel(s, 0.85, 5.05, 11.6, 1.0, fill=INK_2, line_col=RED, line_w=1.75)
 txt(s, 1.1, 5.28, 11.1, 0.55, "“RoadAssist doesn't stop when the network stops.”",
     size=22, color=WHITE, bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.3, 11.6, 0.35,
-    "920 assertions · 6 suites · 0 failures  •  56 tables · 73 routes · 12 ADRs  •  every claim on these slides is testable",
+    "1064 assertions · 6 suites · 0 failures  •  57 tables · 74 routes · 12 ADRs  •  every claim on these slides is testable",
     size=10.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 footer(s)
 notes(s, """Close on the promise, then stop talking. If there is time, offer to run

@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RoadAssist — App</title>
+<meta name="description" content="The RoadAssist citizen app: request roadside help, raise an SOS that falls back to SMS, and find the nearest hospital, police or mechanic.">
+<link rel="canonical" href="https://app.roadassistbharat.online/app.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://app.roadassistbharat.online/app.html">
+<meta property="og:title" content="RoadAssist — App">
+<meta property="og:description" content="The RoadAssist citizen app: request roadside help, raise an SOS that falls back to SMS, and find the nearest hospital, police or mechanic.">
+<meta property="og:image" content="https://roadassistbharat.online/visuals/vis_products.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#08090c" media="(prefers-color-scheme: dark)">
 <!-- Theme boot. Runs before first paint so an explicit choice never flashes the
@@ -959,6 +967,7 @@
 </div>
 
 <script src="email-signin.js"></script>
+<script src="session.js"></script>
 <script src="journey.js"></script>
 <script src="near.js"></script>
 <script>
@@ -1035,22 +1044,14 @@
    * (ACCESS_TTL_SECONDS, 10 minutes); the refresh token is what actually keeps
    * someone signed in, and it was being captured and then never used.
    */
-  var SESSION_KEY = "ra.app.session";
+  // The refresh token is now an HttpOnly cookie script never sees; state.refresh
+  // is true for it, or a pre-cookie token until its one exchange (session.js).
+  var SESSION_KEY = "ra.app.session", sess = window.RASession(SESSION_KEY, "app", API);
   function saveSession() {
-    try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify({
-        token: state.token, refresh: state.refresh, msisdn: state.msisdn,
-        vehicleId: state.vehicleId, bookingId: state.bookingId,
-      }));
-    } catch (e) { /* storage blocked — the session lasts for this page only */ }
+    sess.save(state.token, { msisdn: state.msisdn, vehicleId: state.vehicleId, bookingId: state.bookingId }, state.refresh);
   }
-  function clearSession() {
-    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* nothing to clear */ }
-  }
-  function loadSession() {
-    try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); }
-    catch (e) { return null; }
-  }
+  function clearSession() { sess.clear(); }
+  function loadSession() { return sess.load(); }
 
   // Offline is a first-class mode (see sw.js) — register the worker so the app
   // shell itself survives a dead network, not just the pre-downloaded tiles.
@@ -1259,20 +1260,13 @@
   function refreshSession() {
     if (refreshing) return refreshing;
     if (!state.refresh) return Promise.resolve(false);
-    refreshing = fetch(API + "/v1/auth/refresh", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ refreshToken: state.refresh }),
-    }).then(function (res) {
-      return res.ok ? res.json() : null;
-    }).then(function (json) {
-      if (!json || !json.data) return false;
-      state.token = json.data.accessToken;
-      state.refresh = json.data.refreshToken;
+    refreshing = sess.refresh(state.refresh).then(function (token) {
+      if (!token) return false;
+      state.token = token;
+      state.refresh = true;   // the cookie holds it now; a legacy token is dropped on this save
       saveSession();
       return true;
-    }).catch(function () { return false; })
-      .finally(function () { refreshing = null; });
+    }).finally(function () { refreshing = null; });
     return refreshing;
   }
 
@@ -1289,8 +1283,8 @@
 
     async function send() {
       return fetch(API + path, {
-        method: method,
-        headers: Object.assign({ "content-type": "application/json" },
+        method: method, credentials: "include",   // sign-in sets the refresh cookie
+        headers: Object.assign({ "content-type": "application/json" }, sess.headers,
           state.token ? { authorization: "Bearer " + state.token } : {}),
         body: body ? JSON.stringify(body) : undefined,
       });
@@ -1328,7 +1322,7 @@
     var json = await res.json().catch(function () { return {}; });
     // Status and allowed commands ride along: a 409 allowing nothing = closed elsewhere.
     if (!res.ok) throw Object.assign(new Error((json.error && json.error.title) || ("HTTP " + res.status)),
-      { status: res.status, allowed: json.error && json.error.allowed });
+      { status: res.status, code: json.error && json.error.code, allowed: json.error && json.error.allowed });
     return json;
   }
 
@@ -1844,7 +1838,7 @@
       var r = await api("POST", "/v1/auth/otp/verify",
         { msisdn: state.msisdn, code: code }, { force: true });
       state.token = r.data.accessToken;
-      state.refresh = r.data.refreshToken;
+      state.refresh = true;   // set as the page's HttpOnly cookie, not returned
       saveSession();
       await enterApp(r.data.roles, r.meta.newAccount ? "new account" : "welcome back");
       toast("Signed in", "ok"); buzz([10, 40, 10]);
@@ -1852,8 +1846,8 @@
   });
 
   // Email sign-in (email-signin.js) lands on the same path as the phone code.
-  if (window.RAEmail) RAEmail.mount($("a-step2"), { api: API, toast: toast, onSession: async function (d) {
-    state.token = d.accessToken; state.refresh = d.refreshToken; state.msisdn = d.user.msisdn;
+  if (window.RAEmail) RAEmail.mount($("a-step2"), { api: API, headers: sess.headers, toast: toast, onSession: async function (d) {
+    state.token = d.accessToken; state.refresh = d.refreshToken || true; state.msisdn = d.user.msisdn;
     saveSession();
     await enterApp(d.roles, "signed in by email");
     toast("Signed in", "ok");
@@ -1948,6 +1942,7 @@
 
   $("s-out").onclick = function () {
     buzz(10);
+    sess.logout(state.token);   // ends the session server-side and clears the cookie
     signedOut();
     toast("Signed out", "ok");
   };
@@ -4684,6 +4679,9 @@
     var restoring = $("auth-restoring");
     if (restoring) restoring.hidden = false;
     try {
+      // A pre-cookie session: trade its stored refresh token for the cookie now, once.
+      // (Offline, it stays stored and the ordinary 401 path retries the exchange.)
+      if (typeof state.refresh === "string") await refreshSession();
       await enterApp(null, "welcome back");
     } catch (e) {
       // Anything unrecoverable — a revoked family, a wiped database — lands

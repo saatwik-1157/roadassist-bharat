@@ -244,6 +244,41 @@ reflects any Origin, which is why it is pinned rather than omitted.
 
 ---
 
+## Search engines · Google Search Console — **YOU**
+
+What is already in place:
+
+| | Showcase (`roadassistbharat.online`) | Platform (`app.roadassistbharat.online`) |
+|---|---|---|
+| Sitemap | `/sitemap.xml`: the page plus 20 image entries | `/sitemap.xml`: landing, showcase, 3D layers, app, map, mechanic, RAKSHA |
+| robots.txt | everything allowed | pages allowed; `/v1/`, `/tiles/`, `/basemap/`, `/media/`, `/health` kept out |
+| On-page | title and description sized for results, canonical, Open Graph and Twitter cards, `robots` meta, JSON-LD (`WebSite` + `SoftwareApplication`, with no ratings or reviews) | the pages' own titles |
+
+Search Console needs your Google account, so the steps below are yours; no
+tracking script is involved, which keeps non-negotiable #4 intact.
+
+1. Open <https://search.google.com/search-console> and choose **Add property**.
+2. Pick **Domain** and enter `roadassistbharat.online`. One Domain property
+   covers the apex, `www` and `app`.
+3. Google shows a TXT record (`google-site-verification=…`). Add it at Hostinger:
+   **DNS / Nameservers → DNS records → Add record**, type `TXT`, name `@`, and
+   the value exactly as shown. Keep the existing CNAME and A records.
+4. Back in Search Console, choose **Verify**. DNS can take from a few minutes
+   to an hour. If it fails, wait and retry; do not remove the record.
+5. Go to **Sitemaps** and submit both URLs:
+   `https://roadassistbharat.online/sitemap.xml` and
+   `https://app.roadassistbharat.online/sitemap.xml`.
+6. In **URL inspection**, enter `https://roadassistbharat.online/` and choose
+   **Request indexing**.
+
+If you prefer the HTML-tag method (URL-prefix property for the showcase only),
+paste Google's `<meta name="google-site-verification" …>` tag into
+`pages/index.html`, replacing the comment `google-site-verification: not set
+yet`. For the HTML-file method, add Google's `google….html` to `pages/`: the
+Pages workflow publishes any `pages/google*.html` next to the sitemap.
+
+---
+
 ## Before you share the URL
 
 Two settings in `render.yaml` are deliberate, and one of them is a door.
@@ -274,7 +309,7 @@ The image is not trusted because it built. `.github/workflows/publish-image.yml`
 boots it against a real PostGIS and runs the suites **against the running
 container** before publishing:
 
-- 213 end-to-end assertions and 87 security attacks, `API=` pointed at the
+- 230 end-to-end assertions and 87 security attacks, `API=` pointed at the
   container
 - every surface answers 200: `/app.html`, `/mechanic.html`, `/raksha.html`,
   `/map.html`, `/health`, `/v1/ping`

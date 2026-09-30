@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RoadAssist — Layers in 3D</title>
+<link rel="canonical" href="https://app.roadassistbharat.online/layers.html">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://app.roadassistbharat.online/layers.html">
+<meta property="og:title" content="RoadAssist — Layers in 3D">
+<meta property="og:description" content="Every layer of RoadAssist Bharat in live 3D: rotate the stack, open a layer, and watch a real request travel through it.">
+<meta property="og:image" content="https://roadassistbharat.online/visuals/vis_products.png">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="description" content="Every layer of RoadAssist Bharat in live 3D: rotate the stack, open a layer, and watch a real request travel through it.">
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#08090c" media="(prefers-color-scheme: dark)">
@@ -265,7 +272,7 @@ import { OutputPass } from "./vendor/three/postprocessing/OutputPass.js";
 const LAYERS = [
   { id: "people", name: "People & devices", tag: "Where every request starts", color: 0xe3b96a, comps: [
     ["Citizen app", "A web app that installs like a phone app: book help, raise an SOS, track the mechanic live. Offered in 8 languages."],
-    ["Android app", "Native Kotlin + Jetpack Compose client with 87 unit tests, pointed at the live API."],
+    ["Android app", "Native Kotlin + Jetpack Compose client with 137 unit tests, pointed at the live API."],
     ["Mechanic console", "The offers inbox: accept a job, drive it step by step, record a cash payment."],
     ["RAKSHA dashboard", "The road authority's view of road damage: verify a finding, then close it."],
     ["Feature phone", "No smartphone needed: a plain SMS reaches POST /v1/telecom/sms."],
@@ -277,7 +284,7 @@ const LAYERS = [
     ["Connectivity", "Detects online, weak and off-grid, and switches the app's behaviour to match."],
   ]},
   { id: "api", name: "API gateway", tag: "Checks every request at the door", color: 0x4c8dff, comps: [
-    ["Fastify API", "73 routes, 70 under /v1. One process, one entry point."],
+    ["Fastify API", "74 routes, 71 under /v1. One process, one entry point."],
     ["Validation", "A Zod schema checks every body and query; anything malformed stops here with a clear error."],
     ["Identity", "JWT access tokens and rotating refresh sessions. Admin, officer and listed mechanic accounts sign in by email code only."],
     ["Access & limits", "Roles are checked at the resource, not the route. Rate limits bound abuse and never block an SOS."],
@@ -292,7 +299,7 @@ const LAYERS = [
   ]},
   { id: "data", name: "Data", tag: "The single source of truth", color: 0x29b6c9, comps: [
     ["PostgreSQL + PostGIS", "Hosted on Neon in Singapore. Geography queries run inside the database."],
-    ["Schema", "56 tables and 138 indexes, built by 7 migrations."],
+    ["Schema", "57 tables and 140 indexes, built by 8 migrations."],
     ["Audit log", "An append-only record of sign-ins and state changes."],
     ["Idempotency keys", "Op ids are stored per device, so a replayed sync is counted as duplicates."],
   ]},
@@ -305,7 +312,7 @@ const LAYERS = [
   { id: "cloud", name: "Cloud & delivery", tag: "How it runs and how it ships", color: 0x8a93a6, comps: [
     ["Render", "The API and these pages run as one Docker service in Singapore."],
     ["GitHub Pages", "The project site at roadassistbharat.online."],
-    ["CI", "GitHub Actions runs the gates and test suites on every push; 920 assertions pass across six suites."],
+    ["CI", "GitHub Actions runs the gates and test suites on every push; 1064 assertions pass across six suites."],
     ["Resend email", "Sign-in codes and alerts, sent from send.roadassistbharat.online."],
   ]},
 ];

@@ -5,11 +5,18 @@
  * policy, no nosniff, no referrer policy. Everything the pages do had to be
  * allowed explicitly for the policy to be switched on without breaking them:
  *
- *   · scripts and styles are this origin's own, plus inline blocks - every
- *     page carries its code inline and wires handlers in markup, so
- *     'unsafe-inline' stays until they move to files or nonces. What the
- *     policy still takes away is loading script from anywhere else, plugins,
- *     <base> hijacking, and form posts to other origins.
+ *   · scripts are this origin's files plus the pages' own inline <script>
+ *     blocks, each allowed by its SHA-256 hash - never 'unsafe-inline'. The
+ *     hashes are computed from the served pages when the server starts
+ *     (inlineScriptHashes), so editing a page moves its hash with it on the
+ *     next restart; a development server also recomputes them when a page
+ *     changes on disk. A script injected into a page matches no hash and does
+ *     not run. Hashes do not cover handler attributes (onclick=) or
+ *     javascript: URLs, so the pages have none - security-headers.test.ts
+ *     fails the build if one appears.
+ *   · styles keep 'unsafe-inline': the pages set style="" throughout and
+ *     build styled markup in script. Injected CSS can restyle a page but not
+ *     run code, which is why it is left for later.
  *   · 'wasm-unsafe-eval' - the 3D page decodes its model with Draco's
  *     WebAssembly decoder, in a worker started from a blob: URL.
  *   · connect and images are this origin (the map tiles are proxied through
@@ -19,12 +26,57 @@
  *   · Razorpay Checkout is only allowed when the real gateway is configured;
  *     the mock provider never loads it, so the policy does not either.
  */
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 
 export interface HeaderOptions {
   /** Origins allowed to frame these pages (the project site). */
   frameAncestors: string[];
   razorpay: boolean;
+  /** 'sha256-…' sources for the pages' inline scripts (inlineScriptHashes). */
+  scriptHashes?: string[];
+}
+
+/** The served pages under `root`, recursively (vendor/ included: it is served too). */
+export function servedPages(root: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    if (entry.name.startsWith(".")) continue;   // @fastify/static denies dotfiles
+    const p = join(root, entry.name);
+    if (entry.isDirectory()) out.push(...servedPages(p));
+    else if (/\.html?$/i.test(entry.name)) out.push(p);
+  }
+  return out.sort();
+}
+
+/**
+ * The text of every inline <script> in a page, as the browser hashes it.
+ *
+ * A browser hashes the script element's text after the HTML parser has
+ * normalised line endings (CRLF and lone CR become LF), so a page checked
+ * out with Windows line endings must be normalised the same way or none of
+ * its hashes would match. Script content is raw text: no entity decoding.
+ * An element with src= has no inline body to allow.
+ */
+export function inlineScripts(html: string): string[] {
+  const text = html.replace(/\r\n?/g, "\n");
+  const out: string[] = [];
+  for (const m of text.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+    if (/\bsrc\s*=/i.test(m[1])) continue;
+    out.push(m[2]);
+  }
+  return out;
+}
+
+export const scriptHash = (body: string) =>
+  `'sha256-${createHash("sha256").update(body, "utf8").digest("base64")}'`;
+
+/** Hash sources for every inline script in every page under `root`, deduplicated. */
+export function inlineScriptHashes(root: string): string[] {
+  const all = servedPages(root).flatMap((p) => inlineScripts(readFileSync(p, "utf8")).map(scriptHash));
+  return [...new Set(all)].sort();
 }
 
 /**
@@ -39,7 +91,8 @@ export function contentSecurityPolicy(o: HeaderOptions): string {
   const framers = [...new Set([...SHOWCASE_ORIGINS, ...o.frameAncestors])];
   const d: Record<string, string[]> = {
     "default-src": ["'self'"],
-    "script-src": ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'", ...(rzp ? ["https://checkout.razorpay.com"] : [])],
+    "script-src": ["'self'", ...(o.scriptHashes ?? []), "'wasm-unsafe-eval'", ...(rzp ? ["https://checkout.razorpay.com"] : [])],
+    // 'unsafe-inline' for styles only - see the header comment.
     "style-src": ["'self'", "'unsafe-inline'"],
     "img-src": ["'self'", "data:", "blob:", ...(rzp ? ["https://*.razorpay.com"] : [])],
     "font-src": ["'self'", "data:"],
@@ -69,11 +122,31 @@ export function staticHeaders(https: boolean): Record<string, string> {
   };
 }
 
-export function registerSecurityHeaders(app: FastifyInstance, o: HeaderOptions) {
-  const csp = contentSecurityPolicy(o);
+/**
+ * `pagesRoot` is the directory the pages are served from; its inline scripts
+ * are hashed into script-src. With `watchPages` (a development server) the
+ * hashes are recomputed whenever a page's size or modification time changes,
+ * so editing a page never needs a restart to keep it running.
+ */
+export function registerSecurityHeaders(
+  app: FastifyInstance,
+  o: HeaderOptions & { pagesRoot?: string; watchPages?: boolean },
+) {
+  const signature = () => o.pagesRoot
+    ? servedPages(o.pagesRoot).map((p) => { const s = statSync(p); return `${p}:${s.size}:${s.mtimeMs}`; }).join("|")
+    : "";
+  const build = () => contentSecurityPolicy({
+    ...o, scriptHashes: [...(o.scriptHashes ?? []), ...(o.pagesRoot ? inlineScriptHashes(o.pagesRoot) : [])],
+  });
+  let seen = signature();
+  let csp = build();
   app.addHook("onSend", async (req, reply, payload) => {
     const https = req.protocol === "https";
     for (const [k, v] of Object.entries(staticHeaders(https))) reply.header(k, v);
+    if (o.watchPages && o.pagesRoot && /text\/html/.test(String(reply.getHeader("content-type") ?? ""))) {
+      const now = signature();
+      if (now !== seen) { seen = now; csp = build(); }
+    }
     if (!reply.hasHeader("content-security-policy")) reply.header("content-security-policy", csp);
     // API answers are about a person - their bookings, their emergencies - and
     // must never sit in a shared or back-button cache.

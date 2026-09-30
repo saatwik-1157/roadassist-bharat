@@ -50,6 +50,13 @@
       "when": 1790326547271,
       "tag": "0006_mechanic_rating_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790778040291,
+      "tag": "0007_sms_opt_out",
+      "breakpoints": true
     }
   ]
 }

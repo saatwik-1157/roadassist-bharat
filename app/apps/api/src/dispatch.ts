@@ -328,6 +328,56 @@ export async function sweepExpiredOffers(): Promise<{ expired: number; escalated
   return { expired: expired.length, escalated };
 }
 
+/** A transaction handle, or the pool itself — whatever the caller is writing through. */
+type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export interface WithdrawnOffer { id: string; mechanicId: string }
+
+/**
+ * Close every open offer for a booking that has just been cancelled.
+ *
+ * Cancelling a booking in MATCHING used to leave its SENT offers alone. The
+ * mechanics who had been asked still saw the job in their inbox with a live
+ * countdown, and Accept answered 409 — the state machine refuses to assign a
+ * cancelled booking, correctly, but far too late to be useful: the offer was a
+ * dead button, and the sweeper would later "expire" it as though nobody had
+ * answered in time. WITHDRAWN is the status that says what happened, and the
+ * accept path already uses it for the offers an acceptance makes redundant.
+ *
+ * Call it inside the same transaction as the cancel, so a cancel that rolls
+ * back leaves its offers live and one that commits never leaves them open.
+ * The `status = 'SENT'` guard makes it a compare-and-swap: an offer accepted,
+ * declined or expired a moment earlier keeps the status it has.
+ */
+export async function withdrawOpenOffers(tx: Executor, bookingId: string): Promise<WithdrawnOffer[]> {
+  return tx.update(S.dispatchOffers)
+    .set({ status: "WITHDRAWN", respondedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(S.dispatchOffers.bookingId, bookingId), eq(S.dispatchOffers.status, "SENT")))
+    .returning({ id: S.dispatchOffers.id, mechanicId: S.dispatchOffers.mechanicId });
+}
+
+/**
+ * Tell each mechanic whose offer was withdrawn, AFTER the cancel has committed.
+ *
+ * The mechanic console refetches its inbox on `booking.status` (it ignores
+ * other event types), so that is the event sent: the offer disappears from the
+ * inbox the moment the customer cancels instead of at the next poll. The
+ * payload names the withdrawn offer so a client that wants to can say why.
+ */
+export async function announceWithdrawnOffers(bookingId: string, withdrawn: readonly WithdrawnOffer[]): Promise<number> {
+  if (withdrawn.length === 0) return 0;
+  const mechs = await db.select({ id: S.mechanics.id, userId: S.mechanics.userId })
+    .from(S.mechanics).where(inArray(S.mechanics.id, withdrawn.map((w) => w.mechanicId)));
+  let delivered = 0;
+  for (const w of withdrawn) {
+    delivered += publish(mechs.find((m) => m.id === w.mechanicId)?.userId, {
+      type: "booking.status", bookingId, status: "CANCELLED",
+      offerId: w.id, offerStatus: "WITHDRAWN", reason: "the customer cancelled this booking",
+    });
+  }
+  return delivered;
+}
+
 /** Every provider's current state, for the operations view. */
 export async function providerRoster(limitRows = 200) {
   const rows = await db.execute<{

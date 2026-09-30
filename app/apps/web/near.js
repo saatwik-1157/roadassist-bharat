@@ -112,6 +112,9 @@
         render(el, pos, both[0].data.address, both[1].data.groups);
         last = { at: Date.now(), html: el.innerHTML };
       } catch (e) {
+        // A server with the services switched off will never answer, so a
+        // retry button would only promise something that cannot happen.
+        if (e && e.code === "geo_disabled") { el.hidden = true; el.innerHTML = ""; return; }
         failed(el, (e && e.message) || "The map service did not answer.", run);
       }
     }

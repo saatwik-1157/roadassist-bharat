@@ -23,13 +23,20 @@ import { db } from "../db.js";
 import { env } from "../env.js";
 import { ok, msisdnSchema } from "../http.js";
 import { sms } from "../providers.js";
-import { limit } from "../ratelimit.js";
+import { hit, limit, LIMITS } from "../ratelimit.js";
+import { audit } from "../audit.js";
+import { alerts } from "../alerts.js";
+import { publish, publishMany } from "../realtime.js";
+import { withdrawOpenOffers, announceWithdrawnOffers } from "../dispatch.js";
 import { decideWebhookIntake, type IntakeMode } from "../domain/webhook-intake.js";
 import { isDemoNumber } from "../domain/demo-numbers.js";
-import { apply, type Status } from "../domain/booking-machine.js";
+import { apply, IllegalTransition, type Status } from "../domain/booking-machine.js";
+import { applyIncident, PUBLIC_STAGE } from "../domain/incident-machine.js";
 import { parseSmsCoordinates } from "../domain/sms-coordinates.js";
+import { consentKeyword, partitionByOptOut } from "../domain/sms-consent.js";
+import { optedOutAmong, recordOptIn, recordOptOut } from "../sms-opt-out.js";
 import { reference } from "../domain/reference.js";
-import { t, resolveLocale, parseLangCommand, DEFAULT_LOCALE } from "../i18n.js";
+import { t, resolveLocale, parseLangCommand, DEFAULT_LOCALE, type Locale } from "../i18n.js";
 
 /** What the intake gate decided for each accepted request, for the handler to report. */
 const intakeMode = new WeakMap<FastifyRequest, IntakeMode>();
@@ -69,6 +76,123 @@ const bySender = (req: FastifyRequest) => {
  */
 const byIpWhenUnsignedDemo = (req: FastifyRequest) =>
   intakeMode.get(req) === "unsigned_demo_number" ? `ip:${req.ip}` : null;
+
+/** An app-registered person lists at most five contacts; see POST /v1/me/emergency-contacts. */
+const MAX_CONTACTS_ALERTED = 5;
+
+/**
+ * Escalate an SOS that arrived by SMS: alert the sender's emergency contacts
+ * and find the nearest responder, exactly as the app's confirm does.
+ *
+ * ── why escalate here instead of leaving it for someone to confirm ────────
+ * This path used to write an incident_responses row with step "contacts" and
+ * latency 0, texting nobody. That row is what POST /v1/sos/:id/confirm reads
+ * to decide the contacts were already alerted, so the fake did not just
+ * misreport: it would have made a later confirm skip the family for good.
+ *
+ * Deleting the row was the other honest option, and it would have left the
+ * SMS SOS as the one emergency that never reaches the family. The emergency
+ * design says a manual SOS is already a human act (routes/emergency.ts:
+ * "Manual SOS is already a human act") and a model signal is the only thing
+ * that must wait for a human; a person who typed SOS on a keypad is the human.
+ * The off-grid rule against auto-escalating (ADR-0009, rule 4) is about a
+ * record that may be hours old; this text is arriving now. And there is no app
+ * on the other end to call confirm. So the SMS path escalates, and it does so
+ * through the same guards confirm uses — nothing here is looser:
+ *
+ *   · the CONFIRMED → RESPONDING compare-and-swap is the claim, so a cancel
+ *     from the app that lands first means nothing is sent;
+ *   · the per-owner sosAlerts ceiling (same key as confirm, so the two paths
+ *     share one budget) withholds the texts, never the escalation, and then
+ *     writes no "contacts" row so confirm's lease can still alert later;
+ *   · at most five contacts, the cap the contact list is held to;
+ *   · contacts who texted STOP are not texted (domain/sms-consent.ts) and are
+ *     counted, never folded into "alerted";
+ *   · the "contacts" row carries the measured latency, and the count goes in
+ *     the audit record, as confirm records it.
+ *
+ * Duplicated from confirm rather than shared because the emergency module is
+ * reviewed on its own (routes/emergency.ts header); keep the two in step.
+ */
+async function escalateSmsSos(
+  incidentId: string, ownerId: string, locale: Locale, t0: number, log: FastifyRequest["log"],
+): Promise<{ escalated: boolean; contactsAlerted: number; contactsFailed: number;
+             contactsWithheld: number; contactsOptedOut: number; responderFound: boolean }> {
+  const none = { escalated: false, contactsAlerted: 0, contactsFailed: 0, contactsWithheld: 0,
+                 contactsOptedOut: 0, responderFound: false };
+  const { to: respondingTo } = applyIncident("CONFIRMED", "escalate");
+  const claimed = await db.update(S.incidents)
+    .set({ status: respondingTo, updatedAt: new Date() })
+    .where(and(eq(S.incidents.id, incidentId), eq(S.incidents.status, "CONFIRMED")))
+    .returning({ id: S.incidents.id });
+  if (!claimed.length) return none;   // cancelled from the app in between: alert nobody
+
+  const listed = await db.select().from(S.emergencyContacts)
+    .where(and(eq(S.emergencyContacts.userId, ownerId), isNull(S.emergencyContacts.deletedAt)))
+    .orderBy(S.emergencyContacts.priority).limit(MAX_CONTACTS_ALERTED);
+  const { reachable, optedOut } = partitionByOptOut(listed, await optedOutAmong(listed.map((c) => c.msisdn)));
+
+  const ceiling = reachable.length
+    ? hit(`sosAlerts:${ownerId}`, LIMITS.sosAlerts.max, LIMITS.sosAlerts.windowMs)
+    : null;
+  const withheld = ceiling !== null && !ceiling.allowed;
+
+  let contactsAlerted = 0, contactsFailed = 0;
+  if (!withheld) {
+    for (const c of reachable) {
+      try {
+        await sms.send(c.msisdn, t(locale, "sos.contact.alert", { url: `https://roadassist.in/i/${incidentId}` }));
+        contactsAlerted++;
+      } catch (err) {
+        contactsFailed++;
+        log.error({ err: err instanceof Error ? err.message.slice(0, 200) : String(err), incidentId },
+          "emergency contact alert failed");
+      }
+    }
+    await db.insert(S.incidentResponses).values({
+      incidentId, step: "contacts", latencyMs: Date.now() - t0, acknowledged: false,
+    });
+  } else {
+    log.warn({ incidentId, ownerId, resetInSeconds: ceiling.resetInSeconds },
+      "emergency contact alerts withheld: sosAlerts ceiling reached");
+  }
+
+  // Only a located incident has a nearest responder. A bare "SOS" has no fix,
+  // and ordering by distance to NULL would return an arbitrary unit as "nearest".
+  const [responder] = await db.execute<{ id: string; name: string; km: number }>(raw`
+    SELECT r.id, r.name, ST_Distance(r.last_location::geography, i.location::geography)/1000 AS km
+      FROM responder_units r, incidents i
+     WHERE i.id = ${incidentId} AND i.location IS NOT NULL AND r.active AND r.deleted_at IS NULL
+       AND r.last_location IS NOT NULL
+     ORDER BY r.last_location <-> i.location LIMIT 1`);
+  await db.insert(S.incidentResponses).values({
+    incidentId, responderId: responder?.id ?? null,
+    step: "responder", latencyMs: Date.now() - t0, acknowledged: false,
+  });
+
+  const outcome = {
+    escalated: true, contactsAlerted, contactsFailed,
+    contactsWithheld: withheld ? reachable.length : 0,
+    contactsOptedOut: optedOut.length, responderFound: Boolean(responder),
+  };
+  await audit({
+    actorId: ownerId, actorRole: "citizen", action: "sos.escalated", entity: "incident", entityId: incidentId,
+    before: { status: "CONFIRMED" },
+    after: {
+      status: respondingTo, channel: "sms", contactsAlerted,
+      ...(contactsFailed ? { contactsFailed } : {}),
+      ...(withheld ? { contactsWithheld: reachable.length } : {}),
+      ...(optedOut.length ? { contactsOptedOut: optedOut.length } : {}),
+      responderFound: Boolean(responder), elapsedMs: Date.now() - t0,
+    },
+  });
+  publish(ownerId, {
+    type: "sos.status", incidentId, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
+    contactsAlerted, contactsOptedOut: optedOut.length, responderFound: Boolean(responder),
+  });
+  alerts.sosConfirmed(incidentId, contactsAlerted);
+  return outcome;
+}
 
 export async function telecomRoutes(app: FastifyInstance) {
   // ══ feature-phone journey: inbound SMS ═════════════════════════════════════
@@ -188,8 +312,24 @@ export async function telecomRoutes(app: FastifyInstance) {
       return reply("lang.set");
     }
 
-    if (["stop", "unsubscribe"].includes(verb)) {
+    /**
+     * STOP and START, stored (sms_opt_outs) rather than merely acknowledged.
+     *
+     * The legal norm is that an opt-out is honoured, and it is — including for
+     * emergency-contact alerts: a number that texted STOP is not texted when
+     * somebody who lists it as a contact raises an SOS, from the app or by SMS.
+     * The reply says that in plain words, so nobody opts out without knowing
+     * what they are giving up. Answers to this number's own texts still go
+     * (they are what it asked for); the rule is in domain/sms-consent.ts.
+     */
+    const consent = consentKeyword(verb);
+    if (consent === "stop") {
+      await recordOptOut(from, verb);
       return reply("sms.stopped");
+    }
+    if (consent === "start") {
+      await recordOptIn(from);
+      return reply("sms.started");
     }
 
     if (["sos", "emergency", "112"].includes(verb)) {
@@ -209,6 +349,7 @@ export async function telecomRoutes(app: FastifyInstance) {
        * in-range coordinates is ignored rather than guessed at.
        */
       const fix = parseSmsCoordinates(words);
+      const t0 = Date.now();
 
       /**
        * One unit of work, for the reason the comment above describes: this is the
@@ -218,7 +359,7 @@ export async function telecomRoutes(app: FastifyInstance) {
        * exists to record — a located-nowhere emergency — only intermittently, and
        * the reply would still say "located". Same rule as POST /v1/sos.
        */
-      await db.transaction(async (tx) => {
+      const incident = await db.transaction(async (tx) => {
         const [row] = await tx.insert(S.incidents).values({
           userId: user.id, status: "CONFIRMED", severity: "CRITICAL",
           detectedByModel: false, confirmedBy: "sms", confirmedAt: new Date(),
@@ -233,9 +374,32 @@ export async function telecomRoutes(app: FastifyInstance) {
           incidentId: row.id, kind: "sms",
           payload: { text, ...(fix ? { lat: fix.lat, lng: fix.lng } : {}) },
         });
-        await tx.insert(S.incidentResponses).values({ incidentId: row.id, step: "contacts", latencyMs: 0 });
+        return row;
       });
-      return reply(fix ? "sos.received.located" : "sos.received");
+      await audit({
+        actorId: user.id, actorRole: "citizen", action: "sos.created", entity: "incident", entityId: incident.id,
+        after: { source: "sms", status: incident.status, severity: incident.severity,
+                 degradedPath: true, locationKnown: Boolean(fix) },
+        ip: req.ip,
+      });
+
+      // The contacts step is recorded by the escalation that actually texts them
+      // — see escalateSmsSos above for why this path escalates at all. The
+      // incident is committed either way, so a failure here is logged, not
+      // thrown: a 500 makes the vendor redeliver, and that raises a second SOS.
+      let escalation: Awaited<ReturnType<typeof escalateSmsSos>> | null = null;
+      try {
+        escalation = await escalateSmsSos(incident.id, user.id, locale, t0, req.log);
+      } catch (err) {
+        req.log.error({ err: err instanceof Error ? err.message.slice(0, 200) : String(err), incidentId: incident.id },
+          "sms sos escalation failed; the incident stands CONFIRMED for an operator");
+      }
+      const sent = await reply(fix ? "sos.received.located" : "sos.received");
+      return { ...sent, meta: { ...sent.meta, incidentId: incident.id, escalated: escalation?.escalated ?? false,
+        contactsAlerted: escalation?.contactsAlerted ?? 0,
+        ...(escalation?.contactsFailed ? { contactsFailed: escalation.contactsFailed } : {}),
+        ...(escalation?.contactsWithheld ? { contactsWithheld: escalation.contactsWithheld } : {}),
+        ...(escalation?.contactsOptedOut ? { contactsOptedOut: escalation.contactsOptedOut } : {}) } };
     }
 
     if (["status", "s"].includes(verb)) {
@@ -253,19 +417,72 @@ export async function telecomRoutes(app: FastifyInstance) {
     if (["cancel", "c"].includes(verb)) {
       const b = await activeBooking();
       if (!b) return reply("sms.nothingToCancel");
+      let to: Status, cancellationFee: boolean;
       try {
-        const { to, cancellationFee } = apply(b.status as Status, "cancel");
-        await db.update(S.bookings)
-          .set({ status: to, cancelledAt: new Date(), cancelReason: "sms_cancel", updatedAt: new Date() })
-          .where(eq(S.bookings.id, b.id));
-        await db.insert(S.bookingEvents).values({
-          bookingId: b.id, fromStatus: b.status, toStatus: to,
-          command: "cancel", actorId: user.id, actorRole: "citizen",
-        });
-        return reply(cancellationFee ? "sms.cancelled.fee" : "sms.cancelled", { reference: b.reference });
-      } catch {
+        ({ to, cancellationFee } = apply(b.status as Status, "cancel"));
+      } catch (err) {
+        if (!(err instanceof IllegalTransition)) throw err;
         return reply("sms.cancel.tooLate", { reference: b.reference, status: b.status });
       }
+
+      /**
+       * A compare-and-swap on the status AND version the cancel was computed
+       * from, the rule every app transition follows (POST
+       * /v1/bookings/:id/transition, domain/booking-machine.ts).
+       *
+       * It was `WHERE id = ?`. A mechanic's accept landing between the read
+       * above and this write was overwritten — the booking went CANCELLED
+       * with a mechanic still assigned and driving — and the fee was decided
+       * from the stale status, so a cancel that should have cost the customer
+       * a fee (ASSIGNED) was free. Now the loser is told what happened instead.
+       * The booking's open offers close in the same transaction (dispatch.ts).
+       */
+      const cancelled = await db.transaction(async (tx) => {
+        const moved = await tx.update(S.bookings)
+          .set({ status: to, cancelledAt: new Date(), cancelReason: "sms_cancel",
+                 updatedAt: new Date(), version: b.version + 1 })
+          .where(and(eq(S.bookings.id, b.id), eq(S.bookings.status, b.status),
+                     eq(S.bookings.version, b.version)))
+          .returning({ id: S.bookings.id, mechanicId: S.bookings.mechanicId });
+        if (!moved.length) return null;
+        const withdrawn = await withdrawOpenOffers(tx, b.id);
+        await tx.insert(S.bookingEvents).values({
+          bookingId: b.id, fromStatus: b.status, toStatus: to,
+          command: "cancel", actorId: user.id, actorRole: "citizen",
+          meta: { channel: "sms", ...(withdrawn.length ? { offersWithdrawn: withdrawn.length } : {}) },
+        });
+        return { mechanicId: moved[0].mechanicId, withdrawn };
+      });
+
+      if (!cancelled) {
+        // Lost the race. Say what won, from the row as it now is — the most
+        // likely winner is a mechanic accepting, and the customer must know a
+        // second CANCEL now costs a fee rather than discover it on the invoice.
+        const [now] = await db.select().from(S.bookings).where(eq(S.bookings.id, b.id)).limit(1);
+        req.log.info({ bookingId: b.id, from: b.status, now: now?.status }, "sms cancel lost a race");
+        return now?.mechanicId && now.mechanicId !== b.mechanicId
+          ? reply("sms.cancel.accepted", { reference: b.reference })
+          : reply("sms.cancel.changed", { reference: b.reference, status: now?.status ?? b.status });
+      }
+
+      await audit({
+        actorId: user.id, actorRole: "citizen", action: "booking.status_changed",
+        entity: "booking", entityId: b.id,
+        before: { status: b.status }, after: { status: to, command: "cancel", channel: "sms" },
+        ip: req.ip,
+      });
+      // Persisted first, published second: the customer's other screens, the
+      // mechanic already driving (if any), and every mechanic still being asked.
+      const audience: Array<string | null> = [user.id];
+      if (cancelled.mechanicId) {
+        const [m] = await db.select({ userId: S.mechanics.userId }).from(S.mechanics)
+          .where(eq(S.mechanics.id, cancelled.mechanicId)).limit(1);
+        audience.push(m?.userId ?? null);
+      }
+      publishMany(audience, { type: "booking.status", bookingId: b.id, status: to, previous: b.status, command: "cancel" });
+      await announceWithdrawnOffers(b.id, cancelled.withdrawn);
+
+      return reply(cancellationFee ? "sms.cancelled.fee" : "sms.cancelled", { reference: b.reference });
     }
 
     if (["help", "madad", "sahaya", "h"].includes(verb)) {

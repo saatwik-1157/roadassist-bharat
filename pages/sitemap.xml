@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The public showcase is one page; the live platform has its own sitemap at
+     https://app.roadassistbharat.online/sitemap.xml. Images are listed so the
+     screenshots and model frames can appear in image search. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://roadassistbharat.online/</loc>
+    <lastmod>2026-09-30</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image><image:loc>https://roadassistbharat.online/feed/feed-00.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/feed/feed-01.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/feed/feed-02.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/feed/feed-03.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/feed/feed-04.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/feed/feed-05.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/feed/feed-06.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/feed/feed-07.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/scene/02-home.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/scene/hero.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/stage/02-home.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/stage/13-mechanic-login.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/stage/14-authority.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/stage/18-live-map.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/stage/20-database-schema.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/stage/21-test-security.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/stage/23-console.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/shots/stage/24-mechanic-console.webp</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/visuals/vis_datacenter.png</image:loc></image:image>
+    <image:image><image:loc>https://roadassistbharat.online/visuals/vis_hero.png</image:loc></image:image>
+  </url>
+</urlset>

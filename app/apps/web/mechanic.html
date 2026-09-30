@@ -263,6 +263,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="email-signin.js"></script>
+<script src="session.js"></script>
 <script>
 (function () {
   "use strict";
@@ -389,32 +390,23 @@
    * the job in progress. Both now survive, and an expired access token is
    * refreshed rather than surfaced.
    */
-  var KEY = "ra.mechanic.session";
-  function saveSession() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify({
-        token: state.token, refresh: state.refresh, msisdn: state.msisdn,
-      }));
-    } catch (e) { /* storage blocked */ }
-  }
-  function clearSession() { try { localStorage.removeItem(KEY); } catch (e) { /* nothing */ } }
+  // The refresh token is an HttpOnly cookie in its own slot (session.js):
+  // state.refresh is true for it, or a pre-cookie token until its one exchange.
+  var KEY = "ra.mechanic.session", sess = window.RASession(KEY, "mechanic", API);
+  function saveSession() { sess.save(state.token, { msisdn: state.msisdn }, state.refresh); }
+  function clearSession() { sess.clear(); }
 
   var refreshing = null;
   function refreshSession() {
     if (refreshing) return refreshing;
     if (!state.refresh) return Promise.resolve(false);
-    refreshing = fetch(API + "/v1/auth/refresh", {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ refreshToken: state.refresh }),
-    }).then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        if (!j || !j.data) return false;
-        state.token = j.data.accessToken;
-        state.refresh = j.data.refreshToken;
-        saveSession();
-        return true;
-      }).catch(function () { return false; })
-      .finally(function () { refreshing = null; });
+    refreshing = sess.refresh(state.refresh).then(function (token) {
+      if (!token) return false;
+      state.token = token;
+      state.refresh = true;
+      saveSession();
+      return true;
+    }).finally(function () { refreshing = null; });
     return refreshing;
   }
 
@@ -422,8 +414,8 @@
     opts = opts || {};
     function send() {
       return fetch(API + path, {
-        method: method,
-        headers: Object.assign({ "content-type": "application/json" },
+        method: method, credentials: "include",   // sign-in sets the refresh cookie
+        headers: Object.assign({ "content-type": "application/json" }, sess.headers,
           state.token ? { authorization: "Bearer " + state.token } : {}),
         body: body ? JSON.stringify(body) : undefined,
       });
@@ -498,7 +490,7 @@
         return;
       }
       state.token = v.data.accessToken;
-      state.refresh = v.data.refreshToken;
+      state.refresh = true;   // set as this console's HttpOnly cookie, not returned
       state.msisdn = msisdn;
       saveSession();
       await enterConsole(v.data.roles);
@@ -512,9 +504,9 @@
     }
   });
 
-  var emailSignin = window.RAEmail && RAEmail.mount($("m-signin"), { api: API, toast: toast, onSession: async function (d) {
+  var emailSignin = window.RAEmail && RAEmail.mount($("m-signin"), { api: API, headers: sess.headers, toast: toast, onSession: async function (d) {
     if (!d.roles.includes("mechanic") && !d.roles.includes("admin")) { toast("That account has no mechanic role", "bad"); return; }
-    state.token = d.accessToken; state.refresh = d.refreshToken; state.msisdn = d.user.msisdn;
+    state.token = d.accessToken; state.refresh = d.refreshToken || true; state.msisdn = d.user.msisdn;
     saveSession();
     await enterConsole(d.roles);
     toast("Signed in", "ok");
@@ -549,7 +541,7 @@
     $("scr-auth").hidden = false;
     if (!silent) toast("Signed out", "ok");
   }
-  $("m-out").onclick = function () { buzz(10); signOut(); };
+  $("m-out").onclick = function () { buzz(10); sess.logout(state.token); signOut(); };
   $("m-refresh").onclick = busy($("m-refresh"), async function () { await refresh(); });
 
   // ── polling ──────────────────────────────────────────────────────────────
@@ -1120,14 +1112,15 @@
   setOnline(navigator.onLine);
 
   (async function boot() {
-    var saved;
-    try { saved = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { saved = null; }
-    if (!saved || !saved.refresh) return;
+    var saved = sess.load();
+    if (!saved) return;
     state.token = saved.token;
     state.refresh = saved.refresh;
     state.msisdn = saved.msisdn;
     $("m-restoring").hidden = false;
     try {
+      // A pre-cookie session trades its stored refresh token for the cookie, once.
+      if (typeof state.refresh === "string") await refreshSession();
       // A stored access token is almost always stale; prove the session is
       // alive before showing a console built on it.
       var me = await api("GET", "/v1/me", null);

@@ -14,14 +14,14 @@
   "measuredOn": "2026-09-30",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 920,
+    "total": 1064,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 334,
-      "e2e": 213,
-      "concurrency": 84,
-      "gatewaySecurity": 39,
-      "securityAudit": 87,
+      "unit": 415,
+      "e2e": 230,
+      "concurrency": 92,
+      "gatewaySecurity": 58,
+      "securityAudit": 106,
       "browser": 163
     },
     "notExecuted": {
@@ -29,7 +29,7 @@
       "why": "scripts/razorpay-test.mjs needs NO Razorpay account: it starts its own local stub of the Orders API and signs webhooks with a stub secret. It refuses to run (exit 2) unless the API was started separately with PAYMENTS_PROVIDER=razorpay and PAYMENTS_BASE_URL pointed at that stub, so it is outside every npm test run and was not re-run for this measurement. Never counted in the total, never described as passing"
     },
     "otherRunners": {
-      "android": 135,
+      "android": 137,
       "sosLadder": 21,
       "ai": 39,
       "why": "separate toolchains with their own runners; not part of the six-suite total",
@@ -45,14 +45,14 @@
     }
   },
   "schema": {
-    "tables": 56,
-    "primaryKeys": 56,
+    "tables": 57,
+    "primaryKeys": 57,
     "foreignKeys": 62,
-    "indexes": 138,
-    "uniqueIndexes": 84,
+    "indexes": 140,
+    "uniqueIndexes": 86,
     "gistIndexes": 5,
-    "checkConstraints": 5,
-    "migrations": 7,
+    "checkConstraints": 6,
+    "migrations": 8,
     "how": [
       "Count through pg_depend, NEVER bare information_schema.",
       "CREATE EXTENSION postgis installs spatial_ref_sys into public, which",
@@ -82,16 +82,17 @@
     ]
   },
   "api": {
-    "routes": 73,
+    "routes": 74,
+    "underV1": 71,
     "how": [
       "Count app.get/post/patch/put/delete call sites across apps/api/src:",
-      "34 in server.ts + 16 in raksha.ts + 4 in routes/auth.ts",
+      "34 in server.ts + 17 in raksha.ts + 4 in routes/auth.ts",
       "+ 2 in routes/email-auth.ts + 6 in routes/emergency.ts",
       "+ 1 in routes/telecom.ts + 3 in routes/mechanic.ts + 3 in routes/payments.ts + 4 in routes/geo.ts.",
       "",
       "  grep -rnE 'app[.](get|post|put|patch|delete)[(]' apps/api/src | wc -l",
       "",
-      "70 of the 73 are under /v1. The other three are infrastructure, all in",
+      "71 of the 74 are under /v1. The other three are infrastructure, all in",
       "server.ts: GET /tiles/:z/:x/:file, GET /basemap/:z/:x/:file and GET /health.",
       "",
       "The SPLIT moves whenever a route group is lifted out of server.ts — it was",

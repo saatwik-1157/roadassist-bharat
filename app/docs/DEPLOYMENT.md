@@ -13,7 +13,7 @@ this project does not have.
 |---|---|
 | Production Docker image builds | ✅ **Verified** — `docker build`, 321 MB, runs as `node` (uid 1000) |
 | Image runs and serves the whole platform | ✅ **Verified** — API, citizen app, mechanic console, authority dashboard, media |
-| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 213 e2e assertions and 87 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
+| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 230 e2e assertions and 87 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
 | Health check reports the database honestly | ✅ **Verified** — 503 with `database: "down"` when Postgres is unreachable |
 | Graceful shutdown | ✅ **Verified** — SIGTERM → exit code 0, no force kill |
 | Production CORS allowlist | ✅ **Verified** — allowed origin reflected, other origins refused |
@@ -123,7 +123,7 @@ docker compose -f docker-compose.prod.yml exec api \
   node packages/db/dist/src/seed.js --reference-only
 ```
 
-**Verified.** Run against a fresh database in this audit: 56 tables, 7 roles,
+**Verified.** Run against a fresh database in this audit: 57 tables, 7 roles,
 8 service types, 10 DTC codes, 12 vehicle models — and **0 users, 0 mechanics,
 0 bookings, 0 incidents**. The API was then started against it, `/health`
 returned 200, the service catalogue served, and a first account signed in and
@@ -319,7 +319,7 @@ the reliable order.
 
 ### Rehearsed in this audit — not a paper procedure
 
-Measured against the development database (56 tables, 666 users, 1,601 bookings,
+Measured against the development database (57 tables, 666 users, 1,601 bookings,
 638 audit entries):
 
 | Step | Result |

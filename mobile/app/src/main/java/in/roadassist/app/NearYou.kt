@@ -169,6 +169,17 @@ object NearYou {
     /** Is a card loaded at [at] still fresh at [now]? */
     fun fresh(at: Long, now: Long): Boolean = now >= at && now - at < TTL_MS
 
+    /**
+     * May a remembered card be shown again, given whether location is granted
+     * now? A card searched around the demo point *because* permission was
+     * missing says so in writing, and that sentence is false the moment it is
+     * granted (SOS and hazard reports ask for it), so such a card is dropped
+     * and the search is redone from the real position. Everything else stands
+     * for its [TTL_MS].
+     */
+    fun reusable(card: State.Loaded, permitted: Boolean): Boolean =
+        !(card.fix == Fix.NO_PERMISSION && permitted)
+
     /** A non-blank string field, or null — org.json's optString turns JSON null into "null". */
     private fun JSONObject.str(key: String): String? =
         if (isNull(key)) null else optString(key).trim().takeIf { it.isNotEmpty() }

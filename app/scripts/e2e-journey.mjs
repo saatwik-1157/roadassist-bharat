@@ -1086,6 +1086,112 @@ console.log("\n26. Location services");
   ok("a malformed coordinate is a 400", bad.status === 400, `got ${bad.status}`);
 }
 
+// ── 27. an SOS cannot borrow somebody else's vehicle (routes/emergency.ts) ──
+// Any vehicleId used to be linked unchecked, so a responder and the incident
+// record could point at another owner's car. A foreign one is dropped as a
+// LINK, never as an emergency: the SOS is still raised, the response says the
+// vehicle was not linked, and the stored row carries no vehicle at all.
+console.log("\n27. SOS vehicle link");
+{
+  const { default: postgres } = await import("postgres");
+  const sql = postgres(process.env.DATABASE_URL ??
+    "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+  try {
+    const theirs = await call("POST", "/v1/vehicles", {
+      token: otherToken,
+      body: { registrationNo: "FV" + Math.floor(Math.random() * 8999 + 1000) + "ZZ", vehicleClass: "car" },
+    });
+    ok("another account owns a vehicle to borrow", theirs.status === 201, `got ${theirs.status}`);
+
+    const borrowed = await call("POST", "/v1/sos", {
+      token, body: { lat: 28.46, lng: 77.03, source: "manual", vehicleId: theirs.data?.id },
+    });
+    ok("an SOS naming someone else's vehicle is still raised", borrowed.status === 201, `got ${borrowed.status}`);
+    ok("…and the response says the vehicle was not linked", borrowed.meta?.vehicle?.linked === false,
+       JSON.stringify(borrowed.meta?.vehicle ?? null));
+    const own = await call("POST", "/v1/sos", {
+      token, body: { lat: 28.46, lng: 77.03, source: "manual", vehicleId },
+    });
+    ok("the caller's own vehicle links without a warning", own.status === 201 && own.meta?.vehicle === undefined,
+       `got ${own.status} ${JSON.stringify(own.meta?.vehicle ?? null)}`);
+
+    const rows = await sql`
+      SELECT id, vehicle_id FROM incidents WHERE id IN (${borrowed.data?.id ?? null}, ${own.data?.id ?? null})`;
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r.vehicle_id]));
+    ok("the stored incident carries no vehicle, not the borrowed one",
+       borrowed.data?.id in byId && byId[borrowed.data.id] === null, `vehicle_id=${byId[borrowed.data?.id]}`);
+    ok("while an SOS on the caller's own vehicle keeps it", byId[own.data?.id] === vehicleId,
+       `vehicle_id=${byId[own.data?.id]}`);
+
+    for (const r of [borrowed, own]) {
+      if (r.data?.id) await call("POST", `/v1/sos/${r.data.id}/resolve`, { token, body: { outcome: "false_alarm" } });
+    }
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+// ── 28. dismissing a RAKSHA false positive (ADR-0011) ─────────────────────
+// A model-raised incident has no owner, so no owner's cancel reaches it and it
+// sat in the review queue for ever. An authority may now dismiss it, with a
+// reason that lands in the audit chain; nobody else may, and never an incident
+// that has an owner.
+console.log("\n28. Dismissing a false positive");
+{
+  const fpTag = Math.random().toString(36).slice(2, 8);
+  const fp = await call("POST", "/v1/raksha/detections", {
+    token: deviceToken, body: { detections: [
+      { opId: `e2e-${fpTag}-fp`, type: "obstruction", confidence: 0.9, severity: 5,
+        lat: 28.301, lng: 76.901, capturedAt: new Date().toISOString(), modelVersion: "sim-rules-0.1.0" },
+    ] },
+  });
+  const fpId = fp.data?.results?.[0]?.incidentId;
+  ok("a device sighting raises an ownerless incident to review", Boolean(fpId), fp.data?.results?.[0]?.status);
+
+  const queue = await call("GET", "/v1/raksha/incidents/review-queue?limit=200", { token: adminToken });
+  ok("the review queue marks it as dismissable",
+     queue.data?.find((i) => i.id === fpId)?.dismissable === true, JSON.stringify(queue.data?.find((i) => i.id === fpId)?.dismissable));
+
+  const byCitizen = await call("POST", `/v1/raksha/incidents/${fpId}/dismiss`, {
+    token, body: { reason: "looks like a shadow to me" },
+  });
+  ok("a citizen cannot dismiss an incident", byCitizen.status === 403, `got ${byCitizen.status}`);
+  const noReason = await call("POST", `/v1/raksha/incidents/${fpId}/dismiss`, { token: adminToken, body: {} });
+  ok("a dismissal without a reason is refused", noReason.status === 400, `got ${noReason.status}`);
+
+  const REASON = "Camera frame shows a parked lorry on the shoulder, lane clear";
+  const dismissed = await call("POST", `/v1/raksha/incidents/${fpId}/dismiss`, {
+    token: adminToken, body: { reason: REASON },
+  });
+  ok("an authority dismisses it as a false positive",
+     dismissed.status === 200 && dismissed.data?.status === "CANCELLED", `got ${dismissed.status} ${dismissed.data?.status}`);
+  ok("…and the response says it was audited", dismissed.meta?.audited === true, dismissed.meta?.note);
+
+  const after = await call("GET", "/v1/raksha/incidents/review-queue?limit=200", { token: adminToken });
+  ok("it leaves the review queue", after.status === 200 && !after.data?.some((i) => i.id === fpId),
+     `${after.meta?.awaitingReview} still waiting`);
+  const trail = await call("GET", "/v1/admin/audit?limit=20", { token: adminToken });
+  const entry = trail.data?.find((r) => r.action === "incident.dismissed" && r.entityId === fpId);
+  ok("the audit chain holds who dismissed it and why",
+     entry?.after?.reason === REASON && entry?.actorRole === "admin", entry ? entry.after?.reason : "no entry");
+  ok("and the chain still verifies end to end with it", trail.meta?.integrity?.ok === true &&
+     trail.meta.integrity.verified?.count === trail.meta.integrity.total,
+     `${trail.meta?.integrity?.verified?.count} of ${trail.meta?.integrity?.total}`);
+
+  const again = await call("POST", `/v1/raksha/incidents/${fpId}/dismiss`, { token: adminToken, body: { reason: REASON } });
+  ok("a dismissed incident cannot be dismissed twice", again.status === 409, `got ${again.status} ${again.error?.code ?? ""}`);
+
+  const owned = await call("POST", "/v1/sos", {
+    token, body: { lat: 28.46, lng: 77.03, source: "crash_model", modelConfidence: 0.95 },
+  });
+  const ownedTry = await call("POST", `/v1/raksha/incidents/${owned.data?.id}/dismiss`, {
+    token: adminToken, body: { reason: "operator thinks it is a false alarm" },
+  });
+  ok("an incident with an owner is never dismissed from the dashboard",
+     ownedTry.status === 409 && ownedTry.error?.code === "not_dismissable", `got ${ownedTry.status} ${ownedTry.error?.code ?? ""}`);
+  if (owned.data?.id) await call("POST", `/v1/sos/${owned.data.id}/cancel`, { token });
+}
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

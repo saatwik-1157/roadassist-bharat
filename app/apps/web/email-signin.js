@@ -13,9 +13,10 @@
 (function () {
   "use strict";
 
-  function post(base, path, body) {
+  function post(base, path, body, headers) {
     return fetch(base + path, {
-      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+      method: "POST", credentials: "include", body: JSON.stringify(body),
+      headers: Object.assign({ "content-type": "application/json" }, headers),
     }).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (json) {
         if (!res.ok) throw new Error((json.error && json.error.title) || ("Request failed (" + res.status + ")"));
@@ -84,7 +85,9 @@
     q(".em-verify").addEventListener("click", busy(q(".em-verify"), function () {
       var code = q(".em-code").value.trim();
       if (!/^\d{6}$/.test(code)) { say("Enter the 6-digit code from the email.", "bad"); return; }
-      return post(api, "/v1/auth/email/verify", { email: email, code: code }).then(function (r) {
+      // opts.headers is the page's RASession header: the refresh token then
+      // arrives as the page's HttpOnly cookie, not in this answer.
+      return post(api, "/v1/auth/email/verify", { email: email, code: code }, opts.headers).then(function (r) {
         return opts.onSession(r.data);
       });
     }));

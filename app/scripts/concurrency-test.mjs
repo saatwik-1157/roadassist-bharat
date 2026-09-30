@@ -885,6 +885,33 @@ if (adminToken) {
   ok("the audit chain is verified rather than assumed",
      ops.data?.auditChain?.intact === true,
      `checked=${ops.data?.auditChain?.entriesChecked} intact=${ops.data?.auditChain?.intact}`);
+  // It used to re-hash only the oldest 2,000 entries and still say "intact".
+  // The range it verified must be the whole log: every entry, ending at the
+  // newest one, with nothing left unverified.
+  {
+    const { default: postgres } = await import("postgres");
+    const chainSql = postgres(
+      process.env.DATABASE_URL ?? "postgres://roadassist:devpassword@localhost:5434/roadassist",
+      { max: 1, onnotice: () => {} },
+    );
+    try {
+      const again = await call("GET", "/v1/ops/overview", { token: adminToken });
+      const [tip] = await chainSql`
+        SELECT id, (SELECT count(*)::int FROM audit_log) AS n FROM audit_log
+         ORDER BY created_at DESC, id DESC LIMIT 1`;
+      const c = again.data?.auditChain ?? {};
+      ok("the verified range is the whole log, ending at the newest entry",
+         c.intact === true && c.verifiedRange?.toId === tip?.id && c.verifiedRange?.count === tip?.n &&
+         c.unverifiedEntries === 0,
+         `${c.verifiedRange?.count}/${tip?.n} to ${c.verifiedRange?.toId?.slice(0, 8)} (tip ${tip?.id?.slice(0, 8)})`);
+      ok("…and it says which part it re-hashed now and which a checkpoint anchored",
+         typeof c.rehashedNow?.count === "number" &&
+         (c.anchoredBy?.count ?? 0) + c.rehashedNow.count === c.verifiedRange?.count,
+         `${c.mode}: anchored ${c.anchoredBy?.count ?? 0} + re-hashed ${c.rehashedNow?.count}`);
+    } finally {
+      await chainSql.end({ timeout: 5 });
+    }
+  }
   ok("it says plainly that nothing is estimated",
      /live count/i.test(ops.meta?.note ?? ""), ops.meta?.note);
 
@@ -892,6 +919,57 @@ if (adminToken) {
   ok("a citizen cannot read the operations view", citizenOps.status === 403, `${citizenOps.status}`);
 } else {
   console.log("  – ops checks skipped (seed operator absent; run npm run db:seed:raksha)");
+}
+
+// ══ 9f. A racing confirm alerts the contacts once ═══════════════════════════
+// The compare-and-swap into RESPONDING is the claim: exactly one confirm wins
+// it and texts the emergency contacts; a repeat or a racing tap is answered
+// with the same 200 and sends nothing. Checked from the database, not from the
+// responses alone: one "contacts" response row and one escalation audit entry.
+section("9f. Ten simultaneous confirms send one alert batch");
+{
+  const cfActor = await signIn();
+  for (const i of [0, 1]) {
+    await call("POST", "/v1/me/emergency-contacts", {
+      token: cfActor.token, body: { name: `Racer ${i}`, msisdn: `+9196${String(51000000 + i * 1111)}` },
+    });
+  }
+  const raised = await call("POST", "/v1/sos", {
+    token: cfActor.token,
+    body: { lat: 28.46, lng: 77.03, source: "crash_model", modelConfidence: 0.95, clientIncidentId: clientId() },
+  });
+  const incId = raised.data?.id;
+  ok("a model signal is waiting to be confirmed", raised.data?.status === "AWAITING_CONFIRMATION", raised.data?.status);
+
+  const confirms = await Promise.all(Array.from({ length: 10 }, () =>
+    call("POST", `/v1/sos/${incId}/confirm`, { token: cfActor.token })));
+  ok("all ten confirms are answered, none errored", confirms.every((r) => r.status === 200),
+     [...new Set(confirms.map((r) => r.status))].join(","));
+  const winners = confirms.filter((r) => r.status === 200 && r.data?.alreadyEscalated !== true);
+  ok("exactly one confirm wins the escalation", winners.length === 1, `${winners.length} winner(s)`);
+  const repeats = confirms.filter((r) => r.data?.alreadyEscalated === true);
+  ok("the winner texts both contacts; the other nine text nobody",
+     winners[0]?.data?.contactsAlerted === 2 &&
+     repeats.length === 9 && repeats.every((r) => r.data.contactsAlerted === 0),
+     `alerted: ${confirms.map((r) => r.data?.contactsAlerted).join(",")}`);
+
+  const { default: postgres } = await import("postgres");
+  const cfSql = postgres(
+    process.env.DATABASE_URL ?? "postgres://roadassist:devpassword@localhost:5434/roadassist",
+    { max: 1, onnotice: () => {} },
+  );
+  try {
+    const [counts] = await cfSql`
+      SELECT (SELECT count(*)::int FROM incident_responses
+               WHERE incident_id = ${incId} AND step = 'contacts') AS batches,
+             (SELECT count(*)::int FROM audit_log
+               WHERE entity_id = ${incId} AND action = 'sos.escalated') AS escalations`;
+    ok("the database records one alert batch, not ten", counts?.batches === 1, `${counts?.batches} contacts row(s)`);
+    ok("and one escalation in the audit chain", counts?.escalations === 1, `${counts?.escalations} entry(ies)`);
+  } finally {
+    await cfSql.end({ timeout: 5 });
+  }
+  if (incId) await call("POST", `/v1/sos/${incId}/resolve`, { token: cfActor.token, body: { outcome: "false_alarm" } });
 }
 
 // ══ 10. Clean up after ourselves ═══════════════════════════════════════════

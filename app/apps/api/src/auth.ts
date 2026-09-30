@@ -12,6 +12,10 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { env } from "./env.js";
 import { db as appDb, type Db } from "./db.js";
 import * as S from "@roadassist/db";
+import {
+  WEB_CLIENT_HEADER, carriesRefreshCookie, refreshCookie as buildRefreshCookie,
+  refreshTokenFromCookies, webClientSlot as slotOf,
+} from "./domain/refresh-cookie.js";
 
 const key = new TextEncoder().encode(env.jwtSecret);
 
@@ -246,6 +250,77 @@ export async function rotateSession(db: Db, presented: string, meta: { ip?: stri
     expiresIn: env.accessTtlSeconds,
     roles,
   };
+}
+
+// ── the web pages' refresh cookie ──────────────────────────────────────────
+/**
+ * Web pages keep their refresh token in an HttpOnly cookie, not localStorage.
+ *
+ * A script injected into a page could read localStorage and carry a 30-day
+ * refresh token away; it cannot read an HttpOnly cookie. Native clients (the
+ * Android app, the test scripts) keep the JSON body flow unchanged: a client
+ * opts into the cookie only by sending `X-RA-Client: web-<slot>`. The cookie's
+ * name and attributes are built in domain/refresh-cookie.ts.
+ *
+ * The slot keeps the pages' sessions apart, as their separate localStorage keys
+ * did: the citizen app, the mechanic console and RAKSHA are usually signed in
+ * as three different people on one origin, and one shared cookie would let
+ * each sign-in overwrite the others'. A bare `web` is slot "web".
+ *
+ * CSRF. A cookie is sent by the browser whoever asks, so refresh and logout
+ * read it only when the custom header is present. A cross-site <form> cannot
+ * set a header, and a cross-site fetch that sets one needs a CORS preflight,
+ * which only the CORS allow-list passes (server.ts; production refuses to boot
+ * without one). The header, not SameSite, is what stops forgery.
+ *
+ * SameSite. On HTTPS the cookie is `SameSite=None; Secure; Partitioned`, on
+ * plain http (a laptop) `SameSite=Lax`. The trade-off: the project site
+ * (roadassistbharat.online) frames these pages in iframes. The hosted pair is
+ * same-site (app. is a subdomain of the site), where Lax would still be sent,
+ * but the site's live mode frames other hosts - a tunnel, a Render or Fly
+ * address - which are cross-site, and there a Lax or Strict cookie is never
+ * sent, so a framed page could sign in and then never refresh. None gives up
+ * the browser's own cross-site filter in exchange for working in those
+ * frames; the header above replaces it, and Path=/v1/auth keeps the cookie
+ * off every other request. Partitioned (CHIPS) keys it to the top-level site,
+ * so browsers that block third-party cookies still keep it inside the frame,
+ * and it cannot follow the user to an unrelated embedding site. None requires
+ * Secure, which plain http cannot have - hence Lax there, where every client
+ * is same-site anyway (localhost pages calling a localhost API).
+ */
+/** The web slot this request asked for (X-RA-Client), or null for a native client. */
+export const webClientSlot = (req: FastifyRequest) => slotOf(req.headers[WEB_CLIENT_HEADER]);
+
+/** The slot's refresh cookie, read only for a caller that sent the header (see above). */
+export const readRefreshCookie = (req: FastifyRequest, slot: string) =>
+  refreshTokenFromCookies(req.headers.cookie, slot);
+
+/** Whether the request carries any web refresh cookie at all (used to explain a refusal). */
+export const hasRefreshCookie = (req: FastifyRequest) => carriesRefreshCookie(req.headers.cookie);
+
+/** The Set-Cookie value carrying `token`, or clearing the slot's cookie when it is null. */
+export const refreshCookie = (https: boolean, slot: string, token: string | null) =>
+  buildRefreshCookie({ https, slot, token, maxAgeSeconds: env.refreshTtlDays * 86400 });
+
+/**
+ * Hand a new session to the caller: a web client gets the refresh token as its
+ * cookie and a body without it; any other client gets the body unchanged.
+ */
+export function deliverSession<T extends { refreshToken: string }>(
+  req: FastifyRequest, reply: FastifyReply, session: T,
+): T | Omit<T, "refreshToken"> {
+  const slot = webClientSlot(req);
+  if (!slot) return session;
+  reply.header("set-cookie", refreshCookie(req.protocol === "https", slot, session.refreshToken));
+  const { refreshToken: _kept, ...rest } = session;
+  return rest;
+}
+
+/** The session a refresh token belongs to (current or already rotated), for sign-out by cookie. */
+export async function sessionOfRefreshToken(db: Db, token: string) {
+  const [row] = await db.select({ id: S.sessions.id, userId: S.sessions.userId, reason: S.sessions.revokedReason })
+    .from(S.sessions).where(eq(S.sessions.refreshHash, sha256(token))).limit(1);
+  return row ? { id: row.id, userId: row.userId, signedOut: row.reason === LOGOUT_REASON } : null;
 }
 
 // ── request guards ─────────────────────────────────────────────────────────

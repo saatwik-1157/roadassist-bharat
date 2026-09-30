@@ -78,11 +78,11 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 334 unit — no I/O, the only ones that run standalone
-npm run test:e2e         # 213
-npm run test:concurrency # 84
-npm run test:gateway     # 39
-npm run test:security    # 87 attacks, every one must be refused
+npm test                 # 415 unit — no I/O, the only ones that run standalone
+npm run test:e2e         # 230
+npm run test:concurrency # 92
+npm run test:gateway     # 58
+npm run test:security    # 106 attacks, every one must be refused
 npm run test:ui          # 163, drives real Chrome over CDP (--headed to watch)
 ```
 
@@ -113,7 +113,7 @@ refuses to run (exit 2) unless the API was started with the variables in the
 script's header (`PAYMENTS_PROVIDER=razorpay`, `PAYMENTS_BASE_URL` at the stub).
 It is **not** part of the 920 and must never be described as passing.
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (135
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (137
 tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
 
 ## Toolchain traps

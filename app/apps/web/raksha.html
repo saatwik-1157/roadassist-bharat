@@ -426,6 +426,14 @@
       <div id="detections" style="margin-top:6px"></div>
     </section>
 
+    <section class="panel" hidden id="rq-panel">
+      <h2><span class="grow">Awaiting confirmation</span><span class="pill bare" id="rq-count"></span></h2>
+      <p class="hint" style="margin:-4px 0 0">Model-raised incidents no human has confirmed, most neglected
+        first (ADR-0011). Dismissing one records it as a false positive, with your reason, in the audit
+        log. It never dispatches anyone.</p>
+      <div id="rq" style="margin-top:6px"></div>
+    </section>
+
     <section class="panel" hidden id="dev-panel">
       <h2>Device fleet</h2>
       <div id="devices"></div>
@@ -497,6 +505,7 @@
 </div>
 <script src="vendor/leaflet.js"></script>
 <script src="email-signin.js"></script>
+<script src="session.js"></script>
 <script>
 (function () {
   "use strict";
@@ -681,16 +690,12 @@
    * dashboard just printed the error over and over. Reloading the page meant
    * signing in again.
    */
-  var SESSION_KEY = "ra.raksha.session";
-  function saveSession() {
-    try {
-      localStorage.setItem(SESSION_KEY,
-        JSON.stringify({ token: token, refresh: refreshToken, msisdn: sessionMsisdn }));
-    } catch (e) { /* storage blocked — the session lasts for this page only */ }
-  }
-  function clearSession() {
-    try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* nothing to clear */ }
-  }
+  // The refresh token itself is now an HttpOnly cookie in RAKSHA's own slot
+  // (session.js): `refreshToken` is true for it, or a
+  // pre-cookie token from storage until its one exchange.
+  var SESSION_KEY = "ra.raksha.session", sess = window.RASession(SESSION_KEY, "raksha", API);
+  function saveSession() { sess.save(token, { msisdn: sessionMsisdn }, refreshToken); }
+  function clearSession() { sess.clear(); }
 
   var refreshing = null;
   /**
@@ -702,19 +707,13 @@
   function refreshSession() {
     if (refreshing) return refreshing;
     if (!refreshToken) return Promise.resolve(false);
-    refreshing = fetch(API + "/v1/auth/refresh", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ refreshToken: refreshToken }),
-    }).then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        if (!j || !j.data) return false;
-        token = j.data.accessToken;
-        refreshToken = j.data.refreshToken;
-        saveSession();
-        return true;
-      }).catch(function () { return false; })
-      .finally(function () { refreshing = null; });
+    refreshing = sess.refresh(refreshToken).then(function (t) {
+      if (!t) return false;
+      token = t;
+      refreshToken = true;
+      saveSession();
+      return true;
+    }).finally(function () { refreshing = null; });
     return refreshing;
   }
 
@@ -777,8 +776,8 @@
     opts = opts || {};
     function send() {
       return fetch(API + path, {
-        method: method,
-        headers: Object.assign({ "content-type": "application/json" },
+        method: method, credentials: "include",   // sign-in sets the refresh cookie
+        headers: Object.assign({ "content-type": "application/json" }, sess.headers,
           token ? { authorization: "Bearer " + token } : {}),
         body: body ? JSON.stringify(body) : undefined,
       });
@@ -1143,6 +1142,50 @@
   }
 
   /**
+   * The confirmation queue (ADR-0011) and the one action it offers: dismissing
+   * a false positive, with a reason. Online only — a dismissal is a write — and
+   * a failure here stays in this panel rather than blanking the whole console.
+   */
+  async function loadReviewQueue() {
+    var el = $("rq");
+    if (offline) { el.innerHTML = "<p class='hint'>Offline: the queue needs a live connection.</p>"; return; }
+    var r;
+    try { r = await call("GET", "/v1/raksha/incidents/review-queue?limit=50"); }
+    catch (e) { el.innerHTML = "<p class='hint'>" + esc(e.message) + "</p>"; return; }
+    $("rq-count").textContent = r.meta.awaitingReview + " waiting · " + r.meta.overdue + " overdue";
+    el.innerHTML = r.data.length ? "" : "<p class='hint'>Nothing is waiting for confirmation.</p>";
+    r.data.forEach(function (i) {
+      var row = document.createElement("div");
+      row.className = "det";
+      row.innerHTML = '<div class="row1"><span class="tag" style="background:' +
+        (i.severity === "CRITICAL" ? "#ff4d5a" : "#ff9f43") + '">' + esc(i.severity) + "</span>" +
+        (i.overdue ? '<span class="tag" style="background:#ff4d5a">Overdue</span>' : "") +
+        '<span class="st">' + esc(i.status) + "</span></div>" +
+        '<div class="meta">Waited ' + esc(i.waitedMinutes) + " of " + esc(i.slaMinutes) + " min · " +
+        esc(i.signals) + " signal(s)" +
+        (i.modelConfidence != null ? " · " + Math.round(i.modelConfidence * 100) + "% model confidence" : "") +
+        "<br>Raised " + new Date(i.raisedAt).toLocaleString() + "</div>";
+      if (i.dismissable) {
+        var acts = document.createElement("div");
+        acts.className = "acts";
+        var b = document.createElement("button");
+        b.className = "chip warn";
+        b.textContent = "Dismiss as false positive";
+        b.onclick = function () {
+          var reason = prompt("Why is this a false positive? The reason is kept in the audit log.");
+          if (reason == null) return;
+          call("POST", "/v1/raksha/incidents/" + i.id + "/dismiss", { reason: reason.trim() })
+            .then(function (res) { return refresh().then(function () { status("✓ " + res.meta.note); }); })
+            .catch(function (e) { status("✗ " + e.message); });
+        };
+        acts.appendChild(b);
+        row.appendChild(acts);
+      }
+      el.appendChild(row);
+    });
+  }
+
+  /**
    * One refresh at a time.
    *
    * Each tick fans out to three endpoints, and on a slow connection the next
@@ -1154,7 +1197,7 @@
     if (refreshInFlight) return Promise.resolve();
     refreshInFlight = true;
     loadConditions();
-    return Promise.all([loadSegments(), loadDetections(), loadDevices()])
+    return Promise.all([loadSegments(), loadDetections(), loadDevices(), loadReviewQueue()])
       .then(function (results) {
         var fresh = results[1];
         var liveEl = $("live");
@@ -1269,8 +1312,8 @@
       token = v.data.accessToken;
       // The refresh token is what keeps an officer signed in for a shift. It
       // used to be discarded here, which is why the console died after ten
-      // minutes and after every reload.
-      refreshToken = v.data.refreshToken;
+      // minutes and after every reload. It now arrives as the HttpOnly cookie.
+      refreshToken = true;
       sessionMsisdn = msisdn;
       saveSession();
       await enterConsole(v.data.roles, msisdn);
@@ -1284,8 +1327,8 @@
     finally { btn.classList.remove("is-busy"); }
   };
 
-  var emailSignin = window.RAEmail && RAEmail.mount($("login-btn"), { api: API, toast: function (m) { status(m); }, onSession: async function (d) {
-    token = d.accessToken; refreshToken = d.refreshToken; sessionMsisdn = d.user.msisdn;
+  var emailSignin = window.RAEmail && RAEmail.mount($("login-btn"), { api: API, headers: sess.headers, toast: function (m) { status(m); }, onSession: async function (d) {
+    token = d.accessToken; refreshToken = d.refreshToken || true; sessionMsisdn = d.user.msisdn;
     saveSession();
     await enterConsole(d.roles, d.user.msisdn);
   } });
@@ -1303,7 +1346,7 @@
     $("who").textContent = who + " · " + rolesText;
     $("login-panel").hidden = true;
     $("signout-btn").hidden = false;
-    ["health-panel", "cond-panel", "photo-panel", "det-panel", "dev-panel", "sms-panel"].forEach(function (id) { $(id).hidden = false; });
+    ["health-panel", "cond-panel", "photo-panel", "det-panel", "rq-panel", "dev-panel", "sms-panel"].forEach(function (id) { $(id).hidden = false; });
     if (!(roles || []).includes("admin") && !(roles || []).includes("gov_officer")) {
       status("This account has no authority role — RAKSHA data is admin/gov-officer only.");
       return;
@@ -1320,23 +1363,24 @@
     $("who").textContent = "not signed in";
     $("login-panel").hidden = false;
     $("signout-btn").hidden = true;
-    ["health-panel", "cond-panel", "photo-panel", "det-panel", "dev-panel", "sms-panel", "export-panel"]
+    ["health-panel", "cond-panel", "photo-panel", "det-panel", "rq-panel", "dev-panel", "sms-panel", "export-panel"]
       .forEach(function (id) { $(id).hidden = true; });
     if (!silent) status("Signed out.");
   }
-  $("signout-btn").onclick = function () { signOut(); };
+  $("signout-btn").onclick = function () { sess.logout(token); signOut(); };
 
   // ── restore a stored session before showing the login panel ──────────────
   // The stored access token is almost always stale — the page may have been
   // closed for hours — so the ordinary refresh path inside call() handles it.
   (async function boot() {
-    var saved;
-    try { saved = JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (e) { saved = null; }
-    if (!saved || !saved.refresh) return;
+    var saved = sess.load();
+    if (!saved) return;
     token = saved.token;
     refreshToken = saved.refresh;
     status("Restoring your session…");
     try {
+      // A pre-cookie session trades its stored refresh token for the cookie, once.
+      if (typeof refreshToken === "string") await refreshSession();
       var me = await call("GET", "/v1/me");
       await enterConsole(me.data.roles, saved.msisdn || me.data.user.msisdn);
     } catch (e) {

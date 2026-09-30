@@ -350,7 +350,7 @@ The accounts worth stealing — admin, RAKSHA officer, listed mechanics — sign
 only by a code emailed to their listed address; their phone path answers
 `403 email_signin_required`, so the demo's on-screen OTP cannot open them.
 
-**87 attacks in `security-audit.mjs`, all refused.**
+**106 attacks in `security-audit.mjs`, all refused.**
 
 ### 28. How do you secure payments?
 
@@ -501,8 +501,8 @@ labels it as such. The road-damage models are genuinely trained YOLO11
 detectors with measured metrics — best run YOLO11s mAP50 0.472; the YOLO11n
 India model RAKSHA shows scored 0.443. I will not call the first one AI.
 
-**"Did you actually test it, or does it just look right?"** — 920 assertions
-across six suites, all executed with no failures, including 87 attacks that must
+**"Did you actually test it, or does it just look right?"** — 1064 assertions
+across six suites, all executed with no failures, including 106 attacks that must
 fail and a concurrency suite that fires ten simultaneous accepts. The 22 Razorpay
 checks need no account — they run against their own local stub — but only when
 the API is started with `PAYMENTS_PROVIDER=razorpay`, so they are outside the
@@ -675,7 +675,7 @@ refused with 403; an anonymous caller gets 401.
 Three, honestly. Rate limiting is in-process, so behind N instances the effective
 ceiling is N times the number — the OTP ceilings are deliberately **not** built
 that way, because credential stuffing is the one attack where a per-instance
-ceiling is worth nothing. There has been no external penetration test; 74
+ceiling is worth nothing. There has been no external penetration test; 106
 self-written attacks is not the same thing. And the on-device encryption protects
 a storage dump, not script running on the same origin — the UI says exactly that
 rather than implying more.

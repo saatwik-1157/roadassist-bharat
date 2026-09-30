@@ -1,0 +1,12 @@
+# RoadAssist Bharat - live platform. The pages are public; the API, map tiles
+# and media are not documents, so crawlers are kept off them (they are also
+# rate limited, and every /v1 route but a few needs a signed-in user anyway).
+User-agent: *
+Allow: /
+Disallow: /v1/
+Disallow: /tiles/
+Disallow: /basemap/
+Disallow: /media/
+Disallow: /health
+
+Sitemap: https://app.roadassistbharat.online/sitemap.xml

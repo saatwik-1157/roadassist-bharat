@@ -3,7 +3,7 @@
 Threat model: [`security/threat-model.md`](security/threat-model.md) — STRIDE,
 20 threats mapped to controls.
 Penetration suite: [`../scripts/security-audit.mjs`](../scripts/security-audit.mjs) —
-**87 attacks, every one refused.**
+**106 attacks, every one refused.**
 
 Everything below has been executed. A control described here without a test
 beside it says so.
@@ -307,7 +307,7 @@ answers 404 on the live hosts. What changed:
 | The inbound-SMS webhook with no secret accepted any number on the hosted demo, so a stranger could act as a real phone | High | 503 `webhook_not_configured` except for demo numbers; a set secret is required of everyone; limited per sending number (`domain/webhook-intake.ts`) | `webhook-intake.test.ts`, `gateway-security-test.mjs` |
 | `/v1/notify/email` would send an operator-written message to any address | High | Plain text only, and only to the platform's own alert and sign-in recipients — else 403 `recipient_not_allowed` | `e2e-journey.mjs` §25 |
 | Behind Cloudflare, the client address came from `X-Forwarded-For`, which the caller writes — every per-IP limit could be dodged | High | `CLIENT_IP_HEADER=cf-connecting-ip`: the address the edge saw, used only when it is a valid IP (`client-ip.ts`) | `route-limits.test.ts` |
-| No security headers | Medium | CSP (`object-src 'none'`, `frame-ancestors` limited to the showcase, `base-uri`/`form-action 'self'`), nosniff, Referrer-Policy, Permissions-Policy, COOP, CORP, HSTS over HTTPS; `no-store` on the API (`security-headers.ts`) | `security-headers.test.ts`, `e2e-journey.mjs` §25 |
+| No security headers | Medium | CSP (`object-src 'none'`, `frame-ancestors` limited to the showcase, `base-uri`/`form-action 'self'`, inline scripts by hash only), nosniff, Referrer-Policy, Permissions-Policy, COOP, CORP, HSTS over HTTPS; `no-store` on the API (`security-headers.ts`) | `security-headers.test.ts`, `e2e-journey.mjs` §25 |
 | No sign-out on the server — a stolen refresh token outlived "sign out" | Medium | `POST /v1/auth/logout` revokes the whole session family; its access tokens are refused as `AUTH_REVOKED` | `security-audit.mjs` (9 checks) |
 | A repeated SOS confirm re-texted every emergency contact | Medium | Confirm is idempotent per incident; at most 10 alert batches an hour per account (the escalation itself is never limited); at most 5 contacts, each number once | Contacts: `e2e-journey.mjs` §25. Confirm idempotency and the alert cap: a manual probe (10 simultaneous confirms, one send) — **not yet in a counted suite** |
 | The generic transition route let a non-admin issue `mechanic.accept` and other system commands | Medium | 409 `command_not_allowed`; only the customer or an admin may cancel | `e2e-journey.mjs` §25 |
@@ -334,14 +334,34 @@ reports 4 moderate advisories, all in `drizzle-kit`'s development-only
 `esbuild` chain, which never ships in the image. Passwords: the platform has
 none — sign-in is a one-time code, stored as a SHA-256 hash.
 
-**Still open, said plainly:** refresh tokens live in `localStorage`, and the
-CSP keeps `'unsafe-inline'` for the pages' inline scripts — HttpOnly cookies
-and nonces are future work. The database runs as its owner role; a
-least-privilege role needs the Neon console.
+**Closed since:** the web pages' refresh tokens left `localStorage`. A page
+that sends `X-RA-Client: web-<page>` gets its refresh token as an HttpOnly
+cookie on `Path=/v1/auth` (`SameSite=None; Secure; Partitioned` over HTTPS,
+so the showcase's frames keep it; `SameSite=Lax` on local http), one cookie
+per page so the three consoles stay separate sessions. Refresh and sign-out
+read the cookie only with that header — a cross-site form cannot send it and
+a cross-site fetch needs the CORS allow-list — and a cookie without it is
+refused (403 `client_header_required`). The Android app and the test scripts
+keep the JSON body token unchanged. A session stored before the change is
+exchanged once and its stored token dropped (`session.js`). And the CSP no
+longer allows `'unsafe-inline'` scripts: each inline `<script>` in the served
+pages is allowed by its SHA-256 hash, computed from the files when the server
+starts, and no page uses a handler attribute or `javascript:` URL. Verified by
+`security-audit.mjs` §13, `refresh-cookie.test.ts` and
+`security-headers.test.ts` (which fails if any served page's inline script is
+not covered or a handler attribute appears).
+
+**Still open, said plainly:** the access token (ten minutes) is in
+`sessionStorage`, so a script that did get into a page could use it — or call
+refresh itself — while the tab is open; the cookie only stops it carrying the
+30-day token away. `style-src` keeps `'unsafe-inline'`: the pages set
+`style=""` throughout, and injected CSS can restyle a page but not run code.
+The database runs as its owner role; a least-privilege role needs the Neon
+console.
 
 ## Known gaps
 
-1. **No external penetration test.** 84 self-written attacks is not the same
+1. **No external penetration test.** 106 self-written attacks is not the same
    thing.
 2. **Rate limiting is per-instance.** See above.
 3. **No column-level encryption at rest in Postgres.** Medical data is protected

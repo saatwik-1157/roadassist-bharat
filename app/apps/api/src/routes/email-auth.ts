@@ -21,7 +21,7 @@ import { alerts } from "../alerts.js";
 import { email as mail } from "../providers.js";
 import { otpPolicy } from "../domain/otp-policy.js";
 import { emailChallengeKey, parseEmailSignin } from "../domain/email-signin.js";
-import { claimOtpChallenge, constantTimeEquals, sha256, startSession } from "../auth.js";
+import { claimOtpChallenge, constantTimeEquals, deliverSession, sha256, startSession } from "../auth.js";
 
 export const emailSignin = parseEmailSignin(env.emailSignin);
 
@@ -158,6 +158,8 @@ export async function emailAuthRoutes(app: FastifyInstance) {
     });
     alerts.signin(msisdn, session.roles, created);
 
-    return ok({ ...session, user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName } }, { newAccount: created, channel: "email" });
+    // A web page gets the refresh token as its HttpOnly cookie (auth.ts).
+    return ok(deliverSession(req, reply, { ...session, user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName } }),
+      { newAccount: created, channel: "email" });
   });
 }

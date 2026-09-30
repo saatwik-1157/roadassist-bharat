@@ -15,7 +15,8 @@
 // v10: keys are the bare pathname, so v9's query-string entries are dropped.
 // v11: the hazard-report photo, the mechanic sign-in hint (app.html, mechanic.html).
 // v12: near.js ("Near you", road ETA) joins the shell; app.html and ds.css changed.
-const VERSION = "ra-v12";
+// v13: session.js (the refresh cookie) joins the shell; app, mechanic and email-signin changed.
+const VERSION = "ra-v13";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -31,6 +32,8 @@ const SHELL_ASSETS = [
   "/ds.css",
   "/depth.js",
   "/email-signin.js",
+  // The session and its refresh cookie; without it a cached page cannot sign in.
+  "/session.js",
   // app.html runs on it before its own script does — uncached, no screen draws.
   "/journey.js",
   // "Near you" and road ETAs; it degrades to "needs a connection" offline.

@@ -347,7 +347,7 @@ const run = async () => {
     console.log("\nlive map");
     await page.viewport(430, 900, true);
     // map.html has no localStorage fallback — it reads the session out of the
-    // URL hash, exactly as app.html hands it over (apps/web/app.html:3479).
+    // URL hash, exactly as app.html hands it over (apps/web/app.html:3469).
     // Navigated bare it still renders, but every authenticated fetch 401s, so
     // not one mechanic, responder or detection arrives. The citizen session is
     // still in storage here: the authority step above keys its own under

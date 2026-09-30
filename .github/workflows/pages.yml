@@ -41,6 +41,12 @@ jobs:
         run: |
           mkdir -p _site/shots _site/media _site/visuals
           cp pages/index.html _site/
+          # Search engines: the sitemap (with image entries) and robots.txt. A
+          # Google Search Console HTML verification file, if one is added as
+          # pages/google*.html, is published beside them; the nullglob keeps an
+          # absent one from failing the step.
+          cp pages/sitemap.xml pages/robots.txt _site/
+          shopt -s nullglob; for f in pages/google*.html; do cp "$f" _site/; done; shopt -u nullglob
           # The public address of a running platform, if there is one. Empty
           # means the page shows screenshots; see the comment where it is read.
           cp pages/live.json _site/

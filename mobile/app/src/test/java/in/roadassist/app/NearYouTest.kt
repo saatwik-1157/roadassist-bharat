@@ -250,4 +250,21 @@ class NearYouTest {
         // A clock that went backwards is not "fresh".
         assertFalse(NearYou.fresh(at = 5_000, now = 1_000))
     }
+
+    private fun card(fix: NearYou.Fix) = NearYou.State.Loaded(fix, null, NearYou.rows(emptyMap()))
+
+    @Test
+    fun `a demo-point card for missing permission is dropped once permission is granted`() {
+        val noPermission = card(NearYou.Fix.NO_PERMISSION)
+        assertTrue(NearYou.reusable(noPermission, permitted = false))
+        // It would otherwise keep saying "permission is not granted" for ten minutes.
+        assertFalse(NearYou.reusable(noPermission, permitted = true))
+    }
+
+    @Test
+    fun `a GPS card and a no-fix card stay reusable whatever the permission`() {
+        assertTrue(NearYou.reusable(card(NearYou.Fix.GPS), permitted = true))
+        assertTrue(NearYou.reusable(card(NearYou.Fix.GPS), permitted = false))
+        assertTrue(NearYou.reusable(card(NearYou.Fix.NO_FIX), permitted = true))
+    }
 }

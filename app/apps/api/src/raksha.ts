@@ -20,6 +20,8 @@ import { db } from "./db.js";
 import { withIsoTimestamps } from "./http.js";
 import * as S from "@roadassist/db";
 import { authenticate, constantTimeEquals, issueAccessToken, requireRole, sha256 } from "./auth.js";
+import { audit } from "./audit.js";
+import { applyIncident, PUBLIC_STAGE, type IncidentStatus } from "./domain/incident-machine.js";
 import {
   REVIEW_SLA_MINUTES, assessReview, compareReviewUrgency,
   type IncidentSeverity,
@@ -697,9 +699,10 @@ export async function rakshaRoutes(app: FastifyInstance) {
       const rows = await db.execute<{
         id: string; status: string; severity: IncidentSeverity; created_at: string | Date;
         detected_by_model: boolean; model_confidence: string | null;
-        lat: number | null; lng: number | null; signals: number;
+        lat: number | null; lng: number | null; signals: number; ownerless: boolean;
       }>(raw`
         SELECT i.id, i.status, i.severity, i.created_at, i.detected_by_model, i.model_confidence,
+               (i.user_id IS NULL) AS ownerless,
                ST_Y(i.location) AS lat, ST_X(i.location) AS lng,
                (SELECT count(*)::int FROM incident_signals s WHERE s.incident_id = i.id) AS signals
           FROM incidents i
@@ -737,6 +740,8 @@ export async function rakshaRoutes(app: FastifyInstance) {
         reviewDeadline: assessment.deadline?.toISOString() ?? null,
         minutesToDeadline: assessment.minutesToDeadline,
         overdue: assessment.state === "OVERDUE",
+        // POST /v1/raksha/incidents/:id/dismiss accepts exactly these rows.
+        dismissable: row.detected_by_model && row.ownerless,
       })), {
         count: visible.length,
         awaitingReview: assessed.length,
@@ -869,4 +874,66 @@ export async function rakshaRoutes(app: FastifyInstance) {
     }
     return ok(rows[0]);
   });
+
+  // ── dismissing a false positive from the confirmation queue (ADR-0011) ────
+  // A RAKSHA incident has no owner, so the owner's cancel can never reach it and
+  // only an admin's confirm could move it: a false positive stayed in the queue,
+  // counted as overdue, with nobody able to clear it. An authority may dismiss
+  // one, with a reason that goes into the audit chain. It is the state machine's
+  // `cancel`, so it can only close an incident, never dispatch one (ADR-0005).
+  // Only a model-raised, ownerless, unconfirmed incident: a phone's crash signal
+  // belongs to a person who may be the one unable to answer, and their own cancel
+  // is the path for that false alarm.
+  app.post("/v1/raksha/incidents/:id/dismiss",
+    { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req, reply) => {
+      const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+      const { reason } = z.object({
+        reason: z.string().trim().min(5, "Say why this is a false positive (at least 5 characters)").max(500),
+      }).parse(req.body ?? {});
+
+      const [inc] = await db.select({
+        status: S.incidents.status, userId: S.incidents.userId, detectedByModel: S.incidents.detectedByModel,
+      }).from(S.incidents).where(and(eq(S.incidents.id, id), isNull(S.incidents.deletedAt))).limit(1);
+      if (!inc) {
+        return reply.code(404).send({ error: { code: "not_found", title: "Incident not found", retryable: false } });
+      }
+      if (!inc.detectedByModel || inc.userId) {
+        return reply.code(409).send({ error: {
+          code: "not_dismissable", retryable: false,
+          title: "Only a model-raised incident with no owner can be dismissed here; an owner cancels their own",
+        } });
+      }
+      if (inc.status !== "AWAITING_CONFIRMATION" && inc.status !== "DETECTED") {
+        return reply.code(409).send({ error: {
+          code: "already_reviewed", retryable: false,
+          title: `This incident is already ${inc.status} and is no longer awaiting review`,
+        } });
+      }
+
+      const { to } = applyIncident(inc.status as IncidentStatus, "cancel");
+      const moved = await db.update(S.incidents)
+        .set({ status: to, cancelledAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(S.incidents.id, id), eq(S.incidents.status, inc.status),
+                   isNull(S.incidents.userId), eq(S.incidents.detectedByModel, true)))
+        .returning({ id: S.incidents.id });
+      if (!moved.length) {
+        return reply.code(409).send({ error: {
+          code: "invalid_state", retryable: true,
+          title: "This incident changed while the dismissal was in flight. Reload the queue.",
+        } });
+      }
+
+      const auditHash = await audit({
+        actorId: req.user!.sub, actorRole: req.user!.roles.includes("admin") ? "admin" : "gov_officer",
+        action: "incident.dismissed", entity: "incident", entityId: id,
+        before: { status: inc.status }, after: { status: to, falsePositive: true, reason },
+        ip: req.ip,
+      });
+      return ok({ id, status: to, stage: PUBLIC_STAGE[to], dismissed: true, reason }, {
+        audited: auditHash !== null,
+        note: auditHash !== null
+          ? "Dismissed as a false positive. The reason is in the audit chain; nothing was dispatched."
+          : "Dismissed, but the audit write FAILED — the chain shows the gap. Nothing was dispatched.",
+      });
+    });
 }

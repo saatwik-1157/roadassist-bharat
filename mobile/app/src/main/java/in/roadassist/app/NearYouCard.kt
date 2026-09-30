@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -102,13 +103,26 @@ private suspend fun loadNearYou(ctx: Context): NearYou.State {
 @Composable
 fun NearYouSection(online: Boolean, sosActive: Boolean) {
     val ctx = LocalContext.current
-    var state by remember { mutableStateOf<NearYou.State>(NearMemory.fresh() ?: NearYou.State.Idle) }
+    // Re-read on every resume: the SOS button and hazard reports ask for
+    // location, and the answer comes back through a permission dialog that
+    // pauses and resumes this screen. A card that says "permission is not
+    // granted" must not outlive the grant (NearYou.reusable).
+    var permitted by remember { mutableStateOf(hasLocationPermission(ctx)) }
+    LifecycleResumeEffect(Unit) {
+        permitted = hasLocationPermission(ctx)
+        onPauseOrDispose { }
+    }
+    var state by remember {
+        mutableStateOf<NearYou.State>(
+            NearMemory.fresh()?.takeIf { NearYou.reusable(it, permitted) } ?: NearYou.State.Idle,
+        )
+    }
     // Taps on "Find help near me" and "Retry". 0 = nobody has asked yet.
     var asked by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(asked, online, sosActive) {
+    LaunchedEffect(asked, online, sosActive, permitted) {
         if (sosActive) return@LaunchedEffect
-        NearMemory.fresh()?.let { state = it; return@LaunchedEffect }
+        NearMemory.fresh()?.takeIf { NearYou.reusable(it, permitted) }?.let { state = it; return@LaunchedEffect }
         if (asked == 0 && !hasLocationPermission(ctx)) { state = NearYou.State.Idle; return@LaunchedEffect }
         if (!online) { state = NearYou.State.Offline; return@LaunchedEffect }
         state = NearYou.State.Loading

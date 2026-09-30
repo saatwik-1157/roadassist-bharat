@@ -21,12 +21,12 @@ npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Deskt
 npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run share                                               # → public HTTPS url, for real phones
-npm run verify && npm run test:e2e                          # 334 unit + 213 end-to-end
-npm run test:gateway                                        # 39 gateway-security checks
-npm run test:concurrency                                    # 84 race / idempotency / real-time
-npm run test:security                                       # 87 attacks, all must be refused
+npm run verify && npm run test:e2e                          # 415 unit + 230 end-to-end
+npm run test:gateway                                        # 58 gateway-security checks
+npm run test:concurrency                                    # 92 race / idempotency / real-time
+npm run test:security                                       # 106 attacks, all must be refused
 npm run test:ui                                             # 163 browser-journey checks
-npm run test:razorpay                                       # 22 payment-gateway checks: not in the 920, see below
+npm run test:razorpay                                       # 22 payment-gateway checks: not in the 1064, see below
 ```
 
 > `db:seed` is not idempotent — against an already-seeded database run
@@ -122,7 +122,7 @@ against a fresh PostGIS container on every push.
 | 0 · Research | Problem validation, integration feasibility, constraints | ✅ [`../docs/`](../docs/) |
 | 1 · Planning | Backlog, repo scaffold, CI pipeline, quality gates | ✅ |
 | 2 · Architecture | C4 diagrams, 12 ADRs, event catalogue, API style guide, failure matrix, threat model | ✅ [`docs/`](docs/) |
-| 3 · Database | 56 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
+| 3 · Database | 57 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
 | 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS, gateway-verified payments | ◐ slice complete, full surface pending |
 | 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 135 tests); no React Native app |
@@ -386,7 +386,7 @@ app/
 │       ├── connectivity.js     ONLINE · LIMITED · OFF-GRID manager
 │       └── sw.js               service worker (app shell + map tiles)
 ├── packages/
-│   └── db/                   Drizzle schema (6 modules, 56 tables)
+│   └── db/                   Drizzle schema (6 modules, 57 tables)
 ├── scripts/
 │   ├── check-boundaries.mjs  Architecture fitness function (ADR-0002)
 │   ├── check-claims.mjs      Documented numbers match docs/measured.json

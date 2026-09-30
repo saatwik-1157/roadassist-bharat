@@ -202,6 +202,7 @@ const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) =>
 // The on-screen log never shows a whole token: "…" plus the last six characters.
 const redact = (k, v) => (/token$/i.test(k) && typeof v === "string" ? "…" + v.slice(-6) : v);
 const logJson = (v) => JSON.stringify(v, redact);
+const WEB = { "x-ra-client": "web-console" };
 
 const state = {
   online: false,
@@ -237,9 +238,11 @@ async function api(method, path, body, opts = {}) {
     return { queued: true, opId: op.opId };
   }
   write("u", `→ ${method} ${path}${body ? "  " + logJson(body) : ""}`);
+  // X-RA-Client: the refresh token comes and goes as this console's HttpOnly
+  // cookie (routes/auth.ts), so script never holds it; the log shows no token.
   const send = () => fetch(API + path, {
-    method,
-    headers: { "content-type": "application/json", ...(state.token ? { authorization: "Bearer " + state.token } : {}) },
+    method, credentials: "include",
+    headers: { "content-type": "application/json", ...WEB, ...(state.token ? { authorization: "Bearer " + state.token } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   let res = await send();
@@ -247,15 +250,14 @@ async function api(method, path, body, opts = {}) {
   // `state.refresh` was captured at sign-in and then never used, so every call
   // past the expiry failed with "sign in again" mid-demonstration.
   if (res.status === 401 && state.refresh && !opts.noRetry) {
-    write("m", "⟳ access token expired — rotating refresh token");
+    write("m", "⟳ access token expired — rotating the refresh cookie");
     const rot = await fetch(API + "/v1/auth/refresh", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ refreshToken: state.refresh }),
+      method: "POST", credentials: "include",
+      headers: { "content-type": "application/json", ...WEB },
+      body: "{}",
     }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
     if (rot?.data) {
       state.token = rot.data.accessToken;
-      state.refresh = rot.data.refreshToken;
       res = await send();
     }
   }
@@ -397,7 +399,7 @@ const acts = {
   async "verify-otp"() {
     const r = await api("POST", "/v1/auth/otp/verify",
       { msisdn: state.msisdn, code: $("code").value.trim() }, { force: true });
-    state.token = r.data.accessToken; state.refresh = r.data.refreshToken;
+    state.token = r.data.accessToken; state.refresh = true;   // the cookie holds it
     $("whoami").textContent = state.msisdn;
     write("d", `   roles: ${r.data.roles.join(", ")}`);
     render("garage");

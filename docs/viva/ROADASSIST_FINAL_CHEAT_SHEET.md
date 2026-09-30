@@ -8,7 +8,7 @@ India whose emergency path keeps working when the network does not.
 ---
 
 ### Architecture
-PWA / Android / feature-phone SMS → **Fastify API** (73 routes, 70 under `/v1`,
+PWA / Android / feature-phone SMS → **Fastify API** (74 routes, 71 under `/v1`,
 zod at every boundary) → five modules (identity, fleet, service, ops, RAKSHA)
 with **CI-enforced** boundaries → **PostgreSQL 16 + PostGIS 3.4**. Every vendor
 behind an adapter with a local implementation → runs on **zero paid accounts**.
@@ -28,8 +28,8 @@ No cluster, no autoscaling, no replication.
 9 implemented · 6 partial · 6 design, of 21 concepts.
 
 ### Database
-56 tables · 62 FKs · 138 indexes (5 GiST) · 5 checks · 84 unique indexes ·
-7 migrations. Money in **integer paise**. Audit log **hash-chained and
+57 tables · 62 FKs · 140 indexes (5 GiST) · 6 checks · 86 unique indexes ·
+8 migrations. Money in **integer paise**. Audit log **hash-chained and
 append-only** — Postgres RULES make UPDATE/DELETE change nothing.
 
 ### AI
@@ -61,7 +61,7 @@ been transmitted"* + advise **112**. **112 is a stub** and the API says so.
 OTP + per-number/per-IP ceilings · JWT + refresh rotation with **theft
 detection** · `bookingAudience()` ownership · RBAC · per-principal rate limits ·
 zod everywhere · hash-chained audit · payment signature recomputed server-side.
-**87 attacks, all refused. No independent pentest.**
+**106 attacks, all refused. No independent pentest.**
 
 ### Payment
 Invoice = labour + **18% GST**, server-computed. Amount **never** from the

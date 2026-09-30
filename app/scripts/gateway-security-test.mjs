@@ -2,7 +2,10 @@
 /**
  * Gateway security suite: webhook signatures, per-IP OTP ceiling, and the
  * Twilio and Razorpay adapters' wire formats — proven against a hardened API
- * instance and a stub vendor endpoint. Run from app/:
+ * instance and a stub vendor endpoint. It also owns the SMS line's truthfulness:
+ * an SMS SOS texts the contacts it says it texted, STOP/START are stored and
+ * honoured (by the app's SOS confirm too), an SMS CANCEL cannot overwrite an
+ * accept, and a cancel closes the booking's offers. Run from app/:
  *   node scripts/gateway-security-test.mjs
  *
  * Needs the database up (docker compose locally, the service container in CI).
@@ -51,6 +54,9 @@ let lastTwilio = null;
 let lastRazorpay = null;
 /** Numbers the stub gateway refuses to deliver to, as a vendor outage would. */
 const UNDELIVERABLE = new Set();
+/** Every SMS the Twilio stub accepted, in order: who was actually texted. */
+const twilioSent = [];
+const textedSince = (mark, to) => twilioSent.slice(mark).filter((m) => m.to === to);
 const stub = createServer((req, res) => {
   let body = "";
   req.on("data", (c) => (body += c));
@@ -66,6 +72,8 @@ const stub = createServer((req, res) => {
       return res.end(JSON.stringify({ message: "stub outage" }));
     }
     lastTwilio = captured;
+    const sentForm = new URLSearchParams(body);
+    twilioSent.push({ to: sentForm.get("To"), body: sentForm.get("Body") ?? "" });
     res.writeHead(201, { "content-type": "application/json" });
     res.end(JSON.stringify({ sid: "SMstub123" }));
   });
@@ -188,6 +196,125 @@ ok("an SOS whose reply cannot be sent still answers 200, saying so",
 const [raised] = await sql`
   SELECT count(*)::int AS n FROM incidents i JOIN users u ON u.id = i.user_id WHERE u.msisdn = ${unreachable}`;
 ok("and it raised exactly one incident", raised?.n === 1, `${raised?.n} incident(s)`);
+
+// ── an SMS SOS really alerts the contacts, and STOP really stops ──
+// The SMS SOS used to write a "contacts" response row with latency 0 and text
+// nobody; STOP replied "no further messages" and stored nothing; START was not
+// a command. Checked here against what the stub gateway actually received.
+const rnd = (prefix) => prefix + String(Math.floor(10000000 + Math.random() * 89999999));
+const smsOwner = rnd("+9196"), contactA = rnd("+9195"), contactB = rnd("+9194");
+await signedSms(smsOwner, "STATUS");   // first contact registers the number
+await sql`
+  INSERT INTO emergency_contacts (user_id, name, msisdn, priority)
+  SELECT id, 'GW contact A', ${contactA}, 1 FROM users WHERE msisdn = ${smsOwner}
+  UNION ALL
+  SELECT id, 'GW contact B', ${contactB}, 2 FROM users WHERE msisdn = ${smsOwner}`;
+
+const stopReply = await (await signedSms(contactB, "UNSUBSCRIBE")).json();
+const [stopRow] = await sql`
+  SELECT keyword, opted_back_in_at FROM sms_opt_outs WHERE msisdn = ${contactB} AND deleted_at IS NULL`;
+ok("STOP (here its synonym UNSUBSCRIBE) is stored, not just acknowledged",
+   stopRow?.keyword === "unsubscribe" && stopRow.opted_back_in_at === null, JSON.stringify(stopRow ?? null));
+ok("and the reply says plainly that emergency alerts stop too",
+   /no further messages/i.test(stopReply.data?.reply ?? "") && /emergency alerts/i.test(stopReply.data?.reply ?? ""),
+   (stopReply.data?.reply ?? "").slice(0, 60));
+
+let mark = twilioSent.length;
+const smsSosRes = await (await signedSms(smsOwner, "SOS 28.4595 77.0266")).json();
+const smsIncident = smsSosRes.meta?.incidentId;
+ok("an SMS SOS texts the sender's emergency contacts, with the incident link",
+   textedSince(mark, contactA).some((m) => m.body.includes(`/i/${smsIncident}`)),
+   `${textedSince(mark, contactA).length} message(s) to contact A`);
+ok("but not the contact who texted STOP", textedSince(mark, contactB).length === 0,
+   `${textedSince(mark, contactB).length} message(s) to contact B`);
+ok("and says so: one alerted, one opted out",
+   smsSosRes.meta?.contactsAlerted === 1 && smsSosRes.meta?.contactsOptedOut === 1,
+   `alerted=${smsSosRes.meta?.contactsAlerted} optedOut=${smsSosRes.meta?.contactsOptedOut}`);
+const [smsInc] = smsIncident ? await sql`SELECT status FROM incidents WHERE id = ${smsIncident}` : [];
+const smsSteps = smsIncident ? await sql`
+  SELECT step, latency_ms FROM incident_responses WHERE incident_id = ${smsIncident} ORDER BY step` : [];
+const contactsStep = smsSteps.find((s) => s.step === "contacts");
+ok("the incident escalated, and its contacts step carries a measured latency, not a 0",
+   smsInc?.status === "RESPONDING" && smsSteps.filter((s) => s.step === "contacts").length === 1 &&
+   contactsStep?.latency_ms > 0,
+   `status=${smsInc?.status} steps=${smsSteps.map((s) => `${s.step}:${s.latency_ms}`).join(",")}`);
+const [escalatedAudit] = smsIncident ? await sql`
+  SELECT after FROM audit_log WHERE entity_id = ${smsIncident} AND action = 'sos.escalated'` : [];
+ok("the audit record carries the real count",
+   escalatedAudit?.after?.contactsAlerted === 1 && escalatedAudit?.after?.contactsOptedOut === 1 &&
+   escalatedAudit?.after?.channel === "sms", JSON.stringify(escalatedAudit?.after ?? null));
+
+const startReply = await (await signedSms(contactB, "START")).json();
+const [startRow] = await sql`SELECT opted_back_in_at FROM sms_opt_outs WHERE msisdn = ${contactB}`;
+ok("START is a command: it opts the number back in and says so",
+   startRow?.opted_back_in_at !== null && startRow?.opted_back_in_at !== undefined &&
+   /opted back in/i.test(startReply.data?.reply ?? ""), (startReply.data?.reply ?? "").slice(0, 50));
+mark = twilioSent.length;
+const smsSos2 = await (await signedSms(smsOwner, "SOS")).json();
+ok("and the next SOS texts that contact again",
+   textedSince(mark, contactB).length === 1 && smsSos2.meta?.contactsAlerted === 2,
+   `B texted ${textedSince(mark, contactB).length}x, alerted=${smsSos2.meta?.contactsAlerted}`);
+
+// ── an SMS CANCEL that loses the race to a mechanic's accept ──
+// The cancel was `WHERE id = ?`: an accept landing between its read and its
+// write was overwritten, leaving a CANCELLED booking with a mechanic driving
+// to it. Made deterministic by holding the booking row lock: the accept below
+// is written and held uncommitted, the CANCEL is sent and blocks on the lock,
+// then the accept commits and the CANCEL's write is re-checked against it.
+{
+  const racer = rnd("+9193");
+  await signedSms(racer, "HELP CAR");
+  const [bk] = await sql`
+    SELECT b.id, b.version FROM bookings b JOIN users u ON u.id = b.user_id
+     WHERE u.msisdn = ${racer} ORDER BY b.created_at DESC LIMIT 1`;
+  await sql`UPDATE bookings SET status = 'MATCHING', version = version + 1 WHERE id = ${bk.id}`;
+  const [mech] = await sql`SELECT id FROM mechanics WHERE deleted_at IS NULL AND verified LIMIT 1`;
+  const watcher = postgres(DATABASE_URL, { max: 1, onnotice: () => {} });
+  let cancelRes;
+  try {
+    await sql.begin(async (tx) => {
+      await tx`SELECT id FROM bookings WHERE id = ${bk.id} FOR UPDATE`;
+      await tx`UPDATE bookings SET status = 'ASSIGNED', mechanic_id = ${mech.id}, assigned_at = now(),
+                      version = version + 1 WHERE id = ${bk.id}`;
+      cancelRes = signedSms(racer, "CANCEL");
+      // Wait until the CANCEL's write is queued behind this lock.
+      for (let i = 0; i < 100; i++) {
+        const [w] = await watcher`
+          SELECT count(*)::int AS n FROM pg_stat_activity
+           WHERE datname = current_database() AND wait_event_type = 'Lock' AND query ILIKE 'update "bookings"%'`;
+        if (w.n > 0) break;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    });
+    const lost = await (await cancelRes).json();
+    const [after] = await sql`SELECT status, mechanic_id FROM bookings WHERE id = ${bk.id}`;
+    ok("an SMS CANCEL that loses to an accept does not overwrite it",
+       after.status === "ASSIGNED" && after.mechanic_id === mech.id, `${after.status} mechanic=${Boolean(after.mechanic_id)}`);
+    ok("and tells the customer a mechanic accepted, and that cancelling now costs a fee",
+       /mechanic accepted/i.test(lost.data?.reply ?? "") && /fee/i.test(lost.data?.reply ?? ""),
+       (lost.data?.reply ?? "").slice(0, 70));
+  } finally {
+    await watcher.end();
+  }
+}
+
+// ── an SMS CANCEL closes the booking's open offers ──
+{
+  const canceller = rnd("+9192");
+  await signedSms(canceller, "HELP BIKE");
+  const [bk] = await sql`
+    SELECT b.id FROM bookings b JOIN users u ON u.id = b.user_id
+     WHERE u.msisdn = ${canceller} ORDER BY b.created_at DESC LIMIT 1`;
+  const [mech] = await sql`SELECT id FROM mechanics WHERE deleted_at IS NULL AND verified LIMIT 1`;
+  await sql`UPDATE bookings SET status = 'MATCHING', version = version + 1 WHERE id = ${bk.id}`;
+  await sql`INSERT INTO dispatch_offers (booking_id, mechanic_id, rank, expires_at)
+            VALUES (${bk.id}, ${mech.id}, 1, now() + interval '90 seconds')`;
+  const res = await (await signedSms(canceller, "CANCEL")).json();
+  const offerStates = await sql`SELECT status FROM dispatch_offers WHERE booking_id = ${bk.id}`;
+  ok("an SMS CANCEL withdraws the booking's live offers in the same step",
+     /cancelled/i.test(res.data?.reply ?? "") && offerStates.length === 1 && offerStates[0].status === "WITHDRAWN",
+     offerStates.map((o) => o.status).join(","));
+}
 
 // ── Razorpay adapter: order creation + signature-gated settlement ──
 // A booking is only PAID once the *gateway* says the money arrived. This drives
@@ -403,6 +530,96 @@ const [ruleCheck] = await sql`
   SELECT count(*)::int AS n FROM pg_rules
    WHERE tablename = 'audit_log' AND rulename IN ('audit_log_no_update', 'audit_log_no_delete')`;
 ok("the append-only rules are back in place after the test", ruleCheck.n === 2, `${ruleCheck.n}/2 rules`);
+
+// ── the app's SOS confirm honours STOP too ──
+// The STOP reply promises no emergency alerts either, so it must hold for an
+// SOS raised in the app, not only for one raised by SMS.
+await clearOtpAttempts();   // this instance allows 3 OTPs per IP; the sign-ins below need more
+const signIn = async (msisdn) => {
+  await api1("POST", "/v1/auth/otp/request", { body: { msisdn } });
+  const v = await api1("POST", "/v1/auth/otp/verify", { body: { msisdn, code: otpFromSms() } });
+  return v.data?.accessToken;
+};
+{
+  const ownerTok = await signIn(smsOwner);
+  await signedSms(contactA, "STOP");
+  const raisedSos = await api1("POST", "/v1/sos", { token: ownerTok, body: { lat: 28.4595, lng: 77.0266 } });
+  mark = twilioSent.length;
+  const confirmed = await api1("POST", `/v1/sos/${raisedSos.data?.id}/confirm`, { token: ownerTok });
+  ok("an app SOS confirm does not text a contact who replied STOP",
+     confirmed.status === 200 && textedSince(mark, contactA).length === 0 && textedSince(mark, contactB).length === 1,
+     `status=${confirmed.status} A=${textedSince(mark, contactA).length} B=${textedSince(mark, contactB).length}`);
+  ok("and tells the person in trouble that one contact was not alerted, and why",
+     confirmed.data?.contactsAlerted === 1 && confirmed.data?.contactsOptedOut === 1 &&
+     /STOP/.test(confirmed.meta?.optedOut ?? ""),
+     `alerted=${confirmed.data?.contactsAlerted} optedOut=${confirmed.data?.contactsOptedOut}`);
+}
+
+// ── cancelling a booking closes its offers, and the mechanic is told ──
+// Cancel left every SENT offer live: the job sat in each mechanic's inbox and
+// Accept answered 409. Customer and admin cancels both go through transition.
+{
+  const dispatchFresh = async () => {
+    const b = await api1("POST", "/v1/bookings", {
+      token: payToken,
+      body: { vehicleId: vehicle.data?.id, serviceTypeCode: "flat_tyre", lat: 28.4595, lng: 77.0266 },
+    });
+    const d = await api1("POST", `/v1/bookings/${b.data?.id}/dispatch`, { token: payToken, body: { radiusKm: 40, limit: 5 } });
+    return { id: b.data?.id, offers: d.data?.offers ?? [] };
+  };
+  const liveOffers = async (bookingId) =>
+    (await sql`SELECT count(*)::int AS n FROM dispatch_offers WHERE booking_id = ${bookingId} AND status = 'SENT'`)[0].n;
+
+  const job2 = await dispatchFresh();
+  const firstOffer = job2.offers[0];
+  const [mechUser] = firstOffer ? await sql`
+    SELECT u.msisdn FROM mechanics m JOIN users u ON u.id = m.user_id WHERE m.id = ${firstOffer.mechanicId}` : [];
+  const mechTok = mechUser ? await signIn(mechUser.msisdn) : null;
+
+  // The mechanic's live stream, opened before the cancel.
+  const abort = new AbortController();
+  let streamText = "";
+  const streamSeen = (async () => {
+    try {
+      const s = await fetch(BASE + "/v1/events", { headers: { authorization: `Bearer ${mechTok}` }, signal: abort.signal });
+      const reader = s.body.getReader();
+      const dec = new TextDecoder();
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        streamText += dec.decode(value, { stream: true });
+        if (streamText.includes(job2.id) && streamText.includes("CANCELLED")) break;
+      }
+    } catch { /* aborted */ }
+  })();
+  await new Promise((r) => setTimeout(r, 300));   // let the stream subscribe
+
+  const beforeCancel = await liveOffers(job2.id);
+  const cancelled = await api1("POST", `/v1/bookings/${job2.id}/transition`, { token: payToken, body: { command: "cancel" } });
+  await Promise.race([streamSeen, new Promise((r) => setTimeout(r, 5000))]);
+  abort.abort();
+  ok("a customer cancel withdraws every live offer for the booking",
+     cancelled.status === 200 && beforeCancel > 0 && (await liveOffers(job2.id)) === 0 &&
+     cancelled.meta?.offersWithdrawn === beforeCancel,
+     `live before=${beforeCancel} after=${await liveOffers(job2.id)} withdrawn=${cancelled.meta?.offersWithdrawn}`);
+  const inbox = mechTok ? await api1("GET", "/v1/mechanic/offers", { token: mechTok }) : {};
+  ok("the job leaves the mechanic's inbox", Array.isArray(inbox.data) && !inbox.data.some((o) => o.bookingId === job2.id),
+     `${inbox.data?.length ?? "no"} offer(s) listed`);
+  ok("and the mechanic's live stream is told, on the event the console refetches on",
+     /event: booking\.status/.test(streamText) && streamText.includes(job2.id) && streamText.includes("WITHDRAWN"),
+     streamText ? "" : "no event received");
+  const lateAccept = firstOffer ? await api1("POST", `/v1/offers/${firstOffer.id}/accept`, { token: mechTok }) : {};
+  ok("accepting the withdrawn offer says it is closed, not that the booking is illegal",
+     lateAccept.status === 409 && lateAccept.error?.code === "offer_closed",
+     `${lateAccept.status} ${lateAccept.error?.code ?? ""}`);
+
+  const job3 = await dispatchFresh();
+  const before3 = await liveOffers(job3.id);
+  const adminCancel = await api1("POST", `/v1/bookings/${job3.id}/transition`, { token: adminTok, body: { command: "cancel" } });
+  ok("an admin cancel withdraws them too",
+     adminCancel.status === 200 && before3 > 0 && (await liveOffers(job3.id)) === 0,
+     `${adminCancel.status} live before=${before3} after=${await liveOffers(job3.id)}`);
+}
 
 // ── per-IP OTP ceiling (cap 3 on this instance) ──
 // The payment journey above signed in, which counts against the same ceiling —

@@ -27,16 +27,68 @@
  * rewriting it would falsify the record. They are skipped, and that distinction
  * is the one thing to preserve if this script is ever extended.
  *
+ * ── the label is not always beside the number ──────────────────────────────
+ * The prose checks read "920 assertions": a number, then the word that says
+ * what it counts. A page does not always write it that way. A stat tile puts
+ * the number in one element and the label in the next (and the number again
+ * in data-count, which is what the visitor actually sees once the counter has
+ * animated); a table puts the label in the first cell and the number three
+ * cells along; a JS array puts it in a string the tag-blanking used to throw
+ * away. Every one of those shapes carried a stale figure while this gate was
+ * green, so each now has a reader of its own — see STRUCTURAL CHECKS below.
+ * The regression tests are apps/api/test/check-claims.test.ts.
+ *
  *   node scripts/check-claims.mjs          # verify
  *   node scripts/check-claims.mjs --list   # show what is being checked
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ROOT = new URL("../..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 const APP = join(ROOT, "app");
 
-const measured = JSON.parse(readFileSync(join(APP, "docs", "measured.json"), "utf8"));
+export const measured = JSON.parse(readFileSync(join(APP, "docs", "measured.json"), "utf8"));
+
+/**
+ * Routes under /v1. measured.json recorded only the TOTAL (api.routes) and
+ * explained the split in prose, and prose is what went stale: "73 routes, 66
+ * of them under /v1" sat in two documents with the 73 gated and the 66 not.
+ * The split is now api.underV1, and the documents are held to it like any
+ * other figure.
+ *
+ * Both route figures are also re-derived from the code on every run — the
+ * same grep recorded under api.how, and for the split that grep narrowed to a
+ * first argument starting with /v1 — because api.how says of the split
+ * "Re-derive it; never assume it", and a gate is the only thing that does so
+ * every time. A mismatch there is reported against measured.json itself: the
+ * documents are compared with the file, the file with the code.
+ */
+const ROUTE_CALL = /\bapp\.(?:get|post|put|patch|delete)\(/g;
+const V1_ROUTE_CALL = /\bapp\.(?:get|post|put|patch|delete)\(\s*["'`]\/v1(?=[/"'`])/g;
+function countCalls(re, dir) {
+  let n = 0;
+  for (const entry of readdirSync(dir)) {
+    const p = join(dir, entry);
+    if (statSync(p).isDirectory()) n += countCalls(re, p);
+    else if (/\.ts$/.test(entry)) n += (readFileSync(p, "utf8").match(re) ?? []).length;
+  }
+  return n;
+}
+const API_SRC = join(APP, "apps", "api", "src");
+export const countRoutes = (dir = API_SRC) => countCalls(ROUTE_CALL, dir);
+export const countV1Routes = (dir = API_SRC) => countCalls(V1_ROUTE_CALL, dir);
+export const UNDER_V1 = String(measured.api.underV1);
+
+/** "Twelve ADRs" is written as often as "12 ADRs". */
+const NUMBER_WORDS = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9,
+  ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15,
+  sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+};
+const WORD_ALT = Object.keys(NUMBER_WORDS).join("|");
+const asDigits = (s) => (s === undefined ? undefined
+  : /^\d/.test(s) ? s.replaceAll(",", "") : String(NUMBER_WORDS[s.toLowerCase()]));
 
 /**
  * The security story is told two ways, and both are true: the security suite on
@@ -136,7 +188,39 @@ const CHECKS = [
     expect: String(measured.api.routes),
     // "API routes" too: the Pages home counter read "65 API routes" after the
     // count had moved, because the word between number and noun hid it.
-    re: /(\d+)\s+(?:(?:API|HTTP|REST)\s+)?(?:routes|endpoints)\b/g,
+    // Not when "under /v1" follows: "64 endpoints under /v1" is the split, and
+    // the check below reads it against the right number.
+    re: /(\d+)\s+(?:(?:API|HTTP|REST)\s+)?(?:routes|endpoints)\b(?!\s+under\s+`?\/v1)/g,
+    allow: [],
+  },
+  {
+    label: "routes under /v1",
+    expect: UNDER_V1,
+    // The total was gated; the split beside it never was, so "73 routes, 66 of
+    // them under /v1" passed. The shapes in use: "70 under /v1", "(70 under
+    // `/v1`)", "66 of them under /v1", "65 of them under a versioned /v1" and
+    // "64 endpoints under /v1". Expected value is api.underV1 — see UNDER_V1.
+    re: /\b(\d+)\s+(?:of\s+(?:them|those|these|the\s+\d+(?:\s+routes)?)\s+)?(?:(?:API|HTTP)\s+)?(?:(?:routes|endpoints)\s+)?(?:are\s+)?under\s+(?:(?:a|the)\s+versioned\s+)?`?\/v1\b/g,
+    allow: [],
+  },
+  {
+    label: "ADRs",
+    expect: String(measured.adrs),
+    // measured.json has recorded the ADR count since it was created and nothing
+    // read it. Written in digits ("12 ADRs") and in words ("Twelve decision
+    // records", "Twelve architecture decision records"), so both are matched
+    // and the word is converted before comparing.
+    re: new RegExp(`\\b(\\d+|${WORD_ALT})\\s+(?:architecture\\s+)?(?:ADRs|decision\\s+records)\\b`, "gi"),
+    group: (m) => asDigits(m[1]),
+    allow: [],
+  },
+  {
+    label: "not part of the total",
+    expect: String(measured.assertions.total),
+    // "Run separately — not part of the 920" heads the Android and payment rows
+    // on the Pages evidence table. It names the total without the word
+    // "assertions", so the total check never saw it.
+    re: /\bnot\s+(?:part\s+of|in|counted\s+in|included\s+in)\s+the\s+(\d+)\b(?!\s*(?:%|[a-z]))/g,
     allow: [],
   },
   {
@@ -171,7 +255,10 @@ const CHECKS = [
   {
     label: "security suite",
     expect: String(measured.assertions.suites.securityAudit),
-    re: /(\d+)\s+attacks\b/g,
+    // "refused" and "self-written" too: the Pages meta description said "84
+    // refused attacks" and the attack pack "74 self-written attacks", and the
+    // adjective between number and noun hid both, as "API" once hid the routes.
+    re: /(\d+)\s+(?:refused\s+|self-written\s+)?attacks\b/g,
     allow: [ATTACKS_BOTH_SUITES],
   },
   {
@@ -190,6 +277,17 @@ const CHECKS = [
     // app's own 108 in CLAIMS-AUDIT.md.
     re: /`android`[^|]*\|[^|]*?(\d+)\s+unit tests|testDebugUnitTest[^(]{0,80}\((\d+)\s*\n?\s*tests?\)/g,
     group: (m) => m[1] ?? m[2],
+    allow: [],
+  },
+  {
+    label: "Android runner (prose)",
+    expect: String(measured.assertions.otherRunners.android),
+    // "Native Kotlin + Jetpack Compose client with 87 unit tests" sat in the
+    // layers page's component list at a third of the real count. Anchored to
+    // Android or Kotlin earlier in the same sentence (no full stop, digit or
+    // table bar between), because a bare "N unit tests" is also the app's own
+    // suite.
+    re: /\b(?:Android|Kotlin)\b[^.\n\d|]{0,60}?\b(\d+)\s+(?:Kotlin\s+)?unit\s+tests\b/g,
     allow: [],
   },
   {
@@ -289,6 +387,34 @@ const EXEMPT_PATTERNS = [
  */
 const IGNORE_MARK = "claims-check:ignore";
 
+/**
+ * The one attribute that is exempt: a screenshot's caption.
+ *
+ * The Pages gallery opens each screenshot in a lightbox and shows its
+ * `data-cap` beneath it — "The security suite — N attacks, every one refused".
+ * That caption describes the IMAGE, and the image is a capture of one run. When
+ * the suite grows the caption is still true of the picture, exactly as a
+ * docs/verification report is still true of its build; making it match today's
+ * count would put a number under a screenshot that visibly shows another.
+ *
+ * Narrow on purpose: only `data-cap`, and only on an element whose `data-src`
+ * is a file under shots/. Every other visible attribute (alt, title,
+ * aria-label, meta content, placeholder) is read like body text, and so is a
+ * `data-cap` anywhere else.
+ */
+const SCREENSHOT_CAPTION = { attribute: "data-cap", onElementWith: /\bdata-src\s*=\s*["']?shots\//i };
+
+/** Attributes a visitor reads, so a figure in one is a claim like any other. */
+const VISIBLE_ATTR = /(?<=\s)(alt|title|aria-label|content|placeholder|data-cap)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+
+export function isExempt(rel) {
+  if (EXEMPT_DIRS.some((d) => rel.startsWith(d))) return true;
+  if (EXEMPT_FILES.includes(rel)) return true;
+  if (EXEMPT_PATTERNS.some((p) => p.test(rel))) return true;
+  if (rel.endsWith(".py") && !rel.startsWith("ppt/")) return true;
+  return false;
+}
+
 function files(dir, out = []) {
   for (const entry of readdirSync(dir)) {
     // .venv and runs/ are not ours to police: a vendored package README or a
@@ -306,69 +432,331 @@ function files(dir, out = []) {
   return out;
 }
 
-const problems = [];
-let scanned = 0;
 /** Replace everything but newlines with spaces, so offsets and lines survive. */
 const blank = (m) => m.replace(/[^\n]/g, " ");
 
-for (const file of files(ROOT)) {
-  const rel = relative(ROOT, file).replaceAll("\\", "/");
-  if (EXEMPT_DIRS.some((d) => rel.startsWith(d))) continue;
-  if (EXEMPT_FILES.includes(rel)) continue;
-  if (EXEMPT_PATTERNS.some((p) => p.test(rel))) continue;
-  if (rel.endsWith(".py") && !rel.startsWith("ppt/")) continue;
+/**
+ * An inline script, reduced to the contents of its string literals.
+ *
+ * Scripts used to be blanked whole, which is how the layers page's component
+ * list kept "87 unit tests" and the Pages FAQ "68 routes, 65 of them under a
+ * versioned /v1": both are string literals in an array, shown to every
+ * visitor, and invisible to a checker that threw the script away. Code and
+ * comments are still blanked — only what the page can print is read.
+ */
+const JS_TOKEN = /\/\/[^\n]*|\/\*[^]*?\*\/|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\]|\\.)*`/g;
+function jsStrings(code) {
+  let out = "";
+  let last = 0;
+  for (const m of code.matchAll(JS_TOKEN)) {
+    out += blank(code.slice(last, m.index));
+    const t = m[0];
+    // An escape becomes spaces of its own length: the escape for an em dash,
+    // backslash-u-2014, must not leave a bare 2014 behind for the checks.
+    out += t[0] === "/" ? blank(t)
+      : " " + t.slice(1, -1).replace(/\\u\{[0-9a-f]+\}|\\u[0-9a-f]{4}|\\x[0-9a-f]{2}|\\./gi, blank) + " ";
+    last = m.index + t.length;
+  }
+  return out + blank(code.slice(last));
+}
 
-  // A page states its numbers inside markup - "<div class=v>757</div><div
-  // class=k>automated checks" - so tags are blanked (never the newlines, which
-  // keep the line numbers true) and the claim is read as the visitor reads it.
-  // Pages were not scanned at all until the app's home page was found still
-  // saying 626 checks and 64 routes, weeks after every document said otherwise.
-  const raw = readFileSync(file, "utf8");
-  const text = rel.endsWith(".html")
-    ? raw.replace(/<(script|style)\b[^]*?<\/\1>/gi, blank)
-         .replace(/<[^>]*>/g, blank).replace(/&[a-z]+;|&#\d+;/g, " ")
-    : raw;
-  scanned++;
+/** A tag, blanked except for the values of the attributes a visitor reads. */
+function tagText(tag) {
+  let out = blank(tag);
+  for (const a of tag.matchAll(VISIBLE_ATTR)) {
+    if (a[1].toLowerCase() === SCREENSHOT_CAPTION.attribute &&
+        SCREENSHOT_CAPTION.onElementWith.test(tag)) continue;
+    const val = a[2] ?? a[3];
+    const at = a.index + a[0].length - val.length - 1;
+    out = out.slice(0, at) + val + out.slice(at + val.length);
+  }
+  return out;
+}
 
-  for (const check of CHECKS) {
-    check.re.lastIndex = 0;
+/**
+ * The text the prose checks read. Markdown and Python as written; a page as the
+ * visitor reads it.
+ *
+ * A page states its numbers inside markup - "<div class=v>757</div><div
+ * class=k>automated checks" - so tags are blanked (never the newlines, which
+ * keep the line numbers true) and the claim is read as the visitor reads it.
+ * Pages were not scanned at all until the app's home page was found still
+ * saying 626 checks and 64 routes, weeks after every document said otherwise.
+ */
+export function visibleText(rel, raw) {
+  if (!rel.endsWith(".html")) return raw;
+  return raw
+    .replace(/(<script\b[^>]*>)([^]*?)(<\/script>)/gi, (_, open, body, close) =>
+      blank(open) + jsStrings(body) + blank(close))
+    .replace(/<style\b[^]*?<\/style>/gi, blank)
+    .replace(/<!--[^]*?-->/g, blank)
+    .replace(/<[^>]*>/g, tagText)
+    .replace(/&[a-z]+;|&#\d+;/g, " ");
+}
+
+// ── STRUCTURAL CHECKS ─────────────────────────────────────────────────────────
+// For figures whose label is not the next word. Each reads the raw file, finds
+// the label in its own element or cell, and compares the number that belongs
+// to it.
+
+const S = String;
+const SUITES = measured.assertions.suites;
+const RUNNERS = measured.assertions.otherRunners;
+
+/**
+ * What a stat tile's label names. Matched against the START of the label
+ * element's text, case-insensitively: tiles capitalise ("Assertions",
+ * "Tables") and the prose checks, which are case-sensitive on purpose, never
+ * saw them.
+ */
+const TILE_LABELS = [
+  { label: "total assertions", re: /^(?:automated\s+|executed\s+)?(?:assertions|checks)\b/i, expect: S(measured.assertions.total) },
+  { label: "unique indexes", re: /^unique\s+indexes\b/i, expect: S(measured.schema.uniqueIndexes) },
+  { label: "indexes", re: /^indexes\b/i, expect: S(measured.schema.indexes) },
+  { label: "application tables", re: /^(?:database\s+|application\s+)?tables\b/i, expect: S(measured.schema.tables) },
+  { label: "foreign keys", re: /^(?:foreign\s+keys|FKs)\b/i, expect: S(measured.schema.foreignKeys) },
+  { label: "check constraints", re: /^check\s+constraints\b/i, expect: S(measured.schema.checkConstraints) },
+  { label: "migrations", re: /^migrations\b/i, expect: S(measured.schema.migrations) },
+  { label: "routes", re: /^(?:(?:API|HTTP|REST)\s+)?(?:routes|endpoints)\b/i, expect: S(measured.api.routes) },
+  { label: "languages", re: /^(?:languages|locales)\b/i, expect: S(measured.i18n.locales) },
+  { label: "ADRs", re: /^(?:ADRs|(?:architecture\s+)?decision\s+records)\b/i, expect: S(measured.adrs) },
+  { label: "security suite", re: /^(?:refused\s+)?attacks\b/i, expect: S(SUITES.securityAudit), allow: [ATTACKS_BOTH_SUITES] },
+  { label: "Android runner", re: /^(?:Android|Kotlin)\s+(?:unit\s+)?tests\b/i, expect: S(RUNNERS.android) },
+];
+
+/**
+ * A number alone in an element, then the label in the next element:
+ *   <div class="v" data-count="920">920</div><div class="l">Assertions</div>
+ * The number may be wrapped once in strong/b/span and may carry a trailing +.
+ */
+const TILE = /<([a-z][a-z0-9]*)\b([^>]*)>\s*(?:<(?:strong|b|span)\b[^>]*>\s*)?(\d[\d,]*)\+?\s*(?:<\/(?:strong|b|span)>\s*)?<\/\1>\s*<[a-z][a-z0-9]*\b[^>]*>\s*([^<]{1,80})/gi;
+const DATA_COUNT = /\bdata-count\s*=\s*["']?(\d[\d,]*)/i;
+
+/**
+ * What a table row's FIRST cell names. The cell must be the suite and nothing
+ * else, bar a qualifier: "Security (attacks that must fail)", "Browser /
+ * offline", "Concurrency + real-time", "`npm test` (node:test)". So "Security
+ * headers" and "AI Gateway" are not suites, and a row that merely mentions a
+ * suite script in a later cell is not read at all.
+ */
+const ROW_END = String.raw`(?=\s*$|\s*[(+/—–,·]|\s+-\s|\s+(?:tests?|suite|assertions|checks)\b)`;
+const row = (label, alternatives, expect) =>
+  ({ label, re: new RegExp(`^(?:${alternatives})${ROW_END}`, "i"), expect: S(expect) });
+const ROW_LABELS = [
+  row("unit suite", String.raw`unit|npm test|npm run test`, SUITES.unit),
+  row("e2e suite", String.raw`end-to-end|e2e|e2e-journey\.mjs|npm run test:e2e`, SUITES.e2e),
+  row("concurrency suite", String.raw`concurrency|concurrency-test\.mjs|npm run test:concurrency`, SUITES.concurrency),
+  row("gateway-security suite", String.raw`gateway[ -]security|gateway-security-test\.mjs|npm run test:gateway`, SUITES.gatewaySecurity),
+  row("security suite", String.raw`security(?: audit)?|security-audit\.mjs|npm run test:security`, SUITES.securityAudit),
+  row("browser suite", String.raw`browser|ui-journey\.mjs|npm run test:ui`, SUITES.browser),
+  row("total assertions", String.raw`total`, measured.assertions.total),
+  row("Android runner", String.raw`android`, RUNNERS.android),
+  row("SOS ladder tests", String.raw`SOS ladder|SosLadderTest(?:\.kt)?`, RUNNERS.sosLadder),
+  row("AI runner", String.raw`CV pipeline`, RUNNERS.ai),
+  row("payment sandbox", String.raw`razorpay sandbox|payment sandbox|razorpay-test\.mjs|npm run test:razorpay`,
+    measured.assertions.notExecuted.paymentSandbox),
+];
+
+/** A cell as its label reads: no markup, emphasis, code ticks or scripts/ prefix. */
+const cellText = (c) => c
+  .replace(/<[^>]*>/g, " ").replace(/&[a-z]+;|&#\d+;/g, " ")
+  .replace(/\*\*|__|`/g, "")
+  .replace(/\s+/g, " ").trim()
+  .replace(/^(?:app\/)?scripts\//, "");
+
+/**
+ * Which column holds the count. Only a table whose header names one is read:
+ * a marks rubric ("| Security | 10 | 8–9 |") has a suite in its first column
+ * and a number beside it that has nothing to do with the suite's size.
+ */
+const COUNT_HEADER = /^(?:assertions|tests|checks|count|attacks|cases|size)\b/i;
+const countColumn = (header) => header.findIndex((h, i) => i > 0 && COUNT_HEADER.test(cellText(h)));
+
+/** The cell's figure, if it is a bare number or starts with a bold one ("**22** — not in the 920"). */
+function cellNumber(c) {
+  if (c === undefined) return undefined;
+  const bare = cellText(c).match(/^(\d[\d,]*)$/);
+  if (bare) return bare[1];
+  return c.trim().match(/^\*\*(\d[\d,]*)\*\*(?!\S)/)?.[1];
+}
+
+const lineAt = (s, i) => s.slice(0, i).split("\n").length;
+const clip = (s) => { const t = s.replace(/\s+/g, " ").trim(); return t.length > 140 ? t.slice(0, 137) + "..." : t; };
+
+/** Every structural finding in one file, as [index, label, found, want, allow, snippet]. */
+function structural(rel, raw) {
+  const out = [];
+  const classify = (list, s) => list.find((l) => l.re.test(s));
+
+  if (rel.endsWith(".html")) {
+    // (1) stat tiles, and the data-count the counter animates to
+    TILE.lastIndex = 0;
     let m;
-    while ((m = check.re.exec(text)) !== null) {
-      const found = check.group ? check.group(m) : m[1];
-      const want = typeof check.expect === "function" ? check.expect(m) : check.expect;
-      if (found === undefined || want === undefined) continue;
-      if (found === want || check.allow.includes(found)) continue;
-      const upto = text.slice(0, m.index);
-      const line = upto.split("\n").length;
-      // Whole line, so the marker can sit at either end of it.
-      const lineText = text.split(/\r?\n/)[line - 1] ?? "";
-      if (lineText.includes(IGNORE_MARK)) continue;
-      problems.push(
-        `${rel}:${line}  ${check.label}: found ${found}, expected ${want}` +
-        `\n      ${m[0].trim()}`,
-      );
+    while ((m = TILE.exec(raw)) !== null) {
+      const label = m[4].replace(/&[a-z]+;|&#\d+;/g, " ").trim();
+      const kind = classify(TILE_LABELS, label);
+      if (!kind) continue;
+      const dc = m[2].match(DATA_COUNT);
+      if (dc) out.push([m.index, `stat tile data-count: ${kind.label}`, dc[1], kind.expect, kind.allow, m[0]]);
+      // A counter may start from 0 and animate to data-count; that 0 is not a claim.
+      if (!(dc && m[3] === "0")) out.push([m.index, `stat tile: ${kind.label}`, m[3], kind.expect, kind.allow, m[0]]);
+    }
+    // (2) HTML table rows. The header is the first row; the count column is
+    // the one it names. Rows are read from each <table> separately so one
+    // table's header never applies to another's rows.
+    for (const table of raw.matchAll(/<table\b[^>]*>([^]*?)<\/table>/gi)) {
+      const base = table.index + table[0].indexOf(table[1]);
+      let col = -1;
+      let first = true;
+      for (const tr of table[1].matchAll(/<tr\b[^>]*>([^]*?)<\/tr>/gi)) {
+        const cells = [...tr[1].matchAll(/<(t[dh])\b[^>]*>([^]*?)<\/\1>/gi)].map((c) => c[2]);
+        if (first) { col = countColumn(cells); first = false; continue; }
+        if (col < 0) break;
+        const kind = classify(ROW_LABELS, cellText(cells[0] ?? ""));
+        if (!kind) continue;
+        const n = cellNumber(cells[col]);
+        if (n !== undefined) out.push([base + tr.index, `table row: ${kind.label}`, n, kind.expect, [], tr[0]]);
+      }
     }
   }
-}
 
-if (process.argv.includes("--list")) {
-  console.log("Checked against app/docs/measured.json:\n");
-  for (const c of CHECKS) {
-    const v = typeof c.expect === "function" ? "(per npm script)" : c.expect;
-    console.log(`  ${c.label.padEnd(34)} ${v}`);
+  if (rel.endsWith(".md")) {
+    // (2) Markdown table rows. A table is a run of |-lines; its first line is
+    // the header, and names the count column.
+    let at = 0;
+    let col = -1;
+    let inTable = false;
+    for (const line of raw.split("\n")) {
+      const here = at;
+      at += line.length + 1;
+      if (!/^\s*\|.*\|\s*$/.test(line)) { inTable = false; continue; }
+      const cells = line.trim().replace(/^\|/, "").replace(/\|$/, "").split(/(?<!\\)\|/);
+      if (!inTable) { inTable = true; col = countColumn(cells); continue; }
+      if (col < 0 || /^[\s|:-]+$/.test(line)) continue;
+      const kind = classify(ROW_LABELS, cellText(cells[0]));
+      if (!kind) continue;
+      const n = cellNumber(cells[col]);
+      if (n !== undefined) out.push([here, `table row: ${kind.label}`, n, kind.expect, [], line]);
+    }
   }
-  console.log(`\nExempt (dated evidence): ${EXEMPT_DIRS.join(", ")}`);
-  process.exit(0);
+  return out;
 }
 
-if (problems.length) {
-  console.error(`✗ ${problems.length} claim(s) disagree with app/docs/measured.json:\n`);
-  problems.forEach((p) => console.error("  " + p + "\n"));
-  console.error(
-    "Either the documents are stale, or measured.json is — re-measure with the\n" +
-    "commands recorded in that file, then update whichever is wrong.\n",
-  );
-  process.exit(1);
+/**
+ * Every disagreement in one file: [{ rel, line, label, found, want, snippet }].
+ * The file is not checked for exemption here — see isExempt — so a test can
+ * hand it any path.
+ */
+export function checkFile(rel, raw) {
+  const text = visibleText(rel, raw);
+  const rawLines = raw.split(/\r?\n/);
+  const problems = [];
+  const seen = new Set();
+  // `src` is the string `index` is an offset into: the visible text for the
+  // prose checks (entities shrink it, so its offsets are not the file's), the
+  // file itself for the structural ones. Both keep every newline.
+  const report = (src, index, label, found, want, allow, snippet) => {
+    if (found === undefined || want === undefined) return;
+    found = found.replaceAll(",", "");
+    if (found === want || (allow ?? []).includes(found)) return;
+    const line = lineAt(src, index);
+    // Whole line of the SOURCE, so the marker can sit at either end of it and
+    // may be an HTML comment (which the visible text no longer contains).
+    if ((rawLines[line - 1] ?? "").includes(IGNORE_MARK)) return;
+    // A tile's "73 ... API routes" is also a prose match; say it once.
+    const key = `${line}:${found}:${want}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    problems.push({ rel, line, label, found, want, snippet: clip(snippet) });
+  };
+
+  for (const check of CHECKS) {
+    // With indices, so a problem is reported on the NUMBER's line: an anchor
+    // such as "Android app" can sit on the line above it.
+    const re = new RegExp(check.re.source, check.re.flags.replace("d", "") + "d");
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      const found = check.group ? check.group(m) : m[1];
+      const want = typeof check.expect === "function" ? check.expect(m) : check.expect;
+      const at = m.indices.slice(1).find(Boolean)?.[0] ?? m.index;
+      report(text, at, check.label, found, want, check.allow, m[0]);
+    }
+  }
+  for (const [index, label, found, want, allow, snippet] of structural(rel, raw)) {
+    report(raw, index, label, found, want, allow, snippet);
+  }
+  return problems;
 }
 
-console.log(`✓ claims consistent across ${scanned} files`);
+/**
+ * measured.json's route figures against the code they count. Takes the
+ * figures and the source directory so a test can hand it both.
+ */
+export function measuredVsCode(api = measured.api, dir = API_SRC) {
+  const rel = "app/docs/measured.json";
+  const lines = readFileSync(join(APP, "docs", "measured.json"), "utf8").split(/\r?\n/);
+  const lineOf = (key) => lines.findIndex((l) => l.includes(`"${key}"`)) + 1;
+  const out = [];
+  for (const [key, label, counted] of [
+    ["routes", "api.routes vs the code", countRoutes(dir)],
+    ["underV1", "api.underV1 vs the code", countV1Routes(dir)],
+  ]) {
+    if (String(api[key]) === String(counted)) continue;
+    out.push({ rel, line: lineOf(key), label, found: String(api[key]), want: String(counted),
+      snippet: `apps/api/src has ${counted}; re-measure (api.how) and update measured.json, then the documents` });
+  }
+  return out;
+}
+
+/** The whole tree: every file that is not exempt. */
+export function scan(root = ROOT) {
+  const problems = [...measuredVsCode()];
+  let scanned = 0;
+  for (const file of files(root)) {
+    const rel = relative(root, file).replaceAll("\\", "/");
+    if (isExempt(rel)) continue;
+    scanned++;
+    problems.push(...checkFile(rel, readFileSync(file, "utf8")));
+  }
+  return { problems, scanned };
+}
+
+function main() {
+  if (process.argv.includes("--list")) {
+    console.log("Checked against app/docs/measured.json:\n");
+    for (const c of CHECKS) {
+      const v = typeof c.expect === "function" ? "(per npm script)" : c.expect;
+      console.log(`  ${c.label.padEnd(34)} ${v}`);
+    }
+    console.log("\nStat tiles (number, then the label in the next element; and data-count):");
+    for (const t of TILE_LABELS) console.log(`  ${t.label.padEnd(34)} ${t.expect}`);
+    console.log("\nTable rows, HTML and Markdown (first cell names the suite):");
+    for (const r of ROW_LABELS) console.log(`  ${r.label.padEnd(34)} ${r.expect}`);
+    console.log(`\nmeasured.json against apps/api/src, counted on each run:`);
+    console.log(`  ${"api.routes".padEnd(34)} ${measured.api.routes} recorded, ${countRoutes()} in the code`);
+    console.log(`  ${"api.underV1".padEnd(34)} ${measured.api.underV1} recorded, ${countV1Routes()} in the code`);
+    console.log(`Exempt (dated evidence): ${EXEMPT_DIRS.join(", ")}`);
+    console.log(`Exempt attribute: ${SCREENSHOT_CAPTION.attribute} on a screenshot (data-src under shots/)`);
+    process.exit(0);
+  }
+
+  const { problems, scanned } = scan();
+  if (problems.length) {
+    console.error(`✗ ${problems.length} claim(s) disagree with app/docs/measured.json:\n`);
+    for (const p of problems) {
+      console.error(`  ${p.rel}:${p.line}  ${p.label}: found ${p.found}, expected ${p.want}` +
+        `\n        ${p.snippet}\n`);
+    }
+    console.error(
+      "Either the documents are stale, or measured.json is — re-measure with the\n" +
+      "commands recorded in that file, then update whichever is wrong.\n",
+    );
+    process.exit(1);
+  }
+
+  console.log(`✓ claims consistent across ${scanned} files`);
+}
+
+// Run only when invoked directly; the regression tests import the functions.
+const invoked = process.argv[1] ? resolve(process.argv[1]) : "";
+if (invoked.toLowerCase() === fileURLToPath(import.meta.url).toLowerCase()) main();

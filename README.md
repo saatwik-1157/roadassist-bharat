@@ -198,12 +198,12 @@ flowchart LR
   end
 
   subgraph Render["Render · Docker · Singapore"]
-    API["Fastify API · 73 routes<br/>zod validation · JWT + rotating refresh<br/>CSP & security headers · rate limits"]
+    API["Fastify API · 74 routes<br/>zod validation · JWT + rotating refresh<br/>CSP & security headers · rate limits"]
     MOD["Modules: auth · bookings · dispatch<br/>emergency · telecom · payments · RAKSHA"]
     API --> MOD
   end
 
-  DB[("Neon PostgreSQL 16 + PostGIS<br/>56 tables · hash-chained audit log")]
+  DB[("Neon PostgreSQL 16 + PostGIS<br/>57 tables · hash-chained audit log")]
   X["Resend (email) · OpenStreetMap tiles<br/>Nominatim · Overpass · OSRM · USGS<br/>Open-Meteo · SMS / payment gateways"]
 
   W & A & F & E --> CF --> API
@@ -214,7 +214,7 @@ flowchart LR
 | Layer | Technology |
 |---|---|
 | API | Node 22, TypeScript, Fastify 5, zod, jose (JWT) |
-| Data | PostgreSQL 16 + PostGIS 3.4, Drizzle ORM, 7 migrations |
+| Data | PostgreSQL 16 + PostGIS 3.4, Drizzle ORM, 8 migrations |
 | Realtime | Server-sent events with a heartbeat and a per-user cap, and polling underneath |
 | Web | Plain HTML, CSS and JavaScript served by the API. No bundler, so there is no second deploy unit and no CORS boundary |
 | Offline | Service worker, plus IndexedDB encrypted with AES-GCM-256 under a non-extractable key |
@@ -258,12 +258,12 @@ with it.
 
 | | |
 |---|---|
-| **920 assertions**, six suites, zero failures | 334 unit · 213 e2e · 84 concurrency · 87 attacks · 39 gateway security · 163 browser |
+| **1064 assertions**, six suites, zero failures | 334 unit · 230 e2e · 92 concurrency · 106 attacks · 58 gateway security · 163 browser |
 | Android | 135 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`), run against a local stub of Razorpay's Orders API. They need an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so they sit outside the six suites and are never described as passing |
-| Schema | 56 tables · 138 indexes · 7 migrations |
-| API | 73 routes: 70 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
+| Schema | 57 tables · 140 indexes · 8 migrations |
+| API | 74 routes: 71 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
 | Localisation | 8 languages, **not native-reviewed** |
 
 CI also kills PostgreSQL under a running API and checks that the platform is
@@ -276,7 +276,7 @@ re-verifies the audit hash chain on the restored copy.
 
 ## Security
 
-The security suite fires **87 attacks that must every one be refused**:
+The security suite fires **106 attacks that must every one be refused**:
 - cross-tenant reads and writes;
 - role escalation and id manipulation;
 - SQL injection;
@@ -338,7 +338,7 @@ npm run verify               # typecheck · lint · boundaries · claims · cita
 ```
 
 **Android:** `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease`
-(135 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
+(137 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
 install talks to the live platform. To use a local API instead, long-press the
 wordmark on the sign-in screen and enter its address, for example
 `10.0.2.2:4000` from the emulator.
@@ -414,7 +414,7 @@ idempotently.
 
 | Path | What | Toolchain |
 |---|---|---|
-| [`app/apps/api`](app/apps/api) | Fastify API: 73 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
+| [`app/apps/api`](app/apps/api) | Fastify API: 74 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
 | [`app/apps/web`](app/apps/web) | Citizen, mechanic, authority, map and 3D surfaces | Plain HTML/CSS/JS |
 | [`app/packages/db`](app/packages/db) | Drizzle schema, migrations, seeds | PostgreSQL 16 + PostGIS |
 | [`app/scripts`](app/scripts) | Six test runners, the claims and citation gates, the RAKSHA simulator | Node |

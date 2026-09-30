@@ -118,6 +118,25 @@ export const emergencyContacts = pgTable("emergency_contacts", {
   priority: integer("priority").notNull().default(1),
 }, (t) => ({ userIdx: index("emg_contacts_user_idx").on(t.userId) }));
 
+/**
+ * Numbers that texted STOP (or a synonym) to the SMS line.
+ *
+ * Keyed by the MSISDN rather than a user, because the people who most need to
+ * be able to opt out are not users at all: an emergency contact is somebody
+ * else's family member whose number was typed in for them. One row per number;
+ * STOP stamps `opted_out_at` and clears `opted_back_in_at`, START stamps
+ * `opted_back_in_at`. A number is opted out while `opted_back_in_at` is NULL,
+ * and the row is kept after START as the record of when consent changed.
+ */
+export const smsOptOuts = pgTable("sms_opt_outs", {
+  ...base,
+  msisdn: varchar("msisdn", { length: 16 }).notNull(),
+  /** The word actually texted — STOP, UNSUBSCRIBE, … — as evidence. */
+  keyword: varchar("keyword", { length: 16 }).notNull(),
+  optedOutAt: timestamp("opted_out_at", { withTimezone: true }).notNull().defaultNow(),
+  optedBackInAt: timestamp("opted_back_in_at", { withTimezone: true }),
+}, (t) => ({ msisdnUq: uniqueIndex("sms_opt_outs_msisdn_uq").on(t.msisdn) }));
+
 /** Column-level encrypted at rest; break-glass access only, always audited. */
 export const medicalProfiles = pgTable("medical_profiles", {
   ...base,

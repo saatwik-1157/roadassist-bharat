@@ -33,13 +33,13 @@ import { mechanicRoutes } from "./routes/mechanic.js";
 import { geoRoutes } from "./routes/geo.js";
 import { paymentRoutes, invoiceIsSettled } from "./routes/payments.js";
 import { bookingAudience, notYours } from "./booking-access.js";
-import { audit, verifyAuditChain } from "./audit.js";
+import { audit, auditChainSummary, verifyAuditChain } from "./audit.js";
 import { limit } from "./ratelimit.js";
 import { ApiError, fail } from "./errors.js";
 import { logOp } from "./observability.js";
 import { fetchTile, sendTileFailure } from "./tile-upstream.js";
 import {
-  escalate, providerRoster, providerStateFor, sendWave, startOfferSweeper, stopOfferSweeper,
+  escalate, providerRoster, providerStateFor, sendWave, startOfferSweeper, stopOfferSweeper, withdrawOpenOffers, announceWithdrawnOffers, type WithdrawnOffer,
 } from "./dispatch.js";
 import {
   IllegalIncidentTransition, allowedIncidentCommands,
@@ -82,8 +82,8 @@ await app.register(cors, {
   exposedHeaders: ["x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset", "retry-after"],
 });
 registerClientIp(app);   // the caller's real address behind Cloudflare (client-ip.ts)
-// Security headers on every response (security-headers.ts): CSP, HSTS, nosniff, ...
-registerSecurityHeaders(app, { frameAncestors: env.cors.mode === "list" ? env.cors.origins : [], razorpay: env.payments.provider === "razorpay" });
+// Security headers on every response (security-headers.ts): CSP with the pages' inline scripts by hash, HSTS, nosniff, ...
+registerSecurityHeaders(app, { frameAncestors: env.cors.mode === "list" ? env.cors.origins : [], razorpay: env.payments.provider === "razorpay", pagesRoot: findUp("apps/web"), watchPages: isLocalEnv(env.nodeEnv) });
 
 /**
  * Treat an empty JSON body as `{}`.
@@ -486,14 +486,14 @@ app.get("/v1/ops/overview", { preHandler: [authenticate, requireRole("admin", "g
       FROM payments WHERE deleted_at IS NULL`);
 
   const providers = await providerRoster();
-  const chain = await verifyAuditChain(2000);
+  const chain = await verifyAuditChain(); // whole chain, incremental from a checkpoint
 
   logOp(req, { op: "ops.overview", result: "ok", durationMs: Date.now() - t0 });
 
   return ok({
     incidents, bookings, sync, payments, providers,
-    auditChain: { intact: chain.ok, entriesChecked: chain.checked,
-                  ...(chain.ok ? {} : { brokenAt: chain.brokenAt, reason: chain.reason }) },
+    // `intact` only when verifiedRange covers every entry; the range is stated.
+    auditChain: auditChainSummary(chain),
     realtime: realtimeStats(),
   }, {
     generatedAt: new Date().toISOString(),
@@ -810,6 +810,23 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
     return reply.code(403).send({ error: { code: "forbidden", title: "That booking is not yours", retryable: false } });
   }
 
+  // One dispatch per booking at a time. The claim below is a compare-and-swap,
+  // but a second dispatch arriving AFTER that claim and BEFORE the first wave's
+  // offers exist saw "MATCHING, no live offer" - the retry state - and sent a
+  // second wave (concurrency-test 6d caught it: 200, 200, 409). A try-lock held
+  // for the whole claim-and-wave closes that window. It does not wait: waiting
+  // requests would each hold a pooled connection while the winner needs one to
+  // send its wave, so under load a blocking lock could starve the pool.
+  return db.transaction(async (lockTx) => {
+  const [lock] = await lockTx.execute<{ got: boolean }>(raw`SELECT pg_try_advisory_xact_lock(6, hashtext(${id})) AS got`);
+  if (!lock?.got) {
+    return reply.code(409).send({ error: { code: "dispatch_in_progress",
+      title: "A search for this booking is already running. Wait for an answer, or cancel it.",
+      retryable: false, requestId: req.id } });
+  }
+  // Re-read under the lock: the row read above may predate the other dispatch's claim.
+  const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, id)).limit(1);
+  if (!booking) return reply.code(404).send({ error: { code: "not_found", title: "Booking not found", retryable: false } });
   const t0 = Date.now();
   /**
    * Where a search may start, and one claim so only one search runs.
@@ -916,6 +933,7 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
     }, {}),
     offerTtlSeconds: env.offerTtlSeconds,
   });
+  });   // the dispatch lock is released here, after the wave is out
 });
 
 /**
@@ -1133,7 +1151,7 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
   if (to === "COMPLETED") patch.completedAt = new Date();
   if (to === "CANCELLED") { patch.cancelledAt = new Date(); patch.cancelReason = "user_cancelled"; }
 
-  let invoice = null;
+  let invoice = null, withdrawn: WithdrawnOffer[] = [];
   const applied = await db.transaction(async (tx) => {
     // Guarded update: the row must still be in the state the transition was
     // computed from, so two concurrent commands cannot both win.
@@ -1141,6 +1159,11 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
       .where(and(eq(S.bookings.id, id), eq(S.bookings.status, booking.status)))
       .returning({ id: S.bookings.id, mechanicId: S.bookings.mechanicId });
     if (!updated.length) return false;
+
+    // A cancelled booking's open offers close with it, in this transaction:
+    // left SENT they sat in mechanics' inboxes as jobs whose Accept was a 409.
+    // Customer and admin cancels both arrive here (dispatch.ts).
+    if (to === "CANCELLED") withdrawn = await withdrawOpenOffers(tx, id);
 
     // The mechanic's record moves in the same transaction as the job, so the
     // two cannot disagree: if the status write rolls back, so does the count.
@@ -1165,6 +1188,7 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
     await tx.insert(S.bookingEvents).values({
       bookingId: id, fromStatus: booking.status, toStatus: to,
       command, actorId: caller.sub, actorRole: caller.roles[0] ?? "citizen",
+      ...(withdrawn.length ? { meta: { offersWithdrawn: withdrawn.length } } : {}),
     });
 
     if (to === "COMPLETED") {
@@ -1199,8 +1223,11 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
     type: "booking.status", status: to, previous: booking.status, command,
     invoiceTotalPaise: invoice ? (invoice as { totalPaise: number }).totalPaise : undefined,
   });
+  // And every mechanic who was still being asked, so the job leaves their inbox.
+  await announceWithdrawnOffers(id, withdrawn);
 
-  return ok({ id, status: to, cancellationFee, invoice }, { nextCommands: allowedFrom(to) });
+  return ok({ id, status: to, cancellationFee, invoice },
+            { nextCommands: allowedFrom(to), ...(withdrawn.length ? { offersWithdrawn: withdrawn.length } : {}) });
 });
 
 
@@ -1885,7 +1912,7 @@ app.get("/v1/admin/audit", { preHandler: [authenticate, requireRole("admin")] },
 
   const rows = await db.select().from(S.auditLog)
     .orderBy(desc(S.auditLog.createdAt), desc(S.auditLog.id)).limit(limit);
-  const integrity = await verifyAuditChain();
+  const integrity = await verifyAuditChain({ full: true }); // genesis to tip, every read
   return ok(rows, { count: rows.length, integrity });
 });
 

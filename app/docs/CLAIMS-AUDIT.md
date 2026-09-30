@@ -96,7 +96,7 @@ from the same two mistakes.
 > record of what was *published* against what was true **then**, and they stay
 > that way. The schema has since gained one index — the partial unique
 > `payments_invoice_settled_uq` that makes an invoice settle at most once — so
-> it now genuinely has **138 indexes and 84 unique ones**, which are the
+> it now genuinely has **140 indexes and 86 unique ones**, which are the
 > figures in `measured.json` today. Read the 138/84 in the *Was* column as the
 > 2026-09-12 miscount it was, not as today's total; the two agreeing by
 > coincidence is exactly the confusion this note exists to prevent.

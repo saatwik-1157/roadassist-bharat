@@ -31,11 +31,18 @@ import {
   authenticate,
   constantTimeEquals,
   claimOtpChallenge,
+  deliverSession,
+  hasRefreshCookie,
+  readRefreshCookie,
+  refreshCookie,
   revokeSessionFamily,
+  rolesFor,
   rolesForMsisdn,
   rotateSession,
+  sessionOfRefreshToken,
   sha256,
   startSession,
+  webClientSlot,
 } from "../auth.js";
 
 /** Whether the code is real, and whether it may be shown — see otp-policy.ts. */
@@ -213,13 +220,52 @@ export async function authRoutes(app: FastifyInstance) {
     });
 
     alerts.signin(msisdn, session.roles, created);
-    return ok({ ...session, user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName } }, { newAccount: created });
+    // A web page (X-RA-Client) gets its refresh token as an HttpOnly cookie
+    // instead of in this body - see the cookie section of auth.ts.
+    return ok(deliverSession(req, reply, { ...session, user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName } }), { newAccount: created });
   });
 
+  /**
+   * Two ways in. A native client sends `{ refreshToken }` in the body, exactly
+   * as before. A web page sends `X-RA-Client: web-<slot>` and its HttpOnly
+   * cookie; the answer then sets the next cookie and leaves the token out of
+   * the body. A page upgrading from localStorage sends the header AND its old
+   * body token once: that rotates it into a cookie, and the page deletes it.
+   *
+   * The cookie is read only with the header (the CSRF guard, auth.ts). A
+   * cookie arriving without it is refused by name rather than falling through
+   * to the body check, so the reason is clear to whoever is debugging it.
+   */
   app.post("/v1/auth/refresh", async (req, reply) => {
-    const { refreshToken } = z.object({ refreshToken: z.string().min(20) }).parse(req.body);
+    const slot = webClientSlot(req);
+    const bodyToken = (req.body as { refreshToken?: unknown } | undefined)?.refreshToken;
+    let refreshToken: string;
+    if (bodyToken !== undefined) {
+      ({ refreshToken } = z.object({ refreshToken: z.string().min(20) }).parse(req.body));
+    } else if (slot) {
+      const cookie = readRefreshCookie(req, slot);
+      if (!cookie) {
+        return reply.code(401).send({
+          error: { code: "no_session", title: "Sign in to continue.", retryable: false },
+        });
+      }
+      refreshToken = cookie;
+    } else if (hasRefreshCookie(req)) {
+      return reply.code(403).send({
+        error: {
+          code: "client_header_required",
+          title: "A refresh cookie is only accepted with the X-RA-Client header.",
+          retryable: false,
+        },
+      });
+    } else {
+      ({ refreshToken } = z.object({ refreshToken: z.string().min(20) }).parse(req.body));
+    }
+    const https = req.protocol === "https";
     const result = await rotateSession(db, refreshToken, { ip: req.ip, ua: req.headers["user-agent"] });
     if (!result.ok) {
+      // A dead token is no use to keep: the page is told to sign in again.
+      if (slot) reply.header("set-cookie", refreshCookie(https, slot, null));
       return reply.code(401).send({
         error: {
           code: result.reason,
@@ -232,7 +278,7 @@ export async function authRoutes(app: FastifyInstance) {
         },
       });
     }
-    return ok(result);
+    return ok(deliverSession(req, reply, result));
   });
 
   /**
@@ -243,9 +289,32 @@ export async function authRoutes(app: FastifyInstance) {
    *
    * A token with no session (a device token, sid "") has nothing to sign out
    * of, and says so rather than answering a success that did nothing.
+   *
+   * A web page (X-RA-Client) signs out by its refresh cookie, which names the
+   * family even after the access token has expired, and always gets the
+   * cookie cleared. Without the header the cookie is ignored (CSRF, auth.ts)
+   * and the bearer token is required, as before.
    */
-  app.post("/v1/auth/logout", { preHandler: authenticate }, async (req, reply) => {
-    const user = req.user!;
+  app.post("/v1/auth/logout", async (req, reply) => {
+    const slot = webClientSlot(req);
+    const cookie = slot ? readRefreshCookie(req, slot) : undefined;
+    if (slot) reply.header("set-cookie", refreshCookie(req.protocol === "https", slot, null));
+    const byCookie = cookie ? await sessionOfRefreshToken(db, cookie) : null;
+    // Already signed out: say so, as a signed-out access token does (401), and
+    // do not audit a second sign-out that ended nothing.
+    if (byCookie?.signedOut) {
+      return reply.code(401).send({
+        error: { code: "signed_out", title: "You signed out of this session. Sign in again.", retryable: false },
+      });
+    }
+    let user: { sub: string; sid: string; roles: string[] };
+    if (byCookie) {
+      user = { sub: byCookie.userId, sid: byCookie.id, roles: await rolesFor(db, byCookie.userId) };
+    } else {
+      await authenticate(req, reply);
+      if (reply.sent) return reply;
+      user = req.user!;
+    }
     if (!user.sid) {
       return reply.code(400).send({
         error: { code: "no_session", title: "This token is not a signed-in session.", retryable: false },

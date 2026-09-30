@@ -142,6 +142,7 @@ const adminOnly = [
   ["email notifications", "POST", "/v1/notify/email"],
   ["RAKSHA device registry", "GET", "/v1/raksha/devices"],
   ["road-health recompute", "POST", "/v1/raksha/road-health/recompute"],
+  ["false-positive dismissal", "POST", `/v1/raksha/incidents/${incidentId}/dismiss`],
 ];
 for (const [what, method, path] of adminOnly) {
   const r = await call(method, path, { token: bob.token, body: method === "POST" ? {} : undefined });
@@ -528,6 +529,77 @@ section("12. Upload references stay inside the upload directory");
       if (existsSync(sentinel)) unlinkSync(sentinel);
     }
   }
+}
+
+// ══ 13. The web pages' refresh cookie, and the page script policy ═════════
+// Web pages keep the refresh token in an HttpOnly cookie (routes/auth.ts), so a
+// script injected into a page cannot read it. A cookie is sent by the browser
+// whoever asks, so it is honoured only with the X-RA-Client header, which a
+// cross-site form cannot send. The native body flow above is unchanged.
+section("13. Web refresh cookie and the page script policy");
+{
+  const WEB = { "x-ra-client": "web-app" };
+  const cookieOf = (r) => String(r.headers.get("set-cookie") ?? "");
+  const pair = (setCookie) => setCookie.split(";")[0];            // "ra_rt_app=…"
+  const msisdn = newMsisdn();
+  const req = await call("POST", "/v1/auth/otp/request", { body: { msisdn } });
+  const web = await call("POST", "/v1/auth/otp/verify", { headers: WEB, body: { msisdn, code: req.meta?.devOtp } });
+  const set = cookieOf(web);
+  ok("a web sign-in sets the refresh token as a cookie", /^ra_rt_app=[A-Za-z0-9_-]{20,}/.test(set), set.slice(0, 40));
+  ok("…HttpOnly, so no page script can read it", /;\s*HttpOnly/i.test(set), set.replace(/=[^;]+/, "=…"));
+  ok("…scoped to /v1/auth and SameSite-marked",
+     /;\s*Path=\/v1\/auth(;|$)/i.test(set) && /;\s*SameSite=(Lax|None)/i.test(set) &&
+     (!/SameSite=None/i.test(set) || /;\s*Secure/i.test(set)));
+  ok("…and the answer's body carries no refresh token", web.status === 200 && !("refreshToken" in (web.data ?? {})),
+     `${web.status}`);
+
+  const nMsisdn = newMsisdn();
+  const nReq = await call("POST", "/v1/auth/otp/request", { body: { msisdn: nMsisdn } });
+  const native = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: nMsisdn, code: nReq.meta?.devOtp } });
+  ok("a native sign-in (no header) still gets its token in the body, and no cookie",
+     typeof native.data?.refreshToken === "string" && native.data.refreshToken.length > 20 && !cookieOf(native));
+
+  const noHeader = await call("POST", "/v1/auth/refresh", { headers: { cookie: pair(set) } });
+  ok("a refresh by cookie WITHOUT the X-RA-Client header is refused (cross-site request forgery)",
+     noHeader.status === 403 && !noHeader.data?.accessToken, `${noHeader.status} ${noHeader.error?.code ?? ""}`);
+  const wrongSlot = await call("POST", "/v1/auth/refresh", { headers: { cookie: pair(set), "x-ra-client": "web-mechanic" } });
+  ok("one page's cookie does not refresh another page's slot", wrongSlot.status === 401, `${wrongSlot.status}`);
+
+  const rot = await call("POST", "/v1/auth/refresh", { headers: { ...WEB, cookie: pair(set) } });
+  const next = cookieOf(rot);
+  ok("with the header the cookie refreshes and rotates",
+     rot.status === 200 && Boolean(rot.data?.accessToken) && pair(next) !== pair(set) && /HttpOnly/i.test(next),
+     `${rot.status}`);
+  ok("…and the refreshed body carries no refresh token either", !("refreshToken" in (rot.data ?? {})));
+
+  const noHeaderLogout = await call("POST", "/v1/auth/logout", { headers: { cookie: pair(next) } });
+  ok("signing out by cookie without the header is refused too", noHeaderLogout.status === 401, `${noHeaderLogout.status}`);
+  const out = await call("POST", "/v1/auth/logout", { headers: { ...WEB, cookie: pair(next) } });
+  const cleared = cookieOf(out);
+  ok("a web sign-out by cookie ends the session", out.status === 200 && out.data?.signedOut === true, `${out.status}`);
+  ok("…and clears the cookie", /^ra_rt_app=;/.test(cleared) && /Max-Age=0/i.test(cleared), cleared.slice(0, 40));
+  const after = await call("POST", "/v1/auth/refresh", { headers: { ...WEB, cookie: pair(next) } });
+  ok("…after which the old cookie refreshes nothing", after.status === 401 && !after.data?.accessToken,
+     `${after.status} ${after.error?.code ?? ""}`);
+  const meAfter = await call("GET", "/v1/me", { token: rot.data?.accessToken });
+  ok("…and its access token is refused", meAfter.status === 401, `${meAfter.status}`);
+
+  // A page still holding a pre-cookie token in localStorage trades it once.
+  const legacy = await signIn();
+  const moved = await call("POST", "/v1/auth/refresh", { headers: WEB, body: { refreshToken: legacy.refresh } });
+  ok("an old body token is exchanged once for the cookie",
+     moved.status === 200 && /^ra_rt_app=/.test(cookieOf(moved)) && !("refreshToken" in (moved.data ?? {})), `${moved.status}`);
+  const again = await call("POST", "/v1/auth/refresh", { body: { refreshToken: legacy.refresh } });
+  ok("…and cannot be used again", again.status === 401, `${again.status} ${again.error?.code ?? ""}`);
+
+  // The CSP allows the pages' own inline scripts by hash, and nothing else inline.
+  const page = await fetch(BASE + "/app.html");
+  const scriptSrc = (page.headers.get("content-security-policy") ?? "").split(";").map((d) => d.trim())
+    .find((d) => d.startsWith("script-src ")) ?? "";
+  ok("script-src no longer allows 'unsafe-inline'", scriptSrc !== "" && !scriptSrc.includes("'unsafe-inline'"),
+     scriptSrc.slice(0, 40));
+  ok("…and allows the pages' inline scripts by SHA-256 hash", /'sha256-[A-Za-z0-9+/]{43}='/.test(scriptSrc),
+     `${(scriptSrc.match(/'sha256-/g) ?? []).length} hashes`);
 }
 
 // ── clean up anything still holding a provider ─────────────────────────────
