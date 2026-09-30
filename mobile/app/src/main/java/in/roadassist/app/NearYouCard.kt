@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.net.toUri
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -196,7 +197,10 @@ private fun LoadedBody(state: NearYou.State.Loaded, onDial: (String) -> Unit) {
         stringResource(R.string.near_footer) + " " + stringResource(R.string.near_attribution),
         color = Muted, style = RaType.meta, lineHeight = 15.sp, modifier = Modifier.padding(top = 12.dp),
     )
-    TextButton(onClick = { onDial("tel:112") }, modifier = Modifier.padding(top = 2.dp)) {
+    // No side padding, so "call 112" lines up with the footer text above it; the
+    // button keeps its 48 dp touch target from the minimum interactive size.
+    TextButton(onClick = { onDial("tel:112") }, modifier = Modifier.padding(top = 2.dp),
+        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
         Text(stringResource(R.string.near_call_112), color = Alarm, style = RaType.label, fontWeight = FontWeight.SemiBold)
     }
 }

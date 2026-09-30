@@ -104,12 +104,25 @@ for (const [path, what] of [
 // site/ is mounted at /media for demo video. Mounting it whole published half a
 // dozen prototype pages that pulled webfonts from Google, so every visitor's IP
 // left India to render a page nothing linked to. A 200 here means it is back.
+// The prototype pages have since been deleted, so a 404 for /media/app.html no
+// longer proves the file-type filter works - it would pass with no filter at
+// all. From outside, "refused by the filter" and "file missing" look the same;
+// publish-image.yml proves the filter by planting a page in site/ and expecting
+// it refused. What this can prove is that the mount exists (a real video is
+// served) and that no HTML comes back from it.
 {
+  const video = await get("/media/raksha-full-demo.mp4", { method: "HEAD" });
+  const type = video.res.headers.get("content-type") ?? "";
+  if ((video.res.status === 200 || video.res.status === 206) && type.startsWith("video/")) {
+    pass("the /media mount serves demo video", `${video.res.status} ${type}`);
+  } else {
+    fail("the /media mount serves demo video", `/media/raksha-full-demo.mp4 -> ${video.res.status} ${type}`);
+  }
   const { res } = await get("/media/app.html");
   if (res.status === 200) {
-    fail("no prototype pages at /media", "/media/app.html is being served — the webfont leak is back");
+    fail("no HTML is served from /media", "/media/app.html is being served — the webfont leak is back");
   } else {
-    pass("no prototype pages at /media", `/media/app.html -> ${res.status}`);
+    pass("no HTML is served from /media", `/media/app.html -> ${res.status} (the filter itself is proven in publish-image.yml)`);
   }
 }
 
@@ -120,8 +133,12 @@ for (const [path, what] of [
   const ALLOWED_CLIENT_HOSTS = ["checkout.razorpay.com"];   // Indian, and unavoidable
   const offenders = new Set();
   for (const path of ["/app.html", "/mechanic.html", "/raksha.html", "/map.html", "/landing.html"]) {
-    const { res, body } = await get(path);
+    const { res, body: page } = await get(path);
     if (res.status !== 200) continue;
+    // Link relations a browser never fetches are metadata, not subresources:
+    // the SEO canonical names the public address, and would otherwise read as a
+    // third party whenever this runs against any other host (localhost, staging).
+    const body = page.replace(/<link\b[^>]*\brel\s*=\s*["']?(?:canonical|alternate|sitemap|author|license|me)\b[^>]*>/gi, "");
     const subresource = /(?:\bsrc\s*=|<link[^>]*\bhref\s*=|@import\b|\burl\()\s*["']?(https?:\/\/[a-zA-Z0-9._-]+)/gi;
     for (const m of body.matchAll(subresource)) {
       const host = new URL(m[1]).hostname;

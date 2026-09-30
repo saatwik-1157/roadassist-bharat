@@ -79,7 +79,7 @@ Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
 npm test                 # 415 unit — no I/O, the only ones that run standalone
-npm run test:e2e         # 230
+npm run test:e2e         # 231
 npm run test:concurrency # 92
 npm run test:gateway     # 58
 npm run test:security    # 106 attacks, every one must be refused

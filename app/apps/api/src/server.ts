@@ -31,6 +31,7 @@ import { emergencyRoutes } from "./routes/emergency.js";
 import { telecomRoutes } from "./routes/telecom.js";
 import { mechanicRoutes } from "./routes/mechanic.js";
 import { geoRoutes } from "./routes/geo.js";
+import { optedOutAmong } from "./sms-opt-out.js";
 import { paymentRoutes, invoiceIsSettled } from "./routes/payments.js";
 import { bookingAudience, notYours } from "./booking-access.js";
 import { audit, auditChainSummary, verifyAuditChain } from "./audit.js";
@@ -1776,24 +1777,42 @@ app.get("/v1/incidents/:id/medical", {
   // The subject learns their record was opened. Best-effort: a failed SMS must
   // not withhold data from a paramedic, but the unsent notice stays visible as
   // user_notified_at being null.
+  // A subject who texted STOP is not texted (the opt-out covers every message
+  // from this platform); the access still shows in their own "opened about me"
+  // view below. The response then says which of these happened: it used to
+  // claim "the subject has been notified" even when the text failed or there
+  // was no number to send it to.
   const [subject] = await db.select({ msisdn: S.users.msisdn })
     .from(S.users).where(eq(S.users.id, subjectUserId)).limit(1);
+  let subjectNotice: "sent" | "opted_out" | "failed" | "no_number" = "no_number";
   if (subject?.msisdn) {
-    try {
-      await sms.send(subject.msisdn,
-        "RoadAssist: your emergency medical details were opened by a responder during your active incident. " +
-        `Reason recorded: ${reason}`);
-      await db.update(S.breakGlassAccess)
-        .set({ userNotifiedAt: new Date(), updatedAt: new Date() })
-        .where(eq(S.breakGlassAccess.id, access.id));
-    } catch (err) {
-      req.log.warn({ err }, "break-glass notice could not be delivered");
+    if ((await optedOutAmong([subject.msisdn])).has(subject.msisdn)) {
+      subjectNotice = "opted_out";
+    } else {
+      try {
+        await sms.send(subject.msisdn,
+          "RoadAssist: your emergency medical details were opened by a responder during your active incident. " +
+          `Reason recorded: ${reason}`);
+        await db.update(S.breakGlassAccess)
+          .set({ userNotifiedAt: new Date(), updatedAt: new Date() })
+          .where(eq(S.breakGlassAccess.id, access.id));
+        subjectNotice = "sent";
+      } catch (err) {
+        subjectNotice = "failed";
+        req.log.warn({ err }, "break-glass notice could not be delivered");
+      }
     }
   }
 
   return ok(profile ?? null, {
     breakGlassId: access.id,
-    notice: "This read was logged against your account and the subject has been notified.",
+    subjectNotice,
+    notice: "This read was logged against your account. " + {
+      sent: "The subject has been notified by SMS.",
+      opted_out: "The subject opted out of SMS, so was not texted; the access shows in their own record.",
+      failed: "The SMS notice to the subject failed; the access shows in their own record.",
+      no_number: "The subject has no phone number on file; the access shows in their own record.",
+    }[subjectNotice],
   });
 });
 

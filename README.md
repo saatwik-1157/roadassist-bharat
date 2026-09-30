@@ -258,7 +258,7 @@ with it.
 
 | | |
 |---|---|
-| **1064 assertions**, six suites, zero failures | 334 unit · 230 e2e · 92 concurrency · 106 attacks · 58 gateway security · 163 browser |
+| **1065 assertions**, six suites, zero failures | 334 unit · 231 e2e · 92 concurrency · 106 attacks · 58 gateway security · 163 browser |
 | Android | 135 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`), run against a local stub of Razorpay's Orders API. They need an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so they sit outside the six suites and are never described as passing |

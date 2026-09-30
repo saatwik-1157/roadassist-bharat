@@ -830,6 +830,11 @@ const glass = await call("GET", `/v1/incidents/${incidentId}/medical?reason=${en
 ok("an authority on a live incident gets the record",
    glass.status === 200 && glass.data?.bloodGroup === "O+", `got ${glass.status}`);
 ok("the read is handed back with its break-glass reference", Boolean(glass.meta?.breakGlassId));
+// The response says what happened to the subject's notice, rather than always
+// claiming "the subject has been notified".
+ok("the responder is told the notice was actually sent",
+   glass.meta?.subjectNotice === "sent" && /notified by SMS/.test(glass.meta?.notice ?? ""),
+   `${glass.meta?.subjectNotice} · ${glass.meta?.notice ?? ""}`);
 
 const accessLog = await call("GET", "/v1/me/medical/access-log", { token });
 ok("the subject can see who opened their record, and why",

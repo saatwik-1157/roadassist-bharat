@@ -14,11 +14,11 @@
   "measuredOn": "2026-09-30",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 1064,
+    "total": 1065,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
       "unit": 415,
-      "e2e": 230,
+      "e2e": 231,
       "concurrency": 92,
       "gatewaySecurity": 58,
       "securityAudit": 106,
