@@ -254,8 +254,17 @@ What is already in place:
 | robots.txt | everything allowed | pages allowed; `/v1/`, `/tiles/`, `/basemap/`, `/media/`, `/health` kept out |
 | On-page | title and description sized for results, canonical, Open Graph and Twitter cards, `robots` meta, JSON-LD (`WebSite` + `SoftwareApplication`, with no ratings or reviews) | the pages' own titles |
 
-Search Console needs your Google account, so the steps below are yours; no
-tracking script is involved, which keeps non-negotiable #4 intact.
+**Done on 2026-09-30.** Both sites are URL-prefix properties in the owner's
+Search Console account (`https://roadassistbharat.online/` and
+`https://app.roadassistbharat.online/`). Both are verified by Google's HTML file,
+and both sitemaps are submitted. The homepage was already indexed, and a
+re-crawl was requested for the new titles. **Do not delete
+`googlee923ee0decf8e5e0.html`** from `pages/` or `app/apps/web/`: Google
+re-checks it, and removing it unverifies the property. No tracking script is
+involved, which keeps non-negotiable #4 intact.
+
+To cover the apex, `www` and `app` under one Domain property instead, follow
+the steps below. Those need a DNS record at Hostinger.
 
 1. Open <https://search.google.com/search-console> and choose **Add property**.
 2. Pick **Domain** and enter `roadassistbharat.online`. One Domain property
