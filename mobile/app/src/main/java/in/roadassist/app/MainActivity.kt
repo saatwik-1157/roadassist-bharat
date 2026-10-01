@@ -1972,10 +1972,17 @@ private fun BookScreen(
     var loadError by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableIntStateOf(0) }
     // The mechanic this booking is oriented around — tapped on the map or in the
-    // nearby list. Its coordinates become the booking location so it's the
-    // top-ranked offer. Held as {id,name,lat,lng}.
+    // nearby list. It says WHO to request (its offer is tagged), never WHERE the
+    // person is: the booking goes to the phone's own fix (BookingPosition).
     var target by remember { mutableStateOf<JSONObject?>(null) }
     var nearby by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    // Where the nearby list was searched; isDemo is said under its heading.
+    var nearbyAt by remember { mutableStateOf<BookingPosition.NearbyCentre?>(null) }
+    // Why the last booking was not sent, shown on screen until the next try.
+    var notSent by remember { mutableStateOf<BookingPosition.Reason?>(null) }
+    val perms = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { /* if denied, a booking is refused with a message rather than sent somewhere made up */ }
 
     // A mechanic handed over from the live map: focus it and clear the handoff.
     LaunchedEffect(requested) {
@@ -2007,43 +2014,63 @@ private fun BookScreen(
         }
     }
 
-    // Nearest verified mechanics for the "nearby" list (real PostGIS query).
+    // Nearest verified mechanics for the "nearby" list (real PostGIS query),
+    // searched around the phone's fix. With no fix it is the demo point, and the
+    // note under the heading says so (BookingPosition.nearbyCentre).
     LaunchedEffect(Unit) {
         try {
-            val d = Api.get("/v1/map/live?lat=28.4595&lng=77.0266&radiusKm=30").getJSONObject("data")
+            val at = BookingPosition.nearbyCentre(Emergency.currentLocation(ctx))
+            val d = Api.get(BookingPosition.nearbyPath(at)).getJSONObject("data")
             val arr = d.getJSONArray("mechanics")
             nearby = (0 until arr.length()).map { arr.getJSONObject(it) }.take(6)
+            nearbyAt = at
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (_: Exception) {}
     }
 
-    val bookLat = target?.optDouble("lat", 28.4595) ?: 28.4595
-    val bookLng = target?.optDouble("lng", 77.0266) ?: 77.0266
-
-    fun bookAndDispatch() {
+    // demoChosen is per tap: true only from the "Use the NH-48 demo point"
+    // button, so a demo choice can never carry into a later booking.
+    fun bookAndDispatch(demoChosen: Boolean) {
         busy = true
         scope.launch {
-            try {
-                val note = symptoms.ifBlank {
-                    target?.let { "Requested ${it.optString("name")} from the live map" } ?: "reported from the Android app"
+            // Actively asks for a fresh fix (GPS, then network, then the OS
+            // cache). No fix means no booking: a borrowed coordinate would send
+            // a mechanic where nobody is waiting.
+            val permitted = Emergency.hasLocationPermission(ctx)
+            when (val at = BookingPosition.decide(Emergency.currentLocation(ctx), demoChosen, permitted)) {
+                is BookingPosition.Decision.NotSent -> {
+                    // Service, symptoms and the focused mechanic are left as they are for the retry.
+                    notSent = at.reason
+                    onToast(ctx.getString(R.string.booking_not_sent) + " " + ctx.getString(BookingPosition.reasonRes(at.reason)))
+                    if (!permitted) perms.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION))
                 }
-                val b = Api.post(
-                    "/v1/bookings",
-                    JSONObject()
-                        .put("vehicleId", vehicleId)
-                        .put("serviceTypeCode", service!!.first)
-                        .put("lat", bookLat).put("lng", bookLng)
-                        .put("symptoms", note)
-                        .put("highwayMarker", "NH-48, KM 212")
-                        .put("idempotencyKey", "and-" + System.nanoTime()),
-                ).getJSONObject("data")
-                bookingId = b.getString("id")
-                onToast("Booking ${b.getString("reference")} — dispatching…")
-                val d = Api.post("/v1/bookings/${bookingId}/dispatch",
-                    JSONObject().put("radiusKm", 30).put("limit", 5)).getJSONObject("data")
-                val arr = d.optJSONArray("offers") ?: JSONArray()
-                offers = (0 until arr.length()).map { arr.getJSONObject(it) }
-                if (offers.isEmpty()) onToast(ctx.getString(R.string.toast_no_mechanic))
-            } catch (e: Exception) { onToast(e.message ?: "Failed") }
+                is BookingPosition.Decision.Send -> try {
+                    val note = symptoms.ifBlank {
+                        target?.let { "Requested ${it.optString("name")} from the live map" } ?: "reported from the Android app"
+                    }
+                    val b = Api.post(
+                        "/v1/bookings",
+                        JSONObject()
+                            .put("vehicleId", vehicleId)
+                            .put("serviceTypeCode", service!!.first)
+                            .put("lat", at.lat).put("lng", at.lng)
+                            .put("symptoms", note)
+                            .apply { at.marker?.let { put("highwayMarker", it) } }
+                            .put("idempotencyKey", "and-" + System.nanoTime()),
+                    ).getJSONObject("data")
+                    bookingId = b.getString("id")
+                    notSent = null
+                    onToast("Booking ${b.getString("reference")} — dispatching…")
+                    val d = Api.post("/v1/bookings/${bookingId}/dispatch",
+                        JSONObject().put("radiusKm", 30).put("limit", 5)).getJSONObject("data")
+                    val arr = d.optJSONArray("offers") ?: JSONArray()
+                    offers = (0 until arr.length()).map { arr.getJSONObject(it) }
+                    if (offers.isEmpty()) onToast(ctx.getString(R.string.toast_no_mechanic))
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) { onToast(e.message ?: "Failed") }
+            }
             busy = false
         }
     }
@@ -2096,7 +2123,23 @@ private fun BookScreen(
         // POST /v1/bookings takes at most 500 characters of symptoms.
         Field(symptoms, { symptoms = it.take(500) }, stringResource(R.string.field_what_happened))
 
-        GoldButton(stringResource(R.string.action_book_dispatch), enabled = !busy && vehicleId != null && service != null) { bookAndDispatch() }
+        GoldButton(stringResource(R.string.action_book_dispatch), enabled = !busy && vehicleId != null && service != null) { bookAndDispatch(demoChosen = false) }
+
+        // No fix: the request was not sent. The demo point is offered only as a
+        // clearly secondary, explicitly labelled choice.
+        notSent?.let { reason ->
+            Text(
+                stringResource(R.string.booking_not_sent) + " " + stringResource(BookingPosition.reasonRes(reason)),
+                color = Alarm, style = RaType.label, lineHeight = 18.sp,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            TextButton(
+                onClick = { bookAndDispatch(demoChosen = true) },
+                enabled = !busy && vehicleId != null && service != null,
+                modifier = Modifier.padding(top = 6.dp),
+            ) { Text(stringResource(R.string.booking_use_demo), color = Muted, style = RaType.caption) }
+            Text(stringResource(R.string.booking_demo_note), color = Muted, style = RaType.meta)
+        }
 
         // Offers from the dispatch broadcast; the focused mechanic is tagged.
         offers.forEach { o ->
@@ -2145,6 +2188,10 @@ private fun BookScreen(
         if (offers.isEmpty() && nearby.isNotEmpty()) {
             Text(stringResource(R.string.mechanics_nearby), color = Cream, style = RaType.body,
                 modifier = Modifier.padding(top = 22.dp))
+            nearbyAt?.let { at ->
+                Text(stringResource(BookingPosition.nearbyNoteRes(at)),
+                    color = if (at.isDemo) Alarm else Muted, style = RaType.caption)
+            }
             nearby.forEach { m ->
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -2159,9 +2206,9 @@ private fun BookScreen(
                         }
                         OutlinedButton(
                             onClick = {
+                                // Who to request only; the booking is placed at the phone's fix.
                                 target = JSONObject()
                                     .put("id", m.optString("id")).put("name", m.optString("display_name"))
-                                    .put("lat", m.optDouble("lat")).put("lng", m.optDouble("lng"))
                                 onToast("Focused ${m.optString("display_name")}")
                             },
                             shape = RoundedCornerShape(RaRadius.full),

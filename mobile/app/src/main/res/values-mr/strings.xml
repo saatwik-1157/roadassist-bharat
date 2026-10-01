@@ -173,4 +173,11 @@
     <string name="emergency_101">अग्निशमन दल</string>
     <string name="sos_location_unknown">लोकेशन अज्ञात — SOS जागेशिवाय पाठवला. 112 वर कॉल करा आणि तुम्ही कुठे आहात ते सांगा.</string>
     <string name="sos_location_unknown_saved">लोकेशन अज्ञात — सेव्ह केलेल्या SOS मध्ये जागा नाही. 112 वर कॉल करा आणि तुम्ही कुठे आहात ते सांगा.</string>
+    <string name="booking_not_sent">अजून लोकेशन मिळाले नाही — विनंती पाठवली नाही.</string>
+    <string name="booking_reason_permission">लोकेशनची परवानगी द्या आणि पुन्हा प्रयत्न करा.</string>
+    <string name="booking_reason_no_fix">मोकळ्या आकाशाखाली जाऊन पुन्हा प्रयत्न करा.</string>
+    <string name="booking_use_demo">NH-48 डेमो पॉइंट वापरा (फक्त डेमो)</string>
+    <string name="booking_demo_note">मेकॅनिक NH-48, गुरुग्राम येथे पाठवला जाईल — फक्त वर्गातील डेमोसाठी.</string>
+    <string name="mechanics_nearby_around_you">तुमच्या लोकेशनच्या आसपास.</string>
+    <string name="mechanics_nearby_around_demo">NH-48 डेमो पॉइंटच्या आसपास (अजून लोकेशन नाही).</string>
 </resources>

@@ -14,22 +14,22 @@
   "measuredOn": "2026-10-01",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 1118,
+    "total": 1137,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 443,
+      "unit": 451,
       "e2e": 246,
       "concurrency": 92,
       "gatewaySecurity": 58,
       "securityAudit": 106,
-      "browser": 173
+      "browser": 184
     },
     "notExecuted": {
       "paymentSandbox": 22,
       "why": "scripts/razorpay-test.mjs needs NO Razorpay account: it starts its own local stub of the Orders API and signs webhooks with a stub secret. It refuses to run (exit 2) unless the API was started separately with PAYMENTS_PROVIDER=razorpay and PAYMENTS_BASE_URL pointed at that stub, so it is outside every npm test run and was not re-run for this measurement. Never counted in the total, never described as passing"
     },
     "otherRunners": {
-      "android": 163,
+      "android": 172,
       "sosLadder": 21,
       "ai": 39,
       "why": "separate toolchains with their own runners; not part of the six-suite total",

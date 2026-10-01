@@ -70,6 +70,9 @@ Recorded because an audit that only lists faults is not an audit.
   version, and never as "AI vehicle diagnosis".
 - Offline maps carry `OFFLINE MAP — LAST UPDATED <timestamp>` and no ETA.
 - A GPS failure shows `Unknown — denied`, never a fallback coordinate.
+- A booking with no GPS fix is not sent; it uses the NH-48 demo point only when
+  the user presses "Use the NH-48 demo point (demo only)", and is then marked
+  `NH-48, KM 212 (demo point)`.
 - The escalation response reports how many contacts were *actually* alerted.
 - Dead-zone risk is labelled "heuristic v1 from this platform's own devices —
   NOT carrier coverage data".

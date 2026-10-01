@@ -17,7 +17,7 @@ Ticked only where the artefact exists **and** has been verified in this session.
 | ✅ | Offline documentation | `app/docs/OFFLINE.md` | Capability matrix, tiers, storage, retention |
 | ✅ | Deployment instructions | `app/docs/DEPLOYMENT.md` | Docker, config, backup, rollback, DR, cost |
 | ✅ | Live deployment | https://app.roadassistbharat.online · showcase https://roadassistbharat.online | One Render web service (Docker, free plan, Singapore) + Neon Postgres/PostGIS (Singapore); showcase on GitHub Pages. `NODE_ENV=demo`, mock payments, on-screen OTP |
-| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (1118 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
+| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (1137 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
 | ✅ | SWE4004 mapping | `app/docs/SWE4004-MAPPING.md` | Modules 1–6, 21-row cloud-concept audit |
 | ✅ | Claims audit | `app/docs/CLAIMS-AUDIT.md` | Every claim checked against the code |
 | ✅ | Presentation | `ppt/RoadAssist-Bharat-FINAL.pptx` | **35 slides**, generated, 0 over-claims |

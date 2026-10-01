@@ -796,6 +796,10 @@ const run = async () => {
 
     // ══ 9. Booking journey ══════════════════════════════════════════════════
     section("9. Assistance journey");
+    // A real fix, set here rather than inherited: 7b cleared its override, and a
+    // booking with no fix is (correctly) not sent — section 16 proves that side.
+    await page.send("Browser.grantPermissions", { origin: BASE, permissions: ["geolocation"] });
+    await page.send("Emulation.setGeolocationOverride", { latitude: 28.4601, longitude: 77.0301, accuracy: 12 });
     await page.eval(`location.hash = "#assist"; return true;`);
     await sleep(500);
 
@@ -819,7 +823,7 @@ const run = async () => {
         done: document.querySelector('#b-steps [data-step="location"]').classList.contains("done"),
       };
     `);
-    check(loc.done, "checking location completes step 3", loc.state);
+    check(loc.done && /Location ready/.test(loc.state), "checking location completes step 3", loc.state);
 
     await page.setValue("#b-symptoms", "wont start, clicking sound");
     await sleep(200);
@@ -1248,6 +1252,119 @@ const run = async () => {
       check(finalErrs.length === 0, "the complete journey raises no uncaught exceptions",
         finalErrs.length ? finalErrs.slice(0, 2).join(" | ").slice(0, 200) : "clean");
     }
+
+    // ══ 16. Booking with no GPS fix ═════════════════════════════════════════
+    // locate() resolves with the NH-48 demo point when there is no fix. A
+    // booking must not be sent there silently — a real mechanic would drive to
+    // Gurugram. Last, so the extra booking it creates touches no other section.
+    section("16. Booking with no fix: not sent, demo point only by choice");
+    await page.send("Emulation.clearGeolocationOverride", {}).catch(() => {});
+    await page.send("Browser.setPermission", {
+      origin: BASE, permission: { name: "geolocation" }, setting: "denied",
+    });
+    await page.goto(`${BASE}/app.html#assist`);
+    await page.waitFor(`document.getElementById("scr-book").classList.contains("active") &&
+      document.querySelector('#b-steps [data-step="vehicle"]').classList.contains("done") &&
+      document.getElementById("b-service").value`, 20000, "the booking screen with a vehicle and a service");
+    await page.eval(`
+      window.__bk = []; window.__bkRes = [];
+      const realFetch = window.fetch;
+      window.fetch = async function (url, init) {
+        const mine = /\\/v1\\/bookings$/.test(String(url)) && init && init.method === "POST";
+        if (mine) window.__bk.push(JSON.parse(init.body));
+        const res = await realFetch.apply(this, arguments);
+        if (mine) res.clone().json().then((j) => window.__bkRes.push({ status: res.status, data: j.data || null }));
+        return res;
+      };
+      return true;
+    `);
+
+    await page.click("#b-locate");
+    await page.waitFor(`/No location yet/.test(document.getElementById("b-loc-state").textContent)`, 15000,
+      "step 3 to say there is no location");
+    const nf = await page.eval(`
+      const demo = document.querySelector('#b-location [data-loc="demo"]');
+      return {
+        detail: document.getElementById("b-loc-detail").textContent,
+        retry: Boolean(document.querySelector('#b-location [data-loc="retry"]')),
+        demo: demo ? demo.textContent : null,
+        demoGhost: Boolean(demo && demo.classList.contains("ghost")),
+        note: document.getElementById("b-loc-choice").textContent,
+        done: document.querySelector('#b-steps [data-step="location"]').classList.contains("done"),
+      };
+    `);
+    check(/Allow location in your browser and try again/.test(nf.detail),
+      "with permission off, step 3 says to allow location and try again", nf.detail);
+    check(nf.retry && nf.demo === "Use the NH-48 demo point (demo only)" && nf.demoGhost,
+      "…offers Try again and a secondary 'Use the NH-48 demo point (demo only)' button", nf.demo);
+    check(/sent to NH-48, Gurugram — for the classroom demo only/.test(nf.note),
+      "…and says where a mechanic would be sent if the demo point is used", nf.note);
+    check(!nf.done, "with no fix and no choice, step 3 is not complete");
+
+    if (process.env.UI_SHOT_DIR) {
+      const { writeFileSync, mkdirSync } = await import("node:fs");
+      mkdirSync(process.env.UI_SHOT_DIR, { recursive: true });
+      await page.send("Emulation.setDeviceMetricsOverride",
+        { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+      await page.eval(`document.getElementById("b-location").scrollIntoView({ block: "center" }); return true;`);
+      await sleep(500);
+      const { data } = await page.send("Page.captureScreenshot", { format: "png" });
+      writeFileSync(join(process.env.UI_SHOT_DIR, "booking-no-location.png"), Buffer.from(data, "base64"));
+      await page.send("Emulation.clearDeviceMetricsOverride");
+      await sleep(300);
+    }
+
+    await page.click("#b-book");
+    await page.waitFor(`document.getElementById("b-notsent")`, 15000, "the not-sent card");
+    await sleep(500);
+    const unsent = await page.eval(`
+      return {
+        posts: window.__bk.length,
+        card: document.getElementById("b-notsent").textContent,
+        demo: Boolean(document.querySelector('#b-notsent [data-loc="demo"]')),
+        toast: document.getElementById("toast").textContent,
+      };
+    `);
+    check(unsent.posts === 0, "'Request assistance' with no fix sends no /v1/bookings request",
+      `${unsent.posts} POST(s)`);
+    check(/Not sent: no location/.test(unsent.card) && /Not sent: no location/.test(unsent.toast) && unsent.demo,
+      "…says 'Not sent: no location' and offers the same choice", unsent.toast);
+
+    await page.click('#b-notsent [data-loc="demo"]');
+    const chosen = await page.eval(`
+      return {
+        state: document.getElementById("b-loc-state").textContent,
+        done: document.querySelector('#b-steps [data-step="location"]').classList.contains("done"),
+      };
+    `);
+    check(chosen.done && /demo point/.test(chosen.state),
+      "choosing the demo point completes step 3 and says it is the demo point", chosen.state);
+
+    await page.click("#b-book");
+    await page.waitFor(`window.__bkRes.length === 1`, 20000, "the demo-point booking to be created");
+    await page.waitFor(`/created/.test(document.getElementById("toast").textContent) ||
+      !document.getElementById("b-book").classList.contains("is-busy")`, 10000);
+    const made = await page.eval(`
+      return {
+        body: window.__bk[0], res: window.__bkRes[0],
+        toast: document.getElementById("toast").textContent,
+      };
+    `);
+    check(made.res.status === 201 || made.res.status === 200, "…and then the booking is created",
+      `${made.res.status} ${made.res.data && made.res.data.reference}`);
+    check(made.body.lat === 28.4595 && made.body.lng === 77.0266 &&
+      /\(demo point\)/.test(made.body.highwayMarker ?? "") && /\(demo point\)/.test(made.res.data?.highwayMarker ?? ""),
+      "it is sent at the demo point with highwayMarker '… (demo point)', and stored that way",
+      made.res.data?.highwayMarker);
+    check(/\(demo point, chosen by you\)/.test(made.toast), "the toast says the demo point was the user's choice",
+      made.toast);
+
+    await page.waitFor(`!document.getElementById("b-book").classList.contains("is-busy")`, 25000);
+    await page.click("#b-book");
+    await page.waitFor(`document.getElementById("b-notsent")`, 15000, "the not-sent card again");
+    const again = await page.eval(`return window.__bk.length;`);
+    check(again === 1, "the choice was for that booking only: the next request with no fix is not sent",
+      `${again} POST(s) in all`);
 
   } catch (e) {
     bad("journey aborted", e.message);

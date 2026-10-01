@@ -173,4 +173,11 @@
     <string name="emergency_101">ಅಗ್ನಿಶಾಮಕ ದಳ</string>
     <string name="sos_location_unknown">ಸ್ಥಳ ತಿಳಿದಿಲ್ಲ — ಸ್ಥಳವಿಲ್ಲದೆ SOS ಕಳುಹಿಸಲಾಗಿದೆ. 112 ಗೆ ಕರೆ ಮಾಡಿ ನೀವು ಎಲ್ಲಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿ.</string>
     <string name="sos_location_unknown_saved">ಸ್ಥಳ ತಿಳಿದಿಲ್ಲ — ಉಳಿಸಿದ SOS ನಲ್ಲಿ ಸ್ಥಳವಿಲ್ಲ. 112 ಗೆ ಕರೆ ಮಾಡಿ ನೀವು ಎಲ್ಲಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿ.</string>
+    <string name="booking_not_sent">ಇನ್ನೂ ಸ್ಥಳ ಸಿಕ್ಕಿಲ್ಲ — ವಿನಂತಿಯನ್ನು ಕಳುಹಿಸಲಾಗಿಲ್ಲ.</string>
+    <string name="booking_reason_permission">ಸ್ಥಳದ ಅನುಮತಿ ನೀಡಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.</string>
+    <string name="booking_reason_no_fix">ತೆರೆದ ಆಕಾಶದ ಕೆಳಗೆ ಹೋಗಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.</string>
+    <string name="booking_use_demo">NH-48 ಡೆಮೊ ಪಾಯಿಂಟ್ ಬಳಸಿ (ಡೆಮೊಗೆ ಮಾತ್ರ)</string>
+    <string name="booking_demo_note">ಮೆಕ್ಯಾನಿಕ್ ಅನ್ನು NH-48, ಗುರುಗ್ರಾಮ್‌ಗೆ ಕಳುಹಿಸಲಾಗುತ್ತದೆ — ತರಗತಿಯ ಡೆಮೊಗೆ ಮಾತ್ರ.</string>
+    <string name="mechanics_nearby_around_you">ನಿಮ್ಮ ಸ್ಥಳದ ಸುತ್ತಮುತ್ತ.</string>
+    <string name="mechanics_nearby_around_demo">NH-48 ಡೆಮೊ ಪಾಯಿಂಟ್ ಸುತ್ತಮುತ್ತ (ಇನ್ನೂ ಸ್ಥಳ ಇಲ್ಲ).</string>
 </resources>

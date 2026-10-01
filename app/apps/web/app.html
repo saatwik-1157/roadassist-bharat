@@ -618,7 +618,7 @@
                 location so the mechanic is sent to the right place.</small>
             </span>
             <button class="btn ghost auto sm" id="b-locate">Check</button>
-          </div>
+          </div><div id="b-loc-choice"></div>
         </div>
 
         <p class="step-h"><span>Step 4</span>Which service?</p>
@@ -634,8 +634,9 @@
 
         <p class="step-h"><span>Step 5</span>Find a mechanic</p>
         <button class="btn" id="b-book">Request assistance</button>
-        <p class="hint" style="margin-top:9px">Uses your device location when permitted; otherwise the NH-48
-          demo location. Offline? The booking queues locally and replays when you reconnect — no duplicates.</p>
+        <p class="hint" style="margin-top:9px">Sent only with your device's GPS position. With no fix nothing is
+          sent unless you choose the NH-48 demo point (demo only) in step 3, for this one booking. Offline? The
+          booking queues locally and replays when you reconnect — no duplicates.</p>
         <div id="b-offers"></div>
       </div>
     </section>
@@ -972,6 +973,7 @@
 <script src="near.js"></script>
 <script src="photo-shrink.js"></script>
 <script src="emergency-numbers.js"></script>
+<script src="booking-position.js"></script>
 <script>
 (function () {
   "use strict";
@@ -2477,25 +2479,31 @@
     setStep("service", Boolean($("b-service").value));
   }
 
-  /** Step 3: confirm the position the mechanic will be sent to. */
-  var bookingPos = null;
-  $("b-locate").onclick = busy($("b-locate"), async function () {
+  /** Step 3: the position the mechanic is sent to. No fix is never sent silently
+   *  (booking-position.js); the demo point only by the user's choice, per booking. */
+  var bookingPos = null, demoChosen = false, BP = RABookingPosition;
+  function showLocation() {
+    var d = BP.decide(bookingPos, demoChosen), acc = bookingPos && bookingPos.accuracy;
+    $("b-loc-state").textContent = !d.send ? "No location yet" : d.demo ? "NH-48 demo point (demo only)" : "Location ready";
+    $("b-loc-detail").textContent = !d.send ? BP.advice(d.reason) : d.demo ? BP.DEMO_NOTE
+      : d.lat.toFixed(4) + ", " + d.lng.toFixed(4) + (acc ? " · ±" + Math.round(acc) + " m" : "");
+    $("b-loc-choice").innerHTML = d.send ? "" : BP.choiceHtml();
+    setStep("location", d.send);
+    return d;
+  }
+  async function checkLocation() {
     $("b-loc-state").textContent = "Checking…";
     $("b-loc-detail").textContent = "Asking your device for a position.";
-    var pos = await locate();
-    bookingPos = pos;
-    if (pos.demo) {
-      $("b-loc-state").textContent = pos.denied ? "Location permission is off" : "Approximate location";
-      $("b-loc-detail").textContent = pos.denied
-        ? "Allow location for an exact pickup, or continue with the NH-48 demo position."
-        : "Using the NH-48 demo position — a mechanic would be sent there.";
-      setStep("location", true);
-    } else {
-      $("b-loc-state").textContent = "Location ready";
-      $("b-loc-detail").textContent = pos.lat.toFixed(4) + ", " + pos.lng.toFixed(4) +
-        (pos.accuracy ? " · ±" + Math.round(pos.accuracy) + " m" : "");
-      setStep("location", true);
-    }
+    bookingPos = await locate();
+    if (!bookingPos.demo) demoChosen = false;   // a real fix replaces the demo choice
+    return showLocation();
+  }
+  $("b-locate").onclick = busy($("b-locate"), checkLocation);
+  $("scr-book").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-loc]");
+    if (!b) return;
+    $("b-offers").innerHTML = "";
+    if (b.dataset.loc === "demo") { demoChosen = true; showLocation(); } else $("b-locate").click();
   });
 
   $("b-symptoms").addEventListener("input", syncSteps);
@@ -2531,15 +2539,13 @@
     try {
       // Step 3 may already have fixed a position; reusing it avoids a second
       // geolocation prompt and keeps the request at the place the user saw.
-      var pos = bookingPos;
-      if (!pos) {
-        bookingProgress("Getting your location…");
-        pos = await locate();
-        bookingPos = pos;
-        setStep("location", true);
-      }
-      if (pos.denied) {
-        toast("Location permission denied — using the NH-48 demo location", "warn");
+      if (!bookingPos) { bookingProgress("Getting your location…"); await checkLocation(); }
+      var at = showLocation();
+      if (!at.send) {   // no fix and no demo choice: nothing is posted
+        $("b-offers").innerHTML = BP.notSentHtml(at.reason);
+        toast("Not sent: no location", "bad");
+        $("b-location").scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
       }
 
       bookingProgress("Creating your request…");
@@ -2547,20 +2553,20 @@
       var r = await api("POST", "/v1/bookings", {
         vehicleId: state.vehicleId,
         serviceTypeCode: $("b-service").value,
-        lat: pos.lat, lng: pos.lng,
+        lat: at.lat, lng: at.lng,
         symptoms: $("b-symptoms").value || undefined,
-        highwayMarker: pos.demo ? "NH-48, KM 212" : undefined,
+        highwayMarker: at.highwayMarker,
         createdOffline: !state.online,
         idempotencyKey: bookingKey,
       });
       if (!r) { $("b-offers").innerHTML = ""; return; }   // queued offline
-      bookingKey = null;
+      bookingKey = null; demoChosen = false; showLocation();   // the demo choice was for this booking only
       state.bookingId = r.data.id;
       // A new booking's own history, not the last one's final status. MATCHING:
       // dispatch reaches it before its reply does, and the screen says so already.
       pollStatus = "MATCHING";
       saveSession();
-      toast("Booking " + r.data.reference + " created" + (pos.demo ? " (demo location)" : ""), "ok");
+      toast("Booking " + r.data.reference + " created" + (at.demo ? " (demo point, chosen by you)" : ""), "ok");
 
       bookingProgress("Finding nearby mechanics…");
       var d = await api("POST", "/v1/bookings/" + state.bookingId + "/dispatch",

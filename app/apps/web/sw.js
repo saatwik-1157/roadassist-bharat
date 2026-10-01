@@ -18,7 +18,8 @@
 // v13: session.js (the refresh cookie) joins the shell; app, mechanic and email-signin changed.
 // v14: photo-shrink.js (hazard photos shrunk to the server's cap, ADR-0013) joins the shell; app.html changed.
 // v15: emergency-numbers.js (tap-to-call 112/1033/..., "Text my location") joins the shell; app.html and ds.css changed.
-const VERSION = "ra-v15";
+// v16: booking-position.js (no GPS fix is never booked silently; the demo point only by choice) joins the shell; app.html changed.
+const VERSION = "ra-v16";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -45,6 +46,8 @@ const SHELL_ASSETS = [
   // The emergency numbers and the off-grid "Text my location" link. Off-grid is
   // exactly when the dialler is the only thing left that works.
   "/emergency-numbers.js",
+  // Decides the position a booking is sent with; app.html's booking step needs it.
+  "/booking-position.js",
   "/manifest.webmanifest",
   // Off-Grid Mode (ADR-0009). Without these cached, the feature that exists for
   // a dead network would need the network to load.

@@ -173,4 +173,11 @@
     <string name="emergency_101">అగ్నిమాపక దళం</string>
     <string name="sos_location_unknown">లొకేషన్ తెలియదు — స్థానం లేకుండా SOS పంపబడింది. 112కు కాల్ చేసి మీరు ఎక్కడ ఉన్నారో చెప్పండి.</string>
     <string name="sos_location_unknown_saved">లొకేషన్ తెలియదు — సేవ్ చేసిన SOSలో స్థానం లేదు. 112కు కాల్ చేసి మీరు ఎక్కడ ఉన్నారో చెప్పండి.</string>
+    <string name="booking_not_sent">ఇంకా లొకేషన్ దొరకలేదు — అభ్యర్థన పంపబడలేదు.</string>
+    <string name="booking_reason_permission">లొకేషన్ అనుమతి ఇచ్చి మళ్లీ ప్రయత్నించండి.</string>
+    <string name="booking_reason_no_fix">బహిరంగ ఆకాశం కిందకు వెళ్లి మళ్లీ ప్రయత్నించండి.</string>
+    <string name="booking_use_demo">NH-48 డెమో పాయింట్ ఉపయోగించండి (డెమో మాత్రమే)</string>
+    <string name="booking_demo_note">మెకానిక్‌ను NH-48, గురుగ్రామ్‌కు పంపుతారు — తరగతి డెమో కోసం మాత్రమే.</string>
+    <string name="mechanics_nearby_around_you">మీ లొకేషన్ చుట్టుపక్కల.</string>
+    <string name="mechanics_nearby_around_demo">NH-48 డెమో పాయింట్ చుట్టుపక్కల (ఇంకా లొకేషన్ లేదు).</string>
 </resources>

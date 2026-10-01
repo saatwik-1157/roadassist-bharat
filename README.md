@@ -258,7 +258,7 @@ with it.
 
 | | |
 |---|---|
-| **1118 assertions**, six suites, zero failures | 443 unit · 246 e2e · 92 concurrency · 106 attacks · 58 gateway security · 173 browser |
+| **1137 assertions**, six suites, zero failures | 451 unit · 246 e2e · 92 concurrency · 106 attacks · 58 gateway security · 184 browser |
 | Android | 135 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`), run against a local stub of Razorpay's Orders API. They need an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so they sit outside the six suites and are never described as passing |
@@ -338,7 +338,7 @@ npm run verify               # typecheck · lint · boundaries · claims · cita
 ```
 
 **Android:** `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease`
-(163 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
+(172 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
 install talks to the live platform. To use a local API instead, long-press the
 wordmark on the sign-in screen and enter its address, for example
 `10.0.2.2:4000` from the emulator.

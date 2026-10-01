@@ -175,4 +175,11 @@
     <string name="emergency_101">अग्निशमन</string>
     <string name="sos_location_unknown">लोकेशन अज्ञात — SOS बिना जगह के भेजा गया। 112 पर कॉल करें और बताएँ कि आप कहाँ हैं।</string>
     <string name="sos_location_unknown_saved">लोकेशन अज्ञात — सेव किए गए SOS में जगह नहीं है। 112 पर कॉल करें और बताएँ कि आप कहाँ हैं।</string>
+    <string name="booking_not_sent">अभी लोकेशन नहीं मिली — अनुरोध नहीं भेजा गया।</string>
+    <string name="booking_reason_permission">लोकेशन की अनुमति दें और फिर कोशिश करें।</string>
+    <string name="booking_reason_no_fix">खुले आसमान के नीचे जाकर फिर कोशिश करें।</string>
+    <string name="booking_use_demo">NH-48 डेमो पॉइंट इस्तेमाल करें (सिर्फ़ डेमो)</string>
+    <string name="booking_demo_note">मैकेनिक NH-48, गुरुग्राम भेजा जाएगा — सिर्फ़ कक्षा के डेमो के लिए।</string>
+    <string name="mechanics_nearby_around_you">आपकी लोकेशन के आसपास।</string>
+    <string name="mechanics_nearby_around_demo">NH-48 डेमो पॉइंट के आसपास (अभी लोकेशन नहीं)।</string>
 </resources>

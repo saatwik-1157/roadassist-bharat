@@ -208,4 +208,13 @@
     <!-- SOS with no GPS fix: raised as location unknown, never at a stand-in point (SosPosition.kt). -->
     <string name="sos_location_unknown">Location unknown — SOS raised without a position. Call 112 and tell them where you are.</string>
     <string name="sos_location_unknown_saved">Location unknown — the saved SOS has no position. Call 112 and tell them where you are.</string>
+
+    <!-- Booking with no GPS fix: not sent, never placed at the mechanic or a stand-in point (BookingPosition.kt). -->
+    <string name="booking_not_sent">No location yet — the request was not sent.</string>
+    <string name="booking_reason_permission">Allow location and try again.</string>
+    <string name="booking_reason_no_fix">Move to open sky and try again.</string>
+    <string name="booking_use_demo">Use the NH-48 demo point (demo only)</string>
+    <string name="booking_demo_note">A mechanic would be sent to NH-48, Gurugram — for the classroom demo only.</string>
+    <string name="mechanics_nearby_around_you">Around your location.</string>
+    <string name="mechanics_nearby_around_demo">Around the NH-48 demo point (no location yet).</string>
 </resources>

@@ -173,4 +173,11 @@
     <string name="emergency_101">ફાયર બ્રિગેડ</string>
     <string name="sos_location_unknown">લોકેશન અજ્ઞાત — SOS સ્થાન વિના મોકલાયો. 112 પર કૉલ કરો અને જણાવો કે તમે ક્યાં છો.</string>
     <string name="sos_location_unknown_saved">લોકેશન અજ્ઞાત — સેવ થયેલા SOSમાં સ્થાન નથી. 112 પર કૉલ કરો અને જણાવો કે તમે ક્યાં છો.</string>
+    <string name="booking_not_sent">હજી લોકેશન મળ્યું નથી — વિનંતી મોકલાઈ નથી.</string>
+    <string name="booking_reason_permission">લોકેશનની પરવાનગી આપો અને ફરી પ્રયાસ કરો.</string>
+    <string name="booking_reason_no_fix">ખુલ્લા આકાશ નીચે જઈને ફરી પ્રયાસ કરો.</string>
+    <string name="booking_use_demo">NH-48 ડેમો પોઇન્ટ વાપરો (માત્ર ડેમો)</string>
+    <string name="booking_demo_note">મિકેનિકને NH-48, ગુરુગ્રામ મોકલાશે — માત્ર ક્લાસના ડેમો માટે.</string>
+    <string name="mechanics_nearby_around_you">તમારા લોકેશનની આસપાસ.</string>
+    <string name="mechanics_nearby_around_demo">NH-48 ડેમો પોઇન્ટની આસપાસ (હજી લોકેશન નથી).</string>
 </resources>

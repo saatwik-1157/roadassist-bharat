@@ -173,4 +173,11 @@
     <string name="emergency_101">দমকল</string>
     <string name="sos_location_unknown">অবস্থান অজানা — অবস্থান ছাড়াই SOS পাঠানো হয়েছে। 112-এ কল করে জানান আপনি কোথায় আছেন।</string>
     <string name="sos_location_unknown_saved">অবস্থান অজানা — সংরক্ষিত SOS-এ কোনো অবস্থান নেই। 112-এ কল করে জানান আপনি কোথায় আছেন।</string>
+    <string name="booking_not_sent">এখনও অবস্থান পাওয়া যায়নি — অনুরোধ পাঠানো হয়নি।</string>
+    <string name="booking_reason_permission">অবস্থানের অনুমতি দিন এবং আবার চেষ্টা করুন।</string>
+    <string name="booking_reason_no_fix">খোলা আকাশের নিচে গিয়ে আবার চেষ্টা করুন।</string>
+    <string name="booking_use_demo">NH-48 ডেমো পয়েন্ট ব্যবহার করুন (শুধু ডেমো)</string>
+    <string name="booking_demo_note">মেকানিককে NH-48, গুরুগ্রামে পাঠানো হবে — শুধু ক্লাসের ডেমোর জন্য।</string>
+    <string name="mechanics_nearby_around_you">আপনার অবস্থানের আশেপাশে।</string>
+    <string name="mechanics_nearby_around_demo">NH-48 ডেমো পয়েন্টের আশেপাশে (এখনও অবস্থান নেই)।</string>
 </resources>

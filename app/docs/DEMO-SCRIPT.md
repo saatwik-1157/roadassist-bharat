@@ -264,7 +264,7 @@ one of them, live, if there is time.
 
 > An AI-powered, cloud-connected, network-resilient emergency mobility platform
 > that keeps protecting people when connectivity becomes unreliable.
-> 1118 assertions executed across six suites, no failures (22 Razorpay checks
+> 1137 assertions executed across six suites, no failures (22 Razorpay checks
 > against a local stub sit outside that total and are not counted). Three real
 > vulnerabilities found by
 > our own security suite during the audit, and fixed. Nothing on that list is a
@@ -280,6 +280,8 @@ one of them, live, if there is time.
    value is that it does not.
 3. **Never invent a location, an ETA or a mechanic position.** If GPS is denied
    the app says `Unknown — denied`; show that.
+   A booking with no fix is not sent ("Not sent: no location"); it goes to the
+   NH-48 demo point only after pressing "Use the NH-48 demo point (demo only)".
 4. **If the network section fails**, use the pill toggle rather than DevTools —
    it drives the same code path, and the UI labels it *simulated*.
 5. **If the database dies**, `/health` returns **503** with `database: down`
