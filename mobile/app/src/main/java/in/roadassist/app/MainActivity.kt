@@ -737,9 +737,10 @@ private fun processReportImage(ctx: android.content.Context, uri: android.net.Ur
 }
 
 /** Citizen road-hazard report — feeds the RAKSHA detection pipeline (source:
- *  citizen), appears on the live map and in the authority queue. Location is the
- *  device's last known fix; an optional photo (picked at app scope) is
- *  downscaled on-device. */
+ *  citizen), appears on the live map and in the authority queue. Location is a
+ *  fix requested at submit time; with none the report is NOT sent and the draft
+ *  stays open for a retry (HazardLocation). An optional photo (picked at app
+ *  scope) is downscaled on-device. */
 @Composable
 private fun ReportHazardDialog(
     photoB64: String?,
@@ -754,7 +755,7 @@ private fun ReportHazardDialog(
     val scope = rememberCoroutineScope()
     val perms = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { /* graceful: falls back to an approximate location if denied */ }
+    ) { /* if denied, a submit is refused with a message rather than sent somewhere made up */ }
     LaunchedEffect(Unit) { perms.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)) }
 
     var type by remember { mutableStateOf("pothole") }
@@ -762,6 +763,8 @@ private fun ReportHazardDialog(
     var severity by remember { mutableIntStateOf(3) }
     var note by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    // Why the last submit was not sent, shown in the dialog until the next try.
+    var noFix by remember { mutableStateOf<String?>(null) }
     val types = listOf("pothole" to "Pothole", "road_damage" to "Road damage", "obstruction" to "Obstruction")
 
     AlertDialog(
@@ -822,26 +825,44 @@ private fun ReportHazardDialog(
                         ) { Text(stringResource(R.string.action_attach_photo), color = Gold, style = RaType.caption) }
                     }
                 }
+                noFix?.let {
+                    Text(it, color = Alarm, style = RaType.label, lineHeight = 18.sp,
+                        modifier = Modifier.padding(top = 12.dp))
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     busy = true
+                    noFix = null
                     scope.launch {
-                        val loc = Emergency.currentLocation(ctx)
-                        val lat = loc?.first ?: 28.4595
-                        val lng = loc?.second ?: 77.0266
-                        try {
-                            Api.post("/v1/raksha/report", JSONObject()
-                                .put("type", type).put("severity", severity)
-                                .put("lat", lat).put("lng", lng)
-                                .apply { if (note.isNotBlank()) put("note", note.trim()) }
-                                .apply { photoB64?.let { put("photoBase64", it); put("photoMime", "image/jpeg") } })
-                            onToast(if (loc != null) "Hazard reported at your location — thank you"
-                                    else "Hazard reported (approximate location)")
-                            onReported(); onClose()
-                        } catch (e: Exception) { onToast(e.message ?: "Failed to report") }
+                        // Actively asks for a fresh fix (GPS, then network, then
+                        // the OS cache). No fix means no report: a borrowed
+                        // coordinate would put a citizen pin on the authority's
+                        // map where nobody stood (HazardLocation).
+                        when (val at = HazardLocation.reportPosition(Emergency.currentLocation(ctx))) {
+                            HazardLocation.ReportPosition.NoFix -> {
+                                // The dialog stays open, so type, severity, note and
+                                // photo are all still there for the retry.
+                                val permitted = Emergency.hasLocationPermission(ctx)
+                                val msg = ctx.getString(
+                                    if (permitted) R.string.report_no_fix else R.string.report_no_location_permission,
+                                )
+                                noFix = msg
+                                onToast(msg)
+                                if (!permitted) perms.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION))
+                            }
+                            is HazardLocation.ReportPosition.Send -> try {
+                                Api.post("/v1/raksha/report", JSONObject()
+                                    .put("type", type).put("severity", severity)
+                                    .put("lat", at.lat).put("lng", at.lng)
+                                    .apply { if (note.isNotBlank()) put("note", note.trim()) }
+                                    .apply { photoB64?.let { put("photoBase64", it); put("photoMime", "image/jpeg") } })
+                                onToast("Hazard reported at your location — thank you")
+                                onReported(); onClose()
+                            } catch (e: Exception) { onToast(e.message ?: "Failed to report") }
+                        }
                         busy = false
                     }
                 },
@@ -1613,7 +1634,6 @@ private fun HomeScreen(
         Sub("$msisdn " + stringResource(R.string.signed_in_suffix))
 
         // SOS — the fallback ladder: data → SMS → 112 → queue. Works with no net.
-        val DEMO_LAT = 28.4595; val DEMO_LNG = 77.0266   // fallback if no GPS fix yet
         // Arm the no-data (SMS) and real-location rungs by requesting both perms.
         val perms = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
@@ -1654,26 +1674,25 @@ private fun HomeScreen(
             Emergency.ladderScope.launch {
                 // Ask for a fix rather than hoping one is cached: an emergency
                 // is exactly when nothing else has recently used GPS.
-                val loc = Emergency.currentLocation(app)
-                val lat = loc?.first ?: DEMO_LAT
-                val lng = loc?.second ?: DEMO_LNG
-                val result = Emergency.raise(app, lat, lng) { ref ->
-                    val raised = Api.post(
-                        "/v1/sos",
-                        JSONObject().put("lat", lat).put("lng", lng).put("source", "manual")
-                            .put("clientIncidentId", ref),
-                    ).getJSONObject("data")
+                // No fix is Unknown, said out loud on every rung — never a
+                // stand-in coordinate that would send a responder elsewhere.
+                val pos = SosPosition.from(Emergency.currentLocation(app))
+                val result = Emergency.raise(app, pos) { ref ->
+                    val raised = Api.post("/v1/sos", SosPosition.apiBody(pos, ref)).getJSONObject("data")
                     val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
                     val responder = c.optJSONObject("nearestResponder")?.optString("name") ?: "—"
-                    val where = if (loc != null) "real GPS" else "demo location"
+                    val where = if (raised.optBoolean("locationKnown", pos is SosPosition.Located)) "real GPS" else "location unknown"
                     "Escalated ($where) · contacts ${c.optInt("contactsAlerted")} · $responder · ${c.optInt("elapsedMs")} ms"
                 }
-                sosResult = when (result.rung) {
+                val line = when (result.rung) {
                     SosLadder.Rung.DATA -> "✓ ONLINE — ${result.detail}"
                     SosLadder.Rung.SMS -> "✓ NO DATA → SMS — ${result.detail}"
                     SosLadder.Rung.DIALER -> "→ ${result.detail}"
                     SosLadder.Rung.QUEUED -> "◷ ${result.detail}"
                 }
+                // With no position, the person has to give it to 112 themselves.
+                val notice = SosPosition.unknownNoticeRes(pos, result.rung)?.let { app.getString(it) }
+                sosResult = if (notice != null) "$notice\n$line" else line
                 onToast("SOS via ${result.rung}")
                 busy = false
                 // Show (or refresh) the open-emergency card for what was just raised.
@@ -1766,6 +1785,11 @@ private fun HomeScreen(
             color = Muted, style = RaType.meta, lineHeight = 16.sp,
             modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
         )
+
+        // 112 first, then 1033 (NHAI), 108/102, 100, 101 — tap opens the dialer.
+        // Static (EmergencyNumbers.kt), so it is here with no network at all.
+        Spacer(Modifier.height(18.dp))
+        EmergencyNumbersCard()
 
         // Nearest hospital, police, fuel, charger and repair shop (NearYouCard.kt).
         // Below the SOS area and in its own composable scope: it pauses while an

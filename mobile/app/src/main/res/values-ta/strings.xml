@@ -161,4 +161,16 @@
     <string name="near_cd_call">%1$s ஐ அழை</string>
     <string name="near_footer">சமூக வரைபடத் தரவிலிருந்து நேர்கோட்டுத் தூரம்.</string>
     <string name="near_call_112">அவசரத்தில் 112 ஐ அழையுங்கள்</string>
+    <string name="report_no_fix">இன்னும் GPS இருப்பிடம் கிடைக்கவில்லை — திறந்த வானத்தின் கீழ் சென்று மீண்டும் முயலுங்கள். அறிக்கை அனுப்பப்படவில்லை.</string>
+    <string name="report_no_location_permission">இருப்பிட அனுமதி முடக்கப்பட்டுள்ளது, எனவே ஆபத்தின் இடத்தைக் குறிக்க முடியாது. அனுமதி அளித்து மீண்டும் முயலுங்கள். அறிக்கை அனுப்பப்படவில்லை.</string>
+    <string name="emergency_numbers_title">அவசர எண்கள்</string>
+    <string name="emergency_numbers_note">டயலரைத் திறக்க எண்ணைத் தட்டுங்கள். நீங்கள் அழைப்பை அழுத்தும்போது மட்டுமே அழைப்பு செல்லும். இணையம் இல்லாமலும் வேலை செய்யும்.</string>
+    <string name="emergency_112">அனைத்து அவசரங்களும் (காவல், தீயணைப்பு, ஆம்புலன்ஸ்)</string>
+    <string name="emergency_1033">தேசிய நெடுஞ்சாலை உதவி எண் (NHAI)</string>
+    <string name="emergency_108">ஆம்புலன்ஸ் (பெரும்பாலான மாநிலங்கள்)</string>
+    <string name="emergency_102">ஆம்புலன்ஸ் (சில மாநிலங்கள்)</string>
+    <string name="emergency_100">காவல்துறை</string>
+    <string name="emergency_101">தீயணைப்பு</string>
+    <string name="sos_location_unknown">இருப்பிடம் தெரியவில்லை — இருப்பிடம் இல்லாமல் SOS அனுப்பப்பட்டது. 112 ஐ அழைத்து நீங்கள் எங்கே இருக்கிறீர்கள் என்று சொல்லுங்கள்.</string>
+    <string name="sos_location_unknown_saved">இருப்பிடம் தெரியவில்லை — சேமித்த SOS இல் இருப்பிடம் இல்லை. 112 ஐ அழைத்து நீங்கள் எங்கே இருக்கிறீர்கள் என்று சொல்லுங்கள்.</string>
 </resources>

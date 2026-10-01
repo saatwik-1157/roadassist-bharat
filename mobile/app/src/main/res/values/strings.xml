@@ -190,4 +190,22 @@
     <string name="near_cd_call">Call %1$s</string>
     <string name="near_footer">Straight-line distances from community map data.</string>
     <string name="near_call_112">In an emergency, call 112</string>
+
+    <!-- Hazard report with no location fix: nothing is sent and the draft stays open (HazardLocation.kt). -->
+    <string name="report_no_fix">No GPS fix yet — move to open sky and try again. The report was not sent.</string>
+    <string name="report_no_location_permission">Location permission is off, so the hazard cannot be placed. Allow location and try again. The report was not sent.</string>
+
+    <!-- Emergency numbers card (EmergencyNumbers.kt). Static, works offline; tap opens the dialer. -->
+    <string name="emergency_numbers_title">Emergency numbers</string>
+    <string name="emergency_numbers_note">Tap a number to open the dialer. Nothing is called until you press call. Works with no internet.</string>
+    <string name="emergency_112">All emergencies (police, fire, ambulance)</string>
+    <string name="emergency_1033">National highway helpline (NHAI)</string>
+    <string name="emergency_108">Ambulance (most states)</string>
+    <string name="emergency_102">Ambulance (some states)</string>
+    <string name="emergency_100">Police</string>
+    <string name="emergency_101">Fire</string>
+
+    <!-- SOS with no GPS fix: raised as location unknown, never at a stand-in point (SosPosition.kt). -->
+    <string name="sos_location_unknown">Location unknown — SOS raised without a position. Call 112 and tell them where you are.</string>
+    <string name="sos_location_unknown_saved">Location unknown — the saved SOS has no position. Call 112 and tell them where you are.</string>
 </resources>

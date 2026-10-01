@@ -50,8 +50,13 @@ export async function emergencyRoutes(app: FastifyInstance) {
   app.post("/v1/sos", { preHandler: [authenticate, limit("sos")] }, async (req, reply) => {
     const body = z.object({
       vehicleId: z.string().uuid().optional(),
-      lat: z.number().min(-90).max(90),
-      lng: z.number().min(-180).max(180),
+      // Both or neither. "Neither" must be said out loud with locationUnknown, so
+      // a client that forgot the fields is still refused: an SOS with no fix is
+      // raised without a position rather than at a made-up one, the same as the
+      // SMS and off-grid paths already do.
+      lat: z.number().min(-90).max(90).optional(),
+      lng: z.number().min(-180).max(180).optional(),
+      locationUnknown: z.literal(true).optional(),
       source: z.enum(["manual", "crash_model", "sms"]).default("manual"),
       modelConfidence: z.number().min(0).max(1).optional(),
       degradedPath: z.boolean().optional(),
@@ -67,7 +72,12 @@ export async function emergencyRoutes(app: FastifyInstance) {
        * exactly as the off-grid path does, on the same unique index.
        */
       clientIncidentId: z.string().regex(/^RA-[ABCDEFGHJKMNPQRSTVWXYZ23456789]{6}$/).optional(),
-    }).parse(req.body);
+    }).refine(
+      (b) => b.locationUnknown ? b.lat === undefined && b.lng === undefined
+                               : b.lat !== undefined && b.lng !== undefined,
+      { message: "send lat and lng, or locationUnknown: true with neither" },
+    ).parse(req.body);
+    const located = body.lat !== undefined && body.lng !== undefined;
 
     /**
      * Answer a replay with the incident it already created.
@@ -167,12 +177,14 @@ export async function emergencyRoutes(app: FastifyInstance) {
       // caller read the winner's row outside.
       if (!row) return null;
 
-      await tx.execute(raw`
-        UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
-        WHERE id = ${row.id}`);
+      if (located) {
+        await tx.execute(raw`
+          UPDATE incidents SET location = ST_SetSRID(ST_MakePoint(${body.lng}, ${body.lat}), 4326)
+          WHERE id = ${row.id}`);
+      }
       await tx.insert(S.incidentSignals).values({
         incidentId: row.id, kind: body.source,
-        payload: { lat: body.lat, lng: body.lng, confidence: body.modelConfidence },
+        payload: { lat: body.lat ?? null, lng: body.lng ?? null, confidence: body.modelConfidence },
       });
       return row;
     });
@@ -198,7 +210,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
         // Coordinates are the point of the incident, not a secret to withhold —
         // but the audit row records only that a fix existed, since the incident
         // row already holds the location and the chain does not need it twice.
-        locationKnown: true,
+        locationKnown: located,
         ...(vehicleRefused ? { vehicleRefused: true } : {}),
       },
       ip: req.ip,
@@ -209,7 +221,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
     });
 
     return reply.code(201).send(ok({
-      id: incident.id, status: incident.status,
+      id: incident.id, status: incident.status, locationKnown: located,
       cancelWindowSeconds: byModel ? 30 : 0,
       requiresConfirmation: byModel,
     }, {

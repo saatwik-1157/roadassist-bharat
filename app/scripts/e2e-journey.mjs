@@ -1269,6 +1269,46 @@ console.log("\n29. Hazard photos in the database");
   }
 }
 
+// ── 30. an SOS with no GPS fix (routes/emergency.ts) ──────────────────────
+// Both clients used to send a fixed demo point when the phone had no fix, so
+// a responder could be sent to Gurugram from anywhere in India. An SOS with no
+// fix is now raised without a position, and it must say so: dropping the
+// fields by accident is still a validation error.
+console.log("\n30. SOS with no GPS fix");
+{
+  const { default: postgres } = await import("postgres");
+  const sql = postgres(process.env.DATABASE_URL ??
+    "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+  try {
+    const forgot = await call("POST", "/v1/sos", { token, body: { source: "manual" } });
+    ok("an SOS that simply omits the position is refused", forgot.status === 400, `got ${forgot.status}`);
+    const both = await call("POST", "/v1/sos", {
+      token, body: { lat: 28.46, lng: 77.03, locationUnknown: true, source: "manual" },
+    });
+    ok("a position and 'location unknown' together are refused", both.status === 400, `got ${both.status}`);
+    const half = await call("POST", "/v1/sos", { token, body: { lat: 28.46, source: "manual" } });
+    ok("half a position is refused", half.status === 400, `got ${half.status}`);
+
+    const unknown = await call("POST", "/v1/sos", { token, body: { locationUnknown: true, source: "manual" } });
+    ok("an SOS with no fix is still raised", unknown.status === 201 && unknown.data?.status === "CONFIRMED",
+       `got ${unknown.status} ${unknown.data?.status}`);
+    ok("…and the response says the location is unknown", unknown.data?.locationKnown === false,
+       `locationKnown=${unknown.data?.locationKnown}`);
+    const [row] = await sql`SELECT location IS NULL AS empty FROM incidents WHERE id = ${unknown.data?.id ?? null}`;
+    ok("the stored incident has no position rather than a made-up one", row?.empty === true,
+       `location null=${row?.empty}`);
+    const located = await call("POST", "/v1/sos", { token, body: { lat: 28.46, lng: 77.03, source: "manual" } });
+    ok("an SOS with a fix still says it is located", located.status === 201 && located.data?.locationKnown === true,
+       `got ${located.status} ${located.data?.locationKnown}`);
+
+    for (const r of [unknown, located]) {
+      if (r.data?.id) await call("POST", `/v1/sos/${r.data.id}/resolve`, { token, body: { outcome: "false_alarm" } });
+    }
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

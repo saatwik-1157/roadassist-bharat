@@ -161,4 +161,16 @@
     <string name="near_cd_call">%1$s ને કૉલ કરો</string>
     <string name="near_footer">સમુદાયના નકશા ડેટા પરથી સીધી રેખાનું અંતર.</string>
     <string name="near_call_112">કટોકટીમાં 112 પર કૉલ કરો</string>
+    <string name="report_no_fix">હજી GPS લોકેશન મળ્યું નથી — ખુલ્લા આકાશ નીચે જઈને ફરી પ્રયાસ કરો. રિપોર્ટ મોકલાયો નથી.</string>
+    <string name="report_no_location_permission">લોકેશનની પરવાનગી બંધ છે, તેથી જોખમનું સ્થાન નક્કી થઈ શકતું નથી. પરવાનગી આપીને ફરી પ્રયાસ કરો. રિપોર્ટ મોકલાયો નથી.</string>
+    <string name="emergency_numbers_title">ઇમરજન્સી નંબર</string>
+    <string name="emergency_numbers_note">ડાયલર ખોલવા નંબર પર ટૅપ કરો. તમે કૉલ દબાવો ત્યારે જ કૉલ થશે. ઇન્ટરનેટ વિના પણ કામ કરે છે.</string>
+    <string name="emergency_112">બધી કટોકટી (પોલીસ, ફાયર, એમ્બ્યુલન્સ)</string>
+    <string name="emergency_1033">રાષ્ટ્રીય ધોરીમાર્ગ હેલ્પલાઇન (NHAI)</string>
+    <string name="emergency_108">એમ્બ્યુલન્સ (મોટા ભાગનાં રાજ્યો)</string>
+    <string name="emergency_102">એમ્બ્યુલન્સ (કેટલાંક રાજ્યો)</string>
+    <string name="emergency_100">પોલીસ</string>
+    <string name="emergency_101">ફાયર બ્રિગેડ</string>
+    <string name="sos_location_unknown">લોકેશન અજ્ઞાત — SOS સ્થાન વિના મોકલાયો. 112 પર કૉલ કરો અને જણાવો કે તમે ક્યાં છો.</string>
+    <string name="sos_location_unknown_saved">લોકેશન અજ્ઞાત — સેવ થયેલા SOSમાં સ્થાન નથી. 112 પર કૉલ કરો અને જણાવો કે તમે ક્યાં છો.</string>
 </resources>

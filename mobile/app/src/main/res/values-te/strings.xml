@@ -161,4 +161,16 @@
     <string name="near_cd_call">%1$sకు కాల్ చేయండి</string>
     <string name="near_footer">కమ్యూనిటీ మ్యాప్ డేటా నుండి సరళరేఖ దూరాలు.</string>
     <string name="near_call_112">అత్యవసరంలో 112కు కాల్ చేయండి</string>
+    <string name="report_no_fix">ఇంకా GPS లొకేషన్ దొరకలేదు — బహిరంగ ఆకాశం కిందకు వెళ్లి మళ్లీ ప్రయత్నించండి. రిపోర్ట్ పంపలేదు.</string>
+    <string name="report_no_location_permission">లొకేషన్ అనుమతి ఆఫ్‌లో ఉంది, కాబట్టి ప్రమాద స్థలాన్ని గుర్తించలేము. అనుమతి ఇచ్చి మళ్లీ ప్రయత్నించండి. రిపోర్ట్ పంపలేదు.</string>
+    <string name="emergency_numbers_title">అత్యవసర నంబర్లు</string>
+    <string name="emergency_numbers_note">డయలర్ తెరవడానికి నంబర్‌ను ట్యాప్ చేయండి. మీరు కాల్ నొక్కినప్పుడే కాల్ వెళ్తుంది. ఇంటర్నెట్ లేకుండా కూడా పనిచేస్తుంది.</string>
+    <string name="emergency_112">అన్ని అత్యవసరాలు (పోలీస్, అగ్నిమాపక, అంబులెన్స్)</string>
+    <string name="emergency_1033">జాతీయ రహదారి హెల్ప్‌లైన్ (NHAI)</string>
+    <string name="emergency_108">అంబులెన్స్ (చాలా రాష్ట్రాలు)</string>
+    <string name="emergency_102">అంబులెన్స్ (కొన్ని రాష్ట్రాలు)</string>
+    <string name="emergency_100">పోలీస్</string>
+    <string name="emergency_101">అగ్నిమాపక దళం</string>
+    <string name="sos_location_unknown">లొకేషన్ తెలియదు — స్థానం లేకుండా SOS పంపబడింది. 112కు కాల్ చేసి మీరు ఎక్కడ ఉన్నారో చెప్పండి.</string>
+    <string name="sos_location_unknown_saved">లొకేషన్ తెలియదు — సేవ్ చేసిన SOSలో స్థానం లేదు. 112కు కాల్ చేసి మీరు ఎక్కడ ఉన్నారో చెప్పండి.</string>
 </resources>

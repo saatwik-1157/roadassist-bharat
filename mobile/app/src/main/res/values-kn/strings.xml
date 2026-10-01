@@ -161,4 +161,16 @@
     <string name="near_cd_call">%1$s ಗೆ ಕರೆ ಮಾಡಿ</string>
     <string name="near_footer">ಸಮುದಾಯ ನಕ್ಷೆ ಡೇಟಾದಿಂದ ನೇರ ರೇಖೆಯ ದೂರ.</string>
     <string name="near_call_112">ತುರ್ತು ಸಂದರ್ಭದಲ್ಲಿ 112 ಗೆ ಕರೆ ಮಾಡಿ</string>
+    <string name="report_no_fix">ಇನ್ನೂ GPS ಸ್ಥಳ ಸಿಕ್ಕಿಲ್ಲ — ತೆರೆದ ಆಕಾಶದ ಕೆಳಗೆ ಹೋಗಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. ವರದಿ ಕಳುಹಿಸಲಾಗಿಲ್ಲ.</string>
+    <string name="report_no_location_permission">ಸ್ಥಳದ ಅನುಮತಿ ಆಫ್ ಆಗಿದೆ, ಆದ್ದರಿಂದ ಅಪಾಯದ ಸ್ಥಳವನ್ನು ಗುರುತಿಸಲು ಆಗುವುದಿಲ್ಲ. ಅನುಮತಿ ನೀಡಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ. ವರದಿ ಕಳುಹಿಸಲಾಗಿಲ್ಲ.</string>
+    <string name="emergency_numbers_title">ತುರ್ತು ಸಂಖ್ಯೆಗಳು</string>
+    <string name="emergency_numbers_note">ಡಯಲರ್ ತೆರೆಯಲು ಸಂಖ್ಯೆಯನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ. ನೀವು ಕರೆ ಒತ್ತಿದಾಗ ಮಾತ್ರ ಕರೆ ಹೋಗುತ್ತದೆ. ಇಂಟರ್ನೆಟ್ ಇಲ್ಲದೆಯೂ ಕೆಲಸ ಮಾಡುತ್ತದೆ.</string>
+    <string name="emergency_112">ಎಲ್ಲಾ ತುರ್ತು ಸ್ಥಿತಿಗಳು (ಪೊಲೀಸ್, ಅಗ್ನಿಶಾಮಕ, ಆಂಬ್ಯುಲೆನ್ಸ್)</string>
+    <string name="emergency_1033">ರಾಷ್ಟ್ರೀಯ ಹೆದ್ದಾರಿ ಸಹಾಯವಾಣಿ (NHAI)</string>
+    <string name="emergency_108">ಆಂಬ್ಯುಲೆನ್ಸ್ (ಹೆಚ್ಚಿನ ರಾಜ್ಯಗಳು)</string>
+    <string name="emergency_102">ಆಂಬ್ಯುಲೆನ್ಸ್ (ಕೆಲವು ರಾಜ್ಯಗಳು)</string>
+    <string name="emergency_100">ಪೊಲೀಸ್</string>
+    <string name="emergency_101">ಅಗ್ನಿಶಾಮಕ ದಳ</string>
+    <string name="sos_location_unknown">ಸ್ಥಳ ತಿಳಿದಿಲ್ಲ — ಸ್ಥಳವಿಲ್ಲದೆ SOS ಕಳುಹಿಸಲಾಗಿದೆ. 112 ಗೆ ಕರೆ ಮಾಡಿ ನೀವು ಎಲ್ಲಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿ.</string>
+    <string name="sos_location_unknown_saved">ಸ್ಥಳ ತಿಳಿದಿಲ್ಲ — ಉಳಿಸಿದ SOS ನಲ್ಲಿ ಸ್ಥಳವಿಲ್ಲ. 112 ಗೆ ಕರೆ ಮಾಡಿ ನೀವು ಎಲ್ಲಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿ.</string>
 </resources>

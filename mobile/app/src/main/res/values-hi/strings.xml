@@ -163,4 +163,16 @@
     <string name="near_cd_call">%1$s को कॉल करें</string>
     <string name="near_footer">सामुदायिक नक्शा डेटा से सीधी रेखा की दूरी।</string>
     <string name="near_call_112">आपात स्थिति में 112 पर कॉल करें</string>
+    <string name="report_no_fix">अभी GPS लोकेशन नहीं मिली — खुले आसमान के नीचे जाकर फिर कोशिश करें। रिपोर्ट नहीं भेजी गई।</string>
+    <string name="report_no_location_permission">लोकेशन की अनुमति बंद है, इसलिए ख़तरे की जगह तय नहीं हो सकती। अनुमति देकर फिर कोशिश करें। रिपोर्ट नहीं भेजी गई।</string>
+    <string name="emergency_numbers_title">आपातकालीन नंबर</string>
+    <string name="emergency_numbers_note">डायलर खोलने के लिए नंबर पर टैप करें। कॉल तभी होगी जब आप कॉल दबाएँगे। इंटरनेट के बिना भी काम करता है।</string>
+    <string name="emergency_112">सभी आपात स्थितियाँ (पुलिस, अग्निशमन, एम्बुलेंस)</string>
+    <string name="emergency_1033">राष्ट्रीय राजमार्ग हेल्पलाइन (NHAI)</string>
+    <string name="emergency_108">एम्बुलेंस (ज़्यादातर राज्य)</string>
+    <string name="emergency_102">एम्बुलेंस (कुछ राज्य)</string>
+    <string name="emergency_100">पुलिस</string>
+    <string name="emergency_101">अग्निशमन</string>
+    <string name="sos_location_unknown">लोकेशन अज्ञात — SOS बिना जगह के भेजा गया। 112 पर कॉल करें और बताएँ कि आप कहाँ हैं।</string>
+    <string name="sos_location_unknown_saved">लोकेशन अज्ञात — सेव किए गए SOS में जगह नहीं है। 112 पर कॉल करें और बताएँ कि आप कहाँ हैं।</string>
 </resources>

@@ -271,18 +271,26 @@ for i, t in enumerate(["GPS IF AVAILABLE", "ENCRYPTED LOCAL STORAGE",
 panel(s, 9.0, 1.78, 3.45, 4.4, fill=INK_2, line_col=RED, line_w=1.5)
 txt(s, 9.25, 2.0, 3.0, 0.3, "WHAT THE USER IS TOLD", size=9.5, color=RED,
     bold=True, spacing=1.8)
-txt(s, 9.25, 2.42, 3.0, 2.4,
+txt(s, 9.25, 2.42, 3.0, 1.95,
     "OFF-GRID SOS CREATED\n\nNo network connection detected.\n\n"
     "Your emergency information is stored securely on this device and will be "
     "synchronized automatically when connectivity returns.",
     size=10, color=WHITE, line=1.35)
-panel(s, 9.25, 4.95, 3.0, 1.05, fill=INK_3, line_col=AMBER)
-txt(s, 9.45, 5.12, 2.6, 0.75,
-    "“Nothing has been transmitted.”\nWe never claim emergency services were contacted. The 112 handoff is a stub and the API says so.",
+panel(s, 9.25, 4.45, 3.0, 1.6, fill=INK_3, line_col=AMBER)
+txt(s, 9.45, 4.58, 2.6, 1.4,
+    "“Nothing has been transmitted.”\nWe never claim emergency services were contacted; the ERSS 112 handoff is a stub. "
+    "One tap dials 112, 1033 (NHAI) or 108. Text my location opens the SMS app; the user presses Send.",
     size=8.5, color=AMBER, line=1.3)
 footer(s); page_no(s, 8)
 notes(s, """If asked 'did you contact emergency services' — no, and the product
-says so in those words. That honesty is the feature.""")
+says so in those words. That honesty is the feature.
+
+A voice call often connects where data cannot, so the off-grid screen puts a
+Call 112 button first, then 1033 (NHAI's national-highway helpline), 108/102
+(state ambulance, varies by state), 100 and 101. Text my location fills in the
+SOS reference, position and time; the user chooses who gets it. With no GPS fix
+the SOS is raised without a position and says "Location unknown", never a
+made-up point.""")
 
 # ── 9 · AI DIAGNOSIS ───────────────────────────────────────────────────────
 s = new_slide()
@@ -590,7 +598,7 @@ for i, (name, cap) in enumerate([("src_android_home.png", "Home · the new Layer
     visual(s, x, 2.0, 2.2, 3.95, str(ASSETS / name), "android_" + str(i))
     txt(s, x - 0.2, 6.02, 2.6, 0.3, cap, size=8.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.45, 11.6, 0.3,
-    "137 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
+    "163 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
     size=9.5, color=GREY, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 16)
 notes(s, """Run it from Android Studio 2026.1: device Medium_Phone, then Run 'app'.
@@ -637,7 +645,7 @@ rows = [("Amount", "Never taken from the request — it is the invoice total, an
         ("Two paths", "Browser callback AND webhook. The webhook is the one that matters: a customer can pay and close the tab"),
         ("Idempotent", "Delivery is at-least-once, so a replayed webhook settles nothing twice"),
         ("Refuses to boot", "Production will not start on a real gateway with no webhook secret"),
-        ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 1091")]
+        ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 1118")]
 bullet_rows(s, 0.9, 4.15, rows, w=11.5, gap=0.5, size=10.5)
 footer(s); page_no(s, 18)
 
@@ -878,14 +886,14 @@ footer(s); page_no(s, 26)
 
 # ── 27 · TESTING ───────────────────────────────────────────────────────────
 s = new_slide()
-title_block(s, "1091 assertions, all executed", eyebrow="TESTING",
+title_block(s, "1118 assertions, all executed", eyebrow="TESTING",
             sub="Against a real PostgreSQL + PostGIS and a real Chrome. 22 Razorpay stub checks sit outside this total.")
-suites = [("Unit", "433", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
-          ("End-to-end", "239", "the whole API journey against real Postgres"),
+suites = [("Unit", "443", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
+          ("End-to-end", "246", "the whole API journey against real Postgres"),
           ("Concurrency + real-time", "92", "races a sequential suite structurally cannot make"),
           ("Security", "106", "attacks that must FAIL"),
           ("Gateway security", "58", "webhook signatures, append-only rules, OTP ceilings"),
-          ("Browser / offline", "163", "what only a browser can prove")]
+          ("Browser / offline", "173", "what only a browser can prove")]
 for i, (name, n, what) in enumerate(suites):
     y = 2.25 + i * 0.6
     panel(s, 0.85, y, 11.6, 0.5, fill=INK_2, line_col=LINE)
@@ -895,7 +903,7 @@ for i, (name, n, what) in enumerate(suites):
     txt(s, 5.35, y + 0.11, 6.9, 0.3, what, size=9.5, color=GREY)
 panel(s, 0.85, 6.5, 11.6, 0.0, fill=INK_2, line_col=None)
 txt(s, 0.85, 6.5, 11.6, 0.4,
-    "1091 passed · 0 failed   •   0 server errors across the sweep",
+    "1118 passed · 0 failed   •   0 server errors across the sweep",
     size=12, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 27)
 
@@ -964,7 +972,7 @@ lims = ["The demo is one free-tier Render + Neon instance in Singapore, no India
         "Single instance only: SSE registry, rate limiter and offer sweeper are in-process.",
         "Location lookups send positions, coarsened to about 110 m, to OpenStreetMap and OSRM servers in Germany/EU. Declared (ADR-0012).",
         "The ERSS 112 handoff is a stub, and the API response says so. Emergency isolation (ADR-0005) is a design, not a deployment.",
-        "Payment checks run only against a local stub of Razorpay's API, outside the 1091 — never a real account.",
+        "Payment checks run only against a local stub of Razorpay's API, outside the 1118 — never a real account.",
         "The diagnosis “AI” is a deterministic rules engine. Labelled as such everywhere.",
         "No load test, no external penetration test, no coverage on the HTTP layer (suites run out-of-process).",
         "Device encryption protects a storage dump, not script on the same origin — and the UI says exactly that.",
@@ -1080,7 +1088,7 @@ panel(s, 0.85, 5.05, 11.6, 1.0, fill=INK_2, line_col=RED, line_w=1.75)
 txt(s, 1.1, 5.28, 11.1, 0.55, "“RoadAssist doesn't stop when the network stops.”",
     size=22, color=WHITE, bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.3, 11.6, 0.35,
-    f"1091 assertions · 6 suites · 0 failures  •  {SCHEMA['tables']} tables · 74 routes · 13 ADRs  •  every claim on these slides is testable",
+    f"1118 assertions · 6 suites · 0 failures  •  {SCHEMA['tables']} tables · 74 routes · 13 ADRs  •  every claim on these slides is testable",
     size=10.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 footer(s)
 notes(s, """Close on the promise, then stop talking. If there is time, offer to run

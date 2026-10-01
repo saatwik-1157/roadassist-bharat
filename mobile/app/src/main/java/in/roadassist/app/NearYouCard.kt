@@ -199,7 +199,7 @@ private fun LoadedBody(state: NearYou.State.Loaded, onDial: (String) -> Unit) {
     )
     // No side padding, so "call 112" lines up with the footer text above it; the
     // button keeps its 48 dp touch target from the minimum interactive size.
-    TextButton(onClick = { onDial("tel:112") }, modifier = Modifier.padding(top = 2.dp),
+    TextButton(onClick = { onDial("tel:" + EmergencyNumbers.ALL.first { it.primary }.number) }, modifier = Modifier.padding(top = 2.dp),
         contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
         Text(stringResource(R.string.near_call_112), color = Alarm, style = RaType.label, fontWeight = FontWeight.SemiBold)
     }

@@ -971,6 +971,7 @@
 <script src="journey.js"></script>
 <script src="near.js"></script>
 <script src="photo-shrink.js"></script>
+<script src="emergency-numbers.js"></script>
 <script>
 (function () {
   "use strict";
@@ -3263,10 +3264,11 @@
       var pos = await locate();
       // An emergency with a fabricated location is worse than one that admits
       // it does not know where you are.
+      // With no fix the SOS goes WITHOUT a position (locationUnknown), never at
+      // the demo point: a made-up place sends a responder to the wrong road.
       if (pos.demo) {
-        toast(pos.denied
-          ? "Location permission is off — responders get an approximate position only"
-          : "Precise location unavailable — sending an approximate position", "warn");
+        toast((pos.denied ? "Location permission is off" : "No GPS fix") +
+          " — SOS raised without a location. Call 112 and tell them where you are.", "warn");
       }
 
       // ── Tier 3: no connection at all (ADR-0009) ─────────────────────────
@@ -3280,13 +3282,15 @@
       // SOS never joins the generic offline queue — it must fail loudly rather
       // than wait quietly (ADR-0005). Off-grid is a different thing: a
       // purpose-built local incident the user is told about, not a silent wait.
-      var r = await api("POST", "/v1/sos", {
-        lat: pos.lat, lng: pos.lng, source: "manual", vehicleId: state.vehicleId || undefined,
-      }, { force: true });
+      var r = await api("POST", "/v1/sos", pos.demo
+        ? { locationUnknown: true, source: "manual", vehicleId: state.vehicleId || undefined }
+        : { lat: pos.lat, lng: pos.lng, source: "manual", vehicleId: state.vehicleId || undefined },
+      { force: true });
       sosId = r.data.id;
       sosPos = pos;
       trackIncident(sosId, r.data.status);
       openSos(r.data.status);
+      if (pos.demo || r.data.locationKnown === false) $("sos-out").innerHTML = sosNoFix();
     } catch (e) {
       // The connection died between the tier check and the request — which is
       // the normal case on a road, not an edge case. Degrade rather than lose
@@ -3297,11 +3301,11 @@
           await raiseOffGridSos(sosLastPos || { lat: null, lng: null, demo: true, reason: "unavailable" });
           return;
         } catch (inner) {
-          toast("SOS failed and could not be stored locally: " + inner.message + " — call 112 directly", "bad");
+          sosFailed("SOS failed and could not be stored locally: " + inner.message + " — call 112 directly.");
           return;
         }
       }
-      toast("SOS failed: " + e.message + " — call 112 directly", "bad");
+      sosFailed("SOS failed: " + e.message + " — call 112 directly.");
     } finally {
       firing = false;
       $("sos-sub").textContent = "hold 1.5s";
@@ -3380,6 +3384,16 @@
     return record;
   }
 
+  /** Call 112 and the other numbers (emergency-numbers.js); a bare tel: link if that file did not load. */
+  function emPanel(info) {
+    return window.RAEmergency ? RAEmergency.panelHtml(info) : "<p class='meta'><a href='tel:112'>Call 112</a></p>";
+  }
+  /** What "Text my location" says: the stored incident, its fix or none, never a stand-in. */
+  function ogText(record, payload) {
+    return { ref: record.incidentId, lat: payload.lat, lng: payload.lng, accuracyM: payload.accuracyM,
+      type: payload.emergencyType, at: payload.occurredAt };
+  }
+
   /** The sheet a person sees the instant an off-grid SOS is stored. */
   function openOffGridSos(record, payload) {
     clearInterval(sosTick);
@@ -3418,7 +3432,8 @@
         "device and will be synchronized automatically when connectivity returns.</b></p>" +
       "<p class='hint' style='margin-top:8px'>Nothing has been transmitted. No mechanic, responder or " +
         "emergency contact has been alerted, and none can be until this device reaches a network. " +
-        "If you can reach a phone line, call 112 now.</p>" +
+        "A phone call can still connect where data cannot — call 112 now.</p>" +
+      emPanel(ogText(record, payload)) +
       "<p class='eyebrow' style='margin:16px 0 8px'>What kind of emergency is this?</p>" +
       "<div class='chips' id='og-type'>" +
         OFFGRID_TYPES.map(function (t) {
@@ -3437,6 +3452,8 @@
         var type = b.getAttribute("data-type");
         var updated = await Store.reviseIncident(record.incidentId, { emergencyType: type });
         if (!updated) { toast("Already sent — the type can no longer be changed", "warn"); return; }
+        payload.emergencyType = type;
+        if ($("em-sms")) $("em-sms").href = RAEmergency.smsHref(RAEmergency.smsBody(ogText(record, payload)));
         $("og-type").querySelectorAll("button").forEach(function (o) {
           o.setAttribute("aria-pressed", String(o === b));
         });
@@ -3511,7 +3528,7 @@
       var resp = c.data.nearestResponder;
       var steps = [
         ["Incident created", true, "ID " + String(sosId).slice(0, 8)],
-        ["Location shared", true, sosPos && !sosPos.demo ? "precise GPS" : "approximate"],
+        ["Location shared", Boolean(sosPos && !sosPos.demo), sosPos && !sosPos.demo ? "precise GPS" : "unknown — call 112"],
         ["Contacts notified", c.data.contactsAlerted > 0,
           c.data.contactsAlerted ? c.data.contactsAlerted + " alerted" : "none on file"],
         ["Responder search", Boolean(resp), resp ? "unit found" : "no unit in range"],
@@ -3541,7 +3558,7 @@
             : "") +
           "<p class='hint' style='margin-top:9px'>Incident " + esc(sosId) + "</p>" +
           (c.meta.note ? "<p class='hint' style='margin-top:6px'>" + esc(c.meta.note) + "</p>" : "") +
-        "</div>" +
+        "</div>" + (sosPos && !sosPos.demo ? "" : sosNoFix()) +
         "<div class='btn-row' style='margin-top:13px'>" +
           "<button class='btn ghost' id='sos-map'>View live map</button>" +
           "<button class='btn ghost' id='sos-done'>Close</button></div>";
@@ -3550,11 +3567,34 @@
       trackIncident(sosId, c.data.status); sosExitButtons($("sos-out"), sosId);
       buzz([40, 80, 40]);
     } catch (e) {
-      $("sos-out").innerHTML = "<div class='card'><p class='meta'>Escalation failed: " +
-        esc(e.message) + " — call 112 directly.</p></div>" +
-        "<button class='btn ghost' style='margin-top:13px' id='sos-done'>Close</button>";
-      $("sos-done").onclick = closeSos;
+      sosFailPanel("Escalation failed: " + e.message + " — call 112 directly.");
     }
+  }
+
+  /** No fix: the SOS carries no position, so the person has to say it — on a call. */
+  function sosNoFix() {
+    return "<p class='meta' id='sos-nofix'><b>Your location is not known.</b> This SOS was raised without one. " +
+      "Call 112 and tell them where you are.</p>" + emPanel();
+  }
+
+  /** A failure in the sheet, with the dialler one tap away rather than a sentence. */
+  function sosFailPanel(msg) {
+    $("sos-out").innerHTML = "<div class='card'><p class='meta'>" + esc(msg) + "</p></div>" + emPanel() +
+      "<button class='btn ghost' style='margin-top:13px' id='sos-done'>Close</button>";
+    $("sos-done").onclick = closeSos;
+  }
+
+  /** An SOS that never reached the server: the sheet says so, and offers 112. */
+  function sosFailed(msg) {
+    clearInterval(sosTick);
+    $("sos-h").innerHTML = "SOS <em>not sent.</em>";
+    $("sos-copy").textContent = "Nobody has been alerted. Call for help directly.";
+    $("sos-n").textContent = "!";
+    $("sos-abort").hidden = true;
+    $("sos-now").hidden = true;
+    sosFailPanel(msg);
+    $("scrim").classList.add("show");
+    $("sheet-sos").classList.add("show");
   }
 
   $("sos-now").onclick = confirmSos;
@@ -4448,7 +4488,7 @@
   var OG_INSTRUCTIONS = [
     ["Make yourself visible", "Hazard lights on. If you have a warning triangle, place it 100 m behind on a highway, 50 m on a normal road."],
     ["Get out of the traffic", "Leave the vehicle from the side away from the carriageway and wait behind the barrier, not in it."],
-    ["Call 112 if you can", "India's single emergency number reaches police, fire and ambulance. A call can connect on a network too weak for data, and on any network when yours has none."],
+    ["Call 112 if you can", "India's single emergency number reaches police, fire and ambulance. A call can connect on a network too weak for data, and on any network when yours has none. On a national highway, 1033 is NHAI's helpline."],
     ["Do not walk on a highway", "More people are hurt walking a shoulder than waiting beside a stopped vehicle."],
     ["Keep the phone alive", "Your stored incident sends itself when signal returns. Close other apps and dim the screen."],
   ];
@@ -4464,7 +4504,7 @@
             (i + 1) + "</span><span><b style='font-size:13.5px;font-weight:650'>" + esc(s[0]) + "</b>" +
           "<small style='display:block;color:var(--text-2);font-size:12.5px;line-height:1.5;margin-top:2px'>" +
             esc(s[1]) + "</small></span></li>";
-      }).join("") + "</ul>" +
+      }).join("") + "</ul>" + emPanel() +
       "<p class='hint' style='margin-top:11px'>General roadside guidance, stored on this device. It is " +
       "not medical advice and it is not a substitute for calling 112.</p></div>";
     $("og-out").scrollIntoView({ behavior: "smooth", block: "start" });

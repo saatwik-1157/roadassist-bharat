@@ -430,6 +430,49 @@ const run = async () => {
     check(queued.banner, "an offline banner explains what still works");
     check(/off-grid/i.test(queued.pill), "the status pill names the tier in words", queued.pill);
 
+    // ══ 7b'. Online SOS with no GPS fix ════════════════════════════════════
+    // Location permission denied, network up. The SOS must go WITHOUT a
+    // position (locationUnknown), not at the demo point, and the sheet must put
+    // 112 one tap away, because a call is now how the location gets told.
+    section("7b'. Online SOS with no fix: no made-up position");
+    await page.waitFor(`window.__ra && window.__ra.tier() === "ONLINE"`, 15000, "tier ONLINE");
+    await page.eval(`location.hash = "#home"; return true;`);
+    await page.send("Browser.setPermission", {
+      origin: BASE, permission: { name: "geolocation" }, setting: "denied",
+    });
+    const nofix = await page.eval(`
+      const sent = [];
+      const realFetch = window.fetch;
+      window.fetch = function (url, init) {
+        if (/\\/v1\\/sos$/.test(String(url)) && init && init.method === "POST") sent.push(JSON.parse(init.body));
+        return realFetch.apply(this, arguments);
+      };
+      try {
+        document.getElementById("sos").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        const t0 = Date.now();
+        while (Date.now() - t0 < 4000 && !document.getElementById("sos-nofix")) await new Promise(r => setTimeout(r, 100));
+        const out = document.getElementById("sos-out");
+        const res = {
+          body: sent[0] || null,
+          toast: document.getElementById("toast").textContent,
+          sheetOpen: document.getElementById("sheet-sos").classList.contains("show"),
+          nofix: Boolean(document.getElementById("sos-nofix")),
+          tel112: Boolean(out.querySelector('a[href="tel:112"]')),
+        };
+        // Stand it down inside the grace window, so nobody is "alerted" by a test.
+        if (!document.getElementById("sos-abort").hidden) document.getElementById("sos-abort").click();
+        await new Promise(r => setTimeout(r, 1200));
+        return res;
+      } finally { window.fetch = realFetch; }
+    `);
+    check(nofix.body && nofix.body.locationUnknown === true && !("lat" in nofix.body) && !("lng" in nofix.body),
+      "with no fix the SOS is sent with locationUnknown and no lat/lng", JSON.stringify(nofix.body));
+    check(/without a location/i.test(nofix.toast) && /call 112/i.test(nofix.toast),
+      "the toast says it was raised without a location and to call 112", nofix.toast);
+    check(nofix.sheetOpen && nofix.nofix, "the SOS sheet says the location is not known");
+    check(nofix.tel112, "…and offers Call 112 (tel:112) right there");
+    // 7b grants geolocation next, which lifts this denial.
+
     // ══ 7b. Off-Grid Mode, end to end (ADR-0009) ════════════════════════════
     // The demo scenario, driven as a test: online → lose the network → SOS →
     // a local incident with a real reference and a real GPS fix → local
@@ -555,6 +598,47 @@ const run = async () => {
     check(raised.retryCount === 0, "with a retry count starting at zero");
     check(/^[0-9a-f]{64}$/.test(raised.digest ?? ""),
       "…and an integrity digest over the stored payload");
+
+    // The dialler and the messaging app still work with no data. The sheet
+    // offers both — and the text it pre-fills is this incident, not a template.
+    const reach = await page.eval(`
+      const out = document.getElementById("sos-out");
+      const sms = out.querySelector('a[href^="sms:"]');
+      const href = sms ? sms.getAttribute("href") : "";
+      return {
+        tel112: Boolean(out.querySelector('a[href="tel:112"]')),
+        tel1033: Boolean(out.querySelector('a[href="tel:1033"]')),
+        sms: href,
+        body: href ? decodeURIComponent(href.replace(/^sms:[?&]body=/, "")) : "",
+        note: out.innerText,
+      };
+    `);
+    check(reach.tel112, "the off-grid sheet has a Call 112 button (tel:112)");
+    check(reach.tel1033, "…and the NHAI highway helpline, tap to call (tel:1033)");
+    check(/^sms:[?&]body=/.test(reach.sms), "…and a Text my location link that opens the SMS app",
+      reach.sms.slice(0, 40));
+    check(raised.id && reach.body.includes(raised.id),
+      "the prefilled text carries this incident's RA- reference", reach.body.slice(0, 40));
+    check(/-?\d{1,3}\.\d{5},-?\d{1,3}\.\d{5}/.test(reach.body) || /Location unknown/.test(reach.body),
+      "…and either the GPS fix or 'Location unknown', never a stand-in", reach.body);
+    check(/press Send yourself/i.test(reach.note) && /has not sent anything/i.test(reach.note),
+      "it says the user chooses the recipient and sends it — the app has sent nothing");
+    // UI_SHOT_DIR=<dir>: also photograph the sheet at a phone's width (390 px).
+    if (process.env.UI_SHOT_DIR) {
+      const { writeFileSync, mkdirSync } = await import("node:fs");
+      mkdirSync(process.env.UI_SHOT_DIR, { recursive: true });
+      await page.send("Emulation.setDeviceMetricsOverride",
+        { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+      await sleep(400);
+      for (const [name, target] of [["offgrid-sos-sheet.png", null], ["offgrid-sos-sheet-actions.png", ".em-note"]]) {
+        if (target) await page.eval(`document.querySelector("#sos-out ${target}").scrollIntoView({ block: "end" }); return true;`);
+        await sleep(300);
+        const { data } = await page.send("Page.captureScreenshot", { format: "png" });
+        writeFileSync(join(process.env.UI_SHOT_DIR, name), Buffer.from(data, "base64"));
+      }
+      await page.send("Emulation.clearDeviceMetricsOverride");
+      await sleep(300);
+    }
 
     // 6. The dedicated off-grid screen.
     const screen = await page.eval(`

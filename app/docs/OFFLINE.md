@@ -31,8 +31,10 @@ simplification.
 | Booking state changes | YES | **NO** | Server-authoritative (ADR-0004). Never queued |
 | Add a vehicle / file a hazard report | YES | **QUEUED** | Safe to replay; the server de-duplicates by operation id |
 | Cloud synchronisation | YES | **QUEUED** | Store-and-forward, exponential backoff with full jitter |
-| App shell / PWA start | YES | **YES** | Service worker `ra-v14` caches the shell, the map, the mechanic console and the fonts; pages load network-first (3 s, then the cached copy), so a deploy shows on the next load |
+| App shell / PWA start | YES | **YES** | Service worker `ra-v15` caches the shell, the map, the mechanic console and the fonts; pages load network-first (3 s, then the cached copy), so a deploy shows on the next load |
 | Emergency instructions | YES | **YES** | Static text on the device |
+| Call emergency numbers (112, 1033, 108…) | YES | **YES** | Tap-to-call `tel:` links from `apps/web/emergency-numbers.js`. A voice call can connect where data cannot; the app only opens the dialler, it does not place or route the call |
+| Text my location | YES | **YES** | An `sms:` link opens the phone's messaging app with the SOS reference, GPS fix (or "Location unknown") and time typed in. The user picks the recipient and presses Send; the app sends nothing |
 
 ---
 
@@ -65,8 +67,14 @@ On raising an SOS with no connection:
 > synchronized automatically when connectivity returns.
 >
 > Nothing has been transmitted. No mechanic, responder or emergency contact has
-> been alerted, and none can be until this device reaches a network. If you can
-> reach a phone line, call 112 now.
+> been alerted, and none can be until this device reaches a network. A phone
+> call can still connect where data cannot — call 112 now.
+
+Below that, on the same sheet: a **Call 112** button, a tap-to-call list of
+1033 (NHAI national-highway helpline), 108 and 102 (state ambulance services;
+which one answers varies by state), 100 (police) and 101 (fire), and a **Text my
+location** button, under which the screen says the user chooses who it goes to
+and sends it themselves — RoadAssist has not sent anything.
 
 On reconnect: **Connection restored** → *Synchronizing emergency information…*
 → **SOS synchronized. RoadAssist dispatch can now process your incident.**
@@ -147,6 +155,17 @@ deterministic rules engine.
 The one partial: cellular/SMS fallback is genuinely implemented on the **Android**
 client (`Emergency.kt` — data → `SmsManager` with delivery confirmation → 112
 dialer → device queue) and on the **server** (inbound `POST /v1/telecom/sms`
-raises an SOS from a feature phone with no app). A **browser** cannot originate
-an SMS — the web platform gives a page no such API — so the web app tells the
-user to call 112 rather than pretending it sent one.
+raises an SOS from a feature phone with no app). A **browser** cannot send an SMS
+— the web platform gives a page no such API — so the web app does the two things
+it honestly can. It offers tap-to-call links for 112 and the other numbers (a
+`tel:` link only opens the dialler), and a **Text my location** button: an
+`sms:` link that opens the phone's own messaging app with a short message
+already typed — the local reference, the GPS fix to 5 decimal places or
+"Location unknown" (never a fallback coordinate), the time, and the sentence
+"RoadAssist has not alerted anyone". The recipient is left empty; the user
+chooses it and presses Send, and the page is never told whether they did. The
+body is GSM 03.38 only and fits one 160-character SMS. Android takes the RFC
+5724 form `sms:?body=…`; iOS Messages takes `sms:&body=…`, so the page picks the
+form from the user agent (an iPad that reports itself as a Mac is told apart by
+its touch points). The number list is shared with the Android client
+(`EmergencyNumbers.kt`), and a unit test fails if the two lists diverge.

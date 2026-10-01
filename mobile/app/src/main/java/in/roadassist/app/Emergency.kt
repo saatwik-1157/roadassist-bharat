@@ -32,7 +32,8 @@ import org.json.JSONObject
  * works, and NEVER treat "no data" as failure:
  *
  *   1. DATA        → the RoadAssist API (full features, instant)
- *   2. SMS         → text "SOS <lat> <lng>" to the RoadAssist number; the SIM
+ *   2. SMS         → text "SOS <lat> <lng>" ("SOS location unknown" with no
+ *                    fix — see SosPosition) to the RoadAssist number; the SIM
  *                    is the identity, so no login and no data are needed. This
  *                    is the workhorse for Indian dead zones, where 2G SMS
  *                    coverage vastly exceeds data coverage.
@@ -50,6 +51,8 @@ object Emergency {
     /** The RoadAssist inbound SMS number. Placeholder until a real long/short
      *  code is provisioned with the telecom vendor — labeled in the UI. */
     const val RA_SMS_NUMBER = "+919999900000"
+    /** The ladder's dialer rung. A const for the SOS path; EmergencyNumbersTest
+     *  pins it to the primary entry of [EmergencyNumbers.ALL] so they cannot drift. */
     const val NATIONAL_EMERGENCY = "112"
     private const val QUEUE_KEY = "ra.sos.queue"
 
@@ -67,6 +70,11 @@ object Emergency {
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
+
+    /** Fine or coarse location granted — what [currentLocation] needs to try at all. */
+    fun hasLocationPermission(ctx: Context): Boolean =
+        ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     private fun canSendSms(ctx: Context): Boolean =
         ContextCompat.checkSelfPermission(ctx, Manifest.permission.SEND_SMS) ==
@@ -96,11 +104,14 @@ object Emergency {
      * whose confirm failed) is replayed onto that incident rather than raising
      * a second one. Minting the queue's reference separately, as before, made
      * exactly that case two emergencies.
+     *
+     * [pos] is [SosPosition.Unknown] when there is no fix. Every rung then says
+     * so (SosPosition) instead of carrying a made-up coordinate; the ladder's
+     * order and decisions are the same either way.
      */
     suspend fun raise(
         ctx: Context,
-        lat: Double,
-        lng: Double,
+        pos: SosPosition,
         ref: String = SosLadder.newIncidentRef(),
         apiSos: suspend (ref: String) -> String,
     ): Result {
@@ -121,8 +132,8 @@ object Emergency {
         // queued, is SosLadder.afterSms — see the duplicate-versus-silence
         // argument there.
         if (SosLadder.shouldTrySms(dataSettledIt = false, hasSmsPermission = canSendSms(ctx))) {
-            val verdict = SosLadder.afterSms(sendSosSms(ctx, SosLadder.smsBody(lat, lng)))
-            if (verdict.queueBackup) queue(ctx, lat, lng, ref)
+            val verdict = SosLadder.afterSms(sendSosSms(ctx, SosPosition.smsBody(pos)))
+            if (verdict.queueBackup) queue(ctx, pos, ref)
             if (verdict.settles) {
                 return Result(
                     SosLadder.Rung.SMS,
@@ -140,7 +151,7 @@ object Emergency {
         // tower. Reaching here means no RoadAssist channel carried the report, so
         // the local copy is the only record that exists: queue BEFORE the handoff,
         // because startActivity can throw and the queue is the last resort.
-        queue(ctx, lat, lng, ref)
+        queue(ctx, pos, ref)
         val dial = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$NATIONAL_EMERGENCY"))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val opened = try { ctx.startActivity(dial); true } catch (_: Exception) { false }
@@ -204,8 +215,8 @@ object Emergency {
      * So: ask the OS for a fix and wait a bounded time for one. GPS first
      * because it is precise and needs no network — the property the whole
      * off-grid design rests on — then the network provider, then the cache,
-     * then null. The caller's demo fallback stays exactly where it was; this
-     * only makes it the last resort instead of the usual outcome.
+     * then null. Null is an honest answer: the SOS then goes out as
+     * [SosPosition.Unknown], never at a stand-in coordinate.
      *
      * `LocationManagerCompat` rather than the raw API: `getCurrentLocation`
      * arrived in API 30 and this app supports 26, and the compat version also
@@ -246,7 +257,7 @@ object Emergency {
 
     /** Best-effort real location from the OS's last known fix (no Play Services
      *  dependency). Returns null if permission is absent or no fix exists;
-     *  the caller then falls back to a labeled demo location. Prefer
+     *  the caller then raises the SOS as location unknown. Prefer
      *  [currentLocation], which asks for a fix instead of hoping one is cached. */
     fun lastKnownLocation(ctx: Context): Pair<Double, Double>? {
         val fine = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -271,11 +282,9 @@ object Emergency {
      * same on every attempt: minting it in [flush] would produce a fresh one
      * per try and defeat the whole point. See [SosLadder.newIncidentRef].
      */
-    fun queue(ctx: Context, lat: Double, lng: Double, ref: String = SosLadder.newIncidentRef()) {
-        val entry = JSONObject()
-            .put("lat", lat).put("lng", lng)
-            .put("ref", ref)
-            .put("at", System.currentTimeMillis())
+    fun queue(ctx: Context, pos: SosPosition, ref: String = SosLadder.newIncidentRef()) {
+        // An unknown position is stored as null, never as a stand-in coordinate.
+        val entry = SosPosition.queueEntry(pos, ref, System.currentTimeMillis())
         // Read-modify-write on one preferences key, so it has to be atomic
         // against a concurrent flush rewriting the same key. Nothing slow
         // happens inside the lock.
@@ -323,11 +332,10 @@ object Emergency {
                 // so at least THIS flush's own retries converge, rather than
                 // dropping back to the duplicate-raising behaviour entirely.
                 val ref = o.optString("ref", "").ifEmpty { SosLadder.newIncidentRef() }
+                // A null position replays as locationUnknown, not as 0,0 or a demo point.
                 val raised = Api.post(
                     "/v1/sos",
-                    JSONObject().put("lat", o.getDouble("lat")).put("lng", o.getDouble("lng"))
-                        .put("source", "manual")
-                        .put("clientIncidentId", ref),
+                    SosPosition.apiBody(SosPosition.ofQueueEntry(o), ref),
                 ).getJSONObject("data")
                 Api.post("/v1/sos/${raised.getString("id")}/confirm")
                 sentKeys.add(SosQueue.keyOf(o))

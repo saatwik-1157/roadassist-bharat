@@ -161,4 +161,16 @@
     <string name="near_cd_call">%1$s ला कॉल करा</string>
     <string name="near_footer">सामुदायिक नकाशा डेटावरून सरळ रेषेतील अंतर.</string>
     <string name="near_call_112">आपत्कालीन परिस्थितीत 112 वर कॉल करा</string>
+    <string name="report_no_fix">अजून GPS लोकेशन मिळाले नाही — मोकळ्या आकाशाखाली जाऊन पुन्हा प्रयत्न करा. अहवाल पाठवला नाही.</string>
+    <string name="report_no_location_permission">लोकेशनची परवानगी बंद आहे, त्यामुळे धोक्याची जागा ठरवता येत नाही. परवानगी देऊन पुन्हा प्रयत्न करा. अहवाल पाठवला नाही.</string>
+    <string name="emergency_numbers_title">आपत्कालीन क्रमांक</string>
+    <string name="emergency_numbers_note">डायलर उघडण्यासाठी क्रमांकावर टॅप करा. तुम्ही कॉल दाबल्यावरच कॉल होईल. इंटरनेटशिवायही चालते.</string>
+    <string name="emergency_112">सर्व आपत्काल (पोलीस, अग्निशमन, रुग्णवाहिका)</string>
+    <string name="emergency_1033">राष्ट्रीय महामार्ग हेल्पलाइन (NHAI)</string>
+    <string name="emergency_108">रुग्णवाहिका (बहुतेक राज्ये)</string>
+    <string name="emergency_102">रुग्णवाहिका (काही राज्ये)</string>
+    <string name="emergency_100">पोलीस</string>
+    <string name="emergency_101">अग्निशमन दल</string>
+    <string name="sos_location_unknown">लोकेशन अज्ञात — SOS जागेशिवाय पाठवला. 112 वर कॉल करा आणि तुम्ही कुठे आहात ते सांगा.</string>
+    <string name="sos_location_unknown_saved">लोकेशन अज्ञात — सेव्ह केलेल्या SOS मध्ये जागा नाही. 112 वर कॉल करा आणि तुम्ही कुठे आहात ते सांगा.</string>
 </resources>

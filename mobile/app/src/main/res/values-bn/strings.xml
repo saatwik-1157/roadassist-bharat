@@ -161,4 +161,16 @@
     <string name="near_cd_call">%1$s-এ কল করুন</string>
     <string name="near_footer">কমিউনিটি মানচিত্রের ডেটা থেকে সরলরেখায় দূরত্ব।</string>
     <string name="near_call_112">জরুরি অবস্থায় 112-এ কল করুন</string>
+    <string name="report_no_fix">এখনও GPS অবস্থান পাওয়া যায়নি — খোলা আকাশের নিচে গিয়ে আবার চেষ্টা করুন। রিপোর্ট পাঠানো হয়নি।</string>
+    <string name="report_no_location_permission">লোকেশনের অনুমতি বন্ধ, তাই বিপদের জায়গা চিহ্নিত করা যাচ্ছে না। অনুমতি দিয়ে আবার চেষ্টা করুন। রিপোর্ট পাঠানো হয়নি।</string>
+    <string name="emergency_numbers_title">জরুরি নম্বর</string>
+    <string name="emergency_numbers_note">ডায়ালার খুলতে নম্বরে ট্যাপ করুন। আপনি কল চাপলে তবেই কল হবে। ইন্টারনেট ছাড়াই কাজ করে।</string>
+    <string name="emergency_112">সব জরুরি অবস্থা (পুলিশ, দমকল, অ্যাম্বুলেন্স)</string>
+    <string name="emergency_1033">জাতীয় মহাসড়ক হেল্পলাইন (NHAI)</string>
+    <string name="emergency_108">অ্যাম্বুলেন্স (বেশিরভাগ রাজ্য)</string>
+    <string name="emergency_102">অ্যাম্বুলেন্স (কিছু রাজ্য)</string>
+    <string name="emergency_100">পুলিশ</string>
+    <string name="emergency_101">দমকল</string>
+    <string name="sos_location_unknown">অবস্থান অজানা — অবস্থান ছাড়াই SOS পাঠানো হয়েছে। 112-এ কল করে জানান আপনি কোথায় আছেন।</string>
+    <string name="sos_location_unknown_saved">অবস্থান অজানা — সংরক্ষিত SOS-এ কোনো অবস্থান নেই। 112-এ কল করে জানান আপনি কোথায় আছেন।</string>
 </resources>
