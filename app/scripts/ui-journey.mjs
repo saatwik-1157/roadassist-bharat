@@ -1267,6 +1267,12 @@ const run = async () => {
       document.querySelector('#b-steps [data-step="vehicle"]').classList.contains("done") &&
       document.getElementById("b-service").value`, 20000, "the booking screen with a vehicle and a service");
     await page.eval(`
+      // The permission above is not honoured by every Chrome build (CI's kept
+      // answering from an earlier override), so refuse at the API as well:
+      // this is exactly what a browser with location turned off reports.
+      const denied = { code: 1, message: "User denied Geolocation", PERMISSION_DENIED: 1 };
+      navigator.geolocation.getCurrentPosition = function (ok, fail) { setTimeout(() => fail && fail(denied), 0); };
+      navigator.geolocation.watchPosition = function (ok, fail) { setTimeout(() => fail && fail(denied), 0); return 0; };
       window.__bk = []; window.__bkRes = [];
       const realFetch = window.fetch;
       window.fetch = async function (url, init) {
