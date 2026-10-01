@@ -9,7 +9,7 @@ without reading any code.
 |---|---|---|
 | `review-sms-server.csv` | SMS replies a feature phone receives (`app/apps/api/src/i18n.ts`) | 21 |
 | `review-web-app.csv` | The citizen web app (`app/apps/web/i18n.js`) | 30 |
-| `review-android.csv` | The Android app (`mobile/app/src/main/res/values-*/strings.xml`) | 145 |
+| `review-android.csv` | The Android app (`mobile/app/src/main/res/values-*/strings.xml`) | 164 |
 
 ## How to review
 
@@ -27,5 +27,13 @@ without reading any code.
 6. Send the sheet back. Corrections are applied to the source files, and the
    language is then marked as reviewed in `app/docs/TESTING.md`.
 
-The sheets are exports: the source files are the truth. After a review, run the
-export again so the sheets match.
+The sheets are exports: the source files are the truth. After any string
+changes, and after a review is applied, run the export again so the sheets
+match:
+
+```bash
+python docs/translations/export.py
+```
+
+It keeps any review answers (the OK? and Correction / notes columns) already
+filled in, row by row, so a re-export never loses a reviewer's work.

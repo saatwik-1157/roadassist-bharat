@@ -46,12 +46,20 @@ object SosLadder {
      * the keyspace. Uniqueness is still the server's unique index to guarantee;
      * this only has to supply enough entropy that it never has to.
      */
-    fun newIncidentRef(): String {
+    fun newIncidentRef(): String = newIncidentRef(refRandom)
+
+    /**
+     * The same mapping over an injected byte source. Production always goes
+     * through the SecureRandom overload above; this exists so SosLadderTest
+     * can check the alphabet mapping and rejection sampling against a seeded
+     * [java.util.Random] and get the same answer on every run.
+     */
+    internal fun newIncidentRef(random: java.util.Random): String {
         val limit = 256 - (256 % REF_ALPHABET.length)   // 240
         val sb = StringBuilder(REF_LENGTH)
         val buf = ByteArray(REF_LENGTH)
         while (sb.length < REF_LENGTH) {
-            refRandom.nextBytes(buf)
+            random.nextBytes(buf)
             for (b in buf) {
                 val v = b.toInt() and 0xFF
                 if (v >= limit) continue                // would skew the alphabet

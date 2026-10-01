@@ -16,7 +16,8 @@ import org.json.JSONObject
  *  - SMS:   `SOS location unknown RoadAssist`. The verb is still the first
  *           word, and the server's parseSmsCoordinates reads no fix from
  *           tokens that are not numbers, so the incident is raised unlocated;
- *  - queue: lat/lng stored as JSON null, replayed as `locationUnknown`.
+ *  - queue: lat/lng stored as JSON null, replayed as `locationUnknown` — and
+ *           so is an older build's queued demo point (see [fromQueued]).
  *
  * Pure (org.json is the only dependency, and the JVM tests have a real one),
  * so SosPositionTest pins every branch off-device.
@@ -83,9 +84,35 @@ sealed interface SosPosition {
         /** Read a queued entry back. Missing or null coordinates are Unknown. */
         fun ofQueueEntry(entry: JSONObject): SosPosition {
             if (entry.isNull("lat") || entry.isNull("lng")) return Unknown
-            val lat = entry.optDouble("lat", Double.NaN)
-            val lng = entry.optDouble("lng", Double.NaN)
+            return fromQueued(entry.optDouble("lat", Double.NaN), entry.optDouble("lng", Double.NaN))
+        }
+
+        /**
+         * The position of a queued SOS being replayed: [from], plus one
+         * migration rule.
+         *
+         * Builds before 2026-10-01 wrote the NH-48 demo point (28.4595,
+         * 77.0266) into the offline queue when there was no GPS fix, so an
+         * entry from one of those builds that is still queued would otherwise
+         * replay as a confident, made-up position. An entry carrying exactly
+         * that coordinate (within 1e-9 degrees, about 0.1 mm) is therefore
+         * read as Unknown and replayed as `locationUnknown`. A real fix landing
+         * on that exact point to 1e-9 is practically impossible — consumer GPS
+         * is good to metres, a million times coarser — so the rule costs a
+         * real position nothing. It can go once no pre-2026-10-01 build can
+         * still have an entry queued.
+         */
+        fun fromQueued(lat: Double?, lng: Double?): SosPosition {
+            if (lat == null || lng == null) return Unknown
+            if (kotlin.math.abs(lat - LEGACY_DEMO_LAT) <= LEGACY_DEMO_EPSILON &&
+                kotlin.math.abs(lng - LEGACY_DEMO_LNG) <= LEGACY_DEMO_EPSILON
+            ) return Unknown
             return from(lat to lng)
         }
+
+        /** The stand-in old builds queued for "no fix". See [fromQueued]; never sent. */
+        private const val LEGACY_DEMO_LAT = 28.4595
+        private const val LEGACY_DEMO_LNG = 77.0266
+        private const val LEGACY_DEMO_EPSILON = 1e-9
     }
 }

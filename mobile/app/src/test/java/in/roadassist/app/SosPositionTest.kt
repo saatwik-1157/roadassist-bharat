@@ -108,6 +108,43 @@ class SosPositionTest {
         assertEquals(SosPosition.Unknown, SosPosition.ofQueueEntry(JSONObject().put("ref", ref)))
     }
 
+    /**
+     * Builds before 2026-10-01 queued the demo point for "no fix". The entry
+     * below is the shape they wrote (no ref, a number where today writes
+     * null); replayed as-is it would send a responder to NH-48.
+     */
+    @Test
+    fun `a queued demo-point entry from an old build replays as unknown`() {
+        val old = JSONObject("""{"lat":28.4595,"lng":77.0266,"at":1000}""")
+        val pos = SosPosition.ofQueueEntry(old)
+        assertEquals(SosPosition.Unknown, pos)
+        val body = SosPosition.apiBody(pos, ref)
+        assertTrue(body.getBoolean("locationUnknown"))
+        assertFalse("the old demo lat would be sent as a real position", body.has("lat"))
+        assertFalse("the old demo lng would be sent as a real position", body.has("lng"))
+        assertEquals(SosPosition.Unknown, SosPosition.fromQueued(demoLat, demoLng))
+        assertEquals(SosPosition.Unknown, SosPosition.fromQueued(demoLat + 5e-10, demoLng - 5e-10))
+    }
+
+    @Test
+    fun `a queued real fix next to the demo point is located unchanged`() {
+        val near = JSONObject(SosPosition.queueEntry(SosPosition.Located(28.4596, 77.0266), ref, 1_000L).toString())
+        val pos = SosPosition.ofQueueEntry(near)
+        assertEquals(SosPosition.Located(28.4596, 77.0266), pos)
+        val body = SosPosition.apiBody(pos, ref)
+        assertEquals(28.4596, body.getDouble("lat"), 0.0)
+        assertEquals(77.0266, body.getDouble("lng"), 0.0)
+        assertFalse(body.has("locationUnknown"))
+        assertEquals(SosPosition.Located(demoLat, 77.0267), SosPosition.fromQueued(demoLat, 77.0267))
+    }
+
+    @Test
+    fun `a queued null position is unknown`() {
+        assertEquals(SosPosition.Unknown, SosPosition.fromQueued(null, null))
+        assertEquals(SosPosition.Unknown, SosPosition.fromQueued(null, demoLng))
+        assertEquals(SosPosition.Unknown, SosPosition.fromQueued(demoLat + 1.0, null))
+    }
+
     @Test
     fun `a null-position entry still has a stable queue key`() {
         val entry = JSONObject(SosPosition.queueEntry(SosPosition.Unknown, ref, 1_000L).toString())

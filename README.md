@@ -338,7 +338,7 @@ npm run verify               # typecheck · lint · boundaries · claims · cita
 ```
 
 **Android:** `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease`
-(172 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
+(175 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
 install talks to the live platform. To use a local API instead, long-press the
 wordmark on the sign-in screen and enter its address, for example
 `10.0.2.2:4000` from the emulator.

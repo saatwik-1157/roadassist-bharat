@@ -210,12 +210,21 @@ class SosLadderTest {
         // Uniqueness itself is the server's unique index to guarantee, so this
         // deliberately does NOT assert zero collisions — at 30^6 that is the
         // birthday paradox and would fail honestly about 1 run in 60.
+        //
+        // The bytes come from a SEEDED java.util.Random through the same
+        // mapping production uses (production passes its SecureRandom), so
+        // the run is reproducible: the old version drew from SecureRandom
+        // against a hand-picked 8% band and failed about 1 run in 100.
+        // The bounds below are still set from the statistics, not fitted to
+        // the seed — any seed passes them with probability 1 - 1e-6 — so a
+        // different seed is not a way to make a broken generator pass.
         val alphabet = "ABCDEFGHJKMNPQRSTVWXYZ23456789"
         val draws = 10000
+        val random = java.util.Random(0x5EED_5051L)
         val seen = HashSet<String>()
         val counts = HashMap<Char, Int>()
         repeat(draws) {
-            val ref = SosLadder.newIncidentRef()
+            val ref = SosLadder.newIncidentRef(random)
             seen.add(ref)
             for (ch in ref.substring(3)) counts[ch] = (counts[ch] ?: 0) + 1
         }
@@ -225,14 +234,22 @@ class SosLadderTest {
         val collisions = draws - seen.size
         assertTrue("$collisions collisions in $draws draws — keyspace is not 30^6", collisions <= 12)
 
-        // `byte % 30` would make the first 16 letters 12.5% likelier, far
-        // outside sampling noise over 60,000 characters.
+        // Every letter appears, and none outside the alphabet.
+        assertEquals("never emitted: ${alphabet.toSet() - counts.keys}, outside the alphabet: ${counts.keys - alphabet.toSet()}",
+            alphabet.toSet(), counts.keys)
+
+        // Pearson chi-square over the 30 letters (29 degrees of freedom).
+        // 80.44 is the upper 1e-6 point of chi-square(29): a uniform generator
+        // lands above it once in a million runs. `byte % 30` (the first 16
+        // letters 12.5% likelier) puts the expected statistic near 234 over
+        // these 60,000 characters, and a missing letter alone adds 2,000.
         val expected = (draws * 6).toDouble() / alphabet.length
-        for (ch in alphabet) {
-            val n = counts[ch] ?: 0
-            val drift = kotlin.math.abs(n - expected) / expected
-            assertTrue("'$ch' appeared $n times, expected about $expected", drift < 0.08)
+        val chiSquare = alphabet.sumOf { ch ->
+            val d = (counts[ch] ?: 0) - expected
+            d * d / expected
         }
+        assertTrue("chi-square $chiSquare over 29 df exceeds 80.44 (p < 1e-6): letters are not uniform — $counts",
+            chiSquare < 80.44)
     }
 
 }
