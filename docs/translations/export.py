@@ -99,7 +99,7 @@ def write(name, rows):
         w = csv.writer(f, quoting=csv.QUOTE_ALL)
         w.writerow(HEADER)
         for r in rows:
-            w.writerow(r + kept[r[0]] if r[0] in kept else r)
+            w.writerow(r + kept.get(r[0], [""] * REVIEW_COLS))
     empty = sum(1 for r in rows for c in r[1:] if not c)
     print(f"{name}: {len(rows)} strings, {len(kept)} reviewed rows kept, {empty} empty translation cells")
 
