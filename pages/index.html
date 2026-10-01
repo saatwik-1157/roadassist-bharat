@@ -953,6 +953,57 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .tm-what{margin:0;color:var(--ink-2);font-size:14px;line-height:1.6}
 .tm-k{display:inline-block;margin-right:4px;font:700 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
 @media (prefers-reduced-motion:reduce){.tm{transition:none}.tm:hover{transform:none}}
+
+/* ── illustrations ─────────────────────────────────────────────────────────
+   Drawn for this page, not captured from the application. They are inline SVG
+   so they use this page's own fonts and colour tokens (an SVG loaded through
+   <img> can reach neither). Every one carries an "Illustration" tag in its
+   caption and in its <title>: the screenshots elsewhere on the page are real,
+   and a drawing must never be mistaken for one. No figure in them is a new
+   claim; the words come from the code and documents named beside each. */
+.ill-row{display:grid;gap:18px;margin-top:26px;align-items:stretch}
+@media (min-width:860px){.ill-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ill{margin:0;display:flex;flex-direction:column;min-width:0;border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden;
+  background:radial-gradient(90% 60% at 50% 0%,rgba(240,180,41,.06),transparent 70%),linear-gradient(180deg,var(--bg-2),var(--bg))}
+.ill svg{display:block;width:100%;height:auto;font-family:var(--sans)}
+.ill figcaption{margin-top:auto;padding:12px 18px 14px;
+  border-top:1px solid var(--line-soft);font-size:.84rem;line-height:1.6;color:var(--ink-3)}
+.ill-tag{display:inline-block;margin-right:8px;vertical-align:1px;font:700 .64rem/1 var(--mono);letter-spacing:.14em;
+  text-transform:uppercase;color:var(--cyan);border:1px solid rgba(95,208,216,.35);border-radius:999px;padding:5px 9px}
+.ill-side{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r);padding:24px 24px 22px;min-width:0}
+.ill-side .k{font:700 11px/1 var(--mono);letter-spacing:.14em;color:var(--accent);text-transform:uppercase}
+.ill-side h3{font-size:1.15rem;margin:10px 0 14px}
+.ill-steps{margin:0;padding:0;list-style:none;display:grid;gap:12px;counter-reset:ill}
+.ill-steps li{position:relative;padding-left:34px;font-size:.92rem;color:var(--ink-2);line-height:1.55;counter-increment:ill}
+.ill-steps li::before{content:counter(ill);position:absolute;left:0;top:1px;width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;background:var(--surface-2);border:1px solid var(--line);color:var(--accent);font:700 11px/1 var(--mono)}
+.ill-steps b{color:var(--ink);font-weight:650}
+.ill-side .sub{margin:16px 0 0;font-size:.84rem}
+/* the drawing's own vocabulary: one line weight, the page's tokens */
+.ill .i-pn{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.ill .i-pn2{fill:var(--surface-2);stroke:var(--line);stroke-width:1.5}
+.ill .i-ln{fill:none;stroke:var(--line);stroke-width:1.5}
+.ill .i-ic{fill:none;stroke:var(--ink-3);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ill .i-fl{fill:none;stroke-width:2;stroke-linecap:round}
+.ill .i-h{fill:var(--ink);font-size:15px;font-weight:700}
+.ill .i-b{fill:var(--ink-2);font-size:13.5px;font-weight:500}
+.ill .i-d{fill:var(--ink-2);font-size:12.5px;font-weight:500}
+.ill .i-s{fill:var(--ink-3);font-size:12.5px;font-weight:500}
+.ill .i-k{fill:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.12em}
+.ill .i-m{font-family:var(--mono)}
+.ill .i-mid{text-anchor:middle}
+.ill .i-end{text-anchor:end}
+.ill .i-rung{fill:rgba(240,180,41,.07);stroke:var(--accent);stroke-width:1.5;opacity:0;animation:il-rung 8s infinite}
+.ill .i-haz{animation:il-blink 1.3s ease-in-out infinite}
+.ill .i-ping{transform-box:fill-box;transform-origin:center;animation:il-ping 2.4s ease-out infinite}
+.ill .i-scan{animation:il-scan 4.8s linear infinite}
+.ill .i-drive{animation:il-drive 4.2s ease-in-out infinite}
+@keyframes il-rung{0%{opacity:0}3%,22%{opacity:1}26%,100%{opacity:0}}
+@keyframes il-blink{50%{opacity:.15}}
+@keyframes il-ping{0%{transform:scale(.6);opacity:.9}100%{transform:scale(2.8);opacity:0}}
+@keyframes il-scan{0%{transform:translateY(0);opacity:0}8%,90%{opacity:.7}100%{transform:translateY(296px);opacity:0}}
+@keyframes il-drive{0%,10%{transform:translate(0,0)}80%,100%{transform:translate(-62px,58px)}}
+@media (prefers-reduced-motion:reduce){.ill *{animation:none!important}}
 </style>
 <script>
 (function (d) {
@@ -1225,6 +1276,116 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         </div>
       </div>
     </div>
+
+    <!-- Illustrations. The ladder is SosLadder.kt's order; the numbers and their
+         labels are app/apps/web/emergency-numbers.js, in its display order. -->
+    <div class="ill-row">
+      <figure class="ill">
+        <svg viewBox="0 0 480 400" role="img" aria-labelledby="ilLadT ilLadD">
+          <title id="ilLadT">Illustration: the SOS ladder, on a night highway with no data</title>
+          <desc id="ilLadD">A car stopped on the shoulder with its hazard lights on, where there is no coverage, and a phone showing no data. Below it, the rungs an SOS is tried on, in order: data to the platform, then an SMS carrying the GPS fix, then the phone's dialler opened on 112, and last, kept on the phone until data returns.</desc>
+          <defs>
+            <linearGradient id="ilLadSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1424"/><stop offset="1" stop-color="#121b29"/></linearGradient>
+            <linearGradient id="ilLadRoad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a212e"/><stop offset="1" stop-color="#29313f"/></linearGradient>
+            <radialGradient id="ilLadHaz"><stop offset="0" stop-color="#f0b429" stop-opacity=".85"/><stop offset="1" stop-color="#f0b429" stop-opacity="0"/></radialGradient>
+            <clipPath id="ilLadClip"><rect x="16" y="14" width="448" height="138" rx="14"/></clipPath>
+          </defs>
+          <g clip-path="url(#ilLadClip)">
+            <rect x="16" y="14" width="448" height="138" fill="url(#ilLadSky)"/>
+            <g fill="#dfe6f2" opacity=".55"><circle cx="176" cy="34" r="1.1"/><circle cx="214" cy="60" r=".8"/><circle cx="262" cy="30" r="1.2"/><circle cx="300" cy="58" r=".8"/><circle cx="356" cy="40" r="1"/><circle cx="160" cy="70" r=".7"/><circle cx="62" cy="70" r=".9"/></g>
+            <circle cx="322" cy="36" r="9" fill="#e9edf5" opacity=".8"/><circle cx="327" cy="32" r="8.5" fill="#0c1526"/>
+            <path d="M16 108C70 94 120 100 170 94S270 84 316 92S420 102 464 92V152H16Z" fill="#0e1824"/>
+            <polygon points="112,152 368,152 251,92 229,92" fill="url(#ilLadRoad)"/>
+            <path d="M112 152 229 92M368 152 251 92" stroke="#3a4557" stroke-width="1.5"/>
+            <path d="M240 152V92" stroke="#f0b429" stroke-opacity=".6" stroke-width="2" stroke-dasharray="9 9"/>
+            <path d="M223 146 231 132 239 146Z" fill="none" stroke="var(--alert)" stroke-width="1.5" stroke-linejoin="round"/>
+            <g>
+              <rect x="152" y="136" width="10" height="12" rx="2" fill="#05070a"/><rect x="196" y="136" width="10" height="12" rx="2" fill="#05070a"/>
+              <path d="M160 118 166 103H192L198 118Z" fill="#141b27" stroke="#3a4557" stroke-width="1.5" stroke-linejoin="round"/>
+              <rect x="146" y="117" width="66" height="25" rx="7" fill="#273041" stroke="#3a4557" stroke-width="1.5"/>
+              <rect x="171" y="128" width="16" height="6" rx="1.5" fill="#c9d2e0" opacity=".55"/>
+              <g class="i-haz"><circle cx="155" cy="125" r="13" fill="url(#ilLadHaz)"/><circle cx="203" cy="125" r="13" fill="url(#ilLadHaz)"/>
+                <rect x="149" y="122" width="12" height="6" rx="2" fill="#ffc94a"/><rect x="197" y="122" width="12" height="6" rx="2" fill="#ffc94a"/></g>
+            </g>
+            <rect x="30" y="26" width="112" height="24" rx="12" fill="rgba(239,99,99,.12)" stroke="rgba(239,99,99,.45)" stroke-width="1.5"/>
+            <text x="86" y="42" class="i-mid" style="fill:#ff8c85;font-size:12px;font-weight:700">No coverage</text>
+            <rect x="388" y="48" width="60" height="120" rx="11" fill="#0b0e14" stroke="#2c3446" stroke-width="2"/>
+            <rect x="393" y="57" width="50" height="104" rx="7" fill="#111723"/>
+            <g fill="var(--ink-3)" opacity=".45"><rect x="403" y="83" width="5" height="5" rx="1"/><rect x="411" y="79" width="5" height="9" rx="1"/><rect x="419" y="75" width="5" height="13" rx="1"/><rect x="427" y="71" width="5" height="17" rx="1"/></g>
+            <text x="418" y="105" class="i-mid" style="fill:#ff8c85;font-size:10.5px;font-weight:700">No data</text>
+            <circle cx="418" cy="128" r="12" fill="var(--alert)"/><text x="418" y="131.5" class="i-mid" style="fill:#fff;font-size:9px;font-weight:800">SOS</text>
+          </g>
+          <rect x="16" y="14" width="448" height="138" rx="14" class="i-ln"/>
+          <path d="M40 205V355" class="i-ln" stroke-dasharray="3 5"/>
+          <g>
+            <rect x="64" y="168" width="400" height="48" rx="12" class="i-pn"/>
+            <rect x="64" y="168" width="400" height="48" rx="12" class="i-rung"/>
+            <circle cx="40" cy="192" r="13" class="i-pn2"/><text x="40" y="196.5" class="i-mid i-m" style="fill:var(--accent);font-size:12px;font-weight:700">1</text>
+            <text x="82" y="189" class="i-h">Data</text><text x="82" y="207" class="i-d">Sent to the platform's API</text>
+            <path transform="translate(418 180)" class="i-ic" d="M6 20h13a5 5 0 0 0 0-10 7 7 0 0 0-13.4 1.6A4.3 4.3 0 0 0 6 20z"/>
+          </g>
+          <g>
+            <rect x="64" y="226" width="400" height="48" rx="12" class="i-pn"/>
+            <rect x="64" y="226" width="400" height="48" rx="12" class="i-rung" style="animation-delay:2s"/>
+            <circle cx="40" cy="250" r="13" class="i-pn2"/><text x="40" y="254.5" class="i-mid i-m" style="fill:var(--accent);font-size:12px;font-weight:700">2</text>
+            <text x="82" y="247" class="i-h">SMS</text><text x="82" y="265" class="i-d">A text carrying the GPS fix</text>
+            <path transform="translate(418 238)" class="i-ic" d="M3 4h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H10l-5 4v-4H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM7 10.5h10"/>
+          </g>
+          <g>
+            <rect x="64" y="284" width="400" height="48" rx="12" class="i-pn"/>
+            <rect x="64" y="284" width="400" height="48" rx="12" class="i-rung" style="animation-delay:4s"/>
+            <circle cx="40" cy="308" r="13" class="i-pn2"/><text x="40" y="312.5" class="i-mid i-m" style="fill:var(--accent);font-size:12px;font-weight:700">3</text>
+            <text x="82" y="305" class="i-h">112</text><text x="82" y="323" class="i-d">The phone's dialler opens on 112</text>
+            <path transform="translate(418 296)" class="i-ic" d="M5 2.5h3.5l1.7 4.6-2.4 1.6a12 12 0 0 0 6.5 6.5l1.6-2.4 4.6 1.7V18a2 2 0 0 1-2 2C10.7 20 3 12.3 3 4.5a2 2 0 0 1 2-2z"/>
+          </g>
+          <g>
+            <rect x="64" y="342" width="400" height="48" rx="12" class="i-pn"/>
+            <rect x="64" y="342" width="400" height="48" rx="12" class="i-rung" style="animation-delay:6s"/>
+            <circle cx="40" cy="366" r="13" class="i-pn2"/><text x="40" y="370.5" class="i-mid i-m" style="fill:var(--accent);font-size:12px;font-weight:700">4</text>
+            <text x="82" y="363" class="i-h">Stored on this phone</text><text x="82" y="381" class="i-d">Kept with its reference until data returns</text>
+            <path transform="translate(418 354)" class="i-ic" d="M2 13 5 4h14l3 9v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1zM2 13h6l1.5 3h5L16 13h6"/>
+          </g>
+        </svg>
+        <figcaption><span class="ill-tag">Illustration</span> The Android client's SOS ladder, top to bottom
+          (<code>SosLadder.kt</code>). A rung is tried only if the one above did not carry the SOS, and
+          exactly one of them owns it.</figcaption>
+      </figure>
+
+      <figure class="ill">
+        <svg viewBox="0 0 480 400" role="img" aria-labelledby="ilNumT ilNumD">
+          <title id="ilNumT">Illustration: the emergency numbers card, tap to call</title>
+          <desc id="ilNumD">A phone screen headed Emergency. A large red button reads Call 112, for all emergencies: police, fire and ambulance. Below it, the other numbers the app lists: 1033, the national highway helpline run by NHAI; 108, ambulance in most states; 102, ambulance in some states; 100, police; and 101, fire.</desc>
+          <defs>
+            <linearGradient id="ilNumRed" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ef6363"/><stop offset="1" stop-color="#b81f2e"/></linearGradient>
+          </defs>
+          <text x="240" y="26" class="i-k i-mid" style="fill:var(--ink-3)">TAP · tel: OPENS THE DIALLER</text>
+          <rect x="64" y="40" width="352" height="400" rx="32" fill="#0b0e14" stroke="#2c3446" stroke-width="2"/>
+          <rect x="208" y="50" width="64" height="8" rx="4" fill="#05070a"/>
+          <rect x="76" y="66" width="328" height="360" rx="20" class="i-pn"/>
+          <text x="96" y="96" class="i-h" style="font-size:17px">Emergency</text>
+          <text x="384" y="96" class="i-s i-end">a call, not data</text>
+          <rect x="96" y="110" width="288" height="54" rx="27" fill="url(#ilNumRed)"/>
+          <text x="240" y="144.5" class="i-mid" style="fill:#fff;font-size:21px;font-weight:800">Call 112</text>
+          <circle cx="330" cy="137" r="9" fill="none" stroke="#fff" stroke-width="1.5" class="i-ping"/>
+          <circle cx="330" cy="137" r="4" fill="#fff" opacity=".9"/>
+          <text x="240" y="186" class="i-d i-mid" style="font-size:13px">All emergencies (police, fire, ambulance)</text>
+          <g class="i-ln"><path d="M96 200H384M96 236H384M96 272H384M96 308H384M96 344H384M96 380H384"/></g>
+          <g class="i-m" style="fill:var(--ink);font-size:17px;font-weight:700">
+            <text x="100" y="224">1033</text><text x="100" y="260">108</text><text x="100" y="296">102</text><text x="100" y="332">100</text><text x="100" y="368">101</text>
+          </g>
+          <g class="i-b" style="font-size:13px">
+            <text x="152" y="223">National highway helpline (NHAI)</text>
+            <text x="152" y="259">Ambulance (most states)</text>
+            <text x="152" y="295">Ambulance (some states)</text>
+            <text x="152" y="331">Police</text>
+            <text x="152" y="367">Fire</text>
+          </g>
+        </svg>
+        <figcaption><span class="ill-tag">Illustration</span> The numbers the app lists, in its order
+          (<code>emergency-numbers.js</code>). A tap hands the number to the phone's dialler: a voice
+          call can connect where data cannot, and the app only dials.</figcaption>
+      </figure>
+    </div>
   </div>
 </section>
 
@@ -1379,6 +1540,86 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       </div>
       <img id="stageShot" src="shots/stage/02-home.webp" width="780" height="1688" alt="Citizen home screen with the SOS control and emergency readiness">
     </div>
+
+    <!-- Illustration of dispatch.ts: ST_DWithin, ranked waves, the row lock,
+         and booking-machine.ts's MATCHING -> ASSIGNED -> EN_ROUTE. -->
+    <div class="ill-row">
+      <figure class="ill">
+        <svg viewBox="0 0 480 400" role="img" aria-labelledby="ilDspT ilDspD">
+          <title id="ilDspT">Illustration: how a mechanic is matched and sent</title>
+          <desc id="ilDspD">A map with a stranded driver's pin on a highway and a search radius drawn around it. Mechanics inside the radius are ranked; the top three receive offers, shown as dashed lines. The first to accept is shown in green, driving to the pin. Mechanics outside the radius are greyed out. Along the bottom, the booking states: matching, assigned, en route.</desc>
+          <defs>
+            <clipPath id="ilDspClip"><rect x="16" y="14" width="448" height="372" rx="16"/></clipPath>
+            <symbol id="ilDspMech" viewBox="-12 -12 24 24" overflow="visible">
+              <circle r="11" style="fill:var(--surface-2);stroke:currentColor;stroke-width:1.5"/>
+              <path d="M-4.5 4.5 0.6-.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="2.7" cy="-2.7" r="2.9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            </symbol>
+          </defs>
+          <g clip-path="url(#ilDspClip)">
+            <rect x="16" y="14" width="448" height="372" fill="#0b1018"/>
+            <g fill="none" stroke="#151c28" stroke-width="7" stroke-linecap="round">
+              <path d="M300 14C292 120 300 260 336 386"/><path d="M16 238C150 226 330 252 464 230"/><path d="M96 14C110 120 92 260 120 386"/>
+            </g>
+            <path d="M16 318C110 290 180 240 240 200S380 96 464 70" fill="none" stroke="#1f2837" stroke-width="16" stroke-linecap="round"/>
+            <path d="M16 318C110 290 180 240 240 200S380 96 464 70" fill="none" stroke="#f0b429" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="8 10"/>
+            <circle cx="240" cy="200" r="128" fill="rgba(240,180,41,.04)" stroke="rgba(240,180,41,.55)" stroke-width="1.5" stroke-dasharray="5 6"/>
+            <g style="color:var(--ink-3)" opacity=".5">
+              <use href="#ilDspMech" x="52" y="98" width="24" height="24"/><use href="#ilDspMech" x="418" y="80" width="24" height="24"/><use href="#ilDspMech" x="398" y="274" width="24" height="24"/>
+            </g>
+            <text x="410" y="312" class="i-s i-mid">outside the radius</text>
+            <use href="#ilDspMech" x="318" y="238" width="24" height="24" style="color:var(--ink-3)" opacity=".75"/>
+            <path d="M150 160 232 196M196 282 236 210" class="i-fl" stroke="var(--accent)" stroke-opacity=".75" stroke-dasharray="4 5"/>
+            <path d="M318 128 256 186" class="i-fl" stroke="var(--ok)"/>
+            <circle cx="318" cy="128" r="5" fill="var(--ok)" class="i-drive"/>
+            <use href="#ilDspMech" x="306" y="116" width="24" height="24" style="color:var(--ok)"/>
+            <use href="#ilDspMech" x="138" y="148" width="24" height="24" style="color:var(--accent)"/>
+            <use href="#ilDspMech" x="184" y="270" width="24" height="24" style="color:var(--accent)"/>
+            <g class="i-m" style="font-size:10px;font-weight:800;fill:#16110a">
+              <circle cx="304" cy="114" r="8" fill="var(--ok)"/><text x="304" y="117.5" class="i-mid">1</text>
+              <circle cx="136" cy="146" r="8" fill="var(--accent)"/><text x="136" y="149.5" class="i-mid">2</text>
+              <circle cx="182" cy="268" r="8" fill="var(--accent)"/><text x="182" y="271.5" class="i-mid">3</text>
+            </g>
+            <rect x="336" y="117" width="122" height="22" rx="11" fill="rgba(73,201,126,.12)" stroke="rgba(73,201,126,.45)" stroke-width="1.5"/>
+            <text x="397" y="132" class="i-mid" style="fill:var(--ok);font-size:11px;font-weight:700">First accept wins</text>
+            <circle cx="240" cy="200" r="10" fill="none" stroke="var(--accent)" stroke-width="1.5" class="i-ping"/>
+            <path d="M240 200C232 188 226 182 226 174a14 14 0 1 1 28 0C254 182 248 188 240 200Z" fill="var(--accent)"/>
+            <circle cx="240" cy="174" r="5" fill="var(--bg)"/>
+            <rect x="182" y="210" width="116" height="22" rx="11" fill="var(--bg-2)" stroke="var(--line)" stroke-width="1.5"/>
+            <text x="240" y="225" class="i-s i-mid" style="fill:var(--ink-2)">Stranded driver</text>
+            <rect x="146" y="317" width="188" height="22" rx="11" fill="var(--bg-2)" stroke="rgba(240,180,41,.5)" stroke-width="1.5"/>
+            <text x="240" y="332" class="i-k i-mid" style="letter-spacing:.04em">search radius · ST_DWithin</text>
+            <text x="32" y="40" class="i-k">OFFER WAVE</text>
+            <text x="32" y="58" class="i-s">ranked by distance, ETA and rating</text>
+            <g class="i-m" style="font-size:11px;font-weight:700">
+              <rect x="83" y="350" width="86" height="24" rx="12" class="i-pn2"/><text x="126" y="366" class="i-mid" style="fill:var(--ink-3)">MATCHING</text>
+              <text x="183" y="366" class="i-mid" style="fill:var(--ink-3)">→</text>
+              <rect x="197" y="350" width="86" height="24" rx="12" class="i-pn2"/><text x="240" y="366" class="i-mid" style="fill:var(--ink-2)">ASSIGNED</text>
+              <text x="297" y="366" class="i-mid" style="fill:var(--ink-3)">→</text>
+              <rect x="311" y="350" width="86" height="24" rx="12" fill="rgba(73,201,126,.12)" stroke="rgba(73,201,126,.45)" stroke-width="1.5"/><text x="354" y="366" class="i-mid" style="fill:var(--ok)">EN_ROUTE</text>
+            </g>
+          </g>
+          <rect x="16" y="14" width="448" height="372" rx="16" class="i-ln"/>
+        </svg>
+        <figcaption><span class="ill-tag">Illustration</span> Drawn to explain <code>dispatch.ts</code>;
+          the positions on it are not data.</figcaption>
+      </figure>
+      <div class="ill-side">
+        <span class="k">Reading the drawing</span>
+        <h3>Nearest first, and only one wins</h3>
+        <ol class="ill-steps">
+          <li><b>Within a radius.</b> PostGIS finds the verified mechanics within reach of the
+            driver's pin, on real distance (<code>ST_DWithin</code>).</li>
+          <li><b>Ranked, then offered in waves.</b> The best few by distance, ETA and rating get an
+            offer. An offer nobody accepts expires, and the next wave goes to the next best.</li>
+          <li><b>First accept wins.</b> Two mechanics accepting one job at once is settled by a row
+            lock in Postgres, not by timing.</li>
+          <li><b>On the way.</b> The booking moves from <code>MATCHING</code> to
+            <code>ASSIGNED</code> to <code>EN_ROUTE</code>, and every open screen sees it move over a
+            live event stream.</li>
+        </ol>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -1481,6 +1722,121 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
       } else onScreen = true;
     })();
     </script>
+
+    <!-- Illustrations, so they are never read as model output: the frames above
+         are the real thing. The review states are raksha.ts's (DETECTED,
+         VERIFIED, REJECTED) and incident-machine.ts's AWAITING_CONFIRMATION. -->
+    <div class="ill-row" style="margin:0 0 30px">
+      <figure class="ill">
+        <svg viewBox="0 0 480 400" role="img" aria-labelledby="ilCamT ilCamD">
+          <title id="ilCamT">Illustration: what the edge device does with a frame</title>
+          <desc id="ilCamD">A drawn road camera frame at dusk. A box labelled pothole is drawn around a hole in the right lane and a smaller box labelled crack in the left lane. The frame is tagged as a simulated edge device running YOLO11n. Below: boxed on the device, reported at a confidence of at least 0.35, and with no signal held on the device and sent once.</desc>
+          <defs>
+            <linearGradient id="ilCamSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0c1525"/><stop offset="1" stop-color="#1c2738"/></linearGradient>
+            <clipPath id="ilCamClip"><rect x="16" y="14" width="448" height="300" rx="16"/></clipPath>
+          </defs>
+          <g clip-path="url(#ilCamClip)">
+            <rect x="16" y="14" width="448" height="300" fill="#10161c"/>
+            <rect x="16" y="14" width="448" height="118" fill="url(#ilCamSky)"/>
+            <path d="M16 132C70 118 120 124 170 116S270 110 300 118S400 126 464 114V132Z" fill="#0e1822"/>
+            <polygon points="40,314 440,314 256,132 224,132" fill="#252c37"/>
+            <path d="M60 314 227 132M420 314 253 132" stroke="#c9d2e0" stroke-opacity=".35" stroke-width="1.5"/>
+            <g stroke="#6b7486" stroke-width="2" stroke-linecap="round">
+              <path d="M30 300V272M98 226V210M146 174V164M178 150V144M450 300V272M382 226V210M334 174V164M302 150V144"/>
+            </g>
+            <g fill="#f0b429" opacity=".8">
+              <rect x="28" y="274" width="4" height="5" rx="1"/><rect x="96.5" y="211" width="3" height="4" rx="1"/><rect x="144.8" y="165" width="2.4" height="3" rx=".8"/>
+              <rect x="448" y="274" width="4" height="5" rx="1"/><rect x="380.5" y="211" width="3" height="4" rx="1"/><rect x="332.8" y="165" width="2.4" height="3" rx=".8"/>
+            </g>
+            <g fill="#ef6363" opacity=".75"><circle cx="234" cy="139" r="1.6"/><circle cx="241" cy="139" r="1.6"/></g>
+            <g fill="#e8d9a8" opacity=".5">
+              <polygon points="239,140 241,140 241.6,148 238.4,148"/><polygon points="238,162 242,162 243,176 237,176"/>
+              <polygon points="236,194 244,194 245.5,214 234.5,214"/><polygon points="233,236 247,236 249,266 231,266"/>
+              <polygon points="229,292 251,292 253,314 227,314"/>
+            </g>
+            <ellipse cx="300" cy="252" rx="30" ry="9" fill="#0a0c10" stroke="#3b4453" stroke-width="1.5"/>
+            <ellipse cx="303" cy="254" rx="18" ry="4.5" fill="#05070a"/>
+            <path d="M178 192 186 200 182 206 194 210 199 218 206 221" fill="none" stroke="#0a0c10" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="262" y="234" width="78" height="34" rx="3" fill="rgba(240,180,41,.08)" stroke="var(--accent)" stroke-width="2"/>
+            <rect x="262" y="217" width="62" height="18" rx="3" fill="var(--accent)"/>
+            <text x="268" y="230" class="i-m" style="fill:#1a1408;font-size:11px;font-weight:800">pothole</text>
+            <rect x="168" y="186" width="44" height="40" rx="3" fill="rgba(240,180,41,.08)" stroke="var(--accent)" stroke-width="2"/>
+            <rect x="168" y="170" width="46" height="17" rx="3" fill="var(--accent)"/>
+            <text x="173" y="182.5" class="i-m" style="fill:#1a1408;font-size:10.5px;font-weight:800">crack</text>
+            <rect x="16" y="14" width="448" height="2" fill="var(--cyan)" class="i-scan"/>
+            <rect x="26" y="24" width="190" height="22" rx="11" fill="rgba(5,7,10,.72)"/>
+            <circle cx="40" cy="35" r="4" fill="#ff5a5a" class="i-haz"/>
+            <text x="50" y="39" class="i-m" style="fill:#ff9a9a;font-size:10.5px;font-weight:700;letter-spacing:.08em">EDGE · SIMULATED</text>
+            <rect x="370" y="24" width="84" height="22" rx="11" fill="rgba(5,7,10,.72)"/>
+            <text x="412" y="39" class="i-m i-mid" style="fill:var(--cyan);font-size:10.5px;font-weight:700;letter-spacing:.06em">YOLO11n</text>
+          </g>
+          <rect x="16" y="14" width="448" height="300" rx="16" fill="none" stroke="rgba(95,208,216,.35)" stroke-width="1.5"/>
+          <rect x="16" y="330" width="160" height="30" rx="15" class="i-pn2"/>
+          <text x="96" y="350" class="i-b i-mid" style="font-size:13px">Boxed on the device</text>
+          <text x="192" y="350" class="i-mid" style="fill:var(--accent);font-size:14px">→</text>
+          <rect x="208" y="330" width="256" height="30" rx="15" fill="rgba(240,180,41,.08)" stroke="rgba(240,180,41,.45)" stroke-width="1.5"/>
+          <text x="336" y="350" class="i-mid" style="fill:var(--ink);font-size:13px;font-weight:600">Reported at confidence ≥ 0.35</text>
+          <text x="240" y="384" class="i-s i-mid">No signal: held on the device, then sent once.</text>
+        </svg>
+        <figcaption><span class="ill-tag">Illustration</span> Hand-drawn to explain the step, so not
+          model output. The real frames, boxed by the trained model, are in the feed above.</figcaption>
+      </figure>
+
+      <figure class="ill">
+        <svg viewBox="0 0 480 400" role="img" aria-labelledby="ilQT ilQD">
+          <title id="ilQT">Illustration: the authority's review queue</title>
+          <desc id="ilQD">A drawn console titled detections waiting for a person. One pothole on NH-48 is marked verified by an officer. A crack from a citizen report and another pothole are marked detected, each with Verify and Reject buttons, and a pointer is about to press Verify. Below, an incident sits in AWAITING_CONFIRMATION: no way out of it skips a person.</desc>
+          <rect x="16" y="14" width="448" height="372" rx="16" class="i-pn"/>
+          <path d="M16 46H464" class="i-ln"/>
+          <circle cx="36" cy="30" r="4" fill="#e05a5a" opacity=".8"/><circle cx="50" cy="30" r="4" fill="#e0a640" opacity=".8"/><circle cx="64" cy="30" r="4" fill="#49c97e" opacity=".8"/>
+          <text x="80" y="34" class="i-s i-m" style="font-size:11px">RAKSHA · authority</text>
+          <text x="448" y="34" class="i-k i-end">REVIEW QUEUE</text>
+          <text x="32" y="74" class="i-h">Detections waiting for a person</text>
+          <g>
+            <rect x="32" y="88" width="416" height="60" rx="12" class="i-pn2"/>
+            <rect x="44" y="96" width="60" height="44" rx="6" fill="#252c37"/><polygon points="48,140 100,140 77,102 71,102" fill="#323b49"/>
+            <rect x="72" y="118" width="18" height="11" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+            <text x="118" y="114" class="i-h">Pothole</text><text x="118" y="133" class="i-s">NH-48 · edge device</text>
+            <rect x="352" y="98" width="84" height="20" rx="10" fill="rgba(73,201,126,.12)" stroke="rgba(73,201,126,.45)" stroke-width="1.5"/>
+            <text x="394" y="112" class="i-m i-mid" style="fill:var(--ok);font-size:10.5px;font-weight:700">VERIFIED</text>
+            <text x="436" y="136" class="i-s i-end">by an officer</text>
+          </g>
+          <g>
+            <rect x="32" y="158" width="416" height="60" rx="12" class="i-pn2"/>
+            <rect x="44" y="166" width="60" height="44" rx="6" fill="#252c37"/><polygon points="48,210 100,210 77,172 71,172" fill="#323b49"/>
+            <rect x="64" y="184" width="14" height="14" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+            <text x="118" y="184" class="i-h">Crack</text><text x="118" y="203" class="i-s">NH-48 · citizen report</text>
+            <rect x="352" y="166" width="84" height="20" rx="10" fill="rgba(224,166,64,.1)" stroke="rgba(224,166,64,.45)" stroke-width="1.5"/>
+            <text x="394" y="180" class="i-m i-mid" style="fill:var(--warn);font-size:10.5px;font-weight:700">DETECTED</text>
+            <rect x="302" y="192" width="64" height="20" rx="10" fill="none" stroke="rgba(73,201,126,.6)" stroke-width="1.5"/>
+            <text x="334" y="206" class="i-mid" style="fill:var(--ok);font-size:11.5px;font-weight:700">Verify</text>
+            <rect x="372" y="192" width="64" height="20" rx="10" fill="none" stroke="rgba(224,166,64,.6)" stroke-width="1.5"/>
+            <text x="404" y="206" class="i-mid" style="fill:var(--warn);font-size:11.5px;font-weight:700">Reject</text>
+            <path d="M357 204v17l4.2-4 3 7 3-1.3-3-6.8h5.8Z" fill="var(--ink)" stroke="var(--bg)" stroke-width="1.2" stroke-linejoin="round"/>
+          </g>
+          <g>
+            <rect x="32" y="228" width="416" height="60" rx="12" class="i-pn2"/>
+            <rect x="44" y="236" width="60" height="44" rx="6" fill="#252c37"/><polygon points="48,280 100,280 77,242 71,242" fill="#323b49"/>
+            <rect x="74" y="258" width="16" height="10" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+            <text x="118" y="254" class="i-h">Pothole</text><text x="118" y="273" class="i-s">NH-48 · edge device</text>
+            <rect x="352" y="236" width="84" height="20" rx="10" fill="rgba(224,166,64,.1)" stroke="rgba(224,166,64,.45)" stroke-width="1.5"/>
+            <text x="394" y="250" class="i-m i-mid" style="fill:var(--warn);font-size:10.5px;font-weight:700">DETECTED</text>
+            <rect x="302" y="262" width="64" height="20" rx="10" fill="none" stroke="rgba(73,201,126,.6)" stroke-width="1.5"/>
+            <text x="334" y="276" class="i-mid" style="fill:var(--ok);font-size:11.5px;font-weight:700">Verify</text>
+            <rect x="372" y="262" width="64" height="20" rx="10" fill="none" stroke="rgba(224,166,64,.6)" stroke-width="1.5"/>
+            <text x="404" y="276" class="i-mid" style="fill:var(--warn);font-size:11.5px;font-weight:700">Reject</text>
+          </g>
+          <rect x="32" y="300" width="416" height="72" rx="12" fill="rgba(239,99,99,.06)" stroke="rgba(239,99,99,.4)" stroke-width="1.5"/>
+          <text x="48" y="322" class="i-k" style="fill:var(--alert)">INCIDENT</text>
+          <text x="48" y="343" class="i-m" style="fill:var(--ink);font-size:13px;font-weight:700">AWAITING_CONFIRMATION</text>
+          <text x="48" y="362" class="i-s">No way out of it skips a person · ADR-0005</text>
+          <circle cx="414" cy="324" r="7" class="i-ic" style="stroke:var(--ink-2)"/>
+          <path d="M400 354a14 13 0 0 1 28 0" class="i-ic" style="stroke:var(--ink-2)"/>
+        </svg>
+        <figcaption><span class="ill-tag">Illustration</span> Drawn after the authority dashboard's
+          review queue; the rows are not real detections. The dashboard itself is the screenshot above.</figcaption>
+      </figure>
+    </div>
 
     <div class="x3d rk" id="rk3d" data-x3d data-step="0">
       <div class="x3d-stage" aria-hidden="true">
@@ -1686,6 +2042,78 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
            dispatch, 9 migrations, and an append-only audit log.</p></div>
     </div>
 
+    <!-- Illustration of what is deployed, from app/docs/architecture/README.md
+         (the as-built note), render.yaml and DEPLOYMENT.md. Only what runs. -->
+    <div class="ill-row">
+      <figure class="ill">
+        <svg viewBox="0 0 480 460" role="img" aria-labelledby="ilTopoT ilTopoD">
+          <title id="ilTopoT">Illustration: where the platform runs</title>
+          <desc id="ilTopoD">Six clients at the top: the citizen app, the mechanic console, RAKSHA, the live map, the Android app and feature phones over SMS. They reach the platform over HTTPS through Cloudflare, which sits in front of Render. On Render in Singapore, one container runs one Fastify process holding the /v1 API, the web pages, the server-sent event streams and the offer-expiry sweeper. It connects over TLS to Neon in Singapore: PostgreSQL with PostGIS. To one side, this showcase page, static on GitHub Pages, reads the platform's health.</desc>
+          <defs>
+            <marker id="ilTopoArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="var(--ink-3)"/></marker>
+            <filter id="ilTopoGlow" x="-10%" y="-20%" width="120%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
+          </defs>
+          <rect x="16" y="14" width="448" height="152" rx="16" class="i-pn"/>
+          <text x="32" y="38" class="i-k">CLIENTS</text>
+          <text x="448" y="38" class="i-s i-end i-m" style="font-size:11px">one /v1 contract</text>
+          <g>
+            <rect x="32" y="50" width="132" height="46" rx="10" class="i-pn2"/><text x="44" y="70" class="i-h" style="font-size:13.5px">Citizen app</text><text x="44" y="87" class="i-s" style="font-size:11.5px">PWA</text>
+            <rect x="174" y="50" width="132" height="46" rx="10" class="i-pn2"/><text x="186" y="70" class="i-h" style="font-size:13.5px">Mechanic</text><text x="186" y="87" class="i-s" style="font-size:11.5px">console</text>
+            <rect x="316" y="50" width="132" height="46" rx="10" class="i-pn2"/><text x="328" y="70" class="i-h" style="font-size:13.5px">RAKSHA</text><text x="328" y="87" class="i-s" style="font-size:11.5px">authority</text>
+            <rect x="32" y="106" width="132" height="46" rx="10" class="i-pn2"/><text x="44" y="126" class="i-h" style="font-size:13.5px">Live map</text><text x="44" y="143" class="i-s" style="font-size:11.5px">operations</text>
+            <rect x="174" y="106" width="132" height="46" rx="10" class="i-pn2"/><text x="186" y="126" class="i-h" style="font-size:13.5px">Android</text><text x="186" y="143" class="i-s" style="font-size:11.5px">Kotlin + Compose</text>
+            <rect x="316" y="106" width="132" height="46" rx="10" class="i-pn2"/><text x="328" y="126" class="i-h" style="font-size:13.5px">Feature phone</text><text x="328" y="143" class="i-s" style="font-size:11.5px">SMS, no app</text>
+          </g>
+          <path d="M166 168V186" class="i-fl" stroke="var(--ink-3)" stroke-width="1.5" marker-start="url(#ilTopoArr)" marker-end="url(#ilTopoArr)"/>
+          <text x="178" y="182" class="i-s i-m" style="font-size:11px">HTTPS · /v1 · SSE</text>
+          <rect x="16" y="190" width="300" height="36" rx="18" class="i-pn2"/>
+          <text x="166" y="213" class="i-b i-mid" style="font-size:13px"><tspan style="fill:var(--ink);font-weight:700">Cloudflare</tspan> · in front of Render</text>
+          <rect x="332" y="184" width="132" height="48" rx="12" fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <text x="398" y="204" class="i-h i-mid" style="font-size:13px">This page</text>
+          <text x="398" y="221" class="i-s i-mid" style="font-size:11.5px">GitHub Pages</text>
+          <path d="M166 228V246" class="i-fl" stroke="var(--ink-3)" stroke-width="1.5" marker-end="url(#ilTopoArr)"/>
+          <path d="M398 234V246" class="i-fl" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#ilTopoArr)"/>
+          <text x="406" y="244" class="i-s i-m" style="font-size:10px">/health</text>
+          <rect x="24" y="256" width="432" height="96" rx="16" fill="rgba(240,180,41,.18)" filter="url(#ilTopoGlow)" opacity=".5"/>
+          <rect x="16" y="250" width="448" height="108" rx="16" fill="#14130f" stroke="rgba(240,180,41,.5)" stroke-width="1.5"/>
+          <text x="32" y="274" class="i-k">RENDER · SINGAPORE</text>
+          <text x="32" y="296" class="i-h">One container, one Fastify process</text>
+          <g class="i-b" style="font-size:12.5px">
+            <rect x="32" y="310" width="66" height="28" rx="14" class="i-pn2"/><text x="65" y="328.5" class="i-mid i-m" style="font-size:11.5px">/v1 API</text>
+            <rect x="106" y="310" width="84" height="28" rx="14" class="i-pn2"/><text x="148" y="328.5" class="i-mid">Web pages</text>
+            <rect x="198" y="310" width="96" height="28" rx="14" class="i-pn2"/><text x="246" y="328.5" class="i-mid">SSE streams</text>
+            <rect x="302" y="310" width="146" height="28" rx="14" class="i-pn2"/><text x="375" y="328.5" class="i-mid">Offer-expiry sweeper</text>
+          </g>
+          <path d="M240 360V378" class="i-fl" stroke="var(--ink-3)" stroke-width="1.5" marker-end="url(#ilTopoArr)"/>
+          <text x="250" y="374" class="i-s i-m" style="font-size:11px">TLS</text>
+          <path d="M90 392V438A150 12 0 0 0 390 438V392Z" fill="var(--surface)" stroke="rgba(77,163,255,.55)" stroke-width="1.5"/>
+          <ellipse cx="240" cy="392" rx="150" ry="12" fill="var(--surface-2)" stroke="rgba(77,163,255,.55)" stroke-width="1.5"/>
+          <text x="240" y="420" class="i-k i-mid" style="fill:var(--blue)">NEON · SINGAPORE</text>
+          <text x="240" y="440" class="i-h i-mid">PostgreSQL + PostGIS</text>
+        </svg>
+        <figcaption><span class="ill-tag">Illustration</span> A diagram of the deployment, not a
+          screenshot. Drawn from <code>render.yaml</code> and the as-built note in the architecture
+          document.</figcaption>
+      </figure>
+      <div class="ill-side">
+        <span class="k">Reading the drawing</span>
+        <h3>What runs, and where</h3>
+        <ol class="ill-steps">
+          <li><b>Every client, one contract.</b> The citizen app, the consoles, the Android client and
+            the SMS path all call the same versioned <code>/v1</code> API.</li>
+          <li><b>Cloudflare in front.</b> The API takes the caller's address from the header the edge
+            sets, so a client cannot forge its way past a per-address limit.</li>
+          <li><b>Render, Singapore.</b> One container and one long-lived Fastify process: the API,
+            every web surface, the event streams and the offer-expiry sweeper.</li>
+          <li><b>Neon, Singapore.</b> PostgreSQL with PostGIS, reached over TLS.</li>
+          <li><b>This page.</b> Static on GitHub Pages. It asks the platform's <code>/health</code>
+            before it frames the live surfaces.</li>
+        </ol>
+        <p class="sub">Not drawn, because not deployed: the separate emergency deployable, Redis and
+          an event bus. They are in the target architecture, not in the running system.</p>
+      </div>
+    </div>
+
     <div class="x3d" id="arch3d" data-x3d data-step="0">
       <div class="x3d-stage" aria-hidden="true">
         <div class="x3d-scale"><div class="x3d-world">
@@ -1772,6 +2200,65 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         <p>The audit chain is verified on read and a forged link is reported as a broken chain.
            Postgres <code>RULES</code> make UPDATE and DELETE on the log no-ops.</p></div>
     </div>
+    <!-- Illustration: only layers app/docs/SECURITY.md lists as in place. The
+         least-privilege database role is prepared but not applied on the hosted
+         database, so it is not drawn as a layer. -->
+    <div class="ill-row">
+      <figure class="ill">
+        <svg viewBox="0 0 480 460" role="img" aria-labelledby="ilShT ilShD">
+          <title id="ilShT">Illustration: the layers a request passes through</title>
+          <desc id="ilShD">Nested layers, outermost first. Headers and origins: a strict content security policy with scripts allowed by hash, HSTS and a CORS allow-list. Rate limits per caller, never on an SOS confirm. Sign-in: a one-time code, a short-lived JWT and an HttpOnly cookie. Access: a role gate, then ownership checked at the resource. Input: Zod schemas and parameterised queries. At the core, the audit log, hash-chained and append-only, so editing one row makes every later hash fail. Each layer is marked as a place where an attack is refused.</desc>
+          <defs>
+            <filter id="ilShGlow" x="-20%" y="-30%" width="140%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+            <g id="ilShX"><circle r="8" fill="rgba(239,99,99,.14)" stroke="rgba(239,99,99,.6)" stroke-width="1.5"/><path d="M-3-3 3 3M3-3-3 3" stroke="var(--alert)" stroke-width="1.5" stroke-linecap="round"/></g>
+          </defs>
+          <rect x="16" y="14" width="448" height="432" rx="18" fill="rgba(240,180,41,.018)" stroke="rgba(240,180,41,.16)" stroke-width="1.5"/>
+          <rect x="32" y="64" width="416" height="372" rx="16" fill="rgba(240,180,41,.018)" stroke="rgba(240,180,41,.24)" stroke-width="1.5"/>
+          <rect x="48" y="114" width="384" height="312" rx="14" fill="rgba(240,180,41,.018)" stroke="rgba(240,180,41,.32)" stroke-width="1.5"/>
+          <rect x="64" y="164" width="352" height="252" rx="12" fill="rgba(240,180,41,.018)" stroke="rgba(240,180,41,.4)" stroke-width="1.5"/>
+          <rect x="80" y="214" width="320" height="192" rx="10" fill="rgba(240,180,41,.018)" stroke="rgba(240,180,41,.5)" stroke-width="1.5"/>
+          <rect x="104" y="272" width="272" height="116" rx="8" fill="rgba(240,180,41,.3)" filter="url(#ilShGlow)" opacity=".45"/>
+          <rect x="96" y="264" width="288" height="132" rx="8" fill="#16140d" stroke="var(--accent)" stroke-width="1.5"/>
+          <text x="32" y="35" class="i-h" style="font-size:14.5px">Headers and origins</text><text x="32" y="52" class="i-d">strict CSP, scripts by hash · HSTS · CORS allow-list</text>
+          <text x="48" y="85" class="i-h" style="font-size:14.5px">Rate limits</text><text x="48" y="102" class="i-d">per caller · never on an SOS confirm</text>
+          <text x="64" y="135" class="i-h" style="font-size:14.5px">Sign-in</text><text x="64" y="152" class="i-d">one-time code, short-lived JWT, HttpOnly cookie</text>
+          <text x="80" y="185" class="i-h" style="font-size:14.5px">Access</text><text x="80" y="202" class="i-d">role gate, then ownership at the resource</text>
+          <text x="96" y="235" class="i-h" style="font-size:14.5px">Input</text><text x="96" y="252" class="i-d">Zod schemas, parameterised queries</text>
+          <use href="#ilShX" x="442" y="36"/><use href="#ilShX" x="426" y="86"/><use href="#ilShX" x="410" y="136"/><use href="#ilShX" x="394" y="186"/><use href="#ilShX" x="378" y="236"/>
+          <text x="112" y="287" class="i-h" style="fill:var(--accent)">Audit log</text>
+          <text x="112" y="304" class="i-d">hash-chained, append-only</text>
+          <g>
+            <rect x="128" y="318" width="64" height="38" rx="8" class="i-pn2" style="stroke:rgba(240,180,41,.5)"/>
+            <rect x="208" y="318" width="64" height="38" rx="8" class="i-pn2" style="stroke:rgba(240,180,41,.5)"/>
+            <rect x="288" y="318" width="64" height="38" rx="8" class="i-pn2" style="stroke:rgba(240,180,41,.5)"/>
+            <path d="M140 331H180M140 343H166M220 331H260M220 343H246M300 331H340M300 343H326" class="i-ic"/>
+            <path d="M192 337H208M272 337H288" class="i-fl" stroke="var(--accent)" stroke-width="1.5"/>
+            <circle cx="200" cy="337" r="3" fill="var(--accent)"/><circle cx="280" cy="337" r="3" fill="var(--accent)"/>
+          </g>
+          <text x="240" y="380" class="i-s i-mid">edit one row and every later hash fails</text>
+        </svg>
+        <figcaption><span class="ill-tag">Illustration</span> Drawn from <code>SECURITY.md</code>;
+          only the layers it lists as in place. Each red mark is where an attack is refused.</figcaption>
+      </figure>
+      <div class="ill-side">
+        <span class="k">What each layer refuses</span>
+        <h3>Outside in, then the record</h3>
+        <ol class="ill-steps">
+          <li><b>Headers and origins.</b> An inline script not on the hash list, framing by any site
+            but the showcase, and other websites calling the API with a user's credentials.</li>
+          <li><b>Rate limits.</b> Sprayed sign-in codes and booking floods. The call that summons help
+            is never limited.</li>
+          <li><b>Sign-in.</b> Forged and <code>alg:none</code> tokens, an edited subject, and a reused
+            refresh token, which burns its whole family.</li>
+          <li><b>Access.</b> Another person's booking, vehicle or SOS.</li>
+          <li><b>Input.</b> SQL injection, malformed JSON and oversized fields.</li>
+          <li><b>Audit log.</b> An edited history, which no longer verifies.</li>
+        </ol>
+        <p class="sub">Not drawn: the least-privilege database role. It is prepared and verified
+          locally, and not yet applied on the hosted database.</p>
+      </div>
+    </div>
+
     <div class="x3d" id="au3d" data-x3d data-step="0">
       <div class="x3d-stage" aria-hidden="true">
         <div class="x3d-scale"><div class="x3d-world">
