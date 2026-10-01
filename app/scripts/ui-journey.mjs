@@ -1346,14 +1346,23 @@ const run = async () => {
     check(chosen.done && /demo point/.test(chosen.state),
       "choosing the demo point completes step 3 and says it is the demo point", chosen.state);
 
+    // Every toast is recorded: on a fast machine "N mechanics found" replaces
+    // the "created" toast before a single read could see it.
+    await page.eval(`
+      window.__toasts = [];
+      const el = document.getElementById("toast");
+      new MutationObserver(() => window.__toasts.push(el.textContent))
+        .observe(el, { childList: true, subtree: true, characterData: true });
+      return true;
+    `);
     await page.click("#b-book");
     await page.waitFor(`window.__bkRes.length === 1`, 20000, "the demo-point booking to be created");
-    await page.waitFor(`/created/.test(document.getElementById("toast").textContent) ||
+    await page.waitFor(`window.__toasts.some((t) => /created/.test(t)) ||
       !document.getElementById("b-book").classList.contains("is-busy")`, 10000);
     const made = await page.eval(`
       return {
         body: window.__bk[0], res: window.__bkRes[0],
-        toast: document.getElementById("toast").textContent,
+        toast: window.__toasts.find((t) => /created/.test(t)) || document.getElementById("toast").textContent,
       };
     `);
     check(made.res.status === 201 || made.res.status === 200, "…and then the booking is created",
