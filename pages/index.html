@@ -380,6 +380,7 @@ dialog.lb::backdrop{background:rgba(4,6,10,.9)}
 .vids{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
 .vid{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden}
 .vid video{width:100%;height:auto;background:#000;aspect-ratio:16/10;object-fit:cover}
+.vid.promo video{aspect-ratio:16/9;object-fit:contain}
 /* The citizen recording is portrait; a 16:10 crop showed a band of it. */
 .vid video.tall{aspect-ratio:9/20;width:auto;max-width:100%;height:min(78vh,720px);margin-inline:auto;object-fit:contain}
 @media (min-width:981px){.vids.mixed{grid-template-columns:minmax(0,300px) minmax(0,1fr);align-items:start}
@@ -2370,6 +2371,19 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   <div class="wrap">
     <p class="eyebrow">Recordings</p>
     <h2>See the system in motion</h2>
+    <div class="vid promo" style="margin-top:20px">
+      <video controls playsinline preload="none" poster="media/roadassist-promo-poster.png" width="1920" height="1080"
+             aria-label="RoadAssist Bharat in 30 seconds">
+        <source src="media/roadassist-promo.mp4" type="video/mp4">
+        Your browser cannot play this video. The file is at media/roadassist-promo.mp4.
+      </video>
+      <div class="meta">
+        <h3>RoadAssist Bharat in 30 seconds</h3>
+        <p>A short film: real app footage and real screenshots, with the drawn scenes tagged as illustrations.
+          Every figure on screen comes from <code>app/docs/measured.json</code>.
+          <a href="media/roadassist-promo-vertical.mp4">Vertical cut for phones</a>.</p>
+      </div>
+    </div>
     <div class="vids mixed" style="margin-top:20px">
       <div class="vid">
         <span class="badge-live"><i></i>LIVE PREVIEW</span>

@@ -94,6 +94,7 @@ jobs:
           # added to site/ for some other use is not published by accident.
           cp site/roadassist-app-demo.mp4 _site/media/
           cp site/raksha-full-demo.mp4    _site/media/
+          cp site/roadassist-promo.mp4 site/roadassist-promo-vertical.mp4 site/roadassist-promo-poster.png _site/media/
           # The generated 3D visuals, all of them: naming three by hand meant
           # adding a fourth to the page failed the build instead of shipping.
           # render_visuals.py builds them from the
