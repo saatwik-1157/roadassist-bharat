@@ -1,6 +1,6 @@
 # RoadAssist Bharat — SWE4004 presentation
 
-`RoadAssist-Bharat-FINAL.pptx` — the current deck: 37 slides, 16:9, speaker
+`RoadAssist-Bharat-FINAL.pptx` — the current deck: 38 slides, 16:9, speaker
 notes on the slides that need them. `RoadAssist-Bharat-FINAL.pdf` is its
 PowerPoint export.
 
@@ -18,7 +18,7 @@ place and the slide regenerated. Edit `part_final.py`, never the `.pptx`.
 | File | Contents |
 |------|----------|
 | `build_deck.py` | Palette, background generation, and every slide primitive |
-| `part_final.py` | The final deck's 37 slides, in order |
+| `part_final.py` | The final deck's 38 slides, in order |
 | `make_final.py` | Concatenates the two above into `make_final_generated.py`, runs it and saves the deck |
 | `part_a.py` … `part_g.py`, `make.py` | The superseded Review-1 deck (`RoadAssist-Bharat-SWE4004.pptx`, 30 slides, no longer in the tree) |
 | `assets/` | Generated background images (deleted → regenerated) |

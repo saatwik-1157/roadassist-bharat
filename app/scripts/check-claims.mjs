@@ -388,23 +388,24 @@ const EXEMPT_PATTERNS = [
 const IGNORE_MARK = "claims-check:ignore";
 
 /**
- * The one attribute that is exempt: a screenshot's caption.
+ * Attributes a visitor reads, so a figure in one is a claim like any other —
+ * a screenshot's caption included.
  *
- * The Pages gallery opens each screenshot in a lightbox and shows its
- * `data-cap` beneath it — "The security suite — N attacks, every one refused".
- * That caption describes the IMAGE, and the image is a capture of one run. When
- * the suite grows the caption is still true of the picture, exactly as a
- * docs/verification report is still true of its build; making it match today's
- * count would put a number under a screenshot that visibly shows another.
+ * The Pages gallery shows each screenshot's `data-cap` beneath it in the
+ * lightbox: "The security suite — N attacks, every one refused". That caption
+ * used to be exempt, on the argument that it describes a capture of one run
+ * and stays true of the picture when the suite grows. In practice it meant the
+ * showcase said "56 tables" and "87 attacks" under the headline gallery long
+ * after the schema had 58 and the suite 106, and nothing noticed — the image
+ * was just as stale as its caption, and the visitor reads both as today's
+ * system. So the caption is read like body text: when a number moves, the
+ * build fails until the screenshot is re-taken and its caption updated
+ * TOGETHER. A caption that must name a past figure on purpose takes
+ * claims-check:ignore on its line, like any other quotation.
  *
- * Narrow on purpose: only `data-cap`, and only on an element whose `data-src`
- * is a file under shots/. Every other visible attribute (alt, title,
- * aria-label, meta content, placeholder) is read like body text, and so is a
- * `data-cap` anywhere else.
+ * figcaption needs no reader of its own: it is element text, and element text
+ * is what the prose checks already read once the tags are blanked.
  */
-const SCREENSHOT_CAPTION = { attribute: "data-cap", onElementWith: /\bdata-src\s*=\s*["']?shots\//i };
-
-/** Attributes a visitor reads, so a figure in one is a claim like any other. */
 const VISIBLE_ATTR = /(?<=\s)(alt|title|aria-label|content|placeholder|data-cap)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
 
 export function isExempt(rel) {
@@ -464,8 +465,6 @@ function jsStrings(code) {
 function tagText(tag) {
   let out = blank(tag);
   for (const a of tag.matchAll(VISIBLE_ATTR)) {
-    if (a[1].toLowerCase() === SCREENSHOT_CAPTION.attribute &&
-        SCREENSHOT_CAPTION.onElementWith.test(tag)) continue;
     const val = a[2] ?? a[3];
     const at = a.index + a[0].length - val.length - 1;
     out = out.slice(0, at) + val + out.slice(at + val.length);
@@ -736,7 +735,7 @@ function main() {
     console.log(`  ${"api.routes".padEnd(34)} ${measured.api.routes} recorded, ${countRoutes()} in the code`);
     console.log(`  ${"api.underV1".padEnd(34)} ${measured.api.underV1} recorded, ${countV1Routes()} in the code`);
     console.log(`Exempt (dated evidence): ${EXEMPT_DIRS.join(", ")}`);
-    console.log(`Exempt attribute: ${SCREENSHOT_CAPTION.attribute} on a screenshot (data-src under shots/)`);
+    console.log(`Read as text: element text (figcaption included) and the attributes ${VISIBLE_ATTR.source.match(/\(([a-z|-]+)\)/)[1].split("|").join(", ")}`);
     process.exit(0);
   }
 

@@ -197,23 +197,25 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
              radial-gradient(46% 46% at 80% 22%,rgba(77,163,255,.10),transparent 70%);
 }
 .hero-in{position:relative;z-index:2;display:grid;grid-template-columns:1.08fr .92fr;gap:56px;align-items:center}
-/* The NH-48 expressway from the air, behind everything else in the hero. The
-   scrim is darkest on the left where the headline sits and fades into the
-   page at the bottom edge, so no seam shows. Only the backdrop is new: the
-   copy, buttons and figure above it are unchanged. */
+/* A night expressway behind everything else in the hero. It is an original
+   illustration drawn for this project, not a photograph: the source is
+   hero/hero-scene.svg, generated and rendered to these WebPs by
+   hero/build-hero.py (edit and re-run the script, then commit its output).
+   The scrim is darkest on the left where the headline sits and fades into the
+   page at the bottom edge, so no seam shows. */
 .hero-photo{position:absolute;inset:0;z-index:0;pointer-events:none;
-  background:url("hero/nh48-expressway-1920.webp") center 30%/cover no-repeat;
+  background:url("hero/hero-scene-1920.webp") center 30%/cover no-repeat;
   filter:saturate(1.08) brightness(.85)}
 .hero-photo::after{content:"";position:absolute;inset:0;
   background:linear-gradient(90deg,rgba(6,7,10,.5) 0%,rgba(6,7,10,.18) 55%,rgba(6,7,10,0) 100%),
              linear-gradient(180deg,rgba(6,7,10,.74) 0%,rgba(6,7,10,.32) 42%,rgba(6,7,10,.72) 88%,var(--bg) 100%)}
 .hero::before{z-index:1}
 /* The device render carries its own dark backdrop; feathering its edges lets
-   the devices sit on the photo instead of inside a black rectangle. */
+   the devices sit on the backdrop instead of inside a black rectangle. */
 .hero-3d img{-webkit-mask-image:radial-gradient(ellipse 64% 60% at 50% 50%,#000 52%,transparent 100%);
              mask-image:radial-gradient(ellipse 64% 60% at 50% 50%,#000 52%,transparent 100%)}
 @media (max-width:980px){
-  .hero-photo{background-image:url("hero/nh48-expressway-1080.webp")}
+  .hero-photo{background-image:url("hero/hero-scene-1080.webp")}
   .hero-photo::after{background:linear-gradient(180deg,rgba(6,7,10,.74) 0%,rgba(6,7,10,.45) 45%,rgba(6,7,10,.72) 85%,var(--bg) 100%)}
 }
 .pill{
@@ -228,7 +230,9 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
 .hero-fig{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
           background:var(--surface);box-shadow:0 20px 60px -24px rgba(0,0,0,.85)}
 .hero-fig img{width:100%}
-.hero-note{font-size:.8rem;color:var(--ink-3);margin-top:10px}
+/* --ink-2, not --ink-3: --ink-3 is 4.1:1 even on the bare page background, so
+   over the backdrop it fell below 4.5:1 for 12.8 px text. */
+.hero-note{font-size:.8rem;color:var(--ink-2);margin-top:10px}
 
 /* ── RAKSHA edge feed: real frames, boxed by the trained model ─── */
 /* The frames are square, so the screen is square and shows every pixel. A wide
@@ -2359,8 +2363,8 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     <div class="shots shots-wide">
       <button class="shot" data-src="shots/13-mechanic-login.png"   data-cap="Mechanic console — dispatch inbox, live badge, job lifecycle"><img srcset="shots/thumbs/13-mechanic-login.webp 880w, shots/stage/13-mechanic-login.webp 1400w, shots/hd/13-mechanic-login.webp 2560w" sizes="(max-width: 720px) 92vw, 540px" src="shots/stage/13-mechanic-login.webp" alt="Mechanic console" loading="lazy"><span class="cap">Mechanic console</span></button>
       <button class="shot" data-src="shots/14-authority.png"        data-cap="RAKSHA authority — live map, road health, detection triage"><img srcset="shots/thumbs/14-authority.webp 880w, shots/stage/14-authority.webp 1400w, shots/hd/14-authority.webp 2560w" sizes="(max-width: 720px) 92vw, 540px" src="shots/stage/14-authority.webp" alt="RAKSHA authority dashboard" loading="lazy"><span class="cap">RAKSHA authority</span></button>
-      <button class="shot" data-src="shots/20-database-schema.png"  data-cap="The schema — 56 tables, counted through pg_depend so PostGIS does not inflate it"><img srcset="shots/thumbs/20-database-schema.webp 880w, shots/stage/20-database-schema.webp 1400w, shots/hd/20-database-schema.webp 1550w" sizes="(max-width: 720px) 92vw, 540px" src="shots/stage/20-database-schema.webp" alt="Database schema" loading="lazy"><span class="cap">Schema</span></button>
-      <button class="shot" data-src="shots/21-test-security.png"    data-cap="The security suite — 87 attacks, every one refused"><img srcset="shots/thumbs/21-test-security.webp 880w, shots/stage/21-test-security.webp 1400w, shots/hd/21-test-security.webp 1550w" sizes="(max-width: 720px) 92vw, 540px" src="shots/stage/21-test-security.webp" alt="Security suite output" loading="lazy"><span class="cap">Security suite</span></button>
+      <button class="shot" data-src="shots/20-database-schema.png"  data-cap="The schema — 58 tables, counted through pg_depend so PostGIS does not inflate it"><img srcset="shots/thumbs/20-database-schema.webp 880w, shots/stage/20-database-schema.webp 1400w, shots/hd/20-database-schema.webp 1550w" sizes="(max-width: 720px) 92vw, 540px" src="shots/stage/20-database-schema.webp" alt="Database schema" loading="lazy"><span class="cap">Schema</span></button>
+      <button class="shot" data-src="shots/21-test-security.png"    data-cap="The security suite — 106 attacks, every one refused"><img srcset="shots/thumbs/21-test-security.webp 880w, shots/stage/21-test-security.webp 1400w, shots/hd/21-test-security.webp 1550w" sizes="(max-width: 720px) 92vw, 540px" src="shots/stage/21-test-security.webp" alt="Security suite output" loading="lazy"><span class="cap">Security suite</span></button>
       <button class="shot" data-src="shots/23-console.png"          data-cap="Request console — every API call the client makes, with its response"><img srcset="shots/thumbs/23-console.webp 880w, shots/stage/23-console.webp 1400w, shots/hd/23-console.webp 2560w" sizes="(max-width: 720px) 92vw, 540px" src="shots/stage/23-console.webp" alt="Request console" loading="lazy"><span class="cap">Request console</span></button>
     </div>
   </div>

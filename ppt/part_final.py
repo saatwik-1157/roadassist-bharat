@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════════════════
-#  RoadAssist Bharat — final submission deck, 37 slides
+#  RoadAssist Bharat — final submission deck, 38 slides
 #
 #  Every figure in this file is measured, not estimated, and every capability
 #  claim carries a status. The rule the deck follows throughout:
@@ -1044,7 +1044,33 @@ for i, (t, d) in enumerate(adv):
     txt(s, 4.15, y + 0.1, 8.1, 0.55, d, size=10, color=WHITE, line=1.3)
 footer(s); page_no(s, 33)
 
-# ── 34 · LIVE DEMO ─────────────────────────────────────────────────────────
+# ── 34 · THE FILM ──────────────────────────────────────────────────────────
+# The 30-second promo plays inside the deck, so it works with no internet in
+# the hall; the PDF export keeps its poster frame.
+s = new_slide(BG_HERO)
+title_block(s, "RoadAssist Bharat in 30 seconds", eyebrow="THE FILM",
+            sub="Real app footage and real screenshots; the drawn scenes are tagged as illustrations.")
+_promo = _P(__file__).resolve().parent.parent / "site"
+panel(s, 0.85, 1.95, 8.2, 4.62, fill=INK_2, line_col=LINE)
+s.shapes.add_movie(str(_promo / "roadassist-promo.mp4"), Inches(0.95), Inches(2.05), Inches(8.0), Inches(4.5),
+                   poster_frame_image=str(_promo / "roadassist-promo-poster.png"), mime_type="video/mp4")
+txt(s, 9.4, 2.05, 3.1, 0.3, "WHAT IT SHOWS", size=9.5, color=CYAN, bold=True, spacing=1.8)
+for i, (head, line) in enumerate([
+        ("Request help", "the nearest verified mechanic, ranked by PostGIS"),
+        ("Off-grid SOS", "stored on the device; 112 · 1033 · 108 one tap away"),
+        ("RAKSHA", "YOLO11 boxes on real road frames, then authority review"),
+        ("Under the hood", f"{MEASURED['assertions']['total']} automated checks, six suites")]):
+    txt(s, 9.4, 2.5 + i * 0.95, 3.1, 0.3, head, size=12, color=WHITE, bold=True, font=SANS_SEMI)
+    txt(s, 9.4, 2.82 + i * 0.95, 3.1, 0.55, line, size=9.5, color=GREY, line=1.25)
+txt(s, 0.85, 6.7, 11.6, 0.3, "Also on the showcase: roadassistbharat.online/media/roadassist-promo.mp4",
+    size=9, color=GREY_DIM)
+footer(s); page_no(s, 34)
+notes(s, """Click the film to play it (30 seconds, sound on). It is embedded in the
+file, so it plays without internet. Every figure in it comes from
+app/docs/measured.json; the dashboard clip is tagged 'simulated device data'
+because those detections come from the simulator, not the model.""")
+
+# ── 35 · LIVE DEMO ─────────────────────────────────────────────────────────
 s = new_slide(BG_RED)
 title_block(s, "Live demonstration", eyebrow="THE PART THAT MATTERS")
 txt(s, 0.9, 2.15, 5.5, 0.3, "PART ONE · THE FULL JOURNEY", size=10, color=GREEN,

@@ -62,9 +62,12 @@
   .rv.in { opacity: 1; transform: none; }
   .rv.d1 { transition-delay: 0.1s; } .rv.d2 { transition-delay: 0.2s; } .rv.d3 { transition-delay: 0.3s; }
 
-  /* ═══ HERO — real NH-48 photo, parallax, logos ═══ */
-  /* The hero sits on a photograph, so it keeps a dark treatment in BOTH themes
-     — light text over an image is the only readable option. Its own tokens are
+  /* ═══ HERO — drawn night-expressway scene, parallax, logos ═══ */
+  /* The hero sits on a dark illustration, so it keeps a dark treatment in BOTH
+     themes — light text over an image is the only readable option. The scene
+     is original, drawn for this project, not a photograph: its source is
+     pages/hero/hero-scene.svg, rendered to assets/hero/ by
+     pages/hero/build-hero.py. Its own tokens are
      scoped here and it fades into whichever page background is active at the
      very bottom edge, so the seam disappears either way. */
   .hero {
@@ -74,10 +77,10 @@
   }
   /* Child selector, not a bare class: `.hero > *` below has the same
      specificity and comes later, so a bare `.hero-bg` lost to it — which made
-     the backdrop position:relative with zero height, and the hero photo has
-     never actually rendered. */
+     the backdrop position:relative with zero height, and the hero backdrop
+     had never actually rendered. */
   .hero > .hero-bg { position: absolute; inset: -12% 0; z-index: 0;
-    background: url("/media/assets/nh48-expressway.jpg") center 30%/cover no-repeat;
+    background: url("/assets/hero/hero-scene-1920.webp") center 30%/cover no-repeat;
     will-change: transform; filter: saturate(1.08) brightness(0.85); }
   .hero::after { content: ""; position: absolute; inset: 0; z-index: 1;
     background: linear-gradient(180deg,
@@ -121,7 +124,7 @@
   .cta:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(216,180,106,0.25); }
   .cta.solid { background: var(--brand-fill); color: var(--brand-ink); }
   .cta.solid:hover { box-shadow: 0 0 34px rgba(216,180,106,0.5), 0 12px 30px rgba(0,0,0,0.4); }
-  .credit { position: absolute; bottom: 10px; right: 14px; z-index: 2; font-size: 9.5px; color: rgba(245,241,232,0.4); }
+  .credit { position: absolute; bottom: 10px; right: 14px; z-index: 2; font-size: 9.5px; color: rgba(245,241,232,0.62); }
   .credit a { text-decoration: underline; }
 
   /* ═══ LIVE STATS — polls the real API ═══ */
@@ -344,7 +347,7 @@
       <a class="cta" href="#layers">See every layer in 3D</a>
     </div>
   </div>
-  <span class="credit">Photo: <a href="https://commons.wikimedia.org/wiki/File:Delhi-Gurgaon_Expressway_-_Aerial_View_-_New_Delhi_2016-08-04_5808.JPG" target="_blank" rel="license noopener">Biswarup Ganguly, CC BY 3.0</a></span>
+  <span class="credit">Illustration drawn for this project, not a photograph</span>
 </header>
 
 <div class="live-strip" id="live-strip">

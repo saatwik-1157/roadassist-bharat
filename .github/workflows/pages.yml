@@ -59,9 +59,11 @@ jobs:
           # app/apps/web/assets/3d/, so a sleeping platform cannot blank it.
           mkdir -p _site/3d
           cp pages/3d/*.webp _site/3d/
-          # The hero's NH-48 aerial photo (1920 and 1080 wide) and the eight
-          # RDD2022 India frames the RAKSHA feed plays, each boxed by the
-          # trained model. Web-sized copies, committed like the thumbs.
+          # The hero's night-expressway backdrop (1920 and 1080 wide), an
+          # original illustration rendered from pages/hero/hero-scene.svg by
+          # pages/hero/build-hero.py, and the eight RDD2022 India frames the
+          # RAKSHA feed plays, each boxed by the trained model. Web-sized
+          # copies, committed like the thumbs; only the .webp files ship.
           mkdir -p _site/hero _site/feed
           cp pages/hero/*.webp _site/hero/
           cp pages/feed/*.webp _site/feed/

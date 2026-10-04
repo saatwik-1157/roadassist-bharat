@@ -334,13 +334,25 @@ describe("exemptions", () => {
     `<button class="shot" data-src="shots/21-test-security.png" data-cap="${caption}"><img src="t.webp" alt="Security suite output"></button>`;
   const oldCaption = `The security suite — ${stale(SUITE.securityAudit)} attacks, every one refused`;
 
-  it("a screenshot's data-cap describes the image, so a stale figure there passes", () => {
-    passes("pages/index.html", shot(oldCaption));
+  // A screenshot's caption used to be exempt, and the showcase gallery kept
+  // "56 tables" and "87 attacks" under captures of a build long gone. The
+  // caption and the capture are now re-taken together, so a stale figure in
+  // either place fails.
+  it("a screenshot's data-cap is a claim: today's figure passes, a stale one fails", () => {
+    passes("pages/index.html", shot(`The security suite — ${SUITE.securityAudit} attacks, every one refused`));
+    fails("pages/index.html", shot(oldCaption), stale(SUITE.securityAudit), String(SUITE.securityAudit));
+    const schema = (n: string) =>
+      `<button class="shot" data-src="shots/20-database-schema.png" data-cap="The schema — ${n} tables, counted through pg_depend"><img alt="Database schema"></button>`;
+    passes("pages/index.html", schema(TABLES));
+    fails("pages/index.html", schema(stale(TABLES)), stale(TABLES), TABLES);
   });
 
-  it("…but only data-cap, and only on a screenshot: the same figure elsewhere fails", () => {
+  it("…and so is figcaption text, and the alt, title or aria-label of any element", () => {
     const n = stale(SUITE.securityAudit);
     const want = String(SUITE.securityAudit);
+    fails("pages/index.html", `<figure><img src="x.webp"><figcaption>${oldCaption}</figcaption></figure>`, n, want);
+    fails("pages/index.html", `<img src="x.webp" title="${oldCaption}">`, n, want);
+    fails("pages/index.html", `<a href="#s" aria-label="${oldCaption}">x</a>`, n, want);
     fails("pages/index.html", `<button class="demo" data-cap="${oldCaption}">x</button>`, n, want);
     fails("pages/index.html",
       `<button class="shot" data-src="shots/21.png" data-cap="ok"><img alt="${oldCaption}"></button>`, n, want);
@@ -351,6 +363,8 @@ describe("exemptions", () => {
   it("claims-check:ignore on the line, including as an HTML comment", () => {
     passes("docs/demo/x.md", `Footer "${stale(TOTAL)} assertions" <!-- claims-check:ignore: quoted on purpose -->`);
     passes("pages/index.html", `<p>${stale(TOTAL)} assertions</p> <!-- claims-check:ignore: quoted on purpose -->`);
+    // A caption that must name a past figure on purpose says so the same way.
+    passes("pages/index.html", `${shot(oldCaption)} <!-- claims-check:ignore: a capture of a past run -->`);
     passes("pages/index.html",
       `<table><tr><th>Suite</th><th>Assertions</th></tr>\n` +
       `<tr><td>Unit</td><td>${stale(SUITE.unit)}</td></tr><!-- claims-check:ignore: a past run --></table>`);
