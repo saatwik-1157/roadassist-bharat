@@ -510,7 +510,7 @@ panel(s, 5.1, 5.42, 7.35, 0.82, fill=INK_2, line_col=LINE)
 txt(s, 5.28, 5.5, 7.0, 0.24, "SAMPLE LOOKUP AT THE NH-48 DEMO POINT · MEASURED IN TESTING",
     size=8, color=AMBER, bold=True, spacing=1.2)
 x = 5.28
-for i, (lab, w) in enumerate([("Sector 12, Gurgaon, Haryana 122001", 2.4),
+for i, (lab, w) in enumerate([("Sohna Road, Shivaji Nagar, Gurgaon", 2.4),
                               ("Aarvy Hospital · 290 m", 1.52),
                               ("Road 28.4 km · 33 min", 1.47),
                               ("US AQI 195 · Unhealthy", 1.52)]):
@@ -589,7 +589,7 @@ an authority with a reason, audited; it can close an incident, never dispatch on
 # ── 16 · THE ANDROID APP ──────────────────────────────────────────────────
 s = new_slide()
 title_block(s, "The Android app, on the emulator",
-            eyebrow="KOTLIN + JETPACK COMPOSE · 137 TESTS · CAPTURED FROM ANDROID STUDIO'S EMULATOR")
+            eyebrow=f"KOTLIN + JETPACK COMPOSE · {MEASURED['assertions']['otherRunners']['android']} TESTS · CAPTURED FROM ANDROID STUDIO'S EMULATOR")
 for i, (name, cap) in enumerate([("src_android_home.png", "Home · the new Layers in 3D card"),
                                  ("src_android_layers.png", "Layers in 3D · live, in a WebView"),
                                  ("src_android_journey.png", "A journey playing · step 5 of 8"),
@@ -598,7 +598,7 @@ for i, (name, cap) in enumerate([("src_android_home.png", "Home · the new Layer
     visual(s, x, 2.0, 2.2, 3.95, str(ASSETS / name), "android_" + str(i))
     txt(s, x - 0.2, 6.02, 2.6, 0.3, cap, size=8.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.45, 11.6, 0.3,
-    "179 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
+    f"{MEASURED['assertions']['otherRunners']['android']} Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
     size=9.5, color=GREY, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 16)
 notes(s, """Run it from Android Studio 2026.1: device Medium_Phone, then Run 'app'.
