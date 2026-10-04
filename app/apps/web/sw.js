@@ -19,7 +19,8 @@
 // v14: photo-shrink.js (hazard photos shrunk to the server's cap, ADR-0013) joins the shell; app.html changed.
 // v15: emergency-numbers.js (tap-to-call 112/1033/..., "Text my location") joins the shell; app.html and ds.css changed.
 // v16: booking-position.js (no GPS fix is never booked silently; the demo point only by choice) joins the shell; app.html changed.
-const VERSION = "ra-v16";
+// v17: app.css (app.html's styles, moved out of the page) and ui.js (sheet focus, top-bar hairline) join the shell; app.html, ds.css and depth.js changed.
+const VERSION = "ra-v18";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -33,7 +34,11 @@ const SHELL_ASSETS = [
   // A mechanic works from the same dead zones their customers break down in.
   "/mechanic.html",
   "/ds.css",
+  // app.html's own stylesheet; uncached, an off-grid launch would draw unstyled.
+  "/app.css",
   "/depth.js",
+  // Sheet focus and the top-bar hairline on app.html.
+  "/ui.js",
   "/email-signin.js",
   // The session and its refresh cookie; without it a cached page cannot sign in.
   "/session.js",
@@ -66,10 +71,12 @@ const SHELL_ASSETS = [
   // Self-hosted now, so the typography survives offline too rather than
   // silently dropping to the fallback stack.
   "/vendor/fonts.css",
-  "/vendor/fonts/fraunces-latin.woff2",
-  "/vendor/fonts/fraunces-latin-ext.woff2",
-  "/vendor/fonts/manrope-latin.woff2",
-  "/vendor/fonts/manrope-latin-ext.woff2",
+  "/vendor/fonts/space-grotesk-latin.woff2",
+  "/vendor/fonts/space-grotesk-latin-ext.woff2",
+  "/vendor/fonts/inter-latin.woff2",
+  "/vendor/fonts/inter-latin-ext.woff2",
+  "/vendor/fonts/jetbrains-mono-latin.woff2",
+  "/vendor/fonts/jetbrains-mono-latin-ext.woff2",
   "/vendor/leaflet.css",
   "/vendor/leaflet.js",
   "/vendor/MarkerCluster.css",

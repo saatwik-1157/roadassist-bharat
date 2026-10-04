@@ -47,11 +47,11 @@
   }
 
   /* ── top bar ─────────────────────────────────────────────────────────── */
-  .top { display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line);
+  .top { display: flex; align-items: center; gap: 12px; padding: 8px 18px;   /* 44 px controls + 16 + 1 border = the 61 px .wrap subtracts */ border-bottom: 1px solid var(--line);
          background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
          position: sticky; top: 0; z-index: 20; }
   .top .brand { font-family: var(--display); font-size: 19px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; }
-  .top .brand em { font-style: italic; color: var(--brand); }
+  .top .brand em { font-style: normal; color: var(--brand); }
   .top .grow { flex: 1; }
   .livepill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: var(--r-full);
           border: 1px solid var(--line); background: var(--surface); font: 600 12px/1 var(--mono); white-space: nowrap; }
@@ -72,10 +72,32 @@
   /* ── layout ──────────────────────────────────────────────────────────── */
   .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 0; height: calc(100vh - 61px); height: calc(100dvh - 61px); }
   .stage { position: relative; min-width: 0; overflow: hidden; background: #06080c; color: #f2f0ea; }
+  /* The stage is a dark studio in BOTH themes, so everything drawn on it - the
+     chips, the labels, the journey bar - takes the dark palette whatever the
+     page is in. In the light theme the caption and the journey picker used
+     to inherit the stage's light text on white glass, and could not be read. */
+  .stage {
+    color-scheme: dark;
+    --glass: rgba(12, 14, 20, .62); --glass-strong: rgba(12, 14, 20, .80);
+    --surface: #161922; --surface-2: #1d212c; --surface-3: #252a36;
+    --line: rgba(240, 238, 232, .13); --line-2: rgba(240, 238, 232, .22);
+    --line-brand: rgba(227, 185, 106, .42);
+    --text: #f2f0ea; --text-2: #c9ccd4; --text-3: #9a9eab;
+    --ink: #f2f0ea; --ink-on: #0b0c10; --ink-hover: #fff;
+    --brand: #e3b96a; --brand-soft: rgba(227, 185, 106, .16);
+    --shadow-1: 0 1px 2px rgba(0,0,0,.45), 0 6px 16px rgba(0,0,0,.35);
+    --shadow-2: 0 2px 6px rgba(0,0,0,.45), 0 14px 34px rgba(0,0,0,.5);
+  }
+  /* A soft vignette over the model, so the HUD and labels at the edges sit on
+     a calmer ground than the brightest slab. */
+  .stage::after { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(3, 4, 7, .55) 100%); }
   .stage .intro p { color: #d9d6cc; opacity: .8; }
   .stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; cursor: grab; }
   .stage canvas:active { cursor: grabbing; }
-  .labels { position: absolute; inset: 0; pointer-events: none; }
+  /* Its own stacking layer: CSS2DRenderer gives every label a z-index for depth
+     order, and without this those could climb over the HUD and journey bar. */
+  .labels { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
   .panel { border-left: 1px solid var(--line); background: var(--glass-strong); overflow-y: auto; padding: 18px 18px 28px; }
 
   /* ── stage overlays ──────────────────────────────────────────────────── */
@@ -84,20 +106,27 @@
   .hud .chip:not([aria-pressed="true"]) { background: var(--glass-strong); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   .intro { position: absolute; top: 60px; left: 16px; max-width: 420px; z-index: 4; pointer-events: none; }
   .intro h1 { font-family: var(--display); font-weight: 600; font-size: clamp(26px, 3.2vw, 40px); line-height: 1.05; letter-spacing: -0.02em; }
-  .intro h1 em { font-style: italic; color: var(--brand); }
-  .intro p { margin-top: 8px; font-size: 14px; line-height: 1.5; color: var(--text); opacity: .72; max-width: 36ch; }
+  .intro h1 em { font-style: normal; color: var(--brand); }
+  .intro p { margin-top: 10px; font-size: 14px; line-height: 1.55; color: #d9d6cc; max-width: 31ch; text-wrap: pretty; }
+  .intro h1 { text-wrap: balance; letter-spacing: -0.025em; }
 
   .journey { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 6; display: grid; gap: 10px;
              grid-template-columns: auto 1fr; align-items: stretch; }
   .jctl { display: flex; gap: 6px; align-items: center; padding: 8px; border-radius: var(--r-lg); border: 1px solid var(--line);
           background: var(--glass-strong); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
   .jctl select { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-full); padding: 8px 10px; font-size: 13px; font-weight: 650; max-width: 190px; }
-  .jctl button { width: 36px; height: 36px; border-radius: var(--r-full); border: 1px solid var(--line); background: var(--surface); font-size: 14px; }
-  .jctl button.play { background: var(--brand); border-color: var(--brand); color: #1a1408; font-weight: 800; }
+  .jctl button { width: 36px; height: 36px; border-radius: var(--r-full); border: 1px solid var(--line); background: var(--surface); font-size: 14px;
+                 transition: transform var(--t-2) var(--spring), border-color var(--t-2) var(--ease), background var(--t-2) var(--ease); }
+  .jctl button:hover { border-color: var(--line-2); background: var(--surface-2); }
+  .jctl button:active { transform: scale(.92); }
+  .jctl button.play { width: 42px; height: 42px; background: linear-gradient(180deg, #f1cf88, #d9a548); border-color: transparent; color: #1a1408; font-weight: 800;
+                      box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 0 4px rgba(227,185,106,.14), 0 8px 22px -6px rgba(227,185,106,.55); }
+  .jctl button.play:hover { background: linear-gradient(180deg, #f6d998, #e0ad52); }
   .caption { padding: 10px 14px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--glass-strong);
              backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); min-height: 56px; display: flex; flex-direction: column; justify-content: center; }
-  .caption .k { font: 700 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; opacity: .65; }
-  .caption .t { margin-top: 3px; font-size: 14px; line-height: 1.4; }
+  .caption .k { font: 700 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+  .caption .t { margin-top: 3px; font-size: 14px; line-height: 1.4; color: var(--text); }
+  .progress i { transition: background var(--t-3) var(--ease); }
   .progress { display: flex; gap: 4px; margin-top: 7px; }
   .progress i { flex: 1; height: 3px; border-radius: 3px; background: var(--line-2); }
   .progress i.on { background: var(--brand); }
@@ -111,51 +140,106 @@
   .no-webgl canvas { display: none; }
 
   /* ── 3D labels (CSS2D) ───────────────────────────────────────────────── */
-  .lbl-layer { font: 700 12px/1.1 var(--sans); color: var(--text); padding: 6px 10px; border-radius: var(--r-full);
-               background: var(--glass-strong); border: 1px solid var(--line); white-space: nowrap; pointer-events: auto; cursor: pointer;
-               box-shadow: var(--shadow-1); transition: opacity .3s, transform .3s; display: flex; align-items: center; gap: 7px; }
-  .lbl-layer b { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-  .lbl-layer small { font: 600 10.5px var(--mono); opacity: .65; }
-  .lbl-layer.dim { opacity: .35; }
-  .lbl-comp { font: 650 11px/1.15 var(--sans); color: var(--text); padding: 4px 8px; border-radius: 8px; white-space: nowrap;
-              background: var(--glass-strong); border: 1px solid var(--line); opacity: 0; transform: translateY(4px);
-              transition: opacity .25s, transform .25s; }
-  .lbl-comp.show { opacity: 1; transform: none; }
-  .lbl-comp.hot { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+  /* Labels are dark glass with a blur behind them, so they read over the
+     brightest slab as well as over the dark studio. CSS2DRenderer owns their
+     transform; only their own child moves, so nothing here fights it. */
+  .lbl-layer { font: 700 12.5px/1.1 var(--sans); letter-spacing: -0.005em; color: var(--text); padding: 6px 11px 6px 9px; border-radius: var(--r-full);
+               background: var(--glass-strong); border: 1px solid var(--line-2); white-space: nowrap; pointer-events: auto; cursor: pointer;
+               -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3);
+               box-shadow: var(--shadow-1); transition: opacity .35s var(--ease), border-color .25s var(--ease), background .25s var(--ease);
+               display: flex; align-items: center; gap: 7px; }
+  .lbl-layer:hover { border-color: var(--line-brand); background: rgba(20, 23, 31, .9); }
+  .lbl-layer b { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px currentColor; }
+  .lbl-layer small { font: 600 10.5px var(--mono); color: var(--text-3); }
+  .lbl-layer.dim { opacity: .42; }
+  .lbl-layer.sel { border-color: var(--line-brand); box-shadow: var(--shadow-1), 0 0 0 3px var(--brand-soft); }
+  .lbl-comp { font: 650 11.5px/1.15 var(--sans); color: var(--text); padding: 5px 9px; border-radius: 9px; white-space: nowrap;
+              background: var(--glass-strong); border: 1px solid var(--line-2); opacity: 0;
+              -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+              transition: opacity .3s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease); }
+  .lbl-comp.show { opacity: 1; }
+  .lbl-comp.hot { border-color: var(--brand); color: #fff; box-shadow: 0 0 0 3px var(--brand-soft), 0 0 18px rgba(227,185,106,.35); }
+
+  /* While the live model is on its way, the render holds the stage and says so. */
+  .loadpill { position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 3; display: inline-flex; align-items: center; gap: 9px;
+              padding: 9px 15px; border-radius: var(--r-full); border: 1px solid var(--line-2); background: var(--glass-strong);
+              -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font: 650 12.5px/1 var(--sans); color: var(--text-2);
+              transition: opacity .5s var(--ease); pointer-events: none; }
+  .loadpill::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line-2);
+                      border-top-color: var(--brand); animation: spin .9s linear infinite; }
+  .is-ready .loadpill, .no-webgl .loadpill { opacity: 0; }
 
   /* ── side panel ──────────────────────────────────────────────────────── */
-  .eyebrow { font: 700 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; opacity: .6; }
+  /* Panel greys are colours, not opacity: an opacity-faded label sat near
+     2:1 against the panel. --text-3 is darkened in the light theme below. */
+  .eyebrow { font: 700 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--text-2); }
   .layers { list-style: none; display: grid; gap: 6px; margin-top: 10px; }
   .layers button { width: 100%; text-align: left; display: grid; grid-template-columns: 12px 1fr auto; gap: 10px; align-items: center;
-                   padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); transition: border-color .2s, transform .2s; }
-  .layers button:hover { transform: translateX(2px); }
-  .layers button[aria-pressed="true"] { border-color: var(--line-brand); box-shadow: 0 0 0 3px var(--brand-soft); }
-  .layers .sw { width: 12px; height: 12px; border-radius: 4px; }
-  .layers .nm { font-size: 14px; font-weight: 700; }
-  .layers .nm small { display: block; font-size: 12px; font-weight: 500; opacity: .65; margin-top: 1px; }
-  .layers .lv { font: 600 11px var(--mono); opacity: .75; text-align: right; max-width: 120px; }
-  .detail { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-  .detail h2 { font-family: var(--display); font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
-  .detail .tag { margin-top: 4px; font-size: 14px; opacity: .75; }
+                   padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface);
+                   transition: border-color .25s var(--ease), transform .3s var(--ease), box-shadow .25s var(--ease), background .25s var(--ease); }
+  .layers button:hover { transform: translateX(3px); border-color: var(--line-2); box-shadow: var(--shadow-1); }
+  .layers button:active { transform: translateX(1px) scale(.995); }
+  .layers button[aria-pressed="true"] { border-color: var(--line-brand); box-shadow: 0 0 0 3px var(--brand-soft);
+                                        background: linear-gradient(100deg, var(--brand-soft), transparent 70%), var(--surface); }
+  .layers .sw { width: 12px; height: 12px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+  .layers .nm { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; }
+  .layers .nm small { display: block; font-size: 12px; font-weight: 500; color: var(--text-2); margin-top: 1px; }
+  /* A fixed column: the readings arrive after first paint, and a column that
+     grew with them re-wrapped the names beside it and nudged the panel. */
+  .layers .lv { font: 600 11px var(--mono); color: var(--text-2); text-align: right; width: 104px; font-variant-numeric: tabular-nums; }
+  /* The list is drawn by the module; on the two-column layout its height is
+     known (seven rows), so the space is held for it. */
+  @media (min-width: 901px) { .layers:empty { min-height: 516px; } }
+  .detail { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); min-height: 132px; }
+  .detail h2 { font-family: var(--display); font-size: 25px; font-weight: 600; letter-spacing: -0.03em; text-wrap: balance; }
+  .detail .tag { margin-top: 4px; font-size: 14px; color: var(--text-2); text-wrap: pretty; }
   .live-box { margin-top: 12px; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); font: 600 12.5px/1.5 var(--mono); }
-  .live-box .k { opacity: .6; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; font-size: 10.5px; }
+  .live-box .k { color: var(--green); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; font-size: 10.5px; }
   .comps { list-style: none; margin-top: 12px; display: grid; gap: 8px; }
-  .comps li { padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); cursor: pointer; }
+  .comps li { padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+              transition: border-color .25s var(--ease), box-shadow .25s var(--ease); }
+  .comps li:hover { border-color: var(--line-2); }
   .comps li.hot { border-color: var(--line-brand); box-shadow: 0 0 0 3px var(--brand-soft); }
   .comps b { font-size: 13.5px; }
-  .comps p { font-size: 13px; line-height: 1.45; opacity: .78; margin-top: 3px; }
-  .honest { margin-top: 18px; font-size: 12px; line-height: 1.5; opacity: .65; }
+  .comps p { font-size: 13px; line-height: 1.5; color: var(--text-2); margin-top: 3px; text-wrap: pretty; }
+  .honest { margin-top: 18px; font-size: 12px; line-height: 1.55; color: var(--text-3); }
+  .honest code { font-size: 11.5px; }
+  /* Light theme only (a bare :root loses to ds.css's dark selectors): the
+     quietest grey and small gold text, darkened to hold 4.5:1 on paper. */
+  :root { --text-3: #676a74; --brand-strong: #8a6315; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --brand-strong: #e3b96a; } }
+  :root[data-theme="dark"] { --brand-strong: #e3b96a; }
+  .top .brand em { color: var(--brand-strong); }
+  .iconbtn { transition: transform var(--t-2) var(--spring), border-color var(--t-2) var(--ease); }
+  .iconbtn:hover { border-color: var(--line-brand); }
+  .iconbtn:active { transform: scale(.9) rotate(-18deg); }
+  .hud .chip { -webkit-tap-highlight-color: transparent; }
+  /* touch targets: 44 px wherever a finger is the pointer */
+  .top .brand { display: inline-flex; align-items: center; min-height: 44px; }
+  @media (pointer: coarse), (max-width: 900px) {
+    .iconbtn { width: 44px; height: 44px; }
+    .jctl button { width: 44px; height: 44px; }
+    .jctl button.play { width: 48px; height: 48px; }
+    .jctl select { min-height: 44px; }
+    .hud .chip { min-height: 44px; }
+  }
 
   /* ── phone ───────────────────────────────────────────────────────────── */
   @media (max-width: 900px) {
     .wrap { grid-template-columns: minmax(0, 1fr); height: auto; }
     /* On a phone the model gets the whole view: the journey controls sit
        below it instead of over its lower half. */
-    .stage { height: auto; }
-    .stage canvas, .poster, .labels { height: 64vh !important; height: 64svh !important; min-height: 420px; }
-    .labels { bottom: auto; }
-    .poster { bottom: auto; }
-    .journey { position: relative; left: auto; right: auto; bottom: auto; padding: 0 12px 14px; }
+    /* The viewport is reserved before the model exists: the canvas, the
+       render and the labels are laid over a padded box of the same height.
+       When the canvas used to arrive in the flow, it pushed the journey bar
+       and the whole panel down by 64% of a screen (CLS 0.6 on a phone). */
+    .stage { height: auto; --vp-h: max(420px, 64svh); padding-top: var(--vp-h); }
+    .stage canvas, .poster, .labels { position: absolute !important; top: 0; left: 0; right: 0; bottom: auto;
+                                      height: var(--vp-h) !important; }
+    .stage::after { bottom: auto; height: var(--vp-h); }
+    .nogl { bottom: auto; top: calc(var(--vp-h) - 130px); }
+    .loadpill { top: calc(var(--vp-h) / 2); }
+    .journey { position: relative; left: auto; right: auto; bottom: auto; padding: 12px 12px 14px; }
     .panel { border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
     .intro { top: 58px; }
     .intro p { display: none; }
@@ -170,11 +254,14 @@
     .lbl-layer { font-size: 10.5px; padding: 3px 8px; gap: 5px; box-shadow: none; }
     .lbl-layer b { width: 7px; height: 7px; }
     .lbl-layer small { display: none; }
-    /* The headline would sit on the top slab: the header already names the page. */
-    .intro { display: none; }
+    /* The headline would sit on the top slab: the header already names the
+       page. Hidden from sight only - it stays the page's heading for a screen
+       reader. */
+    .intro { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+             clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
     /* One row of controls: icons only, the names stay for screen readers. */
     .hud { gap: 6px; }
-    .hud .chip { padding: 8px 11px; }
+    .hud .chip { padding: 8px 11px; min-width: 44px; min-height: 44px; justify-content: center; }
     .hud .chip .t { display: none; }
     /* Five names across one slab collide at this width: only the part in play. */
     .lbl-comp.show:not(.hot) { opacity: 0; }
@@ -185,11 +272,11 @@
   @media (max-width: 900px) {
     /* The frame is the phone's view: the model and its journey controls fill
        it exactly; the layer list stays on the full-screen page. */
-    .embedded .stage canvas, .embedded .poster, .embedded .labels {
-      height: calc(100vh - 196px) !important; height: calc(100dvh - 196px) !important; min-height: 280px; }
+    .embedded .stage { --vp-h: max(280px, calc(100vh - 196px)); }
+    @supports (height: 100dvh) { .embedded .stage { --vp-h: max(280px, calc(100dvh - 196px)); } }
     .embedded .panel { display: none; }
   }
-  @media (prefers-reduced-motion: reduce) { .livepill.ok .dot { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .livepill.ok .dot, .loadpill::before { animation: none; } }
 </style>
 </head>
 <body>
@@ -215,19 +302,20 @@
       <p>It turns by itself, live — drag to turn it any way yourself, over the top or from underneath. Right-drag or two fingers to pan, scroll or pinch to zoom, arrow keys too. Tap a layer to open it; press ▶ to watch a real request travel through every layer.</p>
     </div>
     <div class="labels" id="labels"></div>
-    <img class="poster" id="poster" src="assets/3d/layers-render-960.webp" srcset="assets/3d/layers-render-960.webp 960w, assets/3d/layers-render.webp 1920w" sizes="(max-width: 900px) 100vw, 70vw" alt="The seven layers of RoadAssist Bharat, rendered in Blender">
+    <img class="poster" id="poster" src="assets/3d/layers-render-960.webp" srcset="assets/3d/layers-render-960.webp 960w, assets/3d/layers-render.webp 1920w" sizes="(max-width: 900px) 100vw, 70vw" width="1920" height="1200" fetchpriority="high" decoding="async" alt="The seven layers of RoadAssist Bharat, rendered in Blender">
+    <div class="loadpill" aria-hidden="true">Loading the live model</div>
     <div class="nogl"><div><b>Interactive 3D is not available in this browser.</b><br>The picture is the same model, rendered in Blender; every layer is still explained in the panel.</div></div>
     <div class="journey">
       <div class="jctl">
-        <select id="j-pick" aria-label="Choose a journey"></select>
+        <select id="j-pick" aria-label="Choose a journey"><option value="0">Book a mechanic</option><option value="1">SOS with no signal</option><option value="2">RAKSHA finds a pothole</option></select>
         <button id="j-prev" aria-label="Previous step">◀</button>
         <button id="j-play" class="play" aria-label="Play the journey">▶</button>
         <button id="j-next" aria-label="Next step">▶▶</button>
       </div>
       <div class="caption" aria-live="polite">
-        <span class="k" id="j-k">Journey</span>
-        <span class="t" id="j-t">Choose a journey and press ▶ — the glowing packet is the request.</span>
-        <span class="progress" id="j-bar"></span>
+        <span class="k" id="j-k">Book a mechanic</span>
+        <span class="t" id="j-t">Press ▶ to follow the request through every layer.</span>
+        <span class="progress" id="j-bar"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
       </div>
     </div>
   </section>
@@ -256,23 +344,39 @@
       "Data, AI, and Cloud &amp; delivery.</li>";
   }
 </script>
-<script type="module">
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/OrbitControls.js";
-import { CSS2DRenderer, CSS2DObject } from "three/addons/CSS2DRenderer.js";
-import { GLTFLoader } from "three/addons/GLTFLoader.js";
-import { DRACOLoader } from "three/addons/DRACOLoader.js";
-import { RoomEnvironment } from "./vendor/three/environments/RoomEnvironment.js";
-import { EffectComposer } from "./vendor/three/postprocessing/EffectComposer.js";
-import { RenderPass } from "./vendor/three/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "./vendor/three/postprocessing/UnrealBloomPass.js";
-import { OutputPass } from "./vendor/three/postprocessing/OutputPass.js";
+<!-- async: with no static imports left, the module runs as soon as it is
+     parsed, so the panel is drawn before the first paint rather than after. -->
+<script type="module" async>
+/* three.js is imported dynamically, after the panel, the journey bar and the
+   live readings are already on screen. Static imports made the whole module
+   wait for the library before it ran a line, so the layer list arrived a
+   second or more after first paint and pushed the panel down as it did. */
+let THREE, OrbitControls, CSS2DRenderer, CSS2DObject, GLTFLoader, DRACOLoader,
+    RoomEnvironment, EffectComposer, RenderPass, UnrealBloomPass, OutputPass;
+async function loadThree() {
+  const m = await Promise.all([
+    import("three"),
+    import("three/addons/OrbitControls.js"),
+    import("three/addons/CSS2DRenderer.js"),
+    import("three/addons/GLTFLoader.js"),
+    import("three/addons/DRACOLoader.js"),
+    import("./vendor/three/environments/RoomEnvironment.js"),
+    import("./vendor/three/postprocessing/EffectComposer.js"),
+    import("./vendor/three/postprocessing/RenderPass.js"),
+    import("./vendor/three/postprocessing/UnrealBloomPass.js"),
+    import("./vendor/three/postprocessing/OutputPass.js"),
+  ]);
+  THREE = m[0];
+  ({ OrbitControls } = m[1]); ({ CSS2DRenderer, CSS2DObject } = m[2]);
+  ({ GLTFLoader } = m[3]); ({ DRACOLoader } = m[4]); ({ RoomEnvironment } = m[5]);
+  ({ EffectComposer } = m[6]); ({ RenderPass } = m[7]); ({ UnrealBloomPass } = m[8]); ({ OutputPass } = m[9]);
+}
 
 /* ── what the platform is made of (every figure is in app/docs/measured.json) ── */
 const LAYERS = [
   { id: "people", name: "People & devices", tag: "Where every request starts", color: 0xe3b96a, comps: [
     ["Citizen app", "A web app that installs like a phone app: book help, raise an SOS, track the mechanic live. Offered in 8 languages."],
-    ["Android app", "Native Kotlin + Jetpack Compose client with 175 unit tests, pointed at the live API."],
+    ["Android app", "Native Kotlin + Jetpack Compose client with 179 unit tests, pointed at the live API."],
     ["Mechanic console", "The offers inbox: accept a job, drive it step by step, record a cash payment."],
     ["RAKSHA dashboard", "The road authority's view of road damage: verify a finding, then close it."],
     ["Feature phone", "No smartphone needed: a plain SMS reaches POST /v1/telecom/sms."],
@@ -356,11 +460,12 @@ const narrow = () => stage.clientWidth < 600;
 // The stack turns by itself, live. A hand on it (drag, pinch, keys) pauses the
 // turn; 2.5 s after the hand lets go it carries on. Only the Auto-rotate
 // button, or a request for reduced motion, stops it for good.
-let spinWanted = !reduced, resumeTimer = null;
+// The turn never snaps on or off: spinGain eases toward 1 when the stack is
+// free to turn and toward 0 while a hand or a camera move holds it.
+let spinWanted = !reduced, resumeTimer = null, spinHeld = false, spinGain = spinWanted ? 1 : 0;
 function holdSpin() {
-  if (!controls) return;
-  controls.autoRotate = false; clearTimeout(resumeTimer);
-  resumeTimer = setTimeout(() => { controls.autoRotate = spinWanted; }, 2500);
+  spinHeld = true; clearTimeout(resumeTimer);
+  resumeTimer = setTimeout(() => { spinHeld = false; }, 2500);
 }
 let glowOn = true;
 const $ = (id) => document.getElementById(id);
@@ -422,12 +527,7 @@ function renderDetail() {
 
 /* ── 3D scene ── */
 let renderer, labelRenderer, scene, camera, controls, composer, bloom;
-try {
-  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-} catch (e) { renderer = null; }
-if (!renderer || !renderer.getContext()) {
-  stage.classList.add("no-webgl");
-}
+let _v, _sph, _off;   // scratch vectors, made once three.js has loaded
 
 let selected = -1, hotComp = -1;
 const W = 7.4, DEP = 4.4, TH = 0.22, GAP0 = 1.75;   // GAP0: the spacing the model was built at
@@ -465,7 +565,6 @@ function radialTexture(stops) {
 let GLOW;
 
 function layerY(i) { return ((LAYERS.length - 1) / 2 - i) * gap; }
-const _v = new THREE.Vector3();
 function compLocal(i, j) {
   const n = LAYERS[i].comps.length, span = W - 1.4;
   return new THREE.Vector3(-span / 2 + (span * j) / Math.max(1, n - 1), TH / 2 + 0.16, (j % 2 ? 0.55 : -0.55));
@@ -657,7 +756,7 @@ async function build() {
     if (hit) select(hit.object.userData.layer, hit.object.userData.comp, true);
     else select(-1, -1, true);
   });
-  controls.addEventListener("start", () => { userTurned = true; tween = null; controls.autoRotate = false; clearTimeout(resumeTimer); });
+  controls.addEventListener("start", () => { userTurned = true; tween = null; spinHeld = true; spinGain = 0; clearTimeout(resumeTimer); });
   controls.addEventListener("end", holdSpin);
   stage.tabIndex = 0;
   stage.addEventListener("keydown", (e) => {
@@ -676,7 +775,28 @@ async function build() {
   });
 
   addEventListener("resize", resize); resize();
-  renderer.setAnimationLoop(frame);
+  // Drawn only while the stage is on screen: framed on the home page or the
+  // showcase, this page used to keep rendering bloom at full rate after the
+  // visitor had scrolled far past it. Inside a frame the observer measures
+  // against the top window's view, so the same rule holds there.
+  run(true);
+  if ("IntersectionObserver" in window) new IntersectionObserver((es) => run(es[es.length - 1].isIntersecting)).observe(stage);
+  // A GPU reset (driver update, too many tabs) takes the context away: show the
+  // render and the panel until it comes back, rather than a frozen canvas.
+  renderer.domElement.addEventListener("webglcontextlost", (e) => {
+    e.preventDefault(); run(false);
+    stage.classList.add("no-webgl"); $("poster").classList.remove("gone");
+  });
+  renderer.domElement.addEventListener("webglcontextrestored", () => {
+    stage.classList.remove("no-webgl"); $("poster").classList.add("gone"); run(true);
+  });
+}
+
+let running = false, lastT = 0;
+function run(on) {
+  if (!renderer || on === running) return;
+  running = on; lastT = 0;
+  renderer.setAnimationLoop(on ? frame : null);
 }
 
 // Slabs at the current gap; pipes stretched to reach the next slab; the plinth
@@ -720,14 +840,25 @@ function resize() {
 
 /* ── camera moves ── */
 let tween = null, userTurned = false;
+// The camera travels on the sphere around the stack - angle, height and
+// distance each eased - rather than in a straight line, which cut through the
+// slabs and changed speed oddly near the end. The longer the move, the longer
+// it takes, within bounds; the turn always goes the short way round.
 function focusOn(i) {
   const tgt = new THREE.Vector3(0, i < 0 ? -0.6 : layerY(i) * (gapTarget / gap || 1), 0);
-  const dir = camera.position.clone().sub(controls.target).normalize();
+  const off = camera.position.clone().sub(controls.target);
   const dist = (i < 0 ? 24 : 13.5) * (narrow() ? 0.98 : 1);
-  const pos = tgt.clone().add(dir.multiplyScalar(dist));
+  const pos = tgt.clone().add(off.clone().normalize().multiplyScalar(dist));
   pos.y = Math.max(pos.y, tgt.y + (i < 0 ? 8 : 5.5));
   if (reduced) { controls.target.copy(tgt); camera.position.copy(pos); return; }
-  tween = { t: 0, dur: 1.1, p0: camera.position.clone(), p1: pos, q0: controls.target.clone(), q1: tgt };
+  const s0 = new THREE.Spherical().setFromVector3(off);
+  const s1 = new THREE.Spherical().setFromVector3(pos.clone().sub(tgt));
+  const TAU = Math.PI * 2;
+  const dTheta = ((((s1.theta - s0.theta) + Math.PI) % TAU) + TAU) % TAU - Math.PI;
+  const dPhi = s1.phi - s0.phi;
+  const span = Math.abs(dTheta) + Math.abs(dPhi) + Math.abs(Math.log(s1.radius / s0.radius)) + tgt.distanceTo(controls.target) * 0.08;
+  tween = { t: 0, dur: Math.min(1.7, 0.8 + span * 0.5), s0, dTheta, dPhi, r0: s0.radius, r1: s1.radius,
+            q0: controls.target.clone(), q1: tgt };
 }
 
 /* ── selection ── */
@@ -839,7 +970,7 @@ function goStep(k) {
   const [[li, ci]] = j.steps[k];
   select(li, ci, false);
   caption();
-  if (prev) spawn(compWorld(prev[0], prev[1]), compWorld(li, ci), j.color, 0.12, 0.55);
+  if (prev && scene) spawn(compWorld(prev[0], prev[1]), compWorld(li, ci), j.color, 0.12, 0.55);
 }
 function tick() {
   const j = JOURNEYS[jIdx];
@@ -869,9 +1000,7 @@ $("b-explode").onclick = (e) => {
   if (reduced) { gap = gapTarget; placeStack(); }
 };
 $("b-spin").onclick = (e) => {
-  if (!controls) return;
-  spinWanted = !spinWanted; clearTimeout(resumeTimer);
-  controls.autoRotate = spinWanted;
+  spinWanted = !spinWanted; spinHeld = false; clearTimeout(resumeTimer);
   e.currentTarget.setAttribute("aria-pressed", String(spinWanted));
 };
 $("b-reset").onclick = () => { stopPlay(); select(-1, -1, false); };   // focusOn(-1) re-centres a pan too
@@ -882,22 +1011,29 @@ $("b-glow").onclick = (e) => {
 };
 
 /* ── frame loop ── */
-const clock = new THREE.Clock();
 let drawn = false;
 function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05);
-  if (!drawn) { drawn = true; requestAnimationFrame(() => $("poster").classList.add("gone")); }
+  const now = performance.now();
+  const dt = lastT ? Math.min((now - lastT) / 1000, 0.05) : 1 / 60;
+  lastT = now;
+  if (!drawn) { drawn = true; requestAnimationFrame(() => { $("poster").classList.add("gone"); stage.classList.add("is-ready"); }); }
   if (Math.abs(gap - gapTarget) > 0.001) {
     gap += (gapTarget - gap) * Math.min(1, dt * 4);
     placeStack();
   }
   if (tween) {
     tween.t = Math.min(1, tween.t + dt / tween.dur);
-    const e = 1 - Math.pow(1 - tween.t, 3);
-    camera.position.lerpVectors(tween.p0, tween.p1, e);
+    const k = tween.t, e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;   // ease in-out
     controls.target.lerpVectors(tween.q0, tween.q1, e);
+    _sph.set(tween.r0 * Math.pow(tween.r1 / tween.r0, e), tween.s0.phi + tween.dPhi * e, tween.s0.theta + tween.dTheta * e);
+    camera.position.copy(controls.target).add(_off.setFromSpherical(_sph));
     if (tween.t >= 1) tween = null;
   }
+  // The turn eases in after a hand lets go (about a second), and out at once.
+  const spinTarget = spinWanted && !spinHeld && !tween ? 1 : 0;
+  spinGain += (spinTarget - spinGain) * Math.min(1, dt * (spinTarget ? 1.1 : 6));
+  controls.autoRotate = spinGain > 0.002;
+  controls.autoRotateSpeed = 0.8 * spinGain;
   // The part a journey is on breathes, so the eye finds it.
   const pulse = 1 + Math.sin(performance.now() / 260) * 0.08;
   L3.forEach((rec, i) => rec.comps.forEach((c, j) => {
@@ -914,7 +1050,7 @@ function frame() {
     if (ground) ground.visible = !below;
   }
   ambient(dt); stepPackets(dt);
-  controls.update();
+  controls.update(dt);   // seconds: the turn is the same speed at 60, 90 or 120 Hz
   composer.render(); labelRenderer.render(scene, camera);
 }
 
@@ -945,7 +1081,7 @@ async function poll() {
     lastOk = new Date();
     pill.className = "livepill ok"; $("live-t").textContent = narrow() ? `LIVE · ${rtt} ms` : `LIVE · API ${rtt} ms`;
     // A heartbeat: the reading just taken, drawn as a request and its answer.
-    if (scene && !playing && !reduced) {
+    if (scene && running && !playing && !reduced) {
       const a = compWorld(L.people, 0), b = compWorld(L.api, 0), c = compWorld(L.data, 0);
       spawn(a, b, 0xffffff, 0.07, 1.1, () => spawn(b, c, 0xffffff, 0.07, 1.1, () => spawn(c, a, 0x9fe6c4, 0.07, 0.8)));
     }
@@ -958,8 +1094,16 @@ async function poll() {
 }
 
 renderList(); renderDetail(); caption();
-if (!stage.classList.contains("no-webgl")) build().catch((e) => { console.error(e); stage.classList.add("no-webgl"); });
 poll();
+if (!stage.classList.contains("no-webgl")) boot();
+async function boot() {
+  try { await loadThree(); }
+  catch (e) { console.warn("3D library unavailable - showing the render instead:", e && e.message); stage.classList.add("no-webgl"); return; }
+  try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" }); } catch (e) { renderer = null; }
+  if (!renderer || !renderer.getContext()) { renderer = null; stage.classList.add("no-webgl"); return; }
+  _v = new THREE.Vector3(); _sph = new THREE.Spherical(); _off = new THREE.Vector3();
+  try { await build(); } catch (e) { console.error(e); run(false); stage.classList.add("no-webgl"); }
+}
 setInterval(() => { if (!document.hidden) poll(); }, 8000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) poll(); });
 </script>

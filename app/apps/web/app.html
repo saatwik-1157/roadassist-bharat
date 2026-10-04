@@ -27,373 +27,16 @@
 </script>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
+<!-- The two faces the first screen draws with, fetched before the CSS that names
+     them is parsed, so the swap from the fallback stack happens before first paint. -->
+<link rel="preload" href="vendor/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="vendor/fonts.css">
 <link rel="manifest" href="manifest.webmanifest">
 <!-- iOS ignores SVG here, so an SVG-only apple-touch-icon gave a blank home-screen tile. -->
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="ds.css">
-<style>
-  /* ── app shell ─────────────────────────────────────────────────────────── */
-  body { min-height: 100dvh; display: flex; justify-content: center; }
-  .shell {
-    width: 100%; max-width: 430px; min-height: 100dvh;
-    display: flex; flex-direction: column; position: relative;
-    background: color-mix(in srgb, var(--bg) 82%, var(--surface));
-  }
-  /* On a phone the shell IS the page, so it lets the road in ds.css show
-     through; on a desktop it stays an opaque device standing on it. */
-  @media (max-width: 899px) { .shell { background: color-mix(in srgb, var(--bg) 58%, transparent); } }
-  /* On a desktop the phone reads as a device, not a stretched web page. */
-  @media (min-width: 900px) {
-    body { align-items: center; padding: 26px 0; }
-    .shell {
-      min-height: min(880px, calc(100dvh - 52px)); height: min(880px, calc(100dvh - 52px));
-      border-radius: 40px; overflow: hidden; border: 1px solid var(--line);
-      box-shadow: var(--shadow-3);
-    }
-  }
-
-  /* ── top bar ───────────────────────────────────────────────────────────── */
-  .topbar {
-    display: flex; align-items: center; gap: 10px; flex: none;
-    padding: calc(13px + env(safe-area-inset-top)) 18px 13px;
-    border-bottom: 1px solid var(--line);
-    background: var(--glass); backdrop-filter: blur(22px) saturate(1.7);
-    -webkit-backdrop-filter: blur(22px) saturate(1.7);
-    position: sticky; top: 0; z-index: 20;
-  }
-  .net {
-    display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 9px;
-    border-radius: var(--r-full); border: 1px solid var(--line);
-    background: var(--surface); color: var(--text-2);
-    font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
-    transition: all var(--t-2) var(--ease), transform var(--t-2) var(--spring);
-  }
-  .net:active, .lang-btn:active { transform: scale(0.94); }
-  /* Language: the status pill's shape, not its dot (a control, not a state). */
-  .lang-btn {
-    flex: none; padding: 5px 11px; min-height: 28px; border-radius: var(--r-full);
-    border: 1px solid var(--line); background: var(--surface); color: var(--text-2);
-    font-size: 12px; font-weight: 650; white-space: nowrap;
-  }
-  .topbar .brand { overflow: hidden; }
-  @media (max-width: 374px) { .topbar .wordmark { display: none; } }
-  .net::before {
-    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green);
-    box-shadow: 0 0 0 3px var(--green-soft); transition: all var(--t-2) var(--ease);
-  }
-  /* Connection and sync are one status. Each state changes the WORD as well as
-     the tint — status is never carried by colour alone (Phase 19). */
-  .net.is-offline { color: var(--red); border-color: var(--red-soft); }
-  .net.is-offline::before { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
-  .net.is-syncing { color: var(--blue); border-color: var(--blue-soft); }
-  .net.is-syncing::before { background: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft);
-    animation: sync-pulse 1s var(--ease) infinite; }
-  .net.is-synced { color: var(--green); border-color: var(--green-soft); }
-  .net.is-failed { color: var(--amber); border-color: var(--amber-soft); }
-  .net.is-failed::before { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
-  /* Off-Grid Mode (ADR-0009): three tiers, three words, three tints — green
-     ONLINE, amber LIMITED, red OFF-GRID. The word is what carries the meaning;
-     the tint only reinforces it. */
-  .net.is-limited { color: var(--amber); border-color: var(--amber-soft); }
-  .net.is-limited::before { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
-  .net.is-offgrid { color: var(--red); border-color: var(--red); background: var(--red-soft); }
-  .net.is-offgrid::before { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
-  @keyframes sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-  @media (prefers-reduced-motion: reduce) { .net.is-syncing::before { animation: none; } }
-
-  /* ── off-grid mode ─────────────────────────────────────────────────────── */
-  /* A distinctive but professional treatment: a red rule down the left of the
-     shell, no flashing, nothing that competes with the SOS button itself. */
-  body.offgrid .topbar { box-shadow: inset 3px 0 0 var(--red); }
-  .og-hero {
-    border: 1px solid var(--red); border-radius: var(--r-lg); padding: 16px 17px;
-    background: var(--red-soft);
-  }
-  .og-hero .og-eyebrow {
-    font-size: 10.5px; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase;
-    color: var(--red);
-  }
-  .og-id {
-    font-family: var(--mono); font-size: 27px; font-weight: 700; letter-spacing: 0.04em;
-    margin-top: 7px; word-break: break-all;
-  }
-  .og-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 14px; margin-top: 14px; }
-  .og-grid > div { min-width: 0; }
-  .og-k {
-    display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
-    text-transform: uppercase; color: var(--text-3);
-  }
-  .og-v { display: block; margin-top: 3px; font-size: 13.5px; font-weight: 650; word-break: break-word; }
-  .og-v.mono { font-family: var(--mono); font-size: 12.5px; letter-spacing: -0.01em; }
-  /* Two columns that must never be confused for one another: what this device
-     can still do, and what it certainly cannot. */
-  .og-caps { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
-  .og-caps ul { list-style: none; margin-top: 8px; }
-  .og-caps li {
-    display: flex; align-items: flex-start; gap: 7px; padding: 3.5px 0;
-    font-size: 12.5px; line-height: 1.45;
-  }
-  .og-caps li span:first-child { flex: none; width: 13px; font-weight: 700; }
-  .og-yes li span:first-child { color: var(--green); }
-  .og-no  li span:first-child { color: var(--red); }
-  .og-no  li { color: var(--text-3); }
-  @media (max-width: 380px) { .og-caps, .og-grid { grid-template-columns: 1fr; } }
-  .og-sync-track {
-    height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 10px;
-  }
-  .og-sync-fill {
-    display: block; height: 100%; width: 0%; background: var(--green);
-    transition: width var(--t-2) var(--ease);
-  }
-  .og-list-item {
-    display: flex; align-items: center; gap: 10px; padding: 11px 0;
-    border-top: 1px solid var(--line);
-  }
-  .og-list-item:first-child { border-top: 0; }
-
-  /* ── request progress rail ─────────────────────────────────────────────── */
-  .steps {
-    list-style: none; display: flex; gap: 4px; margin-top: 18px;
-    counter-reset: step;
-  }
-  .steps li {
-    flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center;
-    gap: 5px; position: relative;
-  }
-  /* The connector sits behind the numbers and stops short of them. */
-  .steps li:not(:last-child)::after {
-    content: ""; position: absolute; top: 11px; left: calc(50% + 14px); right: calc(-50% + 14px);
-    height: 1.5px; background: var(--line-2);
-  }
-  .steps li.done:not(:last-child)::after { background: var(--green); }
-  .steps .n {
-    width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
-    font-family: var(--mono); font-size: 11px; font-weight: 700;
-    background: var(--surface); border: 1.5px solid var(--line-2); color: var(--text-3);
-    position: relative; z-index: 1;
-    transition: all var(--t-2) var(--ease);
-  }
-  /* Done is a tick as well as a colour — the state does not rely on hue. */
-  .steps li.done .n {
-    background: var(--green); border-color: var(--green); color: #fff; font-size: 0;
-  }
-  .steps li.done .n::after { content: "\2713"; font-size: 11px; }
-  .steps .l {
-    font-size: 9.5px; font-weight: 650; letter-spacing: 0.04em; color: var(--text-3);
-    text-align: center; line-height: 1.2;
-  }
-  .steps li.done .l { color: var(--text-2); }
-  @media (max-width: 340px) { .steps .l { font-size: 8.5px; } }
-
-  /* Step headings, so a long request still reads as a sequence. */
-  .step-h {
-    display: flex; align-items: baseline; gap: 8px; margin: 22px 0 2px;
-    font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
-  }
-  .step-h span {
-    font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--brand); flex: none;
-  }
-
-  /* ── diagnosis readout ─────────────────────────────────────────────────── */
-  .diag-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 13px;
-  }
-  .diag-grid > div {
-    background: var(--surface-2); border-radius: var(--r-sm); padding: 10px 12px;
-  }
-  .diag-k {
-    display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.13em;
-    text-transform: uppercase; color: var(--text-3);
-  }
-  .diag-v {
-    display: block; margin-top: 3px; font-family: var(--mono);
-    font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
-  }
-  .conf-track {
-    height: 6px; border-radius: 3px; background: var(--surface-3);
-    margin-top: 11px; overflow: hidden;
-  }
-  .conf-fill {
-    display: block; height: 100%; background: var(--brand); border-radius: 3px;
-    transition: width var(--t-4) var(--ease);
-  }
-  .diag-list { list-style: none; }
-  .diag-list li {
-    position: relative; padding-left: 16px; font-size: 13px; color: var(--text-2);
-    line-height: 1.75;
-  }
-  .diag-list li::before {
-    content: "•"; position: absolute; left: 3px; color: var(--brand); font-weight: 700;
-  }
-
-  /* Inline progress for a step that is genuinely running. */
-  .spinner {
-    width: 15px; height: 15px; flex: none; border-radius: 50%;
-    border: 2px solid var(--line-2); border-top-color: var(--brand);
-    animation: spin 700ms linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) {
-    .spinner { animation-duration: 2.4s; }
-  }
-
-  /* Inline validation, next to the field it is about. */
-  .field-err {
-    color: var(--red); font-size: 12px; font-weight: 600; margin-top: 6px;
-    display: flex; align-items: flex-start; gap: 5px;
-  }
-  .field-err::before { content: "\26A0"; flex: none; }
-  .field input[aria-invalid="true"], .field select[aria-invalid="true"] {
-    border-color: var(--red);
-  }
-
-  /* ── screens ───────────────────────────────────────────────────────────── */
-  main { flex: 1; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
-  .screen { display: none; padding: 22px 18px 34px; }
-  .screen.active { display: block; }
-
-  .greet { display: flex; align-items: flex-start; gap: 12px; }
-  .greet .grow { min-width: 0; }
-
-  /* ── SOS ───────────────────────────────────────────────────────────────── */
-  .sos-wrap { display: grid; place-items: center; padding: 20px 0 6px; }
-  .sos {
-    position: relative; width: 168px; height: 168px; border-radius: 50%;
-    display: grid; place-items: center; gap: 0;
-    background:
-      radial-gradient(circle at 36% 30%, color-mix(in srgb, var(--red) 34%, transparent), transparent 62%),
-      var(--surface);
-    border: 1px solid color-mix(in srgb, var(--red) 34%, transparent);
-    box-shadow: var(--shadow-2), 0 0 0 0 var(--red-soft);
-    color: var(--red); -webkit-tap-highlight-color: transparent; touch-action: none;
-    transition: transform var(--t-3) var(--spring), box-shadow var(--t-3) var(--ease);
-    animation: breathe 3.4s var(--ease) infinite;
-  }
-  @keyframes breathe {
-    0%, 100% { box-shadow: var(--shadow-2), 0 0 0 0 color-mix(in srgb, var(--red) 30%, transparent); }
-    55%      { box-shadow: var(--shadow-2), 0 0 0 22px transparent; }
-  }
-  .sos:active { transform: scale(0.965); }
-  .sos.holding { animation: none; transform: scale(1.035); }
-  .sos-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
-  .sos-ring circle { fill: none; stroke-width: 3.5; stroke-linecap: round; }
-  .sos-ring .track { stroke: var(--red-soft); }
-  /* A round cap still paints a dot at zero progress, so the arc is hidden
-     outright until the hold begins. */
-  .sos-ring .prog {
-    stroke: var(--red); stroke-dasharray: 484; stroke-dashoffset: 484; opacity: 0;
-    transition: stroke-dashoffset var(--t-2) linear, opacity var(--t-1) linear;
-  }
-  .sos.holding .sos-ring .prog {
-    stroke-dashoffset: 0; opacity: 1; transition-duration: 1400ms, 90ms;
-  }
-  .sos-label {
-    font-family: var(--display); font-size: 34px; font-weight: 600; letter-spacing: 0.06em;
-    line-height: 1; grid-area: 1 / 1; margin-top: -8px;
-  }
-  .sos-sub {
-    grid-area: 1 / 1; margin-top: 34px; font-size: 10px; font-weight: 700;
-    letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-3);
-  }
-
-  /* ── emergency readiness ───────────────────────────────────────────────── */
-  .ready {
-    list-style: none; display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 7px; margin-top: 14px;
-  }
-  .ready li {
-    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm);
-    padding: 9px 10px; text-align: center; min-width: 0;
-  }
-  .ready-k {
-    display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
-    text-transform: uppercase; color: var(--text-3);
-  }
-  /* The state is a word first. The tint and the leading glyph only reinforce it. */
-  .ready-v {
-    display: block; margin-top: 3px; font-size: 11.5px; font-weight: 650;
-    overflow-wrap: anywhere;
-  }
-  .ready li.is-ok  { border-color: var(--green-soft); }
-  .ready li.is-ok  .ready-v { color: var(--green); }
-  .ready li.is-ok  .ready-v::before { content: "\2713\00a0"; }
-  .ready li.is-warn { border-color: var(--amber-soft); }
-  .ready li.is-warn .ready-v { color: var(--amber); }
-  .ready li.is-warn .ready-v::before { content: "\26A0\00a0"; }
-  .ready li.is-bad { border-color: var(--red-soft); }
-  .ready li.is-bad .ready-v { color: var(--red); }
-  .ready li.is-bad .ready-v::before { content: "\2715\00a0"; }
-
-  /* ── quick actions ─────────────────────────────────────────────────────── */
-  .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 16px; }
-  .quick button {
-    display: flex; flex-direction: column; align-items: flex-start; gap: 9px;
-    padding: 15px 14px; border-radius: var(--r-md); text-align: left;
-    background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-1);
-    transition: transform var(--t-3) var(--ease), box-shadow var(--t-3) var(--ease),
-                border-color var(--t-2) var(--ease);
-    -webkit-tap-highlight-color: transparent;
-  }
-  .quick button:hover  { transform: translateY(-3px); box-shadow: var(--shadow-2); border-color: var(--line-brand); }
-  .quick button:active { transform: translateY(0) scale(0.978); }
-  .quick svg { width: 21px; height: 21px; color: var(--brand); }
-  .quick b { font-size: 13.5px; font-weight: 650; letter-spacing: -0.01em; }
-  .quick small { color: var(--text-3); font-size: 11.5px; line-height: 1.45; }
-
-  /* ── map ───────────────────────────────────────────────────────────────── */
-  #scr-map.active { display: flex; flex-direction: column; padding: 0; height: 100%; }
-  .map-frame { flex: 1; border: 0; width: 100%; min-height: 420px; background: var(--surface-2); }
-
-  /* ── severity picker ───────────────────────────────────────────────────── */
-  .sev { display: flex; gap: 7px; }
-  .sev button {
-    flex: 1; padding: 11px 0; border-radius: var(--r-sm); border: 1px solid var(--line);
-    background: var(--surface-2); color: var(--text-3);
-    font-family: var(--mono); font-size: 15px; font-weight: 600;
-    transition: all var(--t-2) var(--ease), transform var(--t-2) var(--spring);
-  }
-  .sev button:active { transform: scale(0.93); }
-  .sev button[aria-pressed="true"] { background: var(--ink); color: var(--ink-on); border-color: transparent; }
-
-  .thumb {
-    width: 100%; height: 150px; object-fit: cover; border-radius: var(--r-sm);
-    margin-top: 11px; border: 1px solid var(--line);
-  }
-
-  /* ── tabs ──────────────────────────────────────────────────────────────── */
-  .tabs {
-    display: grid; grid-template-columns: repeat(5, 1fr); flex: none;
-    border-top: 1px solid var(--line); z-index: 20;
-    background: var(--glass); backdrop-filter: blur(22px) saturate(1.7);
-    -webkit-backdrop-filter: blur(22px) saturate(1.7);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .tab {
-    display: grid; place-items: center; gap: 4px; padding: 10px 2px 9px;
-    color: var(--text-3); font-size: 9.5px; font-weight: 650; letter-spacing: 0.07em;
-    transition: color var(--t-2) var(--ease); -webkit-tap-highlight-color: transparent;
-    position: relative;
-  }
-  .tab svg { width: 21px; height: 21px; transition: transform var(--t-3) var(--spring); }
-  .tab:active svg { transform: scale(0.86); }
-  .tab.active { color: var(--brand); }
-  .tab.active svg { transform: translateY(-1px) scale(1.1); }
-  /* The active dot travels with the selection instead of blinking on. */
-  .tab::after {
-    content: ""; position: absolute; top: 3px; width: 4px; height: 4px; border-radius: 50%;
-    background: var(--brand); opacity: 0; transform: scale(0.3);
-    transition: opacity var(--t-2) var(--ease), transform var(--t-3) var(--spring);
-  }
-  .tab.active::after { opacity: 1; transform: scale(1); }
-  .tab .dot {
-    position: absolute; top: 6px; right: calc(50% - 18px);
-    min-width: 15px; height: 15px; padding: 0 4px; border-radius: 99px;
-    background: var(--red); color: #fff; font-family: var(--mono); font-size: 9px;
-    font-weight: 700; display: grid; place-items: center; box-shadow: var(--shadow-1);
-  }
-</style>
+<link rel="stylesheet" href="app.css">
 </head>
 <body>
 <div class="aurora"><div class="road"><i></i></div></div>
@@ -409,7 +52,7 @@
 <div class="shell">
   <header class="topbar">
     <span class="brand grow">
-      <svg class="mark"><use href="#raMark"/></svg>
+      <svg aria-hidden="true" focusable="false" class="mark"><use href="#raMark"/></svg>
       <span class="wordmark">Road<i>Assist</i></span>
     </span>
     <!-- Here, not in settings: who needs it most is least likely to hunt a menu;
@@ -418,8 +61,8 @@
     <button class="lang-btn" id="lang-toggle" type="button" aria-label="Change language">हिंदी</button>
     <button class="net" id="net" title="Toggle simulated offline mode">Online</button>
     <button class="theme-btn" id="theme" title="Switch theme" aria-label="Switch colour theme">
-      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
-      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+      <svg aria-hidden="true" focusable="false" class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+      <svg aria-hidden="true" focusable="false" class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
     </button>
   </header>
 
@@ -462,7 +105,7 @@
 
         <!-- The current task leads: track a live rescue, or start one. -->
         <div id="home-sos" style="margin-top:16px" hidden></div>
-        <div id="home-task" style="margin-top:16px"></div>
+        <div id="home-task" data-depth="hero" style="margin-top:16px"></div>
 
         <div class="sos-wrap">
           <button class="sos" id="sos" aria-label="Hold to send an emergency SOS"
@@ -491,19 +134,19 @@
 
         <div class="quick">
           <button data-nav="book">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>
             <b>Request help</b><small>Diagnose, then dispatch the nearest mechanic</small>
           </button>
           <button data-nav="trip">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 20.5 6v6.2c0 5-3.6 8.6-8.5 10.3C7.1 20.8 3.5 17.2 3.5 12.2V6z"/><path d="m9 12 2 2 4-4.5"/></svg>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 20.5 6v6.2c0 5-3.6 8.6-8.5 10.3C7.1 20.8 3.5 17.2 3.5 12.2V6z"/><path d="m9 12 2 2 4-4.5"/></svg>
             <b>Trip Guardian</b><small>Prepare a route before you lose signal</small>
           </button>
           <button id="q-report">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2z"/><path d="M12 10v4m0 3h.01"/></svg>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2z"/><path d="M12 10v4m0 3h.01"/></svg>
             <b>Report a hazard</b><small>Flag a pothole or blockage for the authority</small>
           </button>
           <button data-nav="map">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3.5-6 2.6v14l6-2.6 6 2.6 6-2.6v-14L15 6.1z"/><path d="M9 3.5v14m6-11.4v14"/></svg>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3.5-6 2.6v14l6-2.6 6 2.6 6-2.6v-14L15 6.1z"/><path d="M9 3.5v14m6-11.4v14"/></svg>
             <b>Live map</b><small>Mechanics, responders and hazards near you</small>
           </button>
         </div>
@@ -604,7 +247,7 @@
         </div>
 
         <button class="btn ghost" id="b-diagnose" style="margin-top:14px">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3z"/><path d="M9.5 20.5h5"/></svg>
+          <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3z"/><path d="M9.5 20.5h5"/></svg>
           Diagnose first
         </button>
         <div id="b-diag"></div>
@@ -652,7 +295,7 @@
         <h1 class="display">Your <em>rescue.</em></h1>
         <div id="t-body" style="margin-top:14px">
           <div class="empty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="10" r="3"/><path d="M12 21c4-4.5 7-8 7-11a7 7 0 1 0-14 0c0 3 3 6.5 7 11z"/></svg>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="10" r="3"/><path d="M12 21c4-4.5 7-8 7-11a7 7 0 1 0-14 0c0 3 3 6.5 7 11z"/></svg>
             <b>No active booking</b>Request assistance and the live rescue appears here.
           </div>
         </div>
@@ -705,19 +348,19 @@
              a duplicate emergency. -->
         <div class="quick" style="margin-top:4px">
           <button id="og-locate">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21c4-4.5 7-8 7-11a7 7 0 1 0-14 0c0 3 3 6.5 7 11z"/></svg>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21c4-4.5 7-8 7-11a7 7 0 1 0-14 0c0 3 3 6.5 7 11z"/></svg>
             <b>My location</b><small>Read the GPS fix and copy it</small>
           </button>
           <button id="og-diagnose">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>
             <b>Offline diagnosis</b><small>The on-device rules engine</small>
           </button>
           <button id="og-map">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3.5-6 2.6v14l6-2.6 6 2.6 6-2.6v-14L15 6.1z"/><path d="M9 3.5v14m6-11.4v14"/></svg>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3.5-6 2.6v14l6-2.6 6 2.6 6-2.6v-14L15 6.1z"/><path d="M9 3.5v14m6-11.4v14"/></svg>
             <b>Cached map</b><small>Last downloaded tiles and pins</small>
           </button>
           <button id="og-instructions">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2z"/><path d="M12 10v4m0 3h.01"/></svg>
+            <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 22 20H2z"/><path d="M12 10v4m0 3h.01"/></svg>
             <b>Emergency instructions</b><small>What to do while you wait</small>
           </button>
         </div>
@@ -760,7 +403,7 @@
           <button role="tab" aria-selected="true"  data-act="bookings">Bookings</button>
           <button role="tab" aria-selected="false" data-act="reports">Hazard reports</button>
         </div>
-        <div id="act-body" style="margin-top:14px"></div>
+        <div id="act-body" class="reveal" style="margin-top:14px"></div>
       </div>
     </section>
 
@@ -775,7 +418,7 @@
             <span class="pill gold bare" id="ec-count">—</span>
           </div>
           <p class="meta" style="margin-top:4px">Alerted automatically when you confirm an SOS, in priority order.</p>
-          <div id="ec-list" style="margin-top:10px"></div>
+          <div id="ec-list" class="reveal" style="margin-top:10px"></div>
           <div class="field-row" style="margin-top:4px">
             <label class="field"><span>Name</span><input id="ec-name" placeholder="Amma"></label>
             <label class="field"><span>Number</span><input id="ec-msisdn" placeholder="+9198…" inputmode="tel"></label>
@@ -790,7 +433,7 @@
           </div>
           <p class="meta" style="margin-top:4px">Insurance, PUC, RC and permit renewal dates. An expired
             PUC is a fine at the next checkpoint, and nobody remembers the date.</p>
-          <div id="doc-list" style="margin-top:10px"></div>
+          <div id="doc-list" class="reveal" style="margin-top:10px"></div>
           <div class="field-row" style="margin-top:4px">
             <label class="field"><span>Vehicle</span><select id="doc-vehicle"></select></label>
             <label class="field"><span>Document</span><select id="doc-type">
@@ -892,11 +535,11 @@
   </main>
 
   <nav class="tabs" id="tabs" hidden>
-    <button class="tab active" data-nav="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.4 12 4l9 7.4"/><path d="M5.6 9.6V20h12.8V9.6"/></svg>Home</button>
-    <button class="tab" data-nav="book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>Assist</button>
-    <button class="tab" data-nav="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3.5-6 2.6v14l6-2.6 6 2.6 6-2.6v-14L15 6.1z"/><path d="M9 3.5v14m6-11.4v14"/></svg>Map</button>
-    <button class="tab" data-nav="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5 6 5-15L17 12h4"/></svg>Activity</button>
-    <button class="tab" data-nav="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>More</button>
+    <button class="tab active" data-nav="home"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.4 12 4l9 7.4"/><path d="M5.6 9.6V20h12.8V9.6"/></svg>Home</button>
+    <button class="tab" data-nav="book"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>Assist</button>
+    <button class="tab" data-nav="map"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3.5-6 2.6v14l6-2.6 6 2.6 6-2.6v-14L15 6.1z"/><path d="M9 3.5v14m6-11.4v14"/></svg>Map</button>
+    <button class="tab" data-nav="activity"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5 6 5-15L17 12h4"/></svg>Activity</button>
+    <button class="tab" data-nav="more"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>More</button>
   </nav>
 </div>
 
@@ -1070,7 +713,8 @@
   var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; }); };
 
   /** A short tap of haptic feedback where the device supports it. */
-  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* unsupported */ } }
+  // Only once the page has had a real tap: before that Chrome refuses vibrate() and logs an error for it.
+  function buzz(ms) { try { if (navigator.vibrate && !(navigator.userActivation && !navigator.userActivation.hasBeenActive)) navigator.vibrate(ms); } catch (e) { /* unsupported */ } }
 
   var toastTimer;
   function toast(m, kind) {
@@ -4750,5 +4394,6 @@
   paintLangButton();
 </script>
 <script src="depth.js"></script>
+<script src="ui.js"></script>
 </body>
 </html>

@@ -20,10 +20,23 @@
       var t = localStorage.getItem("ra.theme");
       if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
     } catch (e) { /* storage blocked — the system preference wins */ }
+    // Reveal-on-scroll hides content only where it can be revealed again: a
+    // browser with IntersectionObserver, for a visitor who has not asked for
+    // less motion. Everyone else gets the page as it is, all of it visible.
+    try {
+      if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+        document.documentElement.classList.add("rv-on");
+    } catch (e) { /* no matchMedia — nothing is hidden */ }
   })();
 </script>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
+<!-- The hero's drawn scene is the largest paint on the page; as a CSS
+     background it was found late, after the stylesheet. Asked for first. -->
+<link rel="preload" href="/assets/hero/hero-scene-1920.webp" as="image" type="image/webp" fetchpriority="high" media="(min-width: 981px)">
+<link rel="preload" href="/assets/hero/hero-scene-1080.webp" as="image" type="image/webp" fetchpriority="high" media="(max-width: 980px)">
+<link rel="preload" href="vendor/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="vendor/fonts.css">
 <link rel="stylesheet" href="ds.css">
 <style>
@@ -57,9 +70,14 @@
   html { scroll-behavior: smooth; }
   body { overflow-x: hidden; }
 
-  /* reveal-on-scroll — transform/opacity only, GPU friendly */
-  .rv { opacity: 0; transform: translateY(34px); transition: opacity 1s var(--ease), transform 1s var(--ease); }
-  .rv.in { opacity: 1; transform: none; }
+  /* reveal-on-scroll — transform/opacity only, GPU friendly; only under
+     html.rv-on (set in the head when it can work), so nothing is ever left
+     hidden by a browser or a visitor that cannot or should not animate it */
+  /* `translate`, not `transform`: the gallery cards tilt through transform
+     every frame, and a 1 s transform transition made the tilt trail the
+     pointer by a second. */
+  .rv-on .rv { opacity: 0; translate: 0 34px; transition: opacity 1s var(--ease), translate 1s var(--ease); }
+  .rv-on .rv.in { opacity: 1; translate: none; }
   .rv.d1 { transition-delay: 0.1s; } .rv.d2 { transition-delay: 0.2s; } .rv.d3 { transition-delay: 0.3s; }
 
   /* ═══ HERO — drawn night-expressway scene, parallax, logos ═══ */
@@ -82,10 +100,24 @@
   .hero > .hero-bg { position: absolute; inset: -12% 0; z-index: 0;
     background: url("/assets/hero/hero-scene-1920.webp") center 30%/cover no-repeat;
     will-change: transform; filter: saturate(1.08) brightness(0.85); }
+  /* A phone does not need the 1920 render (1.2 MB decoded): the 1080 one. */
+  @media (max-width: 980px) { .hero > .hero-bg { background-image: url("/assets/hero/hero-scene-1080.webp"); } }
   .hero::after { content: ""; position: absolute; inset: 0; z-index: 1;
     background: linear-gradient(180deg,
-      rgba(6,7,10,0.74) 0%, rgba(6,7,10,0.32) 42%, rgba(6,7,10,0.72) 88%, var(--bg) 100%); }
+      rgba(6,7,10,0.74) 0%, rgba(6,7,10,0.30) 40%, rgba(6,7,10,0.74) 84%, var(--bg) 100%); }
   .hero > * { position: relative; z-index: 2; }
+  /* Light over the drawn scene: the glow on the horizon breathes and a faint
+     band of headlight sweeps the road. Opacity and transform only. */
+  .hero > .hero-light { position: absolute; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+  .hero-light::before { content: ""; position: absolute; left: 57%; top: 44%; width: 70vmax; height: 34vmax;
+    translate: -50% -50%; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(240, 180, 80, .30), rgba(240, 180, 80, .08) 55%, transparent 75%);
+    animation: horizon 8s ease-in-out infinite alternate; }
+  @keyframes horizon { from { opacity: .55; transform: scale(.94); } to { opacity: 1; transform: scale(1.05); } }
+  .hero-light::after { content: ""; position: absolute; left: -30%; top: 52%; width: 40%; height: 60%;
+    background: linear-gradient(100deg, transparent, rgba(255, 220, 160, .07) 45%, rgba(255, 240, 210, .11) 50%, transparent 58%);
+    transform: translateX(-60%) skewX(-18deg); animation: sweep 11s var(--ease) infinite; }
+  @keyframes sweep { 0%, 30% { transform: translateX(-60%) skewX(-18deg); } 80%, 100% { transform: translateX(380%) skewX(-18deg); } }
 
   nav { display: flex; align-items: center; gap: 16px; padding: 22px clamp(18px, 4vw, 52px); }
   .logo { display: inline-flex; align-items: center; gap: 10px; }
@@ -106,26 +138,44 @@
     background: var(--ok); box-shadow: 0 0 10px var(--ok); animation: blink 2s infinite; }
   @keyframes blink { 50% { opacity: 0.3; } }
   nav .links { margin-left: auto; display: flex; gap: 20px; font-size: 13px; color: var(--muted); }
-  nav .links a { transition: color 0.3s; } nav .links a:hover { color: var(--gold); }
+  nav .links a { position: relative; padding-block: 5px; transition: color 0.3s; } nav .links a:hover { color: var(--gold); }
+  nav .links a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--gold);
+    transform: scaleX(0); transform-origin: left; transition: transform .4s var(--ease); }
+  nav .links a:hover::after, nav .links a:focus-visible::after { transform: scaleX(1); }
 
   .hero-copy { flex: 1; display: flex; flex-direction: column; justify-content: center;
     padding: 20px clamp(18px, 4vw, 52px) 80px; max-width: 900px; }
   .kicker { font-size: 12px; letter-spacing: 0.34em; text-transform: uppercase; color: var(--gold); margin-bottom: 18px; }
-  h1 { font-family: var(--serif); font-weight: 380; font-variation-settings: "opsz" 100; letter-spacing: -0.01em; font-size: clamp(42px, 7vw, 92px); line-height: 1.02; }
-  h1 em { font-style: italic;
+  h1 { font-family: var(--serif); font-weight: 600; letter-spacing: -0.045em; font-size: clamp(44px, 7vw, 92px); line-height: 0.98; text-wrap: balance; }
+  /* The display face has no italic: the emphasis is the gold-to-teal colour. */
+  h1 em { font-style: normal;
     background: linear-gradient(105deg, var(--gold) 20%, var(--teal) 90%);
     -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .hero-copy p { margin-top: 22px; max-width: 560px; color: var(--muted); font-weight: 300; line-height: 1.85; font-size: clamp(15px, 1.6vw, 18px); }
-  .cta-row { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
-  .cta { display: inline-flex; align-items: center; gap: 9px; padding: 13px 26px;
-    font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;
+  .hero-copy p { margin-top: 24px; max-width: 540px; color: var(--muted); font-weight: 400; line-height: 1.8; font-size: clamp(15px, 1.6vw, 18px); text-wrap: pretty; }
+  .cta-row { display: flex; gap: 12px; margin-top: 34px; flex-wrap: wrap; }
+  .cta { display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 14px 26px; min-height: 48px;
+    font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700;
     border: 1px solid var(--gold); color: var(--gold); border-radius: 999px;
+    background: rgba(7, 8, 12, .35); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
     transition: transform 0.35s var(--ease), background 0.35s, color 0.35s, box-shadow 0.35s; }
-  .cta:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(216,180,106,0.25); }
-  .cta.solid { background: var(--brand-fill); color: var(--brand-ink); }
-  .cta.solid:hover { box-shadow: 0 0 34px rgba(216,180,106,0.5), 0 12px 30px rgba(0,0,0,0.4); }
-  .credit { position: absolute; bottom: 10px; right: 14px; z-index: 2; font-size: 9.5px; color: rgba(245,241,232,0.62); }
+  .cta:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(216,180,106,0.25); background: rgba(227,185,106,.08); }
+  .cta:active { transform: translateY(1px) scale(.985); transition-duration: .08s; }
+  .cta:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+  .cta.solid { background: linear-gradient(180deg, #f1cf88, var(--brand-fill) 60%, #d6a650); color: var(--brand-ink); border-color: transparent;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -1px 0 rgba(0,0,0,.12), 0 10px 26px -10px rgba(227,185,106,.6); }
+  .cta.solid:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 0 34px rgba(216,180,106,0.45), 0 14px 30px rgba(0,0,0,0.4); }
+  .cta svg { width: 15px; height: 15px; flex: none; transition: transform .4s var(--spring); }
+  .cta:hover svg { transform: translateX(3px); }
+  /* The credit sat in the fade to the page colour, so in the light theme it
+     was pale text on near-white. It now sits above the fade, on the scene. */
+  .credit { position: absolute; bottom: calc(16% + 6px); right: 18px; z-index: 2; font-size: 10.5px; letter-spacing: .02em; color: rgba(245,241,232,0.72); }
   .credit a { text-decoration: underline; }
+  @media (max-width: 760px) {
+    .kicker { letter-spacing: .2em; font-size: 11px; line-height: 1.7; }
+    .cta-row { flex-direction: column; align-items: stretch; }
+    .hero-copy { padding-bottom: 24px; }
+    .credit { position: static; align-self: flex-start; margin: 0 clamp(18px, 4vw, 52px) 20vh; }
+  }
 
   /* ═══ LIVE STATS — polls the real API ═══ */
   .live-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px;
@@ -145,7 +195,7 @@
   section { padding: clamp(64px, 9vw, 120px) clamp(18px, 4vw, 52px); max-width: 1240px; margin: 0 auto; }
   .sec-head { text-align: center; margin-bottom: clamp(36px, 5vw, 64px); }
   .sec-head h2 { font-family: var(--serif); font-weight: 400; letter-spacing: -0.01em; font-size: clamp(30px, 4.4vw, 54px); }
-  .sec-head h2 em { font-style: italic; color: var(--gold); }
+  .sec-head h2 em { font-style: normal; color: var(--gold); }
   .sec-head p { color: var(--muted); margin-top: 12px; font-weight: 300; }
 
   /* ═══ 3D PIPELINE — the working of it, in 3D ═══ */
@@ -265,11 +315,12 @@
   .l3d-vp iframe { background: var(--bg); opacity: 0; transition: opacity 0.8s var(--ease); }
   .l3d.is-live .l3d-vp iframe { opacity: 1; }
   .l3d.is-live .l3d-vp img { opacity: 0; pointer-events: none; }
-  .l3d-shield { position: absolute; inset: 0; z-index: 2; display: flex; align-items: flex-end;
+  /* Centred: at the bottom it sat on the framed page's own journey caption. */
+  .l3d-shield { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center;
     justify-content: center; padding-bottom: 24px;
-    background: linear-gradient(transparent 62%, color-mix(in srgb, var(--bg) 55%, transparent)); }
-  .l3d-shield span { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px;
-    border-radius: 999px; border: 1px solid var(--gold); color: var(--gold);
+    background: radial-gradient(60% 50% at 50% 50%, color-mix(in srgb, #000 22%, transparent), transparent 70%); }
+  .l3d-shield span { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; min-height: 44px;
+    border-radius: 999px; border: 1px solid var(--gold); color: var(--brand-strong);
     background: var(--glass-strong); font-size: 11.5px; letter-spacing: 0.2em; text-transform: uppercase;
     font-weight: 700; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     transition: transform 0.35s var(--ease), box-shadow 0.35s; }
@@ -286,6 +337,90 @@
     .l3d-vp { aspect-ratio: auto; height: 80vh; height: 80svh; min-height: 480px; max-height: 760px; }
     .l3d figcaption .cta { flex: 1 1 100%; justify-content: center; }
   }
+
+  /* ═══ finish ═══ */
+  /* Light theme only (a bare :root loses to ds.css's dark selectors): the
+     quietest grey and small gold text sat near 3.5:1 on paper; darkened to
+     hold 4.5:1. The hero keeps its own scoped tokens. */
+  :root { --text-3: #676a74; --brand-strong: #8a6315; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --brand-strong: #e3b96a; } }
+  :root[data-theme="dark"] { --brand-strong: #e3b96a; }
+  .logo .wordmark i { color: var(--gold); }
+  .sec-head h2 { font-weight: 600; letter-spacing: -0.035em; line-height: 1.06; text-wrap: balance; }
+  .stat b { font-weight: 600; }
+  .sec-head h2 em { color: var(--brand-strong); }
+  .sec-head p { max-width: 60ch; margin-inline: auto; text-wrap: pretty; font-weight: 400; }
+  section[id] { scroll-margin-top: 20px; }
+
+  .stat span { color: var(--text-2); }
+  .stat b { letter-spacing: -0.02em; }
+  .stat:not(.live) b { color: var(--brand-strong); }
+
+  /* pipeline slabs: a lit top face, a gold-tinted edge, an accent per stage */
+  .slab { --acc: var(--brand-fill);
+    background: linear-gradient(160deg, var(--surface), var(--surface-2) 80%);
+    border-color: var(--line-2);
+    box-shadow: inset 3px 0 0 var(--acc), inset 0 1px 0 rgba(255,255,255,.5), var(--shadow-2); }
+  .slab::before { background: color-mix(in srgb, var(--acc) 22%, var(--surface-3)); border-color: var(--line-2); }
+  .slab:nth-child(1) { --acc: #e3b96a; } .slab:nth-child(2) { --acc: #3fb68b; } .slab:nth-child(3) { --acc: #4c8dff; }
+  .slab:nth-child(4) { --acc: #29b6c9; } .slab:nth-child(5) { --acc: #9b7bff; } .slab:nth-child(6) { --acc: #ff7a59; }
+  .slab .idx { color: var(--text-2); background: var(--surface); }
+  .slab small { color: var(--text-2); }
+  .slab .metric { color: var(--brand-strong); opacity: 1; font-weight: 550; }
+  .slab.on .idx { color: var(--brand-strong); border-color: var(--brand-strong); }
+  .slab.on { box-shadow: inset 3px 0 0 var(--acc), var(--shadow-3), 0 0 40px var(--brand-soft); }
+  .pipe-note, .live-note, .feed-cred { color: var(--text-2); }
+
+  /* gallery: each capture in the frame of the device it came from */
+  .gallery { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+  @media (max-width: 1020px) { .gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } .shot-wide { grid-column: 1 / -1; } }
+  @media (max-width: 600px) { .gallery { grid-template-columns: minmax(0, 1fr); } }
+  .tilt { display: flex; flex-direction: column; box-shadow: var(--shadow-2); }
+  .tilt .device { flex: 1; display: grid; place-items: center; padding: clamp(18px, 3vw, 30px);
+    background: radial-gradient(90% 70% at 50% 35%, var(--brand-soft), transparent 70%), var(--surface-2); }
+  .tilt .device img { width: 100%; height: auto; aspect-ratio: auto; object-fit: initial; }
+  .win { width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--line-2); background: #0b0c10;
+    box-shadow: 0 2px 6px rgba(0,0,0,.18), 0 24px 50px -18px rgba(0,0,0,.55); }
+  .win .bar { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; background: #16181f;
+    border-bottom: 1px solid rgba(255,255,255,.06); }
+  .win .bar i { width: 8px; height: 8px; border-radius: 50%; background: #3a3e4a; }
+  .win .bar i:nth-child(1) { background: #ff5f57; } .win .bar i:nth-child(2) { background: #febc2e; } .win .bar i:nth-child(3) { background: #28c840; }
+  .win .bar span { margin-left: 8px; flex: 1; max-width: 260px; height: 15px; border-radius: 8px; background: rgba(255,255,255,.07);
+    font: 600 9.5px/15px var(--mono); color: #9aa0ad; padding: 0 9px; overflow: hidden; white-space: nowrap; }
+  .handset { width: min(100%, 232px); padding: 7px; border-radius: 34px; background: linear-gradient(160deg, #2a2d36, #0b0c10 40%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 2px 6px rgba(0,0,0,.25), 0 28px 50px -18px rgba(0,0,0,.6); position: relative; }
+  .handset::before { content: ""; position: absolute; top: 13px; left: 50%; width: 54px; height: 6px; translate: -50% 0;
+    border-radius: 6px; background: rgba(255,255,255,.08); z-index: 1; }
+  .handset img { border-radius: 27px; }
+  .concept-art { width: min(100%, 236px); filter: drop-shadow(0 24px 30px rgba(0,0,0,.28)); }
+  .tilt figcaption { background: var(--panel); align-items: center; }
+  .lp { color: var(--green); }
+
+  /* feed monitor: it stands on something */
+  .feed-stage { position: relative; padding-bottom: 26px; }
+  .feed-stage::after { content: ""; position: absolute; left: 50%; bottom: 0; width: min(760px, 80%); height: 34px; translate: -50% 0;
+    border-radius: 50%; background: radial-gradient(closest-side, rgba(34,184,168,.22), transparent); filter: blur(6px); }
+  .monitor::after { content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none; border-radius: inherit;
+    background: linear-gradient(160deg, rgba(255,255,255,.07), transparent 28%); }
+
+  /* On a phone the HUD's four readouts wrapped to two lines each over the frame. */
+  @media (max-width: 600px) {
+    .monitor .hud { padding: 10px; font-size: 8.5px; letter-spacing: .12em; }
+    .hud .rec, .hud .chip, .hud .cnt { white-space: nowrap; padding: 4px 9px; }
+    .hud .corner { width: 18px; height: 18px; }
+  }
+  /* film: the frame is reserved before the video's metadata arrives */
+  .theatre video { display: block; aspect-ratio: 16 / 9; height: auto; background: #05070a; }
+
+  /* touch targets: 44 px on a touch screen */
+  .logo { min-height: 44px; }
+  @media (pointer: coarse), (max-width: 760px) {
+    nav .theme-btn { width: 44px; height: 44px; }
+    footer nav a { display: inline-flex; align-items: center; min-height: 44px; }
+  }
+  footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--text-2); }
+  footer nav a:hover { color: var(--text); }
+  @media (prefers-reduced-motion: reduce) { .hero-light::before, .hero-light::after { animation: none !important; } }
 
   footer { border-top: 1px solid var(--line); padding: 28px clamp(18px, 4vw, 52px);
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
@@ -313,10 +448,11 @@
 
 <header class="hero" id="top">
   <div class="hero-bg" id="hero-bg" aria-hidden="true"></div>
+  <div class="hero-light" aria-hidden="true"></div>
 
   <nav>
     <a class="logo" href="#top" aria-label="RoadAssist">
-      <svg class="mark"><use href="#raMark"/></svg>
+      <svg class="mark" aria-hidden="true" focusable="false"><use href="#raMark"/></svg>
       <span class="wordmark">Road<i>Assist</i></span>
     </a>
     <span class="raksha-chip">RAKSHA · LIVE</span>
@@ -328,8 +464,8 @@
       <a href="#layers">Layers in 3D</a>
     </div>
     <button class="theme-btn" id="theme" title="Switch theme" aria-label="Switch colour theme">
-      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
-      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+      <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+      <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
     </button>
   </nav>
 
@@ -342,7 +478,7 @@
       network dies. All of it is running behind this page — the numbers below are live.
     </p>
     <div class="cta-row rv d3">
-      <a class="cta solid" href="/raksha.html">Open the live dashboard</a>
+      <a class="cta solid" href="/raksha.html">Open the live dashboard <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></a>
       <a class="cta" href="/app.html">Try the app</a>
       <a class="cta" href="#layers">See every layer in 3D</a>
     </div>
@@ -406,8 +542,8 @@
   </div>
   <div class="feed-stage rv d1">
     <div class="monitor" id="monitor">
-      <img class="frame" alt="Road frame with model detection boxes">
-      <img class="frame" alt="">
+      <img class="frame" width="720" height="720" alt="Road frame with model detection boxes">
+      <img class="frame" width="720" height="720" alt="">
       <span class="scan" aria-hidden="true"></span>
       <div class="hud" aria-hidden="true">
         <div class="row"><span class="rec">REC · EDGE-01</span><span class="chip">YOLO11n · RDD2022-IN</span></div>
@@ -422,21 +558,30 @@
 <section id="gallery">
   <div class="sec-head rv">
     <h2>Straight from the <em>running system</em></h2>
-    <p>Not mockups — screenshots captured from this machine minutes ago. Tilt them.</p>
+    <p>Two screens captured from the running system, and one design concept — each labelled for what it is. Tilt them.</p>
   </div>
   <div class="gallery">
-    <figure class="tilt rv" data-tilt>
-      <img src="assets/shot-dashboard.jpg" alt="RAKSHA authority dashboard with live map, 3D health bars and severity pins" loading="lazy">
+    <figure class="tilt shot-wide rv" data-tilt>
+      <div class="device">
+        <div class="win">
+          <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>/raksha.html</span></div>
+          <img src="assets/shot-dashboard.jpg" width="1600" height="1000" alt="RAKSHA authority dashboard with live map, 3D health bars and severity pins" loading="lazy" decoding="async">
+        </div>
+      </div>
       <span class="glare"></span>
       <figcaption><span><b>Authority dashboard</b> · live map, 3D health bars</span><span class="lp">● CAPTURED LIVE</span></figcaption>
     </figure>
-    <figure class="tilt tall rv d1" data-tilt>
-      <img src="assets/shot-app.jpg" alt="RoadAssist citizen app after a real OTP sign-in" loading="lazy">
+    <figure class="tilt rv d1" data-tilt>
+      <div class="device">
+        <div class="handset"><img src="assets/shot-app.jpg" width="780" height="1688" alt="RoadAssist citizen app after a real OTP sign-in" loading="lazy" decoding="async"></div>
+      </div>
       <span class="glare"></span>
       <figcaption><span><b>Citizen app</b> · real OTP, SOS, booking</span><span class="lp">● CAPTURED LIVE</span></figcaption>
     </figure>
-    <figure class="tilt tall rv d2" data-tilt>
-      <img src="assets/shot-concept.jpg" alt="Playful 3D app design concept with animated mascot" loading="lazy">
+    <figure class="tilt rv d2" data-tilt>
+      <div class="device">
+        <img class="concept-art" src="assets/shot-concept.jpg" width="860" height="1800" alt="Playful 3D app design concept with animated mascot" loading="lazy" decoding="async">
+      </div>
       <span class="glare"></span>
       <figcaption><span><b>3D concept</b> · design direction</span><span class="lp">CONCEPT</span></figcaption>
     </figure>
@@ -450,11 +595,18 @@
   </div>
   <div class="theatre rv d1">
     <span class="tag">RECORDED FROM THE LIVE PLATFORM</span>
-    <video src="/media/raksha-full-demo.mp4" poster="assets/shot-dashboard.jpg" controls preload="metadata" playsinline></video>
+    <video src="/media/raksha-full-demo.mp4" poster="assets/shot-dashboard.jpg" width="1280" height="720" controls preload="metadata" playsinline></video>
   </div>
 </section>
 
 <footer>
+  <nav aria-label="Pages">
+    <a href="/">Home</a>
+    <a href="/app.html">Citizen app</a>
+    <a href="/raksha.html">Authority dashboard</a>
+    <a href="/layers.html">Layers in 3D</a>
+    <a href="/index.html">Request console</a>
+  </nav>
   <span>RoadAssist × RAKSHA — student prototype · no real emergency dispatch is connected</span>
   <span>PostgreSQL + PostGIS · Fastify · YOLO11n on RDD2022 (CC BY 4.0, Arya et al.) · maps © OpenStreetMap contributors</span>
 </footer>
@@ -473,22 +625,55 @@
     try { localStorage.setItem("ra.theme", next); } catch (e) { /* per-page only */ }
   };
 
-  // reveal on scroll
-  var io = new IntersectionObserver(function (es) {
-    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
-  }, { threshold: 0.15 });
-  document.querySelectorAll(".rv").forEach(function (el) { io.observe(el); });
+  // An eased loop that runs only while something is still moving: each of
+  // the page's glides used to request a frame forever, idle or not.
+  function glider(step) {
+    var raf = 0;
+    function loop() { raf = step() ? requestAnimationFrame(loop) : 0; }
+    return function kick() { if (!raf) raf = requestAnimationFrame(loop); };
+  }
 
-  // hero parallax — rAF + lerp so it glides instead of jittering
+  // reveal on scroll (html.rv-on is set in the head only where this works)
+  if (document.documentElement.classList.contains("rv-on")) {
+    var pending = Array.prototype.slice.call(document.querySelectorAll(".rv"));
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    pending.forEach(function (el) { io.observe(el); });
+    // A fling or an anchor jump can carry a block past the view between two
+    // observer checks; anything whose top is above the view's bottom is shown.
+    var sweep = glider(function () {
+      pending = pending.filter(function (el) {
+        if (el.classList.contains("in")) return false;
+        if (el.getBoundingClientRect().top < innerHeight) { el.classList.add("in"); io.unobserve(el); return false; }
+        return true;
+      });
+      return false;
+    });
+    addEventListener("scroll", sweep, { passive: true });
+    addEventListener("hashchange", sweep);
+  }
+
+  // hero parallax: scroll moves the scene down a little, a mouse leans it
   var bg = document.getElementById("hero-bg");
-  var target = 0, current = 0;
+  var target = 0, current = 0, mx = 0, my = 0, cmx = 0, cmy = 0;
   if (!reduced) {
-    addEventListener("scroll", function () { target = Math.min(scrollY, innerHeight) * 0.25; }, { passive: true });
-    (function glide() {
-      current += (target - current) * 0.08;
-      bg.style.transform = "translateY(" + current.toFixed(2) + "px) scale(1.06)";
-      requestAnimationFrame(glide);
-    })();
+    var drift = glider(function () {
+      current += (target - current) * 0.1; cmx += (mx - cmx) * 0.06; cmy += (my - cmy) * 0.06;
+      bg.style.transform = "translate3d(" + cmx.toFixed(2) + "px," + (current + cmy).toFixed(2) + "px,0) scale(1.06)";
+      return Math.abs(target - current) + Math.abs(mx - cmx) + Math.abs(my - cmy) > 0.05;
+    });
+    addEventListener("scroll", function () {
+      if (scrollY > innerHeight * 1.2 && target === innerHeight * 0.25) return;   // well past the hero: nothing to move
+      target = Math.min(scrollY, innerHeight) * 0.25; drift();
+    }, { passive: true });
+    var heroEl = document.getElementById("top");
+    heroEl.addEventListener("pointermove", function (e) {
+      if (e.pointerType !== "mouse") return;
+      mx = (e.clientX / innerWidth - 0.5) * -14; my = (e.clientY / innerHeight - 0.5) * -8; drift();
+    }, { passive: true });
+    heroEl.addEventListener("pointerleave", function () { mx = 0; my = 0; drift(); });
+    drift();
   }
 
   // live stats — count-up toward fresh API numbers every 8 s
@@ -531,22 +716,23 @@
   var baseX = function () { return narrow.matches ? 50 : 56; };
   var baseZ = function () { return narrow.matches ? -14 : -38; };
   var rx = baseX(), rz = baseZ(), trx = rx, trz = rz;
-  narrow.addEventListener("change", function () { trx = baseX(); trz = baseZ(); });
+  var steer = glider(function () {
+    rx += (trx - rx) * 0.07; rz += (trz - rz) * 0.07;
+    // Perspective makes the near slabs larger and the turn pushes them right,
+    // so on a phone the stack is pulled back to centre and scaled to fit.
+    pipe.style.transform = (narrow.matches ? "translateX(-9vw) scale(0.84) " : "") +
+      "rotateX(" + rx.toFixed(2) + "deg) rotateZ(" + rz.toFixed(2) + "deg)";
+    return Math.abs(trx - rx) + Math.abs(trz - rz) > 0.01;
+  });
+  narrow.addEventListener("change", function () { trx = baseX(); trz = baseZ(); if (reduced) { rx = trx; rz = trz; } steer(); });
   if (!reduced) {
     pipe.parentElement.addEventListener("pointermove", function (e) {
       var r = pipe.parentElement.getBoundingClientRect();
       trz = baseZ() + ((e.clientX - r.left) / r.width - 0.5) * 14;
       trx = baseX() + ((e.clientY - r.top) / r.height - 0.5) * -10;
+      steer();
     });
-    pipe.parentElement.addEventListener("pointerleave", function () { trx = baseX(); trz = baseZ(); });
-    (function steer() {
-      rx += (trx - rx) * 0.07; rz += (trz - rz) * 0.07;
-      // Perspective makes the near slabs larger and the turn pushes them right,
-      // so on a phone the stack is pulled back to centre and scaled to fit.
-      pipe.style.transform = (narrow.matches ? "translateX(-9vw) scale(0.84) " : "") +
-        "rotateX(" + rx.toFixed(2) + "deg) rotateZ(" + rz.toFixed(2) + "deg)";
-      requestAnimationFrame(steer);
-    })();
+    pipe.parentElement.addEventListener("pointerleave", function () { trx = baseX(); trz = baseZ(); steer(); });
   }
   var lit = 0;
   setInterval(function () {
@@ -593,17 +779,18 @@
   // monitor tilt — same lerp glide as the pipeline
   if (!reduced) {
     var mtx = 0, mty = 0, mcx = 0, mcy = 0;
+    var msteer = glider(function () {
+      mcx += (mtx - mcx) * 0.08; mcy += (mty - mcy) * 0.08;
+      monitor.style.transform = "rotateY(" + mcx.toFixed(2) + "deg) rotateX(" + mcy.toFixed(2) + "deg)";
+      return Math.abs(mtx - mcx) + Math.abs(mty - mcy) > 0.01;
+    });
     monitor.parentElement.addEventListener("pointermove", function (e) {
       var r = monitor.getBoundingClientRect();
       mtx = ((e.clientX - r.left) / r.width - 0.5) * 10;
       mty = (0.5 - (e.clientY - r.top) / r.height) * 7;
+      msteer();
     });
-    monitor.parentElement.addEventListener("pointerleave", function () { mtx = 0; mty = 0; });
-    (function msteer() {
-      mcx += (mtx - mcx) * 0.08; mcy += (mty - mcy) * 0.08;
-      monitor.style.transform = "rotateY(" + mcx.toFixed(2) + "deg) rotateX(" + mcy.toFixed(2) + "deg)";
-      requestAnimationFrame(msteer);
-    })();
+    monitor.parentElement.addEventListener("pointerleave", function () { mtx = 0; mty = 0; msteer(); });
   }
 
   // gallery tilt cards — lerped pointer rotation + glare tracking
@@ -654,7 +841,18 @@
       arm(true);
     });
     shield.addEventListener("click", function () { arm(false); fr.focus(); });
-    fr.src = fr.dataset.src;
+    // The scene (three.js, a Draco model, bloom) shares this page's main
+    // thread; it starts after this page has loaded and once the visitor is
+    // a screen or so away from it, so it never holds up the hero.
+    function start() { if (!fr.getAttribute("src")) fr.src = fr.dataset.src; }
+    function whenNear() {
+      if (!("IntersectionObserver" in window)) { start(); return; }
+      var near = new IntersectionObserver(function (es) {
+        if (es.some(function (e) { return e.isIntersecting; })) { near.disconnect(); start(); }
+      }, { rootMargin: "600px 0px" });
+      near.observe(fig);
+    }
+    if (document.readyState === "complete") whenNear(); else addEventListener("load", whenNear, { once: true });
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (es) {
         es.forEach(function (e) { if (!e.isIntersecting && fig.classList.contains("is-live")) arm(true); });

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RoadAssist — Mechanic</title>
+<meta name="description" content="RoadAssist Bharat mechanic console: availability, live dispatch offers, the active job and its history.">
+<link rel="canonical" href="https://app.roadassistbharat.online/mechanic.html">
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#08090c" media="(prefers-color-scheme: dark)">
 <script>
@@ -36,7 +38,7 @@
     }
   }
   .topbar {
-    display: flex; align-items: center; gap: 10px; flex: none;
+    display: flex; align-items: center; gap: 8px; flex: none;
     padding: calc(13px + env(safe-area-inset-top)) 18px 13px;
     border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20;
     background: var(--glass); backdrop-filter: blur(22px) saturate(1.7);
@@ -52,21 +54,13 @@
     -webkit-backdrop-filter: blur(22px) saturate(1.7);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .tab {
-    display: grid; place-items: center; gap: 4px; padding: 10px 2px 9px;
-    color: var(--text-3); font-size: 9.5px; font-weight: 650; letter-spacing: 0.07em;
-    transition: color var(--t-2) var(--ease); -webkit-tap-highlight-color: transparent;
-    position: relative; min-height: 46px;
-  }
+  .tab { display: grid; place-items: center; gap: 4px; padding: 10px 2px 9px; color: var(--text-3); font-size: 11px; font-weight: 650;
+    letter-spacing: .02em; transition: color var(--t-2) var(--ease); -webkit-tap-highlight-color: transparent; position: relative; min-height: 56px; }
   .tab svg { width: 21px; height: 21px; transition: transform var(--t-3) var(--spring); }
   .tab.active { color: var(--brand); }
   .tab.active svg { transform: translateY(-1px) scale(1.1); }
-  .tab .dot {
-    position: absolute; top: 6px; right: calc(50% - 20px);
-    min-width: 15px; height: 15px; padding: 0 4px; border-radius: 99px;
-    background: var(--red); color: #fff; font-family: var(--mono); font-size: 9px;
-    font-weight: 700; display: grid; place-items: center;
-  }
+  .tab .dot { position: absolute; top: 6px; right: calc(50% - 20px); min-width: 15px; height: 15px; padding: 0 4px; border-radius: 99px;
+    background: #c4162a; color: #fff; font: 700 10px/1 var(--mono); display: grid; place-items: center; box-shadow: 0 0 0 2px var(--surface); animation: b-pop var(--b-3) var(--spring) backwards; }
   .pane { display: none; }
   .pane.active { display: block; }
 
@@ -74,11 +68,8 @@
      A mechanic's availability gates the dispatch query, so this is the most
      consequential control on the screen. It reads as a physical switch and
      always states its position in words. */
-  .duty {
-    display: flex; align-items: center; gap: 12px; padding: 14px 16px;
-    border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface);
-    box-shadow: var(--shadow-1);
-  }
+  .duty { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--r-md); border: 1px solid var(--line);
+    background: var(--surface); box-shadow: var(--shadow-1); transition: background var(--b-2) linear, border-color var(--b-2) linear; }
   .duty.on { border-color: var(--green-soft); background: var(--green-soft); }
   .duty-switch {
     width: 52px; height: 30px; border-radius: 999px; flex: none; position: relative;
@@ -96,7 +87,7 @@
 
   /* An offer is a countdown, not a list item — it expires. */
   .offer { border-left: 3px solid var(--brand); }
-  .offer .ttl { font-family: var(--mono); font-size: 12px; color: var(--text-3); }
+  .offer .ttl { font-family: var(--mono); font-size: 12.5px; color: var(--text-2); }
   .offer .ttl.urgent { color: var(--red); font-weight: 700; }
 
   .job-status {
@@ -111,28 +102,71 @@
   }
   .jobgrid .v { display: block; margin-top: 2px; font-size: 13.5px; font-weight: 650; overflow-wrap: anywhere; }
 
-  .spinner {
-    width: 15px; height: 15px; flex: none; border-radius: 50%;
-    border: 2px solid var(--line-2); border-top-color: var(--brand);
-    animation: spin 700ms linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
-
   .field-err { color: var(--red); font-size: 12px; font-weight: 600; margin-top: 6px; }
 
-  .net {
-    display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 9px;
-    border-radius: var(--r-full); border: 1px solid var(--line);
-    background: var(--surface); color: var(--text-2);
-    font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
-  }
-  .net::before {
-    content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green);
-    box-shadow: 0 0 0 3px var(--green-soft);
-  }
+  .net { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 9px; border-radius: var(--r-full); border: 1px solid var(--line);
+    background: var(--surface); color: var(--text-2); font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; }
+  .net::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
   .net.is-offline { color: var(--red); border-color: var(--red-soft); }
   .net.is-offline::before { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+
+  /* ── finish: motion 120/200/320, tertiary text that holds 4.5:1, 44 px targets ── */
+  :root { --b-1: 120ms; --b-2: 200ms; --b-3: 320ms; --b-out: cubic-bezier(.16,1,.3,1); --text-3: #666974; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --text-3: #8a8e9c; } }
+  :root[data-theme="dark"] { --text-3: #8a8e9c; }
+  .theme-btn { width: 44px; height: 44px; }
+  /* Sign-in holds its shape: the restoring line keeps its room, and the email path (mounted by a later script) has its slot. */
+  #m-restoring[hidden] { display: block !important; visibility: hidden; } #scr-auth:not(:has(.em-signin)) #m-signin { margin-bottom: 65px; }
+  @media (max-width: 420px) { #m-name { min-height: 3.36em; } #duty-note { display: block; min-height: 3.1em; } .topbar { padding-left: 14px; padding-right: 14px; } .net, .topbar .pill { padding-left: 8px; padding-right: 8px; letter-spacing: .06em; } }
+  .btn.sm, .chip { min-height: 44px; }
+  .duty-switch::before { content: ""; position: absolute; inset: -8px -4px; }
+  .jobgrid .v, .ttl, .row small, .dot { font-variant-numeric: tabular-nums; }
+  .jobgrid .v.muted { color: var(--text-3); }
+  .tab::before { content: ""; position: absolute; top: -1px; left: 34%; right: 34%; height: 2px; border-radius: 0 0 2px 2px;
+    background: var(--brand); transform: scaleX(0); transition: transform var(--b-3) var(--b-out); }
+  .tab.active::before { transform: scaleX(1); } .tab.active { color: color-mix(in srgb, var(--brand) 72%, var(--text)); }
+  .pill.ok { color: color-mix(in srgb, var(--green) 78%, var(--text)); } .pill.gold { color: color-mix(in srgb, var(--brand) 72%, var(--text)); } .pill.info { color: color-mix(in srgb, var(--blue) 80%, var(--text)); }
+  .pane.active { animation: b-in var(--b-3) var(--b-out) backwards; }
+  @keyframes b-in { from { opacity: 0; transform: translateY(6px); } } @keyframes b-pop { from { opacity: 0; transform: scale(.4); } }
+  @keyframes b-fade { from { opacity: 1; } to { opacity: 0; } } @keyframes b-breathe { to { opacity: .4; } }
+  @keyframes b-ping { from { transform: scale(1); opacity: .55; } to { transform: scale(3.2); opacity: 0; } }
+  @keyframes b-ring { from { transform: scale(.85); opacity: .7; } to { transform: scale(1.7); opacity: 0; } }
+  #m-live { position: relative; }
+  #m-live.ok::after { content: ""; position: absolute; left: 11px; top: 50%; width: 6px; height: 6px; margin-top: -3px;
+    border-radius: 50%; background: var(--green); animation: b-ping 2s var(--b-out) infinite; }
+  /* The record, as raised tiles: the numbers a mechanic actually checks. */
+  #m-stats > div { padding: 12px 14px; border: 1px solid var(--line); background: linear-gradient(160deg, var(--surface), var(--surface-2));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), var(--shadow-1); }
+  #m-stats .v { font-family: var(--display); font-size: 21px; font-weight: 500; letter-spacing: -.01em; margin-top: 3px; }
+  #m-stats.is-loading .v { width: 56%; color: transparent; border-radius: 6px; background: var(--surface-3); animation: b-breathe .9s ease-in-out infinite alternate; }
+  .job-status { box-shadow: inset 0 1px 0 rgba(255,255,255,.06), var(--shadow-1); }
+  .jp { display: flex; gap: 4px; margin-top: 10px; } .jp span { flex: 1; height: 4px; border-radius: 2px; background: var(--line-2); }
+  .jp .on { background: var(--brand); }
+  /* An offer: a countdown ring that drains in real time, and a one-off flash when it lands. */
+  .offer.is-new::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    box-shadow: inset 0 0 0 2px var(--brand); animation: b-fade 1.6s var(--b-out) both; }
+  .cd { display: inline-flex; align-items: center; gap: 7px; flex: none; }
+  .cd svg { width: 26px; height: 26px; } .cd circle { fill: none; stroke-width: 3; } .cd .trk { stroke: var(--line-2); }
+  .cd .arc { stroke: var(--brand); stroke-linecap: round; stroke-dasharray: 62.83; stroke-dashoffset: calc(62.83 * (1 - var(--p, 1)));
+    transition: stroke-dashoffset 1s linear, stroke var(--b-2) linear; }
+  .cd.urgent .arc { stroke: var(--red); }
+  /* The job's lifecycle as a stepper: done, now (ringed), still to come. */
+  .steps { list-style: none; margin-top: 14px; }
+  .steps li { position: relative; display: flex; align-items: center; gap: 12px; min-height: 36px; font-size: 13.5px; color: var(--text-3); }
+  .steps li:not(:last-child)::after { content: ""; position: absolute; left: 9px; top: 28px; height: 16px; width: 2px; border-radius: 1px; background: var(--line-2); }
+  .steps li.done::after { background: var(--green); }
+  .steps i { position: relative; width: 20px; height: 20px; flex: none; display: grid; place-items: center; border-radius: 50%;
+    border: 2px solid var(--line-2); background: var(--surface); font: normal 800 11px/1 var(--sans); }
+  .steps .done, .steps .now { color: var(--text); }
+  .steps .done i { background: var(--green); border-color: var(--green); color: var(--surface); }
+  .steps .now { font-weight: 650; }
+  .steps .now i { border-color: var(--brand); background: var(--brand-soft); }
+  .steps .now i::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+  .steps .now i::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid var(--brand); animation: b-ring 2s var(--b-out) infinite; }
+  #job-cmds .chip { color: var(--text); font-size: 13.5px; font-weight: 650; padding: 10px 18px; }
+  .chip.is-busy { position: relative; color: transparent; pointer-events: none; }
+  .chip.is-busy::after { content: ""; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    border-radius: 50%; border: 2px solid var(--text-2); border-top-color: transparent; animation: spin 700ms linear infinite; }
 </style>
 </head>
 <body>
@@ -148,14 +182,14 @@
 <div class="shell">
   <header class="topbar">
     <span class="brand grow">
-      <svg class="mark"><use href="#raMark"/></svg>
+      <svg class="mark" aria-hidden="true"><use href="#raMark"/></svg>
       <span class="wordmark">Road<i>Assist</i></span>
     </span>
     <span class="net" id="net" role="status">Online</span>
     <span class="pill gold bare">Mechanic</span>
     <button class="theme-btn" id="theme" title="Switch theme" aria-label="Switch colour theme">
-      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
-      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+      <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+      <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
     </button>
   </header>
 
@@ -195,7 +229,7 @@
                   aria-label="Availability for dispatch"></button>
           <span class="grow">
             <b id="duty-state" style="display:block;font-size:14px;font-weight:650">Off duty</b>
-            <small id="duty-note" style="color:var(--text-3);font-size:12px">No new offers will be sent.</small>
+            <small id="duty-note" style="color:var(--text-2);font-size:12px">No new offers will be sent.</small>
           </span>
         </div>
 
@@ -253,10 +287,10 @@
   </main>
 
   <nav class="tabs" id="tabs" hidden>
-    <button class="tab active" data-pane="dash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.4 12 4l9 7.4"/><path d="M5.6 9.6V20h12.8V9.6"/></svg>Dashboard</button>
-    <button class="tab" data-pane="job"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>Job</button>
-    <button class="tab" data-pane="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="8.5"/></svg>History</button>
-    <button class="tab" data-pane="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Profile</button>
+    <button class="tab active" data-pane="dash"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.4 12 4l9 7.4"/><path d="M5.6 9.6V20h12.8V9.6"/></svg>Dashboard</button>
+    <button class="tab" data-pane="job"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>Job</button>
+    <button class="tab" data-pane="history"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="8.5"/></svg>History</button>
+    <button class="tab" data-pane="profile"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.5"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>Profile</button>
   </nav>
 </div>
 
@@ -322,7 +356,8 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { el.classList.remove("show"); }, 3200);
   }
-  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* unsupported */ } }
+  // Before the first tap the browser refuses vibrate() and logs it as an error; skip the call.
+  function buzz(ms) { try { if (navigator.vibrate && !(navigator.userActivation && !navigator.userActivation.hasBeenActive)) navigator.vibrate(ms); } catch (e) { /* unsupported */ } }
   function busy(btn, fn) {
     return async function () {
       if (btn.classList.contains("is-busy")) return;
@@ -522,7 +557,8 @@
       : h < 17 ? "Good afternoon." : "Good evening.";
     // Shape the dashboard before the data arrives, so a slow connection shows a
     // console that is loading rather than one that looks empty.
-    skeletonStats();
+    skeletonStats(true);
+    $("offers").innerHTML = "<div class='card' aria-hidden='true'><div class='sk line w70'></div><div class='sk line w45'></div><div class='sk line'></div></div>";
     $("m-name").textContent = "Loading your record…";
     await refresh();
     // Open the live dispatch stream before the poll, so `startPolling` already
@@ -687,6 +723,7 @@
       if (document.querySelector("#pane-job.active")) renderFullJob();
     } catch (e) {
       console.warn("refresh:", e.message);
+      $("m-stats").classList.remove("is-loading"); if ($("offers").querySelector(".card[aria-hidden]")) $("offers").innerHTML = "";
     } finally {
       pollInFlight = false;
     }
@@ -747,11 +784,12 @@
    * invisible. Over a real mobile connection the console appeared with an empty
    * space where the record belongs, which reads as broken rather than loading.
    */
-  function skeletonStats() {
+  function skeletonStats(loading) {
+    $("m-stats").classList.toggle("is-loading", Boolean(loading));   // shimmer only while a fetch is due
     $("m-stats").innerHTML = ["Rating", "Jobs completed", "Recent settled", "Recent earnings"]
       .map(function (label) {
         return "<div><span class='k'>" + label + "</span>" +
-          "<span class='v' style='color:var(--text-3)'>&mdash;</span></div>";
+          "<span class='v muted'>&mdash;</span></div>";
       }).join("");
   }
 
@@ -765,6 +803,7 @@
     var earned = (d.history || []).reduce(function (sum, h) {
       return sum + (h.status === "PAID" && h.totalPaise ? h.totalPaise : 0);
     }, 0);
+    $("m-stats").classList.remove("is-loading");
     $("m-stats").innerHTML =
       "<div><span class='k'>Rating</span><span class='v'>★ " + m.rating.toFixed(1) + "</span></div>" +
       "<div><span class='k'>Jobs completed</span><span class='v'>" + m.jobsCompleted + "</span></div>" +
@@ -777,6 +816,14 @@
   function secsLeft(o) {
     return Math.max(0, Math.round((new Date(o.expiresAt) - Date.now()) / 1000));
   }
+  /** The ring drains over the offer's own lifetime (created → expires); 90 s if the row has no createdAt. */
+  function ring(cd, o, s) {
+    var life = (new Date(o.expiresAt) - new Date(o.createdAt)) / 1000;
+    if (!(life > 0)) life = Math.max(90, s);
+    cd.style.setProperty("--p", Math.min(1, s / life).toFixed(3));
+    cd.classList.toggle("urgent", s > 0 && s <= 20);
+  }
+  var shownOffers = {};   // ids already drawn, so a poll redraw does not replay the entrance
   /** The countdown is real time, not poll time — it used to jump in 8s steps. */
   function tickCountdowns() {
     document.querySelectorAll("[data-ttl]").forEach(function (el) {
@@ -785,6 +832,7 @@
       var s = secsLeft(o);
       el.textContent = s ? s + "s left" : "expired";
       el.className = "ttl" + (s && s <= 20 ? " urgent" : "");
+      ring(el.parentNode, o, s);
       if (!s) {
         var card = el.closest(".offer");
         var btn = card && card.querySelector("button");
@@ -808,7 +856,7 @@
       if (!offers.length) {
         var offDuty = state.mechanic && !state.mechanic.isAvailable;
         box.innerHTML = "<div class='empty'>" +
-          "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'>" +
+          "<svg aria-hidden='true' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'>" +
           "<path d='M4 6h16M4 12h16M4 18h10'/></svg>" +
           "<b>" + (offDuty ? "You are off duty" : "No requests right now") + "</b>" +
           (offDuty
@@ -821,7 +869,8 @@
       offers.forEach(function (o) {
         var b = o.booking || {};
         var c = document.createElement("div");
-        c.className = "card offer lift rise";
+        c.className = "card offer lift" + (shownOffers[o.id] ? "" : " rise is-new");
+        shownOffers[o.id] = true;
         c.innerHTML =
           "<div style='display:flex;align-items:flex-start;gap:10px'>" +
             "<span class='grow'>" +
@@ -830,7 +879,9 @@
               "<small style='color:var(--text-3);font-size:12px'>" +
                 esc([b.registrationNo, b.vehicleClass && String(b.vehicleClass).replace(/_/g, " ")]
                   .filter(Boolean).join(" · ")) + "</small></span>" +
-            "<span class='ttl' data-ttl='" + esc(o.id) + "'>" + secsLeft(o) + "s left</span>" +
+            "<span class='cd'><svg viewBox='0 0 24 24' aria-hidden='true'><g transform='rotate(-90 12 12)'>" +
+              "<circle class='trk' cx='12' cy='12' r='10'/><circle class='arc' cx='12' cy='12' r='10'/></g></svg>" +
+              "<span class='ttl' data-ttl='" + esc(o.id) + "'>" + secsLeft(o) + "s left</span></span>" +
           "</div>" +
           (b.symptoms
             ? "<p class='meta' style='margin-top:9px'>" + esc(b.symptoms) + "</p>" : "") +
@@ -844,6 +895,7 @@
             ? "<p class='hint' style='margin-top:9px'>" +
               esc(b.highwayMarker || b.addressText) + "</p>" : "");
 
+        ring(c.querySelector(".cd"), o, secsLeft(o));
         var accept = document.createElement("button");
         accept.className = "btn";
         accept.style.marginTop = "13px";
@@ -914,18 +966,15 @@
   }
   function stepsHtml(status) {
     var at = JOB_STEPS.findIndex(function (s) { return s.status === status; });
-    return "<ul style='list-style:none;margin-top:12px' aria-label='Job progress'>" +
+    return "<ol class='steps' aria-label='Job progress'>" +
       JOB_STEPS.map(function (s, i) {
         var done = at >= 0 && i < at, now = i === at;
-        return "<li style='display:flex;align-items:center;gap:9px;padding:4px 0'>" +
-          "<span aria-hidden='true' style='width:14px;flex:none;text-align:center;color:" +
-            (done ? "var(--green)" : now ? "var(--brand)" : "var(--text-3)") + "'>" +
-            (done ? "&#10003;" : now ? "&#9679;" : "&#9675;") + "</span>" +
-          "<span style='font-size:13px;font-weight:" + (now ? "650" : "500") + ";color:" +
-            (done || now ? "var(--text)" : "var(--text-3)") + "'>" + esc(s.label) + "</span>" +
+        return "<li class='" + (done ? "done" : now ? "now" : "") + "'" + (now ? " aria-current='step'" : "") + ">" +
+          "<i aria-hidden='true'>" + (done ? "&#10003;" : "") + "</i>" +
+          "<span>" + esc(s.label) + "</span>" +
           (now ? "<span class='pill info' style='margin-left:auto'>Now</span>" : "") +
           "</li>";
-      }).join("") + "</ul>";
+      }).join("") + "</ol>";
   }
 
   async function loadJob() {
@@ -943,6 +992,12 @@
     }
   }
 
+  /** Six segments, lit up to the current step; nothing lit for a status off the happy path. */
+  function jobBar(status) {
+    var at = JOB_STEPS.findIndex(function (s) { return s.status === status; });
+    return "<div class='jp' aria-hidden='true'>" + JOB_STEPS.map(function (s, i) {
+      return "<span" + (at >= 0 && i <= at ? " class='on'" : "") + "></span>"; }).join("") + "</div>";
+  }
   /** The compact card on the dashboard: what it is, and the one next action. */
   function renderJobCard() {
     var b = state.job;
@@ -956,7 +1011,7 @@
             .filter(Boolean).join(" · ")) + "</small></span>" +
         "<span class='pill " + pillFor(b.status) + "'>" +
           esc(String(b.status).replace(/_/g, " ")) + "</span>" +
-      "</div>" +
+      "</div>" + jobBar(b.status) +
       "<button class='btn' id='job-open' style='margin-top:12px'>Open job</button>";
     $("job-open").onclick = function () { buzz(8); pane("job"); };
   }
@@ -973,7 +1028,7 @@
     var box = $("job-full");
     if (!state.bookingId || !state.job) {
       box.innerHTML = "<div class='empty'>" +
-        "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'>" +
+        "<svg aria-hidden='true' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'>" +
         "<path d='M4 6h16M4 12h16M4 18h10'/></svg>" +
         "<b>No active job</b>Accept a request on the dashboard and it appears here.</div>";
       return;
@@ -1091,7 +1146,7 @@
     var rows = state.history || [];
     if (!rows.length) {
       box.innerHTML = "<div class='empty'>" +
-        "<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'>" +
+        "<svg aria-hidden='true' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'>" +
         "<path d='M12 7v5l3 2'/><circle cx='12' cy='12' r='8.5'/></svg>" +
         "<b>No jobs yet</b>Completed jobs collect here with what they earned.</div>";
       return;

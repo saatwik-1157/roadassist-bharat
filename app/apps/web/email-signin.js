@@ -27,8 +27,13 @@
 
   function el(html) { var d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; }
 
+  // Each mounted form gets its own ids, so two on one page never collide and
+  // the browser can autofill them (an input with no id or name it cannot).
+  var mounted = 0;
+
   function mount(after, opts) {
     if (!after || !after.parentNode) return;
+    var n = ++mounted;
     var say = opts.toast || function () {};
     // The page's API origin. Each page resolves its own (localhost:4000 when
     // the files are served from another port or from disk), and a bare path
@@ -40,11 +45,11 @@
         '<div class="em-form" hidden>' +
           '<p class="hint em-why" role="status" hidden style="margin-top:12px"></p>' +
           '<label class="field"><span>Email address</span>' +
-            '<input class="em-email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@example.com"></label>' +
+            '<input class="em-email" id="em-email-' + n + '" name="email" type="email" inputmode="email" autocomplete="email" spellcheck="false" placeholder="you@example.com"></label>' +
           '<button type="button" class="btn em-send" style="margin-top:14px">Email me a code</button>' +
           '<div class="em-step2" hidden>' +
             '<label class="field"><span>6-digit code from the email</span>' +
-              '<input class="em-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" ' +
+              '<input class="em-code" id="em-code-' + n + '" name="one-time-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" ' +
               'style="font-family:var(--mono);font-size:22px;letter-spacing:.36em;text-align:center"></label>' +
             '<button type="button" class="btn em-verify" style="margin-top:14px">Verify &amp; sign in</button>' +
           '</div>' +

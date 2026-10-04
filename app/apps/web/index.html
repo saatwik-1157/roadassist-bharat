@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RoadAssist — demo client</title>
+<meta name="description" content="The RoadAssist request console: a phone that runs against the live API, every call it makes with the server's reply, and a feature phone reaching the same platform over SMS.">
+
 <meta name="theme-color" content="#e6e4df" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0b0c10" media="(prefers-color-scheme: dark)">
 <script>
@@ -73,7 +75,8 @@
   .sub{color:var(--ink-2);font-size:13px;margin:0 0 14px}
 
   label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);margin:12px 0 5px}
-  input,select,textarea{width:100%;padding:10px;border:1px solid var(--edge);background:var(--field-bg);font:inherit;font-size:14px}
+  input,select,textarea{width:100%;padding:10px;border:1px solid var(--edge);background:var(--field-bg);color:var(--ink);font:inherit;font-size:14px;min-height:44px}
+  input::placeholder,textarea::placeholder{color:var(--ink-3)}
   .btn{width:100%;padding:12px;background:var(--hazard);color:#16181C;border:1px solid var(--hazard);font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;margin-top:14px}
   .btn.ghost{background:transparent;border-color:var(--edge);color:var(--ink)}
   .btn.danger{background:var(--red);border-color:var(--red);color:#fff}
@@ -93,7 +96,8 @@
   /* ── console ───────────────────────────────────────────── */
   .log-col{padding:22px;display:flex;flex-direction:column;gap:12px;min-width:0}
   .log-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px}
-  .log-head h1{font-family:var(--display);font-size:19px;margin:0;letter-spacing:-.02em}
+  .log-head h2{font-family:var(--display);font-size:19px;margin:0;letter-spacing:-.02em}
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
   .log-head p{margin:0;color:var(--ink-2);font-size:13px}
   .log{flex:1;background:var(--slab);color:var(--slab-t2);font-family:var(--mono);font-size:11.5px;line-height:1.65;padding:13px;overflow:auto;min-height:340px}
   .log div{white-space:pre-wrap;word-break:break-word;border-bottom:1px solid rgba(255,255,255,.06);padding:4px 0}
@@ -123,14 +127,51 @@
   .fp-quick{display:flex;flex-wrap:wrap;gap:5px;padding:0 12px 11px}
   .fp-quick button{font-family:var(--mono);font-size:10px;letter-spacing:.06em;padding:5px 8px;border:1px solid var(--soft);background:var(--card-bg)}
   .fp-quick button:hover{border-color:var(--edge)}
+
+  /* ── finish ────────────────────────────────────────────────────────────
+     The ghost button under the phone sat on the dark slab in --ink, which in
+     the light palette IS the slab colour: "Go online", the control the whole
+     offline demonstration hangs on, rendered at 1:1 and could not be seen. */
+  .phone-col .btn.ghost{color:var(--slab-t);border-color:rgba(242,241,237,.34);background:rgba(255,255,255,.04)}
+  .phone-col .btn.ghost:hover{border-color:var(--hazard);color:#fff}
+  /* Depth without giving up the signage edges: the handset is lit from above
+     and stands off the slab; buttons press in. */
+  .phone{box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 0 0 1px rgba(255,255,255,.06),0 28px 60px -18px rgba(0,0,0,.75),0 10px 22px -10px rgba(0,0,0,.6)}
+  .btn{transition:transform .14s cubic-bezier(.34,1.56,.64,1),filter .14s linear,box-shadow .2s ease,border-color .2s ease;
+       box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -2px 0 rgba(0,0,0,.14)}
+  .btn.ghost{box-shadow:none}
+  .btn:hover:not(:disabled){filter:brightness(1.06)}
+  .btn:active:not(:disabled){transform:translateY(1px) scale(.99);box-shadow:inset 0 2px 3px rgba(0,0,0,.22)}
+  .fp-quick button{transition:border-color .2s ease,transform .12s ease}
+  .fp-quick button:active{transform:translateY(1px)}
+  .online .dot{animation:net-beat 2.2s ease-out infinite}
+  @keyframes net-beat{0%{box-shadow:0 0 0 0 rgba(63,208,126,.6)}70%,100%{box-shadow:0 0 0 7px rgba(63,208,126,0)}}
+  .log-head h2{position:relative;padding-left:14px}
+  .log-head h2::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:5px;
+    background:repeating-linear-gradient(-45deg,var(--hazard) 0 5px,var(--slab) 5px 10px)}
+  .log{box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 18px 40px -26px rgba(0,0,0,.6)}
+  .log div{animation:log-in .32s ease-out both}
+  @keyframes log-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .surfaces a{transition:color .2s ease,border-color .2s ease}
+  .screen{scroll-behavior:smooth}
+  .btn{min-height:44px}
+  @media (pointer:coarse),(max-width:600px){
+    .surfaces a{display:inline-flex;align-items:center;min-height:44px;padding:4px 10px}
+    .fp-quick button{min-height:44px;padding:5px 11px}
+    #clear,#theme{min-height:44px;min-width:44px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+  }
 </style>
 </head>
 <body>
+<h1 class="sr">RoadAssist request console — a demo phone, its API calls, and the SMS path</h1>
 <div class="shell">
   <div class="phone-col">
     <div class="phone">
       <div class="bar" id="bar">
-        <span class="net"><i class="dot"></i><span id="netlabel">NO SIGNAL</span></span>
+        <span class="net"><i class="dot"></i><span id="netlabel" title="The phone's network is simulated: press Go online">SIM · NO SIGNAL</span></span>
         <span id="whoami">not signed in</span>
       </div>
       <div class="screen" id="screen"></div>
@@ -145,7 +186,7 @@
   <div class="log-col">
     <div class="log-head">
       <div>
-        <h1>Request console</h1>
+        <h2>Request console</h2>
         <p>Every call the client makes, with the server's reply.</p>
       </div>
       <div>
@@ -525,7 +566,7 @@ document.addEventListener("click", async (e) => {
 $("toggle-net").addEventListener("click", async () => {
   state.online = !state.online;
   $("bar").classList.toggle("online", state.online);
-  $("netlabel").textContent = state.online ? "4G" : "NO SIGNAL";
+  $("netlabel").textContent = state.online ? "SIM · 4G" : "SIM · NO SIGNAL";
   $("toggle-net").textContent = state.online ? "Go offline" : "Go online";
   write("m", state.online ? "▲ network restored" : "▼ network lost");
 
@@ -591,8 +632,12 @@ bubble("in", `This phone is ${fpNumber}. Send MADAD or HELP to begin.`);
 (async () => {
   try {
     const h = await fetch(API + "/health").then((r) => r.json());
-    $("api-state").textContent = `API ${h.data.status} · db ${h.data.dbLatencyMs}ms · ai:${h.data.providers.ai}`;
-    write("g", `API ready — providers: ${JSON.stringify(h.data.providers)}`);
+    // /health names its providers only for an operator (?detail=1 with a
+    // token). Reading h.data.providers.ai unguarded threw on the public
+    // answer, and the catch below then reported a healthy API as unreachable.
+    const p = h.data.providers;
+    $("api-state").textContent = `API ${h.data.status} · db ${h.data.dbLatencyMs}ms${p?.ai ? ` · ai:${p.ai}` : ""}`;
+    write("g", p ? `API ready — providers: ${JSON.stringify(p)}` : `API ready — database ${h.data.database}, ${h.data.dbLatencyMs} ms`);
   } catch {
     $("api-state").textContent = "API unreachable";
     write("r", "API unreachable — is the server running on :4000?");

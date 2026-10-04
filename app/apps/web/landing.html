@@ -11,19 +11,32 @@
 <meta property="og:description" content="Offline-first roadside assistance for India. Request help, raise an SOS and reach a responder — on a smartphone, or on a feature phone over SMS with no app and no data.">
 <meta property="og:image" content="https://roadassistbharat.online/visuals/vis_products.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="Offline-first roadside assistance for India. Request help, raise an SOS and reach a responder — on a smartphone, or on a feature phone over SMS with no app and no data.">
+<meta name="description" content="Offline-first roadside assistance for India. Request help, raise an SOS and reach a responder on a smartphone, or on a feature phone over SMS with no data.">
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#08090c" media="(prefers-color-scheme: dark)">
+<meta property="og:site_name" content="RoadAssist Bharat">
+<meta name="twitter:title" content="RoadAssist — roadside assistance that works off-grid">
+<meta name="twitter:description" content="Offline-first roadside assistance for India. Request help, raise an SOS and reach a responder on a smartphone, or on a feature phone over SMS with no data.">
 <script>
   (function () {
     try {
       var t = localStorage.getItem("ra.theme");
       if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
     } catch (e) { /* storage blocked — the system preference wins */ }
+    // Scroll reveals are opt-in: only a browser that can observe them, for a
+    // visitor who has not asked for less motion, ever hides content to reveal.
+    try {
+      if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+        document.documentElement.classList.add("rv-on");
+    } catch (e) { /* no matchMedia — everything simply shows */ }
   })();
 </script>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
+<!-- The headline and body faces, fetched before the stylesheet asks for them,
+     so the hero does not paint once in a fallback face and then re-flow. -->
+<link rel="preload" href="vendor/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="vendor/fonts.css">
 <link rel="stylesheet" href="ds.css">
 <style>
@@ -50,11 +63,18 @@
   .sec-head { max-width: 640px; margin-bottom: var(--s-6); }
   .sec-head .display { margin: var(--s-3) 0; }
 
-  .hero { padding-top: var(--s-7); }
-  .hero .display { font-size: clamp(34px, 6.2vw, 60px); margin: var(--s-4) 0 var(--s-5);
-                   max-width: 15ch; }
+  .hero { position: relative; padding-top: var(--s-7); overflow-x: clip; }
+  .hero .display { font-size: clamp(38px, 6vw, 64px); font-weight: 600; line-height: 1.02;
+                   letter-spacing: -0.042em; margin: var(--s-4) 0 var(--s-5); max-width: 14ch; }
+  /* The display face has no italic: emphasis is carried by colour (a gold
+     gradient) and nothing is slanted. */
+  .display em { font-style: normal; }
+  .hero .display em { display: inline; font-style: normal;
+                      background: linear-gradient(100deg, var(--em-a) 8%, var(--em-b) 92%);
+                      -webkit-background-clip: text; background-clip: text; color: transparent;
+                      -webkit-box-decoration-break: clone; box-decoration-break: clone; }
   .lede { font-size: clamp(15px, 1.5vw, 17.5px); line-height: 1.7;
-          color: var(--text-2); max-width: 54ch; }
+          color: var(--text-2); max-width: 52ch; text-wrap: pretty; }
   .cta { display: flex; flex-wrap: wrap; gap: var(--s-3); margin-top: var(--s-6); }
   .cta .btn { width: auto; min-width: 190px; }
   /* On a phone a row of content-width buttons reads as ragged, and the second
@@ -202,9 +222,10 @@
   .l3d-vp iframe { background: var(--bg); opacity: 0; transition: opacity .8s var(--ease); }
   .l3d.is-live .l3d-vp iframe { opacity: 1; }
   .l3d.is-live .l3d-vp img { opacity: 0; pointer-events: none; }
-  .l3d-shield { position: absolute; inset: 0; z-index: 2; display: flex; align-items: flex-end;
+  /* Centred: at the bottom it sat on the framed page's own journey caption. */
+  .l3d-shield { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center;
                 justify-content: center; padding-bottom: var(--s-5);
-                background: linear-gradient(transparent 62%, color-mix(in srgb, var(--bg) 55%, transparent)); }
+                background: radial-gradient(60% 50% at 50% 50%, color-mix(in srgb, #000 22%, transparent), transparent 70%); }
   .l3d-shield span { display: inline-flex; align-items: center; gap: var(--s-2); padding: 10px 18px;
                      border-radius: var(--r-full); border: 1px solid var(--line-2);
                      background: var(--glass-strong); color: var(--text); font-size: 13px; font-weight: 650;
@@ -221,6 +242,168 @@
     .l3d-vp { aspect-ratio: auto; height: 80vh; height: 80svh; min-height: 480px; max-height: 760px; }
     .l3d-bar { padding: var(--s-3) var(--s-4); }
     .l3d-bar .btn { flex: 1 1 100%; }
+  }
+
+  /* ── finish ─────────────────────────────────────────────────────────────
+     Page-local tokens. The light palette's quietest grey (--text-3) and the
+     gold (--brand) both sit near 3.5:1 on paper, under the 4.5:1 small text
+     needs, so this page darkens the grey in LIGHT mode only (a bare :root
+     loses to ds.css's dark selectors, which keep their own) and gives small
+     gold text its own deeper shade. */
+  :root {
+    --text-3: #676a74;
+    --brand-strong: #8a6315;
+    --em-a: #a87a22; --em-b: #6f4c0e;
+    --hero-glow: rgba(227, 185, 106, .34);
+    --edge-a: rgba(168, 122, 34, .55); --edge-b: rgba(37, 96, 201, .30);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --brand-strong: #e3b96a; --em-a: #f4d999; --em-b: #e3a948;
+      --hero-glow: rgba(227, 185, 106, .20);
+      --edge-a: rgba(227, 185, 106, .55); --edge-b: rgba(91, 157, 255, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --brand-strong: #e3b96a; --em-a: #f4d999; --em-b: #e3a948;
+    --hero-glow: rgba(227, 185, 106, .20);
+    --edge-a: rgba(227, 185, 106, .55); --edge-b: rgba(91, 157, 255, .35);
+  }
+  .brand .wordmark i { color: var(--brand-strong); }
+  .display { text-wrap: balance; font-weight: 600; letter-spacing: -0.032em; }
+  .sub { text-wrap: pretty; }
+  .sec-head .eyebrow, .hero-copy .eyebrow { color: var(--brand-strong); }
+  section[id], main > section { scroll-margin-top: 76px; }
+
+  /* nav: a hairline that only appears once the page has moved under it */
+  .nav { transition: box-shadow var(--t-3) var(--ease), background var(--t-3) var(--ease); }
+  .nav.is-stuck { box-shadow: 0 1px 0 var(--line), 0 10px 30px -18px rgba(0, 0, 0, .35); }
+  .nav-links a { position: relative; padding-block: 6px; transition: color var(--t-2) var(--ease); }
+  .nav-links a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1.5px;
+                        border-radius: 2px; background: var(--brand); transform: scaleX(0);
+                        transform-origin: left; transition: transform var(--t-3) var(--ease); }
+  .nav-links a:hover::after, .nav-links a:focus-visible::after { transform: scaleX(1); }
+  .nav-end { display: flex; align-items: center; gap: var(--s-3); }
+
+  /* hero eyebrow as a quiet pill */
+  .hero-copy .eyebrow { display: inline-flex; align-items: center; gap: 9px; padding: 7px 13px 7px 11px;
+                        border-radius: var(--r-full); border: 1px solid var(--line-brand);
+                        background: color-mix(in srgb, var(--surface) 70%, transparent); }
+  .hero-copy .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%;
+                                background: var(--brand-fill); box-shadow: 0 0 0 3px var(--brand-soft); }
+
+  /* CTA buttons: a lit top edge, a soft drop, a lift on hover, a press on click */
+  .cta .btn { min-height: 50px; padding: 14px 24px; font-size: 14.5px; }
+  .cta .btn:not(.ghost) {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--ink) 86%, #fff) 0%, var(--ink) 55%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(0,0,0,.25),
+                0 1px 2px rgba(0,0,0,.18), 0 12px 26px -10px rgba(16,18,24,.55);
+  }
+  .cta .btn:not(.ghost):hover {
+    transform: translateY(-1px); filter: none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.26), inset 0 -1px 0 rgba(0,0,0,.25),
+                0 2px 4px rgba(0,0,0,.18), 0 18px 34px -12px rgba(16,18,24,.6);
+  }
+  .cta .btn:not(.ghost):active { transform: translateY(1px) scale(.985); transition-duration: 80ms; }
+  .cta .btn.ghost { background: color-mix(in srgb, var(--surface) 60%, transparent);
+                    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+  .cta .btn.ghost:hover { border-color: var(--line-brand); background: var(--surface); transform: translateY(-1px); }
+  .cta .btn.ghost:active { transform: translateY(1px) scale(.985); }
+  .cta .btn .arr { width: 16px; height: 16px; transition: transform var(--t-3) var(--spring); }
+  .cta .btn:hover .arr { transform: translateX(3px); }
+  .more { display: inline-flex; align-items: center; gap: 7px; margin-top: var(--s-4);
+          font-size: 14px; font-weight: 650; color: var(--text); }
+  .more svg { width: 15px; height: 15px; color: var(--brand); transition: transform var(--t-3) var(--spring); }
+  .more span { background: linear-gradient(currentColor, currentColor) 0 100% / 0 1.5px no-repeat;
+               transition: background-size var(--t-3) var(--ease); padding-bottom: 2px; }
+  .more:hover span, .more:focus-visible span { background-size: 100% 1.5px; }
+  .more:hover svg { transform: translateY(2px); }
+
+  /* The scene's light: a warm pool behind the city block that breathes, and a
+     band of light that crosses the map. Transform and opacity only. */
+  .scene3d::before { content: ""; position: absolute; left: 50%; top: 46%; width: 92%; aspect-ratio: 1;
+                     translate: -50% -50%; border-radius: 50%; pointer-events: none;
+                     background: radial-gradient(closest-side, var(--hero-glow), transparent 72%);
+                     animation: s-breathe 9s ease-in-out infinite alternate; }
+  @keyframes s-breathe { from { opacity: .55; transform: scale(.92); } to { opacity: 1; transform: scale(1.04); } }
+  .s-tilt { position: absolute; inset: 0; transform-style: preserve-3d;
+            transform: rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg)); }
+  .s-sheen { position: absolute; inset: 0; border-radius: 26px; overflow: hidden; pointer-events: none;
+             transform: translateZ(1px); }
+  .s-sheen i { position: absolute; top: -20%; bottom: -20%; left: 0; width: 34%;
+               background: linear-gradient(100deg, transparent, rgba(255, 236, 190, .10) 45%, rgba(255, 255, 255, .16) 50%, transparent 58%);
+               transform: translateX(-120%); animation: s-sweep 7.5s var(--ease) infinite; }
+  @keyframes s-sweep { 0%, 35% { transform: translateX(-120%); } 85%, 100% { transform: translateX(400%); } }
+
+  /* Scroll reveal. Hidden only once html.rv-on is set (see the head script),
+     released as each block enters the view. fill-mode backwards: once the
+     entrance ends nothing of it stays applied, so hover lifts still work. */
+  @keyframes rv-in { from { opacity: 0; transform: translate3d(0, 22px, 0); } to { opacity: 1; transform: none; } }
+  .rv-on [data-rv]:not(.in) { opacity: 0; }
+  .rv-on [data-rv].in { animation: rv-in .9s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 75ms); }
+
+  /* cards: an icon tile, and a gradient edge that lights on hover */
+  .card.edge::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px;
+                      pointer-events: none; opacity: 0; transition: opacity var(--t-3) var(--ease);
+                      background: linear-gradient(140deg, var(--edge-a), transparent 38%, transparent 62%, var(--edge-b));
+                      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+                      -webkit-mask-composite: xor; mask-composite: exclude; }
+  .card.edge:hover::after, .card.edge:focus-visible::after { opacity: 1; }
+  .card { padding: var(--s-5); }
+  .card .ico { width: 42px; height: 42px; display: grid; place-items: center; margin-bottom: var(--s-4);
+               border-radius: var(--r-sm); color: var(--brand-strong);
+               background: linear-gradient(150deg, var(--brand-soft), transparent 80%), var(--surface-2);
+               border: 1px solid var(--line-brand); box-shadow: inset 0 1px 0 rgba(255,255,255,.4); }
+  .card .ico svg { width: 22px; height: 22px; }
+  .card h3 { font-size: 18px; letter-spacing: -0.012em; }
+  a.card h3 { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+  a.card h3 i { font-style: normal; color: var(--brand-strong); transition: transform var(--t-3) var(--spring); }
+  a.card:hover h3 i { transform: translateX(4px); }
+
+  .step .n { width: 34px; height: 34px; font-size: 13px; color: var(--brand-strong);
+             background: radial-gradient(circle at 35% 30%, var(--surface), var(--brand-soft) 70%);
+             box-shadow: 0 0 0 4px var(--brand-soft); }
+  .yes { background: linear-gradient(170deg, var(--green-soft), transparent 46%), var(--surface); }
+  .ledger .eyebrow { color: var(--text-2); }
+  .yes .eyebrow { color: var(--green); }
+
+  .safety { padding: var(--s-7) var(--s-6); overflow: hidden; border-color: var(--line-brand);
+            background: radial-gradient(120% 90% at 100% 0%, var(--brand-soft), transparent 55%),
+                        radial-gradient(80% 70% at 0% 100%, var(--red-soft), transparent 60%), var(--surface); }
+  .safety .shield { width: 46px; height: 46px; color: var(--brand-strong); margin-bottom: var(--s-4); }
+  @media (max-width: 619px) { .safety { padding: var(--s-6) var(--s-5); } }
+
+  .stat { padding: var(--s-5); }
+  .stat .v { font-size: clamp(34px, 4vw, 48px); font-weight: 600; letter-spacing: -0.03em;
+             background: linear-gradient(180deg, var(--em-a), var(--em-b)); -webkit-background-clip: text;
+             background-clip: text; color: transparent; padding-bottom: 2px; }
+  .stat .k { font-size: 12.5px; color: var(--text-2); }
+
+  .final { position: relative; overflow: hidden; padding: var(--s-8) var(--s-5); border-radius: var(--r-xl);
+           border: 1px solid var(--line-brand); box-shadow: var(--shadow-3);
+           background: radial-gradient(70% 90% at 50% 0%, var(--brand-soft), transparent 70%),
+                       linear-gradient(180deg, var(--surface), var(--surface-2)); }
+  .final::before { content: ""; position: absolute; left: 50%; top: -40%; width: 70%; aspect-ratio: 1;
+                   translate: -50% 0; border-radius: 50%; pointer-events: none;
+                   background: radial-gradient(closest-side, var(--hero-glow), transparent);
+                   animation: s-breathe 10s ease-in-out infinite alternate; }
+  .final > * { position: relative; }
+  .final .display { font-size: clamp(30px, 4.4vw, 50px); }
+
+  /* ds.css spaces stacked cards with .card + .card; inside a grid that pushed
+     every card after the first down by 13 px. */
+  .grid > .card, .stats > .card, .ledger > .card { margin-top: 0; }
+  /* touch targets: 44 px wherever a finger is the pointer */
+  .brand { min-height: 44px; }
+  @media (pointer: coarse), (max-width: 719px) {
+    .theme-btn { width: 44px; height: 44px; }
+    .nav .btn, .l3d-bar .btn { min-height: 44px; }
+    .foot nav a { display: inline-flex; align-items: center; min-height: 44px; }
+  }
+  .foot nav { display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-5); font-size: 13px; color: var(--text-2); }
+  .foot nav a:hover { color: var(--text); }
+  @media (prefers-reduced-motion: reduce) {
+    .scene3d::before, .s-sheen i, .final::before { animation: none !important; }
   }
 </style>
 </head>
@@ -240,7 +423,13 @@
       <a href="#surfaces">Surfaces</a>
       <a href="#layers">Layers in 3D</a>
     </nav>
-    <a class="btn" href="/app.html">Open the app</a>
+    <div class="nav-end">
+      <button class="theme-btn" id="theme" type="button" title="Switch theme" aria-label="Switch colour theme">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+      </button>
+      <a class="btn" href="/app.html">Open the app</a>
+    </div>
   </div>
 </header>
 
@@ -257,10 +446,12 @@
           back. On a feature phone it works over plain SMS, with no app at all.
         </p>
         <div class="cta">
-          <a class="btn" href="/app.html">Open the app</a>
+          <a class="btn" href="/app.html">Open the app
+            <svg class="arr" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></a>
           <a class="btn ghost" href="/index.html">See the live request console</a>
-          <a class="btn ghost" href="#layers">Every layer in live 3D</a>
         </div>
+        <a class="more" href="#layers"><span>Every layer in live 3D</span>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 4v11M5.5 11 10 15.5 14.5 11"/></svg></a>
         <div class="trust">
           <span class="chip">Works with no data — over SMS</span>
           <span class="chip">GPS fix held on the device</span>
@@ -268,7 +459,7 @@
         </div>
       </div>
       <figure class="scene3d" aria-labelledby="scene-cap">
-        <div class="s-scale"><div class="s-stage"><div class="s-plane">
+        <div class="s-scale"><div class="s-tilt" id="sTilt"><div class="s-stage"><div class="s-plane">
           <i class="s-slab"></i><i class="s-slab two"></i><i class="s-floor"></i>
           <svg class="s-map" viewBox="0 0 600 440" preserveAspectRatio="none" aria-hidden="true">
             <defs>
@@ -299,6 +490,7 @@
               <animateMotion dur="8s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;.82;1" calcMode="linear"><mpath href="#smRoute"/></animateMotion></g>
             <circle cx="88" cy="70" r="5" fill="#0A0E16" stroke="#7CFFC4" stroke-width="2"/>
           </svg>
+          <div class="s-sheen" aria-hidden="true"><i></i></div>
           <div class="s-bld" style="left:5%;top:50%;width:8%;height:10%;--h:42px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
           <div class="s-bld" style="left:15%;top:64%;width:6%;height:7%;--h:24px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
           <div class="s-bld lit" style="left:40%;top:6%;width:8%;height:11%;--h:56px"><b class="t"></b><b class="s"></b><b class="e"></b><b class="n"></b><b class="w"></b></div>
@@ -315,7 +507,7 @@
             <span><b>Verified mechanic</b><small>En route to your SOS</small><em><i></i></em></span>
           </div>
           <div class="s-bill s-chip" style="left:16%;top:88%">Off-grid · held on the device</div>
-        </div></div></div>
+        </div></div></div></div>
         <figcaption id="scene-cap">How a dispatch plays out. An illustration, not live data.</figcaption>
       </figure>
     </div>
@@ -323,7 +515,7 @@
 
   <section id="layers">
     <div class="wrap">
-      <div class="sec-head">
+      <div class="sec-head" data-rv>
         <span class="eyebrow">Under the hood</span>
         <h2 class="display">Every layer, <em>live in 3D.</em></h2>
         <p class="sub">
@@ -332,7 +524,7 @@
           real request travel through every one. The readings on it come from this server.
         </p>
       </div>
-      <figure class="l3d" id="l3d">
+      <figure class="l3d" id="l3d" data-rv>
         <div class="l3d-vp">
           <img src="assets/3d/layers-render-960.webp" srcset="assets/3d/layers-render-960.webp 960w, assets/3d/layers-render.webp 1920w"
                sizes="(max-width: 1140px) calc(100vw - 48px), 1092px" width="1920" height="1200" loading="lazy"
@@ -351,29 +543,29 @@
 
   <section id="what">
     <div class="wrap">
-      <div class="sec-head">
+      <div class="sec-head" data-rv>
         <span class="eyebrow">What it does</span>
         <h2 class="display">Four things, done properly.</h2>
         <p class="sub">Each one stands on its own. None of them needs the others to be online.</p>
       </div>
-      <div class="grid four stagger">
-        <article class="card lift">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17h14M6 17V9l2-4h8l2 4v8"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg>
+      <div class="grid four" data-rv-stagger>
+        <article class="card lift edge">
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 17h14M6 17V9l2-4h8l2 4v8"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg></span>
           <h3>Roadside assistance</h3>
           <p class="sub">Describe the fault, get a likely cause, then dispatch the nearest verified mechanic — ranked on real distance and ETA.</p>
         </article>
-        <article class="card lift">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3.5 19h17z"/><path d="M12 10v4M12 17h.01"/></svg>
+        <article class="card lift edge">
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 3.5 19h17z"/><path d="M12 10v4M12 17h.01"/></svg></span>
           <h3>Emergency SOS</h3>
           <p class="sub">A deliberate press-and-hold, never a pocket tap. It falls down a ladder: data, then SMS, then the dialer for 112.</p>
         </article>
-        <article class="card lift">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18 9 6l6 12"/><path d="M14 13h7M17.5 9.5 21 13l-3.5 3.5"/></svg>
+        <article class="card lift edge">
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18 9 6l6 12"/><path d="M14 13h7M17.5 9.5 21 13l-3.5 3.5"/></svg></span>
           <h3>RAKSHA road intelligence</h3>
           <p class="sub">Road-damage detections plotted along a corridor, with per-segment health an authority can download and act on.</p>
         </article>
-        <article class="card lift">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M10 5.5h4M11 18.5h2"/></svg>
+        <article class="card lift edge">
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2"/><path d="M10 5.5h4M11 18.5h2"/></svg></span>
           <h3>Any phone, any language</h3>
           <p class="sub">A feature phone texts <span class="num">MADAD</span> and the platform answers. The interface is offered in 8 Indian languages.</p>
         </article>
@@ -383,11 +575,11 @@
 
   <section id="how">
     <div class="wrap">
-      <div class="sec-head">
+      <div class="sec-head" data-rv>
         <span class="eyebrow">How help arrives</span>
         <h2 class="display">From stranded to assigned.</h2>
       </div>
-      <div class="grid two">
+      <div class="grid two" data-rv-stagger>
         <div class="card"><div class="step"><span class="n num">1</span><div>
           <h3>Say what is wrong</h3>
           <p class="sub">A rules engine names a likely cause, a severity, and whether the vehicle is safe to drive. It is advice, not a dispatch.</p>
@@ -410,7 +602,7 @@
 
   <section id="offgrid">
     <div class="wrap">
-      <div class="sec-head">
+      <div class="sec-head" data-rv>
         <span class="eyebrow">Off-grid mode</span>
         <h2 class="display">What still works with <em>no signal at all.</em></h2>
         <p class="sub">
@@ -419,7 +611,7 @@
           acknowledged it.
         </p>
       </div>
-      <div class="ledger">
+      <div class="ledger" data-rv-stagger>
         <div class="card yes">
           <span class="eyebrow">Works offline</span>
           <ul>
@@ -444,7 +636,8 @@
 
   <section>
     <div class="wrap">
-      <div class="card" style="padding: var(--s-6)">
+      <div class="card safety" data-rv>
+        <svg class="shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.8 19.5 5.6v5.6c0 4.6-3.1 8.3-7.5 9.9-4.4-1.6-7.5-5.3-7.5-9.9V5.6z"/><path d="m8.6 12.2 2.4 2.4 4.6-5"/></svg>
         <span class="eyebrow">Emergency safety</span>
         <h2 class="display" style="margin: var(--s-3) 0; max-width: 20ch">A model never dispatches. A person does.</h2>
         <p class="sub" style="max-width: 62ch">
@@ -466,26 +659,26 @@
 
   <section id="surfaces">
     <div class="wrap">
-      <div class="sec-head">
+      <div class="sec-head" data-rv>
         <span class="eyebrow">Surfaces</span>
         <h2 class="display">Four ways in.</h2>
         <p class="sub">All four run against the same live API on this server.</p>
       </div>
-      <div class="grid four stagger">
-        <a class="card lift" href="/app.html">
-          <h3>Citizen app →</h3>
+      <div class="grid four" data-rv-stagger>
+        <a class="card lift edge" href="/app.html">
+          <h3>Citizen app <i aria-hidden="true">→</i></h3>
           <p class="sub">Request help, raise an SOS, track a rescue, pay and rate.</p>
         </a>
-        <a class="card lift" href="/mechanic.html">
-          <h3>Mechanic console →</h3>
+        <a class="card lift edge" href="/mechanic.html">
+          <h3>Mechanic console <i aria-hidden="true">→</i></h3>
           <p class="sub">Go on duty, take offers, drive a job through to payment.</p>
         </a>
-        <a class="card lift" href="/raksha.html">
-          <h3>Authority dashboard →</h3>
+        <a class="card lift edge" href="/raksha.html">
+          <h3>Authority dashboard <i aria-hidden="true">→</i></h3>
           <p class="sub">Corridor road health, detections, and a downloadable offline snapshot.</p>
         </a>
-        <a class="card lift" href="/index.html">
-          <h3>Request console →</h3>
+        <a class="card lift edge" href="/index.html">
+          <h3>Request console <i aria-hidden="true">→</i></h3>
           <p class="sub">Every API call the client makes, with the server's reply — including the SMS path.</p>
         </a>
       </div>
@@ -494,24 +687,24 @@
 
   <section>
     <div class="wrap">
-      <div class="sec-head">
+      <div class="sec-head" data-rv>
         <span class="eyebrow">Built honestly</span>
         <h2 class="display">Numbers you can check.</h2>
         <p class="sub">Every figure here is measured by a script in this repository and gated in CI, not estimated.</p>
       </div>
-      <div class="stats">
+      <div class="stats" data-rv-stagger>
         <div class="card stat"><div class="v num">1137</div><div class="k hint">automated checks across six suites</div></div>
         <div class="card stat"><div class="v num">74</div><div class="k hint">API routes</div></div>
         <div class="card stat"><div class="v num">58</div><div class="k hint">database tables</div></div>
         <div class="card stat"><div class="v num">8</div><div class="k hint">languages offered</div></div>
       </div>
-      <p class="hint" style="margin-top: var(--s-4); max-width: 70ch">
+      <p class="hint" style="margin-top: var(--s-5); max-width: 70ch">
         Seven of the eight languages are machine-translated and have <b>not</b> been
         native-reviewed: the strings exist, the quality is unverified, and those are
         different claims. The Razorpay checks run separately, against a local stub rather than the real gateway, and are not counted in the 1137.
       </p>
 
-      <div class="card" style="margin-top: var(--s-6); padding: var(--s-5)">
+      <div class="card" style="margin-top: var(--s-6); padding: var(--s-5)" data-rv>
         <span class="eyebrow">Deliberately not built</span>
         <p class="sub" style="margin-top: var(--s-3)">
           iOS · Android Auto · IVR · USSD · satellite · mesh networking · Kubernetes ·
@@ -525,14 +718,17 @@
 
   <section>
     <div class="wrap center">
-      <h2 class="display" style="max-width: 18ch; margin-inline: auto">Try it on the phone in your pocket.</h2>
-      <p class="sub" style="max-width: 52ch; margin: var(--s-4) auto 0">
-        The app runs in the browser. Turn the network off mid-journey and watch what it
-        does — that is the part worth seeing.
-      </p>
-      <div class="cta" style="justify-content: center">
-        <a class="btn" href="/app.html">Open the app</a>
-        <a class="btn ghost" href="/index.html">Open the console</a>
+      <div class="final" data-rv>
+        <h2 class="display" style="max-width: 18ch; margin-inline: auto">Try it on the phone in your pocket.</h2>
+        <p class="sub" style="max-width: 52ch; margin: var(--s-4) auto 0">
+          The app runs in the browser. Turn the network off mid-journey and watch what it
+          does — that is the part worth seeing.
+        </p>
+        <div class="cta" style="justify-content: center">
+          <a class="btn" href="/app.html">Open the app
+            <svg class="arr" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h11M11 5.5 15.5 10 11 14.5"/></svg></a>
+          <a class="btn ghost" href="/index.html">Open the console</a>
+        </div>
       </div>
     </div>
   </section>
@@ -544,6 +740,12 @@
       <svg class="mark" viewBox="0 0 128 128" aria-hidden="true"><defs><linearGradient id="raMkGold-2" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#FFD978"/><stop offset="0.55" stop-color="#F0B429"/><stop offset="1" stop-color="#C97A12"/></linearGradient><linearGradient id="raMkRoad-2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1A2130"/><stop offset="1" stop-color="#07090D"/></linearGradient><radialGradient id="raMkPulse-2" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#7CFFC4"/><stop offset="1" stop-color="#1FC77E"/></radialGradient></defs><path d="M64 5 L113 23 V58 C113 91 92 113.5 64 123 C36 113.5 15 91 15 58 V23 Z" fill="url(#raMkGold-2)"/><path d="M64 12 L106 27.5 V58 C106 86.5 88 106.5 64 115.5 C40 106.5 22 86.5 22 58 V27.5 Z" fill="none" stroke="#FFF1C2" stroke-opacity="0.45" stroke-width="1.5"/><path d="M34 106 L58.5 42 C60 38.3 68 38.3 69.5 42 L94 106 C85 110.5 74.5 113 64 113 C53.5 113 43 110.5 34 106 Z" fill="url(#raMkRoad-2)"/><rect x="61.6" y="95" width="4.8" height="11" rx="1.6" fill="#F0B429"/><rect x="62.1" y="80" width="3.8" height="8.5" rx="1.4" fill="#F0B429"/><rect x="62.5" y="67.5" width="3" height="6.5" rx="1.2" fill="#F0B429"/><rect x="62.9" y="57.5" width="2.2" height="4.8" rx="1" fill="#F0B429"/><path d="M52.5 30.5 A16 16 0 0 1 75.5 30.5" fill="none" stroke="#0B0E14" stroke-width="3.2" stroke-linecap="round"/><path d="M57.3 35.2 A9.4 9.4 0 0 1 70.7 35.2" fill="none" stroke="#0B0E14" stroke-width="3.2" stroke-linecap="round"/><circle cx="64" cy="42.5" r="5.2" fill="url(#raMkPulse-2)" stroke="#0B0E14" stroke-width="2"/></svg>
       <span class="wordmark">Road<i>Assist</i></span>
     </a>
+    <nav aria-label="Pages">
+      <a href="/app.html">Citizen app</a>
+      <a href="/showcase.html">Showcase</a>
+      <a href="/layers.html">Layers in 3D</a>
+      <a href="/index.html">Request console</a>
+    </nav>
     <p class="hint">Offline-first roadside assistance for India · demonstration build</p>
   </div>
 </footer>
@@ -570,11 +772,118 @@
       arm(true);
     });
     shield.addEventListener("click", function () { arm(false); fr.focus(); });
-    fr.src = fr.dataset.src;
+    // The scene is the heaviest thing on the page - three.js, a Draco model,
+    // a bloom pass - and it shares this page's main thread. Started at once it
+    // held up the hero's first paint, so it starts only after this page has
+    // loaded and once the visitor is a screen or so away from it.
+    function start() { if (!fr.getAttribute("src")) fr.src = fr.dataset.src; }
+    function whenNear() {
+      if (!("IntersectionObserver" in window)) { start(); return; }
+      var near = new IntersectionObserver(function (es) {
+        if (es.some(function (e) { return e.isIntersecting; })) { near.disconnect(); start(); }
+      }, { rootMargin: "600px 0px" });
+      near.observe(fig);
+    }
+    if (document.readyState === "complete") whenNear(); else addEventListener("load", whenNear, { once: true });
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (es) {
         es.forEach(function (e) { if (!e.isIntersecting && fig.classList.contains("is-live")) arm(true); });
       }).observe(fig);
+    }
+  })();
+</script>
+<script>
+  /* Finish: the theme switch, the nav's resting shadow, scroll reveals, the
+     hero scene leaning toward a mouse, and the stat tiles counting up to the
+     figures already printed in them. All of it is decoration over content
+     that is complete without it; reduced motion gets none of the movement. */
+  (function () {
+    "use strict";
+    var reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // theme switch - the same ra.theme key every other surface reads
+    var tb = document.getElementById("theme");
+    if (tb) tb.addEventListener("click", function () {
+      var explicit = document.documentElement.getAttribute("data-theme");
+      var dark = explicit ? explicit === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+      var next = dark ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem("ra.theme", next); } catch (e) { /* this page only */ }
+    });
+
+    // nav shadow once the page has scrolled under it
+    var nav = document.querySelector(".nav"), stuck = null;
+    function onScroll() {
+      var s = scrollY > 8;
+      if (s !== stuck) { stuck = s; nav.classList.toggle("is-stuck", s); }
+    }
+    addEventListener("scroll", onScroll, { passive: true }); onScroll();
+
+    // stat tiles: count up to the number already in the tile, once
+    function countUp(el) {
+      var end = parseInt(el.textContent, 10);
+      if (!isFinite(end) || end < 10 || reduced) return;
+      var t0 = performance.now(), dur = 1100;
+      (function step(t) {
+        var p = Math.min(1, (t - t0) / dur);
+        el.textContent = String(Math.round(end * (1 - Math.pow(1 - p, 4))));
+        if (p < 1) requestAnimationFrame(step); else el.textContent = String(end);
+      })(t0);
+    }
+
+    // reveals (html.rv-on is only set when this can work - see the head)
+    if (document.documentElement.classList.contains("rv-on")) {
+      document.querySelectorAll("[data-rv-stagger]").forEach(function (g) {
+        Array.prototype.forEach.call(g.children, function (c, i) { c.setAttribute("data-rv", ""); c.style.setProperty("--i", i); });
+      });
+      var reveal = function (el) {
+        el.classList.add("in"); io.unobserve(el);
+        var v = el.querySelector(".stat .v");
+        if (v) countUp(v);
+      };
+      var io = new IntersectionObserver(function (es) {
+        es.forEach(function (e) { if (e.isIntersecting) reveal(e.target); });
+      }, { rootMargin: "0px 0px -6% 0px", threshold: 0 });
+      var pending = Array.prototype.slice.call(document.querySelectorAll("[data-rv]"));
+      pending.forEach(function (el) { io.observe(el); });
+      // A fling, an anchor jump or a dragged scrollbar can carry a block past
+      // the view between two observer checks, and it would then stay hidden.
+      // Anything whose top is above the bottom of the view is revealed.
+      var sweepQueued = false;
+      var sweep = function () {
+        sweepQueued = false;
+        pending = pending.filter(function (el) {
+          if (el.classList.contains("in")) return false;
+          if (el.getBoundingClientRect().top < innerHeight) { reveal(el); return false; }
+          return true;
+        });
+        if (!pending.length) removeEventListener("scroll", queue);
+      };
+      var queue = function () { if (!sweepQueued) { sweepQueued = true; requestAnimationFrame(sweep); } };
+      addEventListener("scroll", queue, { passive: true });
+      addEventListener("hashchange", queue);
+    }
+
+    // hero scene: leans a few degrees toward a real mouse, eased per frame
+    var tilt = document.getElementById("sTilt");
+    var fine = matchMedia("(hover: hover) and (pointer: fine)").matches;
+    if (tilt && fine && !reduced) {
+      var tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
+      var hero = document.querySelector(".hero");
+      var glide = function () {
+        cx += (tx - cx) * 0.08; cy += (ty - cy) * 0.08;
+        tilt.style.setProperty("--tx", cy.toFixed(2) + "deg");
+        tilt.style.setProperty("--ty", cx.toFixed(2) + "deg");
+        raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 0.02 ? requestAnimationFrame(glide) : 0;
+      };
+      hero.addEventListener("pointermove", function (e) {
+        if (e.pointerType !== "mouse") return;
+        var r = hero.getBoundingClientRect();
+        tx = ((e.clientX - r.left) / r.width - 0.5) * 7;
+        ty = ((e.clientY - r.top) / r.height - 0.5) * -5;
+        if (!raf) raf = requestAnimationFrame(glide);
+      }, { passive: true });
+      hero.addEventListener("pointerleave", function () { tx = 0; ty = 0; if (!raf) raf = requestAnimationFrame(glide); });
     }
   })();
 </script>

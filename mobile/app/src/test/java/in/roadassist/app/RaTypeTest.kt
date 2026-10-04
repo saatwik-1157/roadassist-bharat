@@ -4,7 +4,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 /**
@@ -29,11 +29,11 @@ class RaTypeTest {
     }
 
     @Test
-    fun `title sets no weight, because the call sites it replaced set none`() {
-        // An earlier draft made this SemiBold. Applied to eight bare 17.sp
-        // Texts it would have thickened every card title on the device while
-        // the build stayed green.
-        assertNull(RaType.title.fontWeight)
+    fun `title is Inter 600 — the text face, not the display face`() {
+        // An earlier draft thickened every card title by accident while the
+        // build stayed green. The weight is a decision now, so it is pinned.
+        assertEquals(Inter, RaType.title.fontFamily)
+        assertEquals(FontWeight.SemiBold, RaType.title.fontWeight)
     }
 
     @Test
@@ -65,16 +65,53 @@ class RaTypeTest {
     }
 
     @Test
-    fun `the wordmark is the serif, and the only thing that is`() {
-        assertEquals(FontFamily.Serif, RaType.display.fontFamily)
+    fun `the wordmark is the bundled Space Grotesk, not the platform serif`() {
+        // FontFamily.Serif was the stand-in while the app bundled no fonts.
+        assertEquals(SpaceGrotesk, RaType.display.fontFamily)
+        assertFalse(RaType.display.fontFamily == FontFamily.Serif)
         assertEquals(30.sp, RaType.display.fontSize)
-        assertEquals(FontWeight.Medium, RaType.display.fontWeight)
+        assertEquals(FontWeight.Bold, RaType.display.fontWeight)
     }
 
     @Test
-    fun `screen headings are sans — the serif is reserved for the mark`() {
-        assertNull(RaType.heading.fontFamily)
+    fun `screen headings are Space Grotesk 600 at 27sp`() {
+        assertEquals(SpaceGrotesk, RaType.heading.fontFamily)
+        assertEquals(FontWeight.SemiBold, RaType.heading.fontWeight)
         assertEquals(27.sp, RaType.heading.fontSize)
+    }
+
+    @Test
+    fun `display styles are upright — the brand set has no italics`() {
+        for (style in listOf(RaType.display, RaType.heading)) {
+            assertFalse(style.fontStyle == androidx.compose.ui.text.font.FontStyle.Italic)
+        }
+    }
+
+    @Test
+    fun `text is Inter, never the platform default`() {
+        // A style with no family falls back to Roboto, which is how a screen
+        // ends up in two typefaces with nobody having chosen the second.
+        for (style in listOf(
+            RaType.title, RaType.body, RaType.label, RaType.caption, RaType.sub, RaType.meta, RaType.button,
+        )) {
+            assertEquals(Inter, style.fontFamily)
+        }
+    }
+
+    @Test
+    fun `values are JetBrains Mono 500 with tabular figures`() {
+        // Emergency numbers, the countdown, distances and codes: a column of
+        // them lines up and a ticking count does not jitter.
+        assertEquals(JetBrainsMono, RaType.figures.fontFamily)
+        assertEquals(FontWeight.Medium, RaType.figures.fontWeight)
+        assertEquals("tnum", RaType.figures.fontFeatureSettings)
+        assertEquals(JetBrainsMono, RaType.eyebrow.fontFamily)
+    }
+
+    @Test
+    fun `buttons are Inter 600 at 14sp`() {
+        assertEquals(14.sp, RaType.button.fontSize)
+        assertEquals(FontWeight.SemiBold, RaType.button.fontWeight)
     }
 
     @Test
@@ -85,6 +122,7 @@ class RaTypeTest {
         for (style in listOf(
             RaType.display, RaType.heading, RaType.title, RaType.body,
             RaType.label, RaType.caption, RaType.sub, RaType.meta, RaType.eyebrow,
+            RaType.button, RaType.figures,
         )) {
             assertEquals(androidx.compose.ui.graphics.Color.Unspecified, style.color)
         }

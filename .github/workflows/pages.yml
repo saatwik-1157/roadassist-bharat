@@ -67,7 +67,7 @@ jobs:
           mkdir -p _site/hero _site/feed
           cp pages/hero/*.webp _site/hero/
           cp pages/feed/*.webp _site/feed/
-          # Fraunces and Manrope, self-hosted with their SIL OFL licences.
+          # Space Grotesk, Inter and JetBrains Mono, self-hosted with their SIL OFL licences.
           mkdir -p _site/fonts
           cp pages/fonts/*.woff2 pages/fonts/OFL-*.txt _site/fonts/
           # A custom domain would go here as pages/CNAME, copied into the

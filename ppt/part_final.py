@@ -598,7 +598,7 @@ for i, (name, cap) in enumerate([("src_android_home.png", "Home · the new Layer
     visual(s, x, 2.0, 2.2, 3.95, str(ASSETS / name), "android_" + str(i))
     txt(s, x - 0.2, 6.02, 2.6, 0.3, cap, size=8.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.45, 11.6, 0.3,
-    "175 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
+    "179 Android unit tests · 0 lint errors · 8 languages · the emergency card is shown against a local test server",
     size=9.5, color=GREY, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 16)
 notes(s, """Run it from Android Studio 2026.1: device Medium_Phone, then Run 'app'.

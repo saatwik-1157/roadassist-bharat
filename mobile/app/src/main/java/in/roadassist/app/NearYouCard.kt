@@ -10,13 +10,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -143,22 +140,31 @@ private fun dial(ctx: Context, uri: String) {
 @Composable
 private fun NearYouCard(state: NearYou.State, onAsk: () -> Unit) {
     val ctx = LocalContext.current
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(17.dp)) {
+    RaCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(CardPad)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.near_title), color = Cream, style = RaType.title, modifier = Modifier.weight(1f))
-                Text(stringResource(R.string.near_source), color = Muted, style = RaType.meta)
+                StatusChip(stringResource(R.string.near_source), Muted)
             }
             when (state) {
                 NearYou.State.Idle -> {
                     Note(stringResource(R.string.near_intro))
                     AskButton(stringResource(R.string.near_find), onAsk)
                 }
-                NearYou.State.Loading -> Note(stringResource(R.string.near_loading))
+                NearYou.State.Loading -> {
+                    // The sentence stays; below it, rows in the shape of the
+                    // answer, so the card does not jump when it lands.
+                    Note(stringResource(R.string.near_loading))
+                    Column(Modifier.padding(top = RaSpace.s3)) {
+                        repeat(4) {
+                            Row(Modifier.fillMaxWidth().padding(top = RaSpace.s3), verticalAlignment = Alignment.CenterVertically) {
+                                Shimmer(Modifier.width(72.dp), height = 10.dp)
+                                Spacer(Modifier.width(RaSpace.s5))
+                                Shimmer(Modifier.weight(1f), height = 12.dp)
+                            }
+                        }
+                    }
+                }
                 NearYou.State.Offline -> {
                     Note(stringResource(R.string.near_offline))
                     AskButton(stringResource(R.string.action_retry), onAsk)
@@ -201,18 +207,19 @@ private fun LoadedBody(state: NearYou.State.Loaded, onDial: (String) -> Unit) {
     // button keeps its 48 dp touch target from the minimum interactive size.
     TextButton(onClick = { onDial("tel:" + EmergencyNumbers.ALL.first { it.primary }.number) }, modifier = Modifier.padding(top = 2.dp),
         contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp)) {
-        Text(stringResource(R.string.near_call_112), color = Alarm, style = RaType.label, fontWeight = FontWeight.SemiBold)
+        Text(stringResource(R.string.near_call_112), color = Alarm, style = RaType.button)
     }
 }
 
 @Composable
 private fun PlaceRow(row: NearYou.Row, onDial: (String) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(top = 10.dp),
+        Modifier.fillMaxWidth().padding(top = RaSpace.s2).heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(kindLabel(row.kind), color = Muted, style = RaType.meta, modifier = Modifier.width(92.dp))
+        Text(kindLabel(row.kind), color = Muted, style = RaType.eyebrow, letterSpacing = 0.6.sp,
+            modifier = Modifier.width(92.dp))
         val place = row.nearest
         Column(Modifier.weight(1f)) {
             if (place == null) {
@@ -220,7 +227,8 @@ private fun PlaceRow(row: NearYou.Row, onDial: (String) -> Unit) {
             } else {
                 Text(
                     (place.name ?: stringResource(R.string.near_unnamed)) + " · " + NearYou.distance(place.distanceKm),
-                    color = Cream, style = RaType.label,
+                    // Inter for the name; tabular figures so the distances line up.
+                    color = Cream, style = RaType.label.copy(fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
                 )
                 if (row.more > 0) Text(stringResource(R.string.near_more, row.more), color = Muted, style = RaType.meta)
             }
@@ -228,8 +236,8 @@ private fun PlaceRow(row: NearYou.Row, onDial: (String) -> Unit) {
         val uri = NearYou.dialUri(place?.phone)
         if (place != null && uri != null) {
             val cd = stringResource(R.string.near_cd_call, place.name ?: stringResource(R.string.near_unnamed))
-            TextButton(onClick = { onDial(uri) }, modifier = Modifier.semantics { contentDescription = cd }) {
-                Text(stringResource(R.string.near_call), color = Gold, style = RaType.caption)
+            TextButton(onClick = { onDial(uri) }, modifier = Modifier.heightIn(min = 48.dp).semantics { contentDescription = cd }) {
+                Text(stringResource(R.string.near_call), color = Gold, style = RaType.button)
             }
         }
     }
@@ -258,9 +266,5 @@ private fun Warn(text: String) {
 
 @Composable
 private fun AskButton(text: String, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        shape = RoundedCornerShape(RaRadius.full),
-        modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
-    ) { Text(text, color = Gold, style = RaType.caption, letterSpacing = 1.sp) }
+    RaOutlineButton(text, modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3), onClick = onClick)
 }

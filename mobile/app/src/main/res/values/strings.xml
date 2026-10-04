@@ -168,6 +168,9 @@
          publishes them, so they are not translated. -->
     <string name="near_source" translatable="false">OpenStreetMap</string>
     <string name="near_attribution" translatable="false">© OpenStreetMap contributors</string>
+    <!-- translatable="false": three font names and the licence's own title,
+         which is published in English only. -->
+    <string name="font_credit" translatable="false">Fonts: Space Grotesk, Inter, JetBrains Mono · SIL Open Font License 1.1</string>
     <string name="near_title">Near you</string>
     <string name="near_intro">Hospitals, police, fuel, EV chargers and repair shops around you, with your nearest address.</string>
     <string name="near_find">Find help near me</string>

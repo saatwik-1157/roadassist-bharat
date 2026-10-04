@@ -70,9 +70,9 @@ a { color: inherit; text-decoration: none; }
   --shadow-brand: 0 8px 26px rgba(168,122,34,.26);
 
   /* type */
-  --display: "Fraunces", "Iowan Old Style", Georgia, serif;
-  --sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* radii */
   --r-xs: 8px; --r-sm: 12px; --r-md: 16px; --r-lg: 22px; --r-xl: 30px; --r-full: 999px;
@@ -203,19 +203,20 @@ body { font-family: var(--sans); font-weight: 450; line-height: 1.55; }
 .brand { display: inline-flex; align-items: center; gap: 9px; }
 .brand .mark { width: 26px; height: 26px; flex: none; }
 .brand .wordmark {
-  font-family: var(--display); font-weight: 500; font-size: 18px;
-  letter-spacing: -0.012em; line-height: 1; white-space: nowrap;
+  font-family: var(--display); font-weight: 600; font-size: 18px;
+  letter-spacing: -0.02em; line-height: 1; white-space: nowrap;
 }
 .brand .wordmark i { font-style: normal; color: var(--brand); }
 
 /* ── type ────────────────────────────────────────────────────────────────── */
 .display {
-  font-family: var(--display); font-weight: 400; letter-spacing: -0.02em;
-  line-height: 1.08; font-size: clamp(28px, 3.4vw, 40px);
+  font-family: var(--display); font-weight: 600; letter-spacing: -0.03em;
+  line-height: 1.06; font-size: clamp(28px, 3.4vw, 40px);
 }
-.display em { font-style: italic; color: var(--brand); }
+/* Space Grotesk ships upright only, so emphasis is colour, not a faked slant. */
+.display em { font-style: normal; color: var(--brand); }
 h1, h2, h3 { font-weight: 600; letter-spacing: -0.015em; line-height: 1.2; }
-.title  { font-family: var(--display); font-weight: 500; font-size: 19px; letter-spacing: -0.01em; }
+.title  { font-family: var(--display); font-weight: 600; font-size: 19px; letter-spacing: -0.015em; }
 .sub    { color: var(--text-2); font-size: 13.5px; line-height: 1.68; }
 .hint   { color: var(--text-3); font-size: 12px; line-height: 1.6; }
 .meta   { color: var(--text-2); font-size: 12.5px; line-height: 1.6; }
@@ -650,3 +651,129 @@ body { background: transparent; }
 }
 .em-list a b { color: var(--text); font-size: 14px; font-weight: 700; flex: none; }
 .em-note { margin: -4px 0 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Premium layer (Oct 2026) — ADDITIVE ONLY
+   ───────────────────────────────────────────────────────────────────────────
+   New tokens and opt-in classes. Nothing above this line is renamed, removed
+   or given a new value, so a page that uses none of the names below renders
+   exactly as it did. app.html (via app.css) is the first user; any page may
+   opt in by name.
+
+   Motion  --dur-1/2/3 (120/200/320 ms) with --ease-standard, --ease-enter,
+           --ease-exit, --ease-sheet (iOS-style sheet curve, no overshoot)
+           and --ease-press (a small spring for press-and-release).
+   Type    --fs-2xs … --fs-3xl, --lh-*, --tracking-*.
+   Depth   --hl (a lit top edge) and --elev-1/2/3 (lit edge + shadow ladder).
+   Glass   --glass-blur, --glass-sat, --glass-edge, and the .glass class with
+           an opaque fallback where backdrop-filter is missing.
+   AA text --aa-text-3, --aa-amber, --aa-red, --aa-brand: the same hues pushed
+           to ≥ 4.5:1 for small text on --bg, --surface and their soft tints.
+           Opt in per page with e.g. `body { --text-3: var(--aa-text-3); }`.
+   Classes .glass .elev-1/2/3 .tnum .balance .pretty .press .reveal .tilt3d
+           .tap-target, and [data-depth="hero"] > .card (gyro/pointer tilt
+           driven by depth.js). html.ra-lite (set by depth.js on Save-Data,
+           low memory or a low battery) switches the costly effects off.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  --dur-1: 120ms;  --dur-2: 200ms;  --dur-3: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter:    cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-exit:     cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-sheet:    cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-press:    cubic-bezier(0.34, 1.4, 0.64, 1);
+  --stagger-step:  45ms;
+
+  --fs-2xs: 10.5px; --fs-xs: 12px; --fs-sm: 13.5px; --fs-md: 15px; --fs-lg: 17px;
+  --fs-xl: 20px;    --fs-2xl: 26px; --fs-3xl: clamp(30px, 8.4vw, 40px);
+  --lh-tight: 1.06; --lh-snug: 1.25; --lh-body: 1.55; --lh-relaxed: 1.68;
+  --tracking-display: -0.028em; --tracking-title: -0.014em; --tracking-caps: 0.14em;
+
+  --hl:        inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  --hl-strong: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  --elev-1: var(--hl), var(--shadow-1);
+  --elev-2: var(--hl), var(--shadow-2);
+  --elev-3: var(--hl), var(--shadow-3);
+
+  --glass-blur: 20px; --glass-sat: 1.7;
+  --glass-edge: rgba(255, 255, 255, 0.6);
+
+  --focus-ring: 0 0 0 4px color-mix(in srgb, var(--focus) 28%, transparent);
+  --tap: 44px;
+  --r-2xl: 40px;
+  --safe-t: env(safe-area-inset-top, 0px);    --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px); --safe-l: env(safe-area-inset-left, 0px);
+
+  --aa-text-3: #626570;   /* 5.1:1 on --surface-2, 5.3:1 on --bg  (--text-3: 3.3–3.8) */
+  --aa-amber:  #8f5a05;   /* 4.9:1 on --amber-soft                 (--amber: 3.8)     */
+  --aa-red:    #be1b2b;   /* 5.3:1 on --red-soft, white on it 6.2  (--red: 4.4)       */
+  --aa-brand:  #86600f;   /* 4.6:1 on --brand-soft, 5.2:1 on --bg  (--brand: 3.5)     */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --hl:        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --hl-strong: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --glass-edge: rgba(255, 255, 255, 0.08);
+    --aa-text-3: #868a99;  /* 5.1:1 on --surface-2 (--text-3: 4.4) */
+    --aa-amber:  #ffb454;
+    --aa-red:    #ff5a66;
+    --aa-brand:  #e3b96a;
+  }
+}
+:root[data-theme="dark"] {
+  --hl:        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --hl-strong: inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --glass-edge: rgba(255, 255, 255, 0.08);
+  --aa-text-3: #868a99;
+  --aa-amber:  #ffb454;
+  --aa-red:    #ff5a66;
+  --aa-brand:  #e3b96a;
+}
+
+/* Frosted panel. Without backdrop-filter it falls back to the opaque glass. */
+.glass {
+  background: var(--glass); border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+          backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  box-shadow: var(--elev-2);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: var(--glass-strong); }
+}
+.elev-1 { box-shadow: var(--elev-1); }
+.elev-2 { box-shadow: var(--elev-2); }
+.elev-3 { box-shadow: var(--elev-3); }
+
+.tnum    { font-variant-numeric: tabular-nums; }
+.balance { text-wrap: balance; }
+.pretty  { text-wrap: pretty; }
+.tap-target { min-width: var(--tap); min-height: var(--tap); }
+
+/* Press feedback: a quick press-in, a springy release. */
+.press { transition: transform var(--dur-2) var(--ease-press); -webkit-tap-highlight-color: transparent; }
+.press:active { transform: scale(0.97); transition-duration: var(--dur-1); transition-timing-function: var(--ease-standard); }
+
+/* Staggered reveal for lists rendered after load. Each child fades up once
+   when it is inserted; eight steps, then the rest share the last delay. */
+@keyframes ra-reveal { from { opacity: 0; transform: translate3d(0, 8px, 0); } to { opacity: 1; transform: none; } }
+.reveal > * { animation: ra-reveal var(--dur-3) var(--ease-enter) both; animation-delay: calc(var(--i, 0) * var(--stagger-step)); }
+.reveal > :nth-child(2) { --i: 1; } .reveal > :nth-child(3) { --i: 2; } .reveal > :nth-child(4) { --i: 3; }
+.reveal > :nth-child(5) { --i: 4; } .reveal > :nth-child(6) { --i: 5; } .reveal > :nth-child(7) { --i: 6; }
+.reveal > :nth-child(n+8) { --i: 7; }
+
+/* Depth for a hero surface. depth.js writes --tx/--ty from the device's tilt
+   (touch screens, where the browser allows it without a prompt); a mouse uses
+   the [data-tilting] rule above instead. Transform only, so it composites. */
+.tilt3d, [data-depth="hero"] > .card {
+  transform: perspective(1100px) rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg));
+  transition: transform var(--dur-3) var(--ease-standard), box-shadow var(--t-3) var(--ease),
+              border-color var(--t-2) var(--ease);
+}
+
+/* Low-power mode: no blur, no drifting light, no moving road, no tilt. */
+html.ra-lite .glass, html.ra-lite .toast, html.ra-lite .scrim {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+html.ra-lite .glass { background: var(--glass-strong); }
+html.ra-lite .aurora::before, html.ra-lite .aurora .road i { animation: none; }
+html.ra-lite .tilt3d, html.ra-lite [data-depth="hero"] > .card { transform: none; }

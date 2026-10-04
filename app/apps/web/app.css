@@ -1,0 +1,698 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   RoadAssist — citizen app (app.html) styles
+   ───────────────────────────────────────────────────────────────────────────
+   Moved out of app.html's inline <style> block (Oct 2026) so the page stays
+   under its line ceiling in check-boundaries.mjs. Layout and components that
+   only the citizen app uses live here; shared tokens and components stay in
+   ds.css, which loads first. Cached by sw.js (SHELL_ASSETS) like every other
+   file the shell needs off-grid.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── app shell ─────────────────────────────────────────────────────────── */
+body { min-height: 100dvh; display: flex; justify-content: center; }
+/* The shell is exactly one screen tall and <main> is the only thing that
+   scrolls, on a phone as on a desktop. It used to grow with its content on a
+   phone, so the whole document scrolled: the bottom navigation sat at the end
+   of the page instead of under the thumb, and nav()'s main.scrollTop = 0 did
+   nothing, so a new screen opened wherever the last one had been scrolled to. */
+.shell {
+  width: 100%; max-width: 430px; height: 100dvh; min-height: 0;
+  display: flex; flex-direction: column; position: relative;
+  background: color-mix(in srgb, var(--bg) 82%, var(--surface));
+  padding-left: var(--safe-l); padding-right: var(--safe-r);
+}
+/* On a phone the shell IS the page, so it lets the road in ds.css show
+   through; on a desktop it stays an opaque device standing on it. */
+@media (max-width: 899px) { .shell { background: color-mix(in srgb, var(--bg) 58%, transparent); } }
+/* On a desktop the phone reads as a device, not a stretched web page: a
+   hairline bezel, a lit rim and a long, soft contact shadow. */
+@media (min-width: 900px) {
+  body { align-items: center; padding: 26px 0; }
+  .shell {
+    min-height: min(880px, calc(100dvh - 52px)); height: min(880px, calc(100dvh - 52px));
+    border-radius: var(--r-2xl); overflow: hidden; border: 1px solid var(--line-2);
+    box-shadow: var(--hl-strong), 0 0 0 9px color-mix(in srgb, var(--surface) 42%, transparent),
+                0 0 0 10px var(--line), var(--shadow-3), 0 70px 120px -50px rgba(10, 12, 18, 0.45);
+  }
+}
+
+/* ── top bar ───────────────────────────────────────────────────────────── */
+.topbar {
+  display: flex; align-items: center; gap: 10px; flex: none;
+  padding: calc(12px + env(safe-area-inset-top)) 20px 12px;
+  border-bottom: 1px solid transparent;
+  background: var(--glass); backdrop-filter: blur(22px) saturate(1.7);
+  -webkit-backdrop-filter: blur(22px) saturate(1.7);
+  position: sticky; top: 0; z-index: 20;
+  transition: border-color var(--dur-2) var(--ease-standard), box-shadow var(--dur-3) var(--ease-standard);
+}
+/* The hairline arrives once the screen has scrolled under the bar (ui.js). */
+.topbar.is-scrolled {
+  border-bottom-color: var(--line);
+  box-shadow: 0 10px 24px -18px rgba(10, 12, 18, 0.45);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .topbar, .tabs { background: var(--glass-strong); }
+}
+html.ra-lite .topbar, html.ra-lite .tabs {
+  -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--glass-strong);
+}
+/* The three top-bar controls are real 44 px targets (they were 28–34 px);
+   the bar's padding shrinks by the same amount, so it is no taller. */
+.topbar { padding-top: calc(8px + env(safe-area-inset-top)); padding-bottom: 8px; }
+.topbar .net, .topbar .lang-btn { min-height: var(--tap); padding-top: 0; padding-bottom: 0; }
+.topbar .lang-btn { min-width: var(--tap); padding-left: 13px; padding-right: 13px; }
+.topbar .theme-btn { width: var(--tap); height: var(--tap); }
+.topbar .theme-btn svg { width: 18px; height: 18px; }
+.net {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 9px;
+  border-radius: var(--r-full); border: 1px solid var(--line);
+  background: var(--surface); color: var(--text-2);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+  transition: all var(--t-2) var(--ease), transform var(--t-2) var(--spring);
+}
+.net:active, .lang-btn:active { transform: scale(0.94); }
+/* Language: the status pill's shape, not its dot (a control, not a state). */
+.lang-btn {
+  flex: none; padding: 5px 11px; min-height: 28px; border-radius: var(--r-full);
+  border: 1px solid var(--line); background: var(--surface); color: var(--text-2);
+  font-size: 12px; font-weight: 650; white-space: nowrap;
+}
+.topbar .brand { overflow: hidden; }
+@media (max-width: 374px) { .topbar .wordmark { display: none; } }
+.net::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-soft); transition: all var(--t-2) var(--ease);
+}
+/* Connection and sync are one status. Each state changes the WORD as well as
+   the tint — status is never carried by colour alone (Phase 19). */
+.net.is-offline { color: var(--red); border-color: var(--red-soft); }
+.net.is-offline::before { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+.net.is-syncing { color: var(--blue); border-color: var(--blue-soft); }
+.net.is-syncing::before { background: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft);
+  animation: sync-pulse 1s var(--ease) infinite; }
+.net.is-synced { color: var(--green); border-color: var(--green-soft); }
+.net.is-failed { color: var(--amber); border-color: var(--amber-soft); }
+.net.is-failed::before { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
+/* Off-Grid Mode (ADR-0009): three tiers, three words, three tints — green
+   ONLINE, amber LIMITED, red OFF-GRID. The word is what carries the meaning;
+   the tint only reinforces it. */
+.net.is-limited { color: var(--amber); border-color: var(--amber-soft); }
+.net.is-limited::before { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
+.net.is-offgrid { color: var(--red); border-color: var(--red); background: var(--red-soft); }
+.net.is-offgrid::before { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+@keyframes sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .net.is-syncing::before { animation: none; } }
+
+/* ── off-grid mode ─────────────────────────────────────────────────────── */
+/* A distinctive but professional treatment: a red rule down the left of the
+   shell, no flashing, nothing that competes with the SOS button itself. */
+body.offgrid .topbar { box-shadow: inset 3px 0 0 var(--red); }
+body.offgrid .topbar.is-scrolled { box-shadow: inset 3px 0 0 var(--red), 0 10px 24px -18px rgba(10, 12, 18, 0.45); }
+/* The record of an emergency that exists only on this phone: a red-lit panel
+   with the reference set large, so it can be read out over a bad call. */
+.og-hero {
+  position: relative; overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--red) 55%, transparent); border-radius: 20px; padding: 18px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--red) 14%, transparent), transparent 60%),
+    linear-gradient(170deg, color-mix(in srgb, var(--red) 10%, var(--surface)), color-mix(in srgb, var(--red) 4%, var(--surface)));
+  box-shadow: var(--hl), 0 14px 34px -18px color-mix(in srgb, var(--red) 55%, transparent);
+}
+.og-hero .og-eyebrow {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase;
+  color: var(--red);
+}
+.og-hero .og-eyebrow::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: var(--red); box-shadow: 0 0 0 3px var(--red-soft);
+}
+.og-id {
+  font-family: var(--mono); font-size: 28px; font-weight: 700; letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums slashed-zero; line-height: 1.15;
+  margin-top: 8px; word-break: break-all;
+}
+.og-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px 14px; margin-top: 14px; }
+.og-grid > div { min-width: 0; }
+.og-k {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-3);
+}
+.og-v { display: block; margin-top: 3px; font-size: 13.5px; font-weight: 650; word-break: break-word; }
+.og-v.mono { font-family: var(--mono); font-size: 12.5px; letter-spacing: -0.01em; }
+/* Two columns that must never be confused for one another: what this device
+   can still do, and what it certainly cannot. */
+.og-caps { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+.og-caps ul { list-style: none; margin-top: 8px; }
+.og-caps li {
+  display: flex; align-items: flex-start; gap: 7px; padding: 3.5px 0;
+  font-size: 12.5px; line-height: 1.45;
+}
+.og-caps li span:first-child { flex: none; width: 13px; font-weight: 700; }
+.og-yes li span:first-child { color: var(--green); }
+.og-no  li span:first-child { color: var(--red); }
+.og-no  li { color: var(--text-3); }
+@media (max-width: 380px) { .og-caps, .og-grid { grid-template-columns: 1fr; } }
+.og-sync-track {
+  height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin-top: 10px;
+}
+.og-sync-fill {
+  display: block; height: 100%; width: 0%; background: var(--green);
+  transition: width var(--t-2) var(--ease);
+}
+.og-list-item {
+  display: flex; align-items: center; gap: 10px; padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+.og-list-item:first-child { border-top: 0; }
+
+/* ── request progress rail ─────────────────────────────────────────────── */
+.steps {
+  list-style: none; display: flex; gap: 4px; margin-top: 18px;
+  counter-reset: step;
+}
+.steps li {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center;
+  gap: 5px; position: relative;
+}
+/* The connector sits behind the numbers and stops short of them. The track is
+   ::before; ::after is the green fill, which draws itself across (a transform,
+   so it composites) when the step behind it is done. */
+.steps li:not(:last-child)::before,
+.steps li:not(:last-child)::after {
+  content: ""; position: absolute; top: 11px; left: calc(50% + 14px); right: calc(-50% + 14px);
+  height: 2px; border-radius: 1px; background: var(--line-2);
+}
+.steps li:not(:last-child)::after {
+  background: var(--green); transform: scaleX(0); transform-origin: left center;
+  transition: transform var(--dur-3) var(--ease-standard);
+}
+.steps li.done:not(:last-child)::after { transform: scaleX(1); }
+.steps .n {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  background: var(--surface); border: 1.5px solid var(--line-2); color: var(--text-3);
+  position: relative; z-index: 1; box-shadow: var(--hl);
+  transition: background-color var(--dur-2) var(--ease-standard), border-color var(--dur-2) var(--ease-standard),
+              color var(--dur-2) var(--ease-standard), transform var(--dur-3) var(--ease-press);
+}
+/* Done is a tick as well as a colour — the state does not rely on hue. */
+.steps li.done .n {
+  background: var(--green); border-color: var(--green); color: #fff; font-size: 0;
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+.steps li.done .n::after { content: "\2713"; font-size: 11px; }
+.steps .l {
+  font-size: 9.5px; font-weight: 650; letter-spacing: 0.04em; color: var(--text-3);
+  text-align: center; line-height: 1.2;
+}
+.steps li.done .l { color: var(--text-2); }
+@media (max-width: 340px) { .steps .l { font-size: 8.5px; } }
+
+/* Step headings, so a long request still reads as a sequence. */
+.step-h {
+  display: flex; align-items: baseline; gap: 10px; margin: 28px 0 4px;
+  font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: var(--tracking-title);
+  line-height: var(--lh-snug); text-wrap: balance;
+}
+.step-h span {
+  font-family: var(--mono); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--brand-text); flex: none;
+  padding: 3px 7px; border-radius: var(--r-full); background: var(--brand-soft);
+  transform: translateY(-2px);
+}
+
+/* ── diagnosis readout ─────────────────────────────────────────────────── */
+.diag-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px;
+}
+.diag-grid > div {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px;
+  box-shadow: var(--hl);
+}
+.diag-k {
+  display: block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.13em;
+  text-transform: uppercase; color: var(--text-3);
+}
+.diag-v {
+  display: block; margin-top: 4px; font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+}
+.conf-track {
+  height: 6px; border-radius: 3px; background: var(--surface-3);
+  margin-top: 12px; overflow: hidden;
+}
+.conf-fill {
+  display: block; height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--brand-fill) 70%, var(--brand)), var(--brand));
+  transition: width var(--t-4) var(--ease);
+}
+.diag-list { list-style: none; }
+.diag-list li {
+  position: relative; padding-left: 16px; font-size: 13px; color: var(--text-2);
+  line-height: 1.75;
+}
+.diag-list li::before {
+  content: "•"; position: absolute; left: 3px; color: var(--brand); font-weight: 700;
+}
+
+/* Inline progress for a step that is genuinely running. */
+.spinner {
+  width: 15px; height: 15px; flex: none; border-radius: 50%;
+  border: 2px solid var(--line-2); border-top-color: var(--brand);
+  animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation-duration: 2.4s; }
+}
+
+/* Inline validation, next to the field it is about. */
+.field-err {
+  color: var(--red); font-size: 12px; font-weight: 600; margin-top: 6px;
+  display: flex; align-items: flex-start; gap: 5px;
+}
+.field-err::before { content: "\26A0"; flex: none; }
+.field input[aria-invalid="true"], .field select[aria-invalid="true"] {
+  border-color: var(--red);
+}
+
+/* ── screens ───────────────────────────────────────────────────────────── */
+main {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch;
+  scroll-padding-top: 12px; scroll-padding-bottom: 24px;
+}
+.screen { display: none; padding: 24px 20px 40px; }
+/* A screen arrives as a short fade; its .stagger children then rise in turn
+   (ds.css), so the motion reads as one entrance rather than two. */
+.screen.active { display: block; animation: ra-screen-in var(--dur-3) var(--ease-enter) both; }
+@keyframes ra-screen-in { from { opacity: 0; } to { opacity: 1; } }
+
+.greet { display: flex; align-items: flex-start; gap: 12px; }
+.greet .grow { min-width: 0; }
+
+/* ── SOS ───────────────────────────────────────────────────────────────── */
+/* The halo breathes BEHIND the button, on the wrapper, and only its transform
+   and opacity move — the old breathe animated box-shadow, a repaint on every
+   frame of a 3.4 s loop that never stops. It never tilts, and it never moves
+   under the finger: the button itself only presses in. */
+.sos-wrap {
+  position: relative; display: grid; place-items: center; padding: 26px 0 18px; isolation: isolate;
+}
+.sos-wrap::before {
+  content: ""; position: absolute; z-index: -1; left: 50%; top: calc(26px + 88px);
+  width: 236px; height: 236px; margin: -118px 0 0 -118px; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--red) 26%, transparent),
+                              color-mix(in srgb, var(--red) 8%, transparent) 62%, transparent);
+  animation: sos-breathe 3.4s ease-in-out infinite; will-change: transform, opacity;
+}
+.sos-wrap:has(.sos.holding)::before { animation-play-state: paused; opacity: 1; }
+@keyframes sos-breathe {
+  0%, 100% { transform: scale(0.84); opacity: 0.5; }
+  50%      { transform: scale(1.04); opacity: 1; }
+}
+.sos {
+  position: relative; width: 176px; height: 176px; border-radius: 50%;
+  display: grid; place-items: center; gap: 0;
+  background:
+    radial-gradient(90% 70% at 34% 18%, var(--sos-gloss), transparent 60%),
+    radial-gradient(circle at 50% 62%, color-mix(in srgb, var(--red) 16%, var(--surface)), var(--surface) 72%);
+  border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+  box-shadow:
+    var(--hl),
+    inset 0 -14px 28px color-mix(in srgb, var(--red) 14%, transparent),
+    0 22px 44px -18px color-mix(in srgb, var(--red) 60%, transparent),
+    var(--shadow-2);
+  color: var(--red); -webkit-tap-highlight-color: transparent; touch-action: none;
+  transition: transform var(--dur-3) var(--ease-press);
+}
+.sos:focus-visible { outline-offset: 6px; border-radius: 50%; }
+.sos:active { transform: scale(0.965); transition-duration: var(--dur-1); }
+/* Holding: the button presses in and stays down, a red pool fills it from the
+   centre, and the ring closes — three readings of the same 1.4 s. */
+.sos.holding { transform: scale(0.955); transition-duration: var(--dur-2); }
+.sos::after {
+  content: ""; position: absolute; inset: 8px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--red) 30%, transparent) 0%,
+                              color-mix(in srgb, var(--red) 12%, transparent) 60%, transparent 72%);
+  transform: scale(0.2); opacity: 0;
+  transition: transform var(--dur-2) var(--ease-standard), opacity var(--dur-2) var(--ease-standard);
+}
+.sos.holding::after { transform: scale(1); opacity: 1; transition: transform 1400ms linear, opacity var(--dur-1) linear; }
+.sos-ring { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.sos-ring circle { fill: none; stroke-width: 4; stroke-linecap: round; }
+.sos-ring .track { stroke: var(--red-soft); }
+.sos.holding .sos-ring { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--red) 55%, transparent)); }
+/* A round cap still paints a dot at zero progress, so the arc is hidden
+   outright until the hold begins. */
+.sos-ring .prog {
+  stroke: var(--red); stroke-dasharray: 484; stroke-dashoffset: 484; opacity: 0;
+  transition: stroke-dashoffset 260ms var(--ease-standard), opacity var(--t-1) linear;
+}
+.sos.holding .sos-ring .prog {
+  stroke-dashoffset: 0; opacity: 1; transition: stroke-dashoffset 1400ms linear, opacity 90ms linear;
+}
+.sos-label {
+  position: relative; z-index: 1;
+  font-family: var(--display); font-size: 38px; font-weight: 640; letter-spacing: 0.05em;
+  line-height: 1; grid-area: 1 / 1; margin-top: -10px;
+  text-shadow: 0 1px 0 var(--sos-gloss);
+}
+.sos-sub {
+  position: relative; z-index: 1;
+  grid-area: 1 / 1; margin-top: 38px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.sos.holding .sos-sub { color: var(--red); }
+/* The ring and the pool are the hold's progress, not decoration: under reduced
+   motion they still take the 1.4 s the hold takes (HOLD_MS in app.html), where
+   the blanket rule in ds.css had made the ring jump to full on touch-down. */
+@media (prefers-reduced-motion: reduce) {
+  .sos-wrap::before { animation: none !important; transform: none; opacity: 0.7; }
+  .sos.holding .sos-ring .prog { transition-duration: 1400ms, 90ms !important; }
+  .sos.holding::after { transition-duration: 1400ms, 90ms !important; }
+}
+
+/* ── emergency readiness ───────────────────────────────────────────────── */
+.ready {
+  list-style: none; display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin-top: 16px;
+}
+.ready li {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+  padding: 10px 8px; text-align: center; min-width: 0; box-shadow: var(--elev-1);
+  transition: background-color var(--dur-3) var(--ease-standard), border-color var(--dur-3) var(--ease-standard);
+}
+.ready-k {
+  display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-3);
+}
+/* The state is a word first. The tint and the leading glyph only reinforce it. */
+.ready-v {
+  display: block; margin-top: 4px; font-size: 11.5px; font-weight: 650; line-height: 1.35;
+  overflow-wrap: anywhere; font-variant-numeric: tabular-nums;
+}
+.ready li.is-ok  { border-color: color-mix(in srgb, var(--green) 28%, transparent);
+  background: color-mix(in srgb, var(--green) 5%, var(--surface)); }
+.ready li.is-ok  .ready-v { color: var(--green); }
+.ready li.is-ok  .ready-v::before { content: "\2713\00a0"; }
+.ready li.is-warn { border-color: color-mix(in srgb, var(--amber) 28%, transparent);
+  background: color-mix(in srgb, var(--amber) 5%, var(--surface)); }
+.ready li.is-warn .ready-v { color: var(--amber); }
+.ready li.is-warn .ready-v::before { content: "\26A0\00a0"; }
+.ready li.is-bad { border-color: color-mix(in srgb, var(--red) 28%, transparent);
+  background: color-mix(in srgb, var(--red) 5%, var(--surface)); }
+.ready li.is-bad .ready-v { color: var(--red); }
+.ready li.is-bad .ready-v::before { content: "\2715\00a0"; }
+
+/* ── quick actions ─────────────────────────────────────────────────────── */
+.quick { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-top: 16px; }
+.quick button {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  padding: 16px 14px 15px; border-radius: 18px; text-align: left; min-height: 124px;
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--brand-fill) 9%, transparent), transparent 55%),
+    var(--surface);
+  border: 1px solid var(--line); box-shadow: var(--elev-1);
+  transition: transform var(--dur-3) var(--ease-standard), box-shadow var(--dur-3) var(--ease-standard),
+              border-color var(--dur-2) var(--ease-standard);
+  -webkit-tap-highlight-color: transparent;
+}
+.quick button:hover  { transform: translateY(-3px); box-shadow: var(--elev-2); border-color: var(--line-brand); }
+.quick button:active { transform: translateY(0) scale(0.975); transition-duration: var(--dur-1); }
+/* The icon sits in a lit tile: same 1.75 stroke as every other glyph in the app. */
+.quick svg {
+  box-sizing: content-box; width: 20px; height: 20px; padding: 8px; border-radius: 12px;
+  color: var(--brand-text); background: var(--brand-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 18%, transparent);
+}
+.quick b { font-size: 14px; font-weight: 680; letter-spacing: var(--tracking-title); line-height: 1.3; }
+.quick small { color: var(--text-3); font-size: 11.5px; line-height: 1.45; text-wrap: pretty; }
+
+/* ── map ───────────────────────────────────────────────────────────────── */
+#scr-map.active { display: flex; flex-direction: column; padding: 0; height: 100%; }
+.map-frame { flex: 1; border: 0; width: 100%; min-height: 420px; background: var(--surface-2); }
+
+/* ── severity picker ───────────────────────────────────────────────────── */
+.sev { display: flex; gap: 8px; }
+.sev button {
+  flex: 1; min-height: var(--tap); padding: 11px 0; border-radius: 14px; border: 1px solid var(--line);
+  background: var(--surface-2); color: var(--text-3);
+  font-family: var(--mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums;
+  transition: background-color var(--dur-2) var(--ease-standard), color var(--dur-2) var(--ease-standard),
+              border-color var(--dur-2) var(--ease-standard), transform var(--dur-2) var(--ease-press);
+}
+.sev button:active { transform: scale(0.93); }
+.sev button[aria-pressed="true"] {
+  background: var(--ink); color: var(--ink-on); border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), var(--shadow-1);
+}
+
+.thumb {
+  width: 100%; height: 150px; object-fit: cover; border-radius: var(--r-sm);
+  margin-top: 11px; border: 1px solid var(--line);
+}
+
+/* ── tabs ──────────────────────────────────────────────────────────────── */
+.tabs {
+  position: relative;
+  display: grid; grid-template-columns: repeat(5, 1fr); flex: none;
+  border-top: 1px solid var(--line); z-index: 20;
+  background: var(--glass); backdrop-filter: blur(22px) saturate(1.7);
+  -webkit-backdrop-filter: blur(22px) saturate(1.7);
+  padding: 2px 6px env(safe-area-inset-bottom);
+  box-shadow: 0 -12px 28px -22px rgba(10, 12, 18, 0.4);
+}
+.tab {
+  display: grid; place-items: center; gap: 4px; padding: 10px 2px 9px; min-height: 56px;
+  color: var(--text-3); font-size: 10px; font-weight: 680; letter-spacing: 0.04em;
+  transition: color var(--dur-2) var(--ease-standard); -webkit-tap-highlight-color: transparent;
+  position: relative; isolation: isolate;
+}
+.tab svg { width: 21px; height: 21px; stroke-width: 1.75; transition: transform var(--dur-3) var(--ease-press); }
+.tab:active svg { transform: scale(0.86); transition-duration: var(--dur-1); }
+.tab.active { color: var(--brand-text); }
+.tab.active svg { transform: translateY(-1px) scale(1.06); }
+/* The active tab sits on a soft pill that grows in behind the icon. */
+.tab::before {
+  content: ""; position: absolute; z-index: -1; top: 6px; left: 50%; width: 56px; height: 30px;
+  margin-left: -28px; border-radius: 15px; background: var(--brand-soft);
+  opacity: 0; transform: scale(0.6, 0.8);
+  transition: opacity var(--dur-2) var(--ease-standard), transform var(--dur-3) var(--ease-press);
+}
+.tab.active::before { opacity: 1; transform: none; }
+.tab:focus-visible { outline-offset: -4px; border-radius: 14px; }
+/* The active dot travels with the selection instead of blinking on. */
+.tab::after {
+  content: ""; position: absolute; top: 2px; width: 4px; height: 4px; border-radius: 50%;
+  background: var(--brand); opacity: 0; transform: scale(0.3);
+  transition: opacity var(--dur-2) var(--ease-standard), transform var(--dur-3) var(--ease-press);
+}
+.tab.active::after { opacity: 1; transform: scale(1); }
+.tab .dot {
+  position: absolute; top: 6px; right: calc(50% - 18px);
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 99px;
+  background: var(--red); color: #fff; font-family: var(--mono); font-size: 9px;
+  font-weight: 700; display: grid; place-items: center; box-shadow: var(--shadow-1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Finish (Oct 2026)
+   ───────────────────────────────────────────────────────────────────────────
+   ds.css's additive tokens applied to this page only, so the shared
+   components keep their look everywhere else. Motion is transform and
+   opacity alone; ds.css's reduced-motion block stills all of it (the SOS hold
+   progress above is the one deliberate exception, and says why).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Small-text palette at ≥ 4.5:1 (values and measured ratios: ds.css --aa-*).
+   Set on body so the sheets and the toast, which sit outside .shell, get it. */
+body {
+  --text-3: var(--aa-text-3);
+  --amber: var(--aa-amber);
+  --red: var(--aa-red);
+  --brand-text: var(--aa-brand);
+  --sos-gloss: rgba(255, 255, 255, 0.85);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body { --sos-gloss: rgba(255, 255, 255, 0.07); } }
+:root[data-theme="dark"] body { --sos-gloss: rgba(255, 255, 255, 0.07); }
+
+/* ── type ── one display size, tight on the line, never a lone last word ── */
+.shell .display, .sheet .display {
+  font-size: var(--fs-3xl); line-height: var(--lh-tight); letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+}
+.shell .display em, .sheet .display em { padding-right: 0.04em; }
+.shell .title, .sheet .title {
+  font-weight: 600; letter-spacing: var(--tracking-title); line-height: var(--lh-snug); text-wrap: balance;
+}
+.shell .sub { font-size: 14px; line-height: 1.62; }
+.shell .sub, .shell .meta, .shell .hint, .sheet .sub, .sheet .meta, .sheet .hint { text-wrap: pretty; }
+.shell .hint.center { text-wrap: balance; }
+.shell .eyebrow, .sheet .eyebrow { letter-spacing: var(--tracking-caps); }
+.shell .pill, .sheet .pill, #t-eta, .og-v, .near-v, .em-list b { font-variant-numeric: tabular-nums; }
+.shell svg[stroke="currentColor"], .sheet svg[stroke="currentColor"],
+.btn svg, .empty svg { stroke-width: 1.75; }
+
+/* ── surfaces ── one radius, a lit top edge, soft depth ───────────────── */
+.shell .card, .sheet .card { border-radius: 20px; padding: 18px; box-shadow: var(--elev-1); }
+.shell .card.flush, .sheet .card.flush { padding: 0; }
+.shell .card + .card { margin-top: 12px; }
+.shell .card.feature, .sheet .card.feature {
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--brand-fill) 16%, transparent), transparent 55%),
+    linear-gradient(160deg, var(--brand-soft), transparent 60%),
+    var(--surface);
+  box-shadow: var(--hl), 0 18px 38px -24px color-mix(in srgb, var(--brand) 70%, transparent), var(--shadow-1);
+}
+/* The task card that leads Home is the one hero surface (data-depth="hero"):
+   it tilts with the phone (depth.js), and its light comes from the same corner. */
+#home-task > .card {
+  background:
+    radial-gradient(130% 90% at 100% 0%, color-mix(in srgb, var(--brand-fill) 13%, transparent), transparent 58%),
+    var(--surface);
+  box-shadow: var(--hl), 0 20px 40px -26px color-mix(in srgb, var(--brand) 65%, transparent), var(--shadow-1);
+}
+#home-task > .card.feature {
+  background:
+    radial-gradient(130% 90% at 100% 0%, color-mix(in srgb, var(--brand-fill) 20%, transparent), transparent 58%),
+    linear-gradient(160deg, var(--brand-soft), transparent 60%), var(--surface);
+}
+
+/* ── controls ── 44 px to touch, a press you can feel ─────────────────── */
+.shell .btn.sm, .sheet .btn.sm { min-height: var(--tap); }
+.shell .btn:not(.sm), .sheet .btn:not(.sm) { min-height: 48px; }
+.shell .chip { position: relative; min-height: 40px; }
+.shell .chip::after { content: ""; position: absolute; left: 0; right: 0; top: -2px; bottom: -2px; }
+.shell .chips { gap: 8px; }
+.shell .seg, .sheet .seg { padding: 4px; }
+.shell .seg button, .sheet .seg button { min-height: 40px; }
+.shell .seg button[aria-selected="true"] { box-shadow: var(--elev-1); }
+.shell .field input, .shell .field select, .sheet .field input, .sheet .field select { min-height: 48px; border-radius: 14px; }
+.sheet .field textarea, .shell .field textarea { border-radius: 14px; }
+.shell :focus-visible, .sheet :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.shell .btn:focus-visible, .sheet .btn:focus-visible, .shell .chip:focus-visible { box-shadow: var(--focus-ring); }
+/* Pills that are buttons (the off-grid emergency type) get a target and a
+   pressed state; before, the chosen type looked the same as the rest. */
+.shell button.pill, .sheet button.pill {
+  min-height: 40px; padding: 8px 14px; cursor: pointer; font-size: 11px;
+  transition: background-color var(--dur-2) var(--ease-standard), color var(--dur-2) var(--ease-standard),
+              transform var(--dur-2) var(--ease-press);
+}
+.shell button.pill:active, .sheet button.pill:active { transform: scale(0.95); }
+.shell button.pill[aria-pressed="true"], .sheet button.pill[aria-pressed="true"] {
+  background: var(--ink); color: var(--ink-on); border-color: transparent;
+}
+
+/* ── skeletons ── a lighter sweep than the line colour ────────────────── */
+.shell .sk::after, .sheet .sk::after {
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface) 80%, transparent), transparent);
+}
+
+/* ── empty state ─────────────────────────────────────────────────────── */
+.shell .empty { padding: 44px 24px; text-wrap: pretty; }
+.shell .empty svg {
+  box-sizing: content-box; width: 26px; height: 26px; padding: 17px; margin: 0 auto 16px;
+  border-radius: 50%; opacity: 1; color: var(--brand-text);
+  background: radial-gradient(circle at 35% 28%, var(--surface), var(--surface-2));
+  border: 1px solid var(--line); box-shadow: var(--elev-2);
+}
+.shell .empty b { font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: var(--tracking-title); }
+
+/* ── booking ── the no-fix choice as a row, the not-sent card flagged ─── */
+.b-nofix { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.b-nofix > .btn { margin-top: 0 !important; }
+.b-nofix > small { flex-basis: 100%; margin-top: 2px !important; text-wrap: pretty; }
+#b-notsent {
+  border-color: color-mix(in srgb, var(--amber) 40%, transparent);
+  background: linear-gradient(170deg, color-mix(in srgb, var(--amber) 8%, var(--surface)), var(--surface) 70%);
+}
+#b-offers > .card[data-offer] + .card[data-offer] { margin-top: 10px; }
+
+/* ── tracking ── the contact row wraps instead of squeezing, and the
+   journey gets a rail between its marks ───────────────────────────────── */
+#t-contact { flex-wrap: wrap; }
+#t-contact .btn { flex: 1 1 auto; white-space: nowrap; padding-left: 14px; padding-right: 14px; }
+#t-body ul[aria-label^="Booking progress"] li { position: relative; }
+#t-body ul[aria-label^="Booking progress"] li:not(:last-child)::before {
+  content: ""; position: absolute; left: 7px; top: calc(50% + 9px); height: calc(100% - 18px);
+  width: 1.5px; border-radius: 1px; background: var(--line-2);
+}
+
+/* ── emergency numbers (emergency-numbers.js builds it; only styled here) ── */
+.em-panel { gap: 10px; margin-top: 14px; }
+.em-panel .em-call {
+  min-height: 56px; gap: 10px; font-size: 17px; font-weight: 700; letter-spacing: 0.01em;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--red) 88%, #fff), var(--red));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+              0 16px 30px -14px color-mix(in srgb, var(--red) 75%, transparent);
+}
+.em-panel .em-call::before, .em-panel .em-sms::before {
+  content: ""; width: 20px; height: 20px; flex: none; background: currentColor;
+  -webkit-mask: var(--em-icon) center / contain no-repeat; mask: var(--em-icon) center / contain no-repeat;
+}
+.em-panel .em-call {
+  --em-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 3.5h3l1.6 4.2-2 1.3a11 11 0 0 0 7.4 7.4l1.3-2 4.2 1.6v3a2 2 0 0 1-2.2 2A17.5 17.5 0 0 1 3 5.7a2 2 0 0 1 2-2.2z'/%3E%3C/svg%3E");
+}
+.em-panel .em-sms {
+  --em-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 5h15a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V17h-1A1.5 1.5 0 0 1 3 15.5v-9A1.5 1.5 0 0 1 4.5 5z'/%3E%3C/svg%3E");
+}
+.em-panel .em-list { gap: 8px; }
+.em-panel .em-list a {
+  align-items: center; min-height: 52px; padding: 10px 12px; border-radius: 14px;
+  background: var(--surface); box-shadow: var(--elev-1);
+  transition: transform var(--dur-2) var(--ease-press), border-color var(--dur-2) var(--ease-standard);
+  -webkit-tap-highlight-color: transparent;
+}
+.em-panel .em-list a:hover { border-color: color-mix(in srgb, var(--red) 35%, transparent); }
+.em-panel .em-list a:active { transform: scale(0.97); transition-duration: var(--dur-1); }
+.em-panel .em-list a b { color: var(--red); font-size: 15px; min-width: 2.4em; }
+.em-panel .em-note { margin-top: -2px; }
+
+/* ── sheets ── the iOS sheet curve in, a quicker accelerating exit, and no
+   focusable controls left behind off-screen while closed ─────────────── */
+.sheet {
+  padding: 8px 20px calc(28px + var(--safe-b));
+  border-color: var(--line-2);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 94%, var(--brand-fill)), var(--surface) 140px);
+  box-shadow: var(--hl-strong), 0 -20px 60px -24px rgba(10, 12, 18, 0.5);
+  visibility: hidden;
+  transition: transform 260ms var(--ease-exit), opacity 260ms var(--ease-exit), visibility 0s linear 260ms;
+}
+.sheet.show { visibility: visible; transition: transform 480ms var(--ease-sheet), opacity 200ms var(--ease-standard), visibility 0s; }
+.sheet::before { width: 40px; height: 5px; border-radius: 3px; margin: 2px auto 18px; }
+.sheet:focus-visible { outline: none; }
+.scrim {
+  -webkit-backdrop-filter: blur(6px) saturate(1.2); backdrop-filter: blur(6px) saturate(1.2);
+  transition: opacity var(--dur-3) var(--ease-standard);
+}
+#sos-n { font-variant-numeric: tabular-nums; }
+/* The countdown bar is information, not decoration: under reduced motion it
+   still drains over the grace window (GRACE_S = 5 in app.html) rather than
+   jumping to empty while the number is still counting. */
+@media (prefers-reduced-motion: reduce) { #sos-bar { transition-duration: 5s !important; } }
+
+/* ── toast ── springs up, slips away faster, sits above the tab bar ───── */
+.toast {
+  bottom: calc(84px + var(--safe-b));
+  transform: translate(-50%, 14px) scale(0.97);
+  box-shadow: var(--hl), var(--shadow-3);
+  transition: opacity var(--dur-2) var(--ease-standard), transform var(--dur-2) var(--ease-exit);
+}
+.toast.show { transition: opacity var(--dur-2) var(--ease-standard), transform 420ms var(--ease-press); }
+
+/* On a desktop the phone is a frame in the middle of the window: sheets rise
+   from its bottom edge and the toast sits over its tab bar, not the window's. */
+@media (min-width: 900px) {
+  .sheet, .toast { --frame-gap: calc((100dvh - min(880px, 100dvh - 52px)) / 2); }
+  .sheet {
+    bottom: var(--frame-gap); max-height: calc(min(880px, 100dvh - 52px) * 0.86);
+    border-radius: var(--r-xl) var(--r-xl) var(--r-2xl) var(--r-2xl);
+    opacity: 0;
+  }
+  .sheet.show { opacity: 1; }
+  .toast { bottom: calc(var(--frame-gap) + 84px); }
+}

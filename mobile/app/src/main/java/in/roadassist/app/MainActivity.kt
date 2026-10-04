@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
@@ -67,10 +68,30 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -79,7 +100,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -294,11 +314,10 @@ private fun BrandLockup() {
     Row(verticalAlignment = Alignment.CenterVertically) {
         BrandMark(22)
         Spacer(Modifier.width(8.dp))
+        // The wordmark in the display face at bar size, tracked in slightly.
         Row {
-            Text("Road", color = Cream, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                fontSize = 18.sp, fontWeight = FontWeight.Medium)
-            Text("Assist", color = Gold, fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                fontSize = 18.sp, fontWeight = FontWeight.Medium)
+            Text("Road", color = Cream, style = RaType.display, fontSize = 19.sp, letterSpacing = (-0.4).sp)
+            Text("Assist", color = Gold, style = RaType.display, fontSize = 19.sp, letterSpacing = (-0.4).sp)
         }
     }
 }
@@ -310,16 +329,19 @@ private fun BrandLockup() {
  *
  * `label` is a resource id, not a String. It used to be the literal, which
  * meant the nav bar stayed in English in all eight locales — the one row that
- * is on screen no matter which screen you are on. The glyph stays a literal:
- * it is a Unicode symbol, not language.
+ * is on screen no matter which screen you are on.
+ *
+ * The icon is a vector, not the Unicode symbol it used to be. The symbols came
+ * from whichever fallback font the phone had, so they changed weight and size
+ * from one handset to the next and none of them matched the type.
  */
-private data class Tab(@StringRes val label: Int, val glyph: String)
+private data class Tab(@StringRes val label: Int, val icon: ImageVector)
 private val TABS = listOf(
-    Tab(R.string.nav_home, "⌂"),     // house
-    Tab(R.string.nav_assist, "⚑"),   // flag
-    Tab(R.string.nav_map, "◈"),      // live map
-    Tab(R.string.nav_track, "◉"),    // fisheye/pin
-    Tab(R.string.nav_more, "☰"),     // menu
+    Tab(R.string.nav_home, Icons.Rounded.Home),
+    Tab(R.string.nav_assist, Icons.Rounded.Build),           // a wrench: roadside help
+    Tab(R.string.nav_map, Icons.Rounded.LocationOn),
+    Tab(R.string.nav_track, Icons.AutoMirrored.Rounded.List), // your rescues
+    Tab(R.string.nav_more, Icons.Rounded.Menu),
 )
 
 @Composable
@@ -442,42 +464,86 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
             Scaffold(
                 containerColor = Bg,
                 topBar = {
+                    // The bar is the panel colour with a hairline under it, so
+                    // the content scrolls beneath an edge rather than a seam.
+                    val ra = LocalRa.current
                     Row(
                         Modifier.fillMaxWidth()
                             .background(Panel)
+                            .drawWithContent {
+                                drawContent()
+                                drawLine(
+                                    ra.line, androidx.compose.ui.geometry.Offset(0f, size.height - 0.5f),
+                                    androidx.compose.ui.geometry.Offset(size.width, size.height - 0.5f), 1f,
+                                )
+                            }
                             .padding(WindowInsets.statusBars.asPaddingValues())
-                            .padding(horizontal = 18.dp, vertical = 12.dp),
+                            .padding(start = RaSpace.s4 + RaSpace.s1, end = RaSpace.s2, top = RaSpace.s1, bottom = RaSpace.s1),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         BrandLockup()
                         Spacer(Modifier.weight(1f))
-                        Text(
-                            if (online) "● online" else "● offline",
-                            color = if (online) LocalRa.current.ok else LocalRa.current.warn,
-                            style = RaType.eyebrow,
-                        )
-                        Text(
-                            if (isDark) "☀" else "☾",
-                            color = Muted, style = RaType.title,
-                            modifier = Modifier
-                                .padding(start = 14.dp)
+                        LinkChip(online)
+                        // A 48dp target. It used to be the glyph plus 3dp of
+                        // padding, about 26dp tall — half a thumb.
+                        Box(
+                            Modifier
+                                .padding(start = RaSpace.s1)
+                                .size(48.dp)
                                 .clip(CircleShape)
-                                .clickable { onToggleTheme() }
-                                .padding(horizontal = 7.dp, vertical = 3.dp),
-                        )
+                                .clickable(role = androidx.compose.ui.semantics.Role.Button) { onToggleTheme() },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            // U+FE0E asks for the text form of the symbol, so the
+                            // sun is drawn in the theme's ink instead of as a
+                            // yellow emoji.
+                            Text(
+                                if (isDark) "☀︎" else "☾︎",
+                                color = Muted, fontSize = 19.sp,
+                            )
+                        }
                     }
                 },
                 bottomBar = {
-                    NavigationBar(containerColor = Panel, tonalElevation = 0.dp) {
+                    val ra = LocalRa.current
+                    NavigationBar(
+                        containerColor = Panel, tonalElevation = 0.dp,
+                        modifier = Modifier.drawWithContent {
+                            drawContent()
+                            drawLine(ra.line, androidx.compose.ui.geometry.Offset(0f, 0.5f),
+                                androidx.compose.ui.geometry.Offset(size.width, 0.5f), 1f)
+                        },
+                    ) {
                         TABS.forEachIndexed { i, t ->
+                            val selected = tab == i
                             NavigationBarItem(
-                                selected = tab == i,
+                                selected = selected,
                                 onClick = { tab = i },
-                                icon = { Text(t.glyph, fontSize = 20.sp) },
-                                label = { Text(stringResource(t.label), style = RaType.eyebrow) },
+                                icon = {
+                                    // The selected icon lifts a little as the
+                                    // indicator pill grows under it.
+                                    val lift by androidx.compose.animation.core.animateFloatAsState(
+                                        if (selected && !LocalReduceMotion.current) 1f else 0f,
+                                        RaMotion.sheet(), label = "nav-lift",
+                                    )
+                                    Icon(
+                                        t.icon, contentDescription = null,
+                                        modifier = Modifier.size(24.dp).graphicsLayer {
+                                            val s = 1f + 0.08f * lift
+                                            scaleX = s; scaleY = s
+                                            translationY = -1.5.dp.toPx() * lift
+                                        },
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        stringResource(t.label),
+                                        style = RaType.meta.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp),
+                                    )
+                                },
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = Gold, selectedTextColor = Gold,
-                                    indicatorColor = Color(0x22E3B96A),
+                                    indicatorColor = GoldFill.copy(alpha = if (isDark) 0.14f else 0.30f),
                                     unselectedIconColor = Muted, unselectedTextColor = Muted,
                                 ),
                             )
@@ -501,23 +567,39 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                     val mapVisible = tab == 2
                     Box(Modifier.fillMaxSize().drawWithContent { if (mapVisible) drawContent() }) {
                         AndroidView(modifier = Modifier.fillMaxSize(), factory = { mapWebView })
-                        // Report-a-hazard FAB, only interactive on the Map tab.
+                        // Report-a-hazard FAB, only interactive on the Map tab:
+                        // a red pill seated in a frosted dock, so it reads over
+                        // any tiles. Bottom-end, above the page's locate button
+                        // and clear of its legend (it used to sit on the legend).
                         if (tab == 2) {
-                            Button(
-                                onClick = { showReport = true },
-                                shape = RoundedCornerShape(RaRadius.full),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Alarm, contentColor = Cream,
-                                ),
+                            val ra = LocalRa.current
+                            GlassPanel(
                                 modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(bottom = 22.dp)
-                                    .height(46.dp),
-                            ) { Text(stringResource(R.string.report_hazard_short), style = RaType.label, fontWeight = FontWeight.SemiBold) }
+                                    .align(Alignment.BottomEnd)
+                                    .padding(end = RaSpace.s3, bottom = 132.dp),
+                            ) {
+                                RaPrimaryButton(
+                                    stringResource(R.string.report_hazard_short),
+                                    fill = ra.alarmFill, ink = ra.onAlarm, height = 48.dp,
+                                    fillWidth = false,
+                                ) { showReport = true }
+                            }
                         }
                     }
                     // Foreground screens paint opaquely over the map when active.
-                    when (tab) {
+                    // A short crossfade with a 12dp rise between tabs; nothing
+                    // at all with "Remove animations" on.
+                    val reduceMotion = LocalReduceMotion.current
+                    AnimatedContent(
+                        targetState = tab,
+                        transitionSpec = {
+                            if (reduceMotion) EnterTransition.None togetherWith ExitTransition.None
+                            else (fadeIn(RaMotion.med()) + slideInVertically(RaMotion.slow()) { it / 60 })
+                                .togetherWith(fadeOut(RaMotion.fast()))
+                        },
+                        label = "tabs",
+                        modifier = Modifier.fillMaxSize(),
+                    ) { shown -> when (shown) {
                         0 -> Box(Modifier.fillMaxSize().background(Bg)) {
                             HomeScreen(
                                 msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel,
@@ -558,7 +640,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                 },
                             )
                         }
-                    }
+                    } }
 
                     if (showReport) {
                         ReportHazardDialog(
@@ -579,16 +661,31 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
             if (showLayers) LayersScreen(onClose = { showLayers = false })
         }
 
-        toast?.let { msg ->
-            Card(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp, start = 18.dp, end = 18.dp),
-                shape = RoundedCornerShape(RaRadius.full),
-                colors = CardDefaults.cardColors(containerColor = GoldFill),
+        // The toast rises on a spring and fades out. The last message is kept
+        // through the exit, so the pill does not empty itself as it leaves.
+        val lastToast = remember { mutableStateOf("") }
+        SideEffect { toast?.let { lastToast.value = it } }
+        val reduceToast = LocalReduceMotion.current
+        AnimatedVisibility(
+            visible = toast != null,
+            enter = if (reduceToast) EnterTransition.None
+            else fadeIn(RaMotion.med()) + slideInVertically(RaMotion.sheet()) { it / 2 } +
+                scaleIn(RaMotion.sheet(), initialScale = 0.96f),
+            exit = if (reduceToast) ExitTransition.None
+            else fadeOut(RaMotion.med()) + slideOutVertically(RaMotion.med()) { it / 3 },
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .padding(bottom = 96.dp, start = RaSpace.s4 + RaSpace.s1, end = RaSpace.s4 + RaSpace.s1),
+        ) {
+            val pill = RoundedCornerShape(RaRadius.full)
+            Box(
+                Modifier
+                    .shadow(12.dp, pill, ambientColor = Color.Black.copy(alpha = 0.45f), spotColor = Color.Black.copy(alpha = 0.45f))
+                    .clip(pill)
+                    .background(GoldFill)
+                    .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.18f), Color.Transparent)))
+                    .padding(horizontal = RaSpace.s4 + RaSpace.s1, vertical = RaSpace.s3),
             ) {
-                Text(
-                    msg, color = GoldInk, style = RaType.label,
-                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
-                )
+                Text(toast ?: lastToast.value, color = GoldInk, style = RaType.label, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -773,7 +870,8 @@ private fun ReportHazardDialog(
         // otherwise close the dialog and drop the in-progress report.
         properties = androidx.compose.ui.window.DialogProperties(dismissOnClickOutside = false),
         containerColor = Panel,
-        title = { Text(stringResource(R.string.report_hazard_title), color = Cream, fontSize = 18.sp) },
+        shape = RoundedCornerShape(RaRadius.xl),
+        title = { Text(stringResource(R.string.report_hazard_title), color = Cream, style = RaType.title, fontSize = 20.sp) },
         text = {
             Column {
                 Text(stringResource(R.string.report_hazard_sub),
@@ -790,15 +888,22 @@ private fun ReportHazardDialog(
                     }
                 }
                 Text(stringResource(R.string.label_severity, severity), color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 14.dp))
+                // 48dp targets (they were 42), selected one filled and lifted.
                 Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (1..5).forEach { s ->
                         val sel = s == severity
+                        val lift by androidx.compose.animation.core.animateFloatAsState(
+                            if (sel && !LocalReduceMotion.current) 1f else 0f, RaMotion.sheet(), label = "sev",
+                        )
                         Box(
-                            Modifier.size(42.dp).clip(CircleShape)
-                                .background(if (sel) GoldFill else Color(0x22E3B96A))
-                                .clickable { severity = s },
+                            Modifier.size(48.dp)
+                                .graphicsLayer { val k = 1f + 0.06f * lift; scaleX = k; scaleY = k }
+                                .shadow((6 * lift).dp, CircleShape)
+                                .clip(CircleShape)
+                                .background(if (sel) GoldFill else GoldFill.copy(alpha = 0.14f))
+                                .clickable(role = androidx.compose.ui.semantics.Role.RadioButton) { severity = s },
                             contentAlignment = Alignment.Center,
-                        ) { Text("$s", color = if (sel) GoldInk else Cream, fontWeight = FontWeight.Bold) }
+                        ) { Text("$s", color = if (sel) GoldInk else Cream, style = RaType.figures, fontSize = 16.sp) }
                     }
                 }
                 // The server takes at most 280 characters (POST /v1/raksha/report) and
@@ -867,11 +972,18 @@ private fun ReportHazardDialog(
                     }
                 },
                 enabled = !busy,
-                colors = ButtonDefaults.buttonColors(containerColor = Alarm, contentColor = Cream),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = LocalRa.current.alarmFill, contentColor = LocalRa.current.onAlarm,
+                ),
                 shape = RoundedCornerShape(RaRadius.full),
-            ) { Text(if (busy) "Reporting…" else "Submit report", fontWeight = FontWeight.SemiBold) }
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) { Text(if (busy) "Reporting…" else "Submit report", style = RaType.button) }
         },
-        dismissButton = { TextButton(onClick = { if (!busy) onClose() }) { Text(stringResource(R.string.action_cancel), color = Muted) } },
+        dismissButton = {
+            TextButton(onClick = { if (!busy) onClose() }, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.action_cancel), color = Muted, style = RaType.button)
+            }
+        },
     )
 }
 
@@ -903,37 +1015,65 @@ private fun EmptyTrack(onBook: () -> Unit) {
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
         Heading(R.string.head_rescues_plain, R.string.head_rescues_italic)
-        if (history.isEmpty()) {
+        if (!loaded) {
+            // Placeholders in the shape of the rows that are coming, under the
+            // same word the screen always said while it waited.
+            Text("Loading…", color = Muted, style = RaType.label, modifier = Modifier.padding(top = RaSpace.s2))
+            repeat(3) { i ->
+                Reveal(i) {
+                    RaCard(Modifier.fillMaxWidth().padding(top = RaSpace.s3)) {
+                        Row(Modifier.padding(CardPad), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Shimmer(Modifier.fillMaxWidth(0.5f), height = 14.dp)
+                                Shimmer(Modifier.fillMaxWidth(0.32f).padding(top = RaSpace.s2), height = 10.dp)
+                            }
+                            Shimmer(Modifier.width(72.dp), height = 20.dp)
+                        }
+                    }
+                }
+            }
+        } else if (history.isEmpty()) {
             Column(
                 Modifier.fillMaxWidth().padding(top = 60.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("◉", fontSize = 48.sp, color = Muted)
-                Text(if (loaded) "No rescues yet" else "Loading…", color = Cream, fontSize = 18.sp,
-                    modifier = Modifier.padding(top = 12.dp))
+                // An empty state with a little depth: the tab's own icon, set in
+                // a lit disc, rather than a bare symbol.
+                Reveal(0) {
+                    Box(
+                        Modifier.size(88.dp)
+                            .shadow(10.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.5f))
+                            .clip(CircleShape)
+                            .background(Panel)
+                            .background(Brush.verticalGradient(listOf(GoldFill.copy(alpha = 0.16f), Color.Transparent)))
+                            .border(1.dp, GoldFill.copy(alpha = 0.30f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.AutoMirrored.Rounded.List, contentDescription = null, tint = Gold, modifier = Modifier.size(36.dp))
+                    }
+                }
+                Text("No rescues yet", color = Cream, style = RaType.title, fontSize = 20.sp,
+                    modifier = Modifier.padding(top = RaSpace.s4))
                 Text(stringResource(R.string.bookings_empty), color = Muted, style = RaType.label,
-                    modifier = Modifier.padding(top = 4.dp))
-                OutlinedButton(onClick = onBook, shape = RoundedCornerShape(RaRadius.full),
-                    modifier = Modifier.padding(top = 18.dp)) { Text(stringResource(R.string.action_request_assistance), color = Gold) }
+                    modifier = Modifier.padding(top = RaSpace.s1))
+                RaOutlineButton(stringResource(R.string.action_request_assistance),
+                    modifier = Modifier.padding(top = RaSpace.s5)) { onBook() }
             }
         } else {
             Sub(stringResource(R.string.bookings_sub))
-            history.forEach { b ->
+            history.forEachIndexed { i, b ->
                 val status = b.optString("status")
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Panel),
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                ) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(b.optString("reference"), color = Cream, style = RaType.body)
-                            b.optString("highwayMarker").takeIf { it.isNotBlank() && it != "null" }?.let {
-                                Text(it, color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 2.dp))
+                Reveal(i) {
+                    RaCard(Modifier.fillMaxWidth().padding(top = RaSpace.s3)) {
+                        Row(Modifier.padding(CardPad), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(b.optString("reference"), color = Cream, style = RaType.figures, fontSize = 15.sp)
+                                b.optString("highwayMarker").takeIf { it.isNotBlank() && it != "null" }?.let {
+                                    Text(it, color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 2.dp))
+                                }
                             }
+                            StatusChip(status, STATUS_COLOR(status))
                         }
-                        Text(status, color = STATUS_COLOR(status), style = RaType.meta,
-                            fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
                     }
                 }
             }
@@ -986,12 +1126,8 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
         Heading(R.string.head_more_plain, R.string.head_more_italic)
         Sub("$msisdn " + stringResource(R.string.signed_in_suffix))
 
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-        ) {
-            Column(Modifier.padding(17.dp)) {
+        RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s5)) {
+            Column(Modifier.padding(CardPad)) {
                 Text(stringResource(R.string.trip_guardian), color = Cream, style = RaType.title)
                 Text(stringResource(R.string.trip_guardian_sub),
                     color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
@@ -1039,21 +1175,16 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                     enabled = !busy,
                     shape = RoundedCornerShape(RaRadius.full),
                     colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
-                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp).height(48.dp),
-                ) { Text(if (summary == null) "Prepare my route" else "Refresh route",
-                    fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, style = RaType.caption) }
+                    modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4).height(52.dp),
+                ) { Text(if (summary == null) "Prepare my route" else "Refresh route", style = RaType.button) }
                 if (busy) Loading()
             }
         }
 
         // Your hazard reports and where each one is in the review pipeline.
         if (reports.isNotEmpty()) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            ) {
-                Column(Modifier.padding(17.dp)) {
+            RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4)) {
+                Column(Modifier.padding(CardPad)) {
                     Text(stringResource(R.string.my_reports), color = Cream, style = RaType.title)
                     Text(stringResource(R.string.my_reports_sub),
                         color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 4.dp))
@@ -1075,8 +1206,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                                         modifier = Modifier.padding(top = 2.dp))
                                 }
                             }
-                            Text(st, color = STATUS_COLOR(st), style = RaType.meta,
-                                fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                            StatusChip(st, STATUS_COLOR(st))
                         }
                     }
                 }
@@ -1084,18 +1214,14 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
         }
 
         // Emergency contacts — who gets alerted when you confirm an SOS.
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        ) {
-            Column(Modifier.padding(17.dp)) {
+        RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4)) {
+            Column(Modifier.padding(CardPad)) {
                 Text(stringResource(R.string.emergency_contacts), color = Cream, style = RaType.title)
                 Text(stringResource(R.string.emergency_contacts_sub),
                     color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
 
                 if (contacts.isEmpty()) {
-                    Text(stringResource(R.string.emergency_contacts_empty), color = Color(0xFFE3C451),
+                    Text(stringResource(R.string.emergency_contacts_empty), color = LocalRa.current.warn,
                         style = RaType.caption, modifier = Modifier.padding(top = 10.dp))
                 } else contacts.forEach { c ->
                     Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1103,15 +1229,18 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                             Text(c.optString("name"), color = Cream, fontSize = 14.sp)
                             Text(c.optString("msisdn"), color = Muted, style = RaType.caption)
                         }
-                        Text(stringResource(R.string.action_remove), color = Alarm, style = RaType.caption,
-                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !cBusy) {
+                        TextButton(
+                            enabled = !cBusy,
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            onClick = {
                                 cBusy = true
                                 scope.launch {
                                     try { Api.delete("/v1/me/emergency-contacts/${c.getString("id")}"); loadContacts() }
                                     catch (e: Exception) {}
                                     cBusy = false
                                 }
-                            }.padding(6.dp))
+                            },
+                        ) { Text(stringResource(R.string.action_remove), color = Alarm, style = RaType.button) }
                     }
                 }
 
@@ -1132,8 +1261,8 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                     enabled = !cBusy && cName.length >= 2 && cPhone.length >= 13,
                     shape = RoundedCornerShape(RaRadius.full),
                     colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
-                ) { Text(stringResource(R.string.action_add_contact), fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, style = RaType.caption) }
+                    modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3).height(52.dp),
+                ) { Text(stringResource(R.string.action_add_contact), style = RaType.button) }
             }
         }
 
@@ -1143,12 +1272,8 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
         // another one produces 401s that look like a broken app rather than a
         // deliberate change. Signing out also drops the retained map WebView,
         // which captured the OLD base when it was built.
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        ) {
-            Column(Modifier.padding(17.dp)) {
+        RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4)) {
+            Column(Modifier.padding(CardPad)) {
                 Text(stringResource(R.string.server), color = Cream, style = RaType.title)
                 Text(stringResource(R.string.server_sub),
                     color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
@@ -1163,7 +1288,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                 // the person who most needs to fix it.
                 if (queuedSos > 0) {
                     Text(stringResource(R.string.server_queued_warning, queuedSos),
-                        color = Color(0xFFE3C451), style = RaType.caption,
+                        color = LocalRa.current.warn, style = RaType.caption,
                         modifier = Modifier.padding(top = 10.dp))
                 }
 
@@ -1198,23 +1323,68 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                     enabled = !serverBusy && !Api.isCurrentBase(serverUrl),
                     shape = RoundedCornerShape(RaRadius.full),
                     colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
-                ) { Text(stringResource(R.string.action_use_server),
-                    fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, style = RaType.caption) }
+                    modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3).height(52.dp),
+                ) { Text(stringResource(R.string.action_use_server), style = RaType.button) }
             }
         }
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        ) {
-            Column(Modifier.padding(17.dp)) {
+        RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4)) {
+            Column(Modifier.padding(CardPad)) {
                 Text(stringResource(R.string.about), color = Cream, style = RaType.title)
                 Text(stringResource(R.string.about_body),
                     color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
+                FontLicences()
             }
         }
         LineButton(stringResource(R.string.action_sign_out)) { onSignOut() }
+    }
+}
+
+/**
+ * The bundled fonts' credit, and their licence on a tap.
+ *
+ * The SIL OFL lets the fonts ship inside the app on condition that the licence
+ * travels with them. The two texts are in assets/licenses, copied unchanged
+ * from app/apps/web/vendor/fonts, and this shows them on the device.
+ */
+@Composable
+private fun FontLicences() {
+    val ctx = LocalContext.current
+    var open by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf<String?>(null) }
+    TextButton(
+        onClick = { open = true },
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = RaSpace.s2),
+        modifier = Modifier.padding(top = RaSpace.s1).heightIn(min = 48.dp),
+    ) { Text(stringResource(R.string.font_credit), color = Gold, style = RaType.caption, fontWeight = FontWeight.SemiBold) }
+    if (open) {
+        LaunchedEffect(Unit) {
+            text = withContext(Dispatchers.IO) {
+                runCatching {
+                    listOf("OFL-SpaceGrotesk.txt", "OFL-Inter.txt", "OFL-JetBrainsMono.txt").joinToString("\n\n— — —\n\n") { name ->
+                        ctx.assets.open("licenses/$name").bufferedReader().use { it.readText() }.trim()
+                    }
+                }.getOrNull()
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { open = false },
+            containerColor = Panel,
+            shape = RoundedCornerShape(RaRadius.xl),
+            title = { Text(stringResource(R.string.font_credit), color = Cream, style = RaType.title) },
+            text = {
+                val body = text
+                if (body == null) ShimmerLines(lines = 6)
+                else Text(
+                    body, color = Muted, style = RaType.meta, lineHeight = 15.sp,
+                    modifier = Modifier.height(380.dp).verticalScroll(rememberScrollState()),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { open = false }, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.cd_back), color = Gold, style = RaType.button)
+                }
+            },
+        )
     }
 }
 
@@ -1240,27 +1410,42 @@ private fun commitApiBase(ctx: android.content.Context, input: String): String {
 
 // ── shared pieces ──────────────────────────────────────────────────────────
 @Composable
-private fun ScreenColumn(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+private fun ScreenColumn(
+    scroll: androidx.compose.foundation.ScrollState = rememberScrollState(),
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    // 20dp sides (the card padding) and 24dp top/bottom, on the 4dp ladder.
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(RaSpace.s5),
+        Modifier.fillMaxSize().verticalScroll(scroll)
+            .padding(horizontal = RaSpace.s4 + RaSpace.s1, vertical = RaSpace.s5),
         content = content,
     )
 }
 
 @Composable
 private fun Heading(@StringRes plain: Int, @StringRes italic: Int) {
-    Row {
-        Text(stringResource(plain), style = RaType.heading, color = Cream)
-        Text(
-            " " + stringResource(italic), style = RaType.heading, color = Gold,
-            fontStyle = FontStyle.Italic,
-        )
+    // One Text, not two in a Row, so a long heading in Tamil or Malayalam
+    // wraps as a sentence instead of pushing its second half off the screen.
+    val gold = Gold
+    val plainText = stringResource(plain)
+    val italicText = stringResource(italic)
+    val styled = remember(plainText, italicText, gold) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            append(plainText)
+            append(" ")
+            // Gold, upright: the display face has no italic, and a slant
+            // synthesised by the platform is not one.
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = gold))
+            append(italicText)
+            pop()
+        }
     }
+    Text(styled, style = RaType.heading, color = Cream)
 }
 
 @Composable
 private fun Sub(text: String) {
-    Text(text, style = RaType.label, color = Muted, lineHeight = 19.sp, modifier = Modifier.padding(top = 6.dp))
+    Text(text, style = RaType.label, color = Muted, lineHeight = 19.sp, modifier = Modifier.padding(top = RaSpace.s2))
 }
 
 @Composable
@@ -1272,13 +1457,15 @@ private fun Field(
 ) {
     OutlinedTextField(
         value = value, onValueChange = onChange, enabled = enabled,
-        label = { Text(label, color = Muted, style = RaType.caption) },
+        label = { Text(label, style = RaType.caption) },
         singleLine = true,
+        textStyle = RaType.body,
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = keyboard),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(RaRadius.sm),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Gold, unfocusedBorderColor = Color(0x33E3B96A),
+            focusedBorderColor = Gold, unfocusedBorderColor = LocalRa.current.line,
             focusedTextColor = Cream, unfocusedTextColor = Cream,
+            focusedLabelColor = Gold, unfocusedLabelColor = Muted,
             cursorColor = Gold,
         ),
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
@@ -1287,21 +1474,12 @@ private fun Field(
 
 @Composable
 private fun GoldButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
-    Button(
-        onClick = onClick, enabled = enabled,
-        shape = RoundedCornerShape(RaRadius.full),
-        colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
-        modifier = Modifier.fillMaxWidth().padding(top = 16.dp).height(52.dp),
-    ) { Text(text, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp, style = RaType.caption) }
+    RaPrimaryButton(text, enabled = enabled, modifier = Modifier.padding(top = RaSpace.s4), onClick = onClick)
 }
 
 @Composable
 private fun LineButton(text: String, onClick: () -> Unit) {
-    OutlinedButton(
-        onClick = onClick,
-        shape = RoundedCornerShape(RaRadius.full),
-        modifier = Modifier.fillMaxWidth().padding(top = 10.dp).height(48.dp),
-    ) { Text(text, color = Muted, style = RaType.caption, letterSpacing = 1.5.sp) }
+    RaOutlineButton(text, color = Muted, modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3), onClick = onClick)
 }
 
 // ── sign in ────────────────────────────────────────────────────────────────
@@ -1621,8 +1799,12 @@ private fun HomeScreen(
         )
     }
 
-    ScreenColumn {
-        Spacer(Modifier.height(16.dp))
+    val homeScroll = rememberScrollState()
+    ScreenColumn(scroll = homeScroll) {
+        Spacer(Modifier.height(RaSpace.s2))
+        // No entrance animation here, on purpose: an emergency that is still
+        // open is shown the instant it is known, never faded in behind a
+        // delay. The same goes for the SOS control and the emergency numbers.
         incidents.forEach { incident ->
             OpenIncidentCard(
                 incident = incident,
@@ -1630,8 +1812,18 @@ private fun HomeScreen(
                 onAction = { action -> pendingClose = incident to action },
             )
         }
-        Heading(R.string.head_home_plain, R.string.head_home_italic)
-        Sub("$msisdn " + stringResource(R.string.signed_in_suffix))
+        // The greeting, in a hero panel that leans under a finger and tips
+        // back as the page scrolls (HomeHero). Decoration only: the SOS
+        // control below is a separate element and never moves.
+        Reveal(0) {
+            HomeHero(homeScroll) {
+                Heading(R.string.head_home_plain, R.string.head_home_italic)
+                Sub("$msisdn " + stringResource(R.string.signed_in_suffix))
+                vehicleLabel?.let {
+                    StatusChip(it, Gold, Modifier.padding(top = RaSpace.s3))
+                }
+            }
+        }
 
         // SOS — the fallback ladder: data → SMS → 112 → queue. Works with no net.
         // Arm the no-data (SMS) and real-location rungs by requesting both perms.
@@ -1715,46 +1907,55 @@ private fun HomeScreen(
                 // choice, never by a stray tap outside the dialog.
                 onDismissRequest = { },
                 containerColor = Panel,
-                title = { Text(stringResource(R.string.sos_alerting_in, sosLeft), color = Alarm, fontSize = 19.sp) },
+                shape = RoundedCornerShape(RaRadius.xl),
+                title = {
+                    // The countdown as a draining ring around its number, as
+                    // well as the sentence: the ring is what a glance catches.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        SosCountdownBadge(sosLeft, SOS_GRACE_S)
+                        Spacer(Modifier.width(RaSpace.s3))
+                        Text(stringResource(R.string.sos_alerting_in, sosLeft), color = Alarm,
+                            style = RaType.title, fontSize = 20.sp)
+                    }
+                },
                 text = {
                     Text(
                         "Your emergency contacts and the nearest responder will be alerted with " +
                             "your location. Cancel now if this was a mistake — a false alarm costs " +
                             "a responder a real journey.",
-                        color = Muted, style = RaType.label, lineHeight = 18.sp,
+                        color = Muted, style = RaType.label, lineHeight = 19.sp,
                     )
                 },
                 confirmButton = {
                     Button(
                         onClick = { sosArmed = false; fireSos() },
-                        colors = ButtonDefaults.buttonColors(containerColor = Alarm, contentColor = Color.White),
-                    ) { Text(stringResource(R.string.sos_alert_now), style = RaType.label, fontWeight = FontWeight.SemiBold) }
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = LocalRa.current.alarmFill, contentColor = LocalRa.current.onAlarm,
+                        ),
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) { Text(stringResource(R.string.sos_alert_now), style = RaType.button) }
                 },
                 dismissButton = {
                     TextButton(onClick = {
                         sosArmed = false
                         onToast(ctx.getString(R.string.toast_sos_cancelled))
-                    }) { Text(stringResource(R.string.action_cancel), color = Muted, style = RaType.label) }
+                    }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(stringResource(R.string.action_cancel), color = Muted, style = RaType.button)
+                    }
                 },
             )
         }
 
-        Box(Modifier.fillMaxWidth().padding(vertical = 26.dp), contentAlignment = Alignment.Center) {
-            // Soft red glow behind the SOS ring — draws the eye to the one
-            // control that matters most in an emergency. Remembered because the
-            // gradient is constant: rebuilding the Brush (and its colour list) on
-            // every recomposition allocates on the countdown's per-second tick.
-            // Alarm is a @Composable theme accessor, so it is read here and used
-            // as the key — the brush is rebuilt only when the light/dark toggle
-            // actually changes the colour, not on every recomposition.
-            val alarm = Alarm
-            val glow = remember(alarm) {
-                Brush.radialGradient(
-                    listOf(alarm.copy(alpha = 0.28f), alarm.copy(alpha = 0.06f), Color.Transparent),
-                )
-            }
-            Box(Modifier.size(230.dp).background(glow, CircleShape))
-            Button(
+        // The SOS control (Ui.kt): depth, a slow breathing glow while it
+        // waits, and a ring that drains over the grace window once armed. The
+        // tap still only arms the countdown; nothing escalates on contact.
+        Box(Modifier.fillMaxWidth().padding(vertical = RaSpace.s2), contentAlignment = Alignment.Center) {
+            SosControl(
+                armed = sosArmed,
+                secondsLeft = sosLeft,
+                totalSeconds = SOS_GRACE_S,
+                enabled = !busy && !sosArmed,
+                hint = stringResource(R.string.sos_5s_to_cancel),
                 onClick = {
                     // Arm the no-data + real-location rungs up front, so the
                     // permission dialogs are out of the way before the window ends.
@@ -1765,19 +1966,10 @@ private fun HomeScreen(
                     sosLeft = SOS_GRACE_S
                     sosArmed = true
                 },
-                enabled = !busy && !sosArmed,
-                shape = CircleShape,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1A0B08), contentColor = Cream),
-                modifier = Modifier.size(150.dp).border(1.dp, Alarm.copy(alpha = 0.7f), CircleShape),
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("SOS", fontSize = 20.sp, letterSpacing = 6.sp, fontWeight = FontWeight.SemiBold)
-                    Text(stringResource(R.string.sos_5s_to_cancel), fontSize = 9.sp, letterSpacing = 1.sp, color = Muted)
-                }
-            }
+            )
         }
         sosResult?.let {
-            Text(it, color = Alarm, style = RaType.sub,
+            Text(it, color = Alarm, style = RaType.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 modifier = Modifier.align(Alignment.CenterHorizontally))
         }
         Text(
@@ -1788,30 +1980,27 @@ private fun HomeScreen(
 
         // 112 first, then 1033 (NHAI), 108/102, 100, 101 — tap opens the dialer.
         // Static (EmergencyNumbers.kt), so it is here with no network at all.
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(RaSpace.s5))
         EmergencyNumbersCard()
 
         // Nearest hospital, police, fuel, charger and repair shop (NearYouCard.kt).
         // Below the SOS area and in its own composable scope: it pauses while an
         // SOS is armed or being raised, and never touches Emergency.ladderScope.
-        Spacer(Modifier.height(18.dp))
-        NearYouSection(online = online, sosActive = sosArmed || busy)
+        Spacer(Modifier.height(RaSpace.s4))
+        Reveal(1) { NearYouSection(online = online, sosActive = sosArmed || busy) }
 
-        Spacer(Modifier.height(12.dp))
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(Modifier.padding(17.dp)) {
+        Spacer(Modifier.height(RaSpace.s4))
+        Reveal(2) {
+        RaCard(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(CardPad)) {
                 if (vehicleId == null) {
                     Text(stringResource(R.string.vehicle_add_title), color = Cream, style = RaType.title)
                     Field(reg, { reg = it.uppercase() }, stringResource(R.string.field_registration_number))
                     Box {
                         OutlinedButton(
                             onClick = { classOpen = true },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            shape = RoundedCornerShape(RaRadius.sm),
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 52.dp),
                         ) { Text(stringResource(R.string.label_vehicle_type, vClass), color = Cream, style = RaType.label) }
                         DropdownMenu(expanded = classOpen, onDismissRequest = { classOpen = false }) {
                             classes.forEach { c ->
@@ -1843,42 +2032,37 @@ private fun HomeScreen(
                 }
             }
         }
+        }
 
         // Crowdsourced road-safety: flag a hazard for the RAKSHA network.
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        ) {
-            Column(Modifier.padding(17.dp)) {
+        Reveal(3) {
+        RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4)) {
+            Column(Modifier.padding(CardPad)) {
                 Text(stringResource(R.string.hazard_prompt_title), color = Cream, style = RaType.title)
                 Text(stringResource(R.string.hazard_prompt_sub),
                     color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
-                OutlinedButton(
-                    onClick = onReport,
-                    shape = RoundedCornerShape(RaRadius.full),
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
-                ) { Text(stringResource(R.string.hazard_prompt_action), color = Alarm, style = RaType.caption, letterSpacing = 1.sp) }
+                RaOutlineButton(
+                    stringResource(R.string.hazard_prompt_action), color = Alarm,
+                    modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3),
+                ) { onReport() }
             }
+        }
         }
 
         // The platform in live 3D: layers.html from the configured server,
         // shown in a WebView the way the Map tab shows map.html.
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-        ) {
-            Column(Modifier.padding(17.dp)) {
+        Reveal(4) {
+        RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4)) {
+            Column(Modifier.padding(CardPad)) {
                 Text(stringResource(R.string.layers_title), color = Cream, style = RaType.title)
                 Text(stringResource(R.string.layers_sub),
                     color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
-                OutlinedButton(
-                    onClick = onLayers,
-                    shape = RoundedCornerShape(RaRadius.full),
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
-                ) { Text(stringResource(R.string.layers_open), color = Gold, style = RaType.caption, letterSpacing = 1.sp) }
+                RaOutlineButton(
+                    stringResource(R.string.layers_open),
+                    modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3),
+                ) { onLayers() }
             }
+        }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -1912,13 +2096,14 @@ private fun OpenIncidentCard(
         OpenIncidents.Stage.RESPONDING -> stringResource(R.string.incident_stage_responding)
         OpenIncidents.Stage.OTHER -> stringResource(R.string.incident_stage_other, OpenIncidents.readableStage(incident.stage))
     }
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel),
+    // Tinted with the alarm red and edged in it: the one card on Home that is
+    // about something happening now.
+    RaCard(
         border = BorderStroke(2.dp, Alarm),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        tint = androidx.compose.ui.graphics.lerp(Panel, Alarm, 0.06f),
+        modifier = Modifier.fillMaxWidth().padding(bottom = RaSpace.s3),
     ) {
-        Column(Modifier.padding(17.dp)) {
+        Column(Modifier.padding(CardPad)) {
             Text(
                 "● " + stringResource(R.string.incident_open_title),
                 color = Alarm, style = RaType.title, fontWeight = FontWeight.SemiBold,
@@ -1930,20 +2115,19 @@ private fun OpenIncidentCard(
             Text(stage, color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
             OpenIncidents.actions(incident).forEach { action ->
                 when (action) {
-                    OpenIncidents.Action.RESOLVE -> Button(
-                        onClick = { onAction(action) },
+                    // The deeper alarmFill under white: 5.2:1, where white on
+                    // the dark theme's bright red was 3.0:1.
+                    OpenIncidents.Action.RESOLVE -> RaPrimaryButton(
+                        stringResource(R.string.incident_action_resolve),
                         enabled = enabled,
-                        shape = RoundedCornerShape(RaRadius.full),
-                        colors = ButtonDefaults.buttonColors(containerColor = Alarm, contentColor = Color.White),
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(46.dp),
-                    ) { Text(stringResource(R.string.incident_action_resolve), style = RaType.label, fontWeight = FontWeight.SemiBold) }
-                    OpenIncidents.Action.CANCEL -> OutlinedButton(
-                        onClick = { onAction(action) },
-                        enabled = enabled,
-                        shape = RoundedCornerShape(RaRadius.full),
-                        border = BorderStroke(1.dp, Alarm.copy(alpha = 0.7f)),
-                        modifier = Modifier.fillMaxWidth().padding(top = 10.dp).height(46.dp),
-                    ) { Text(stringResource(R.string.incident_action_cancel), color = Alarm, style = RaType.label) }
+                        fill = LocalRa.current.alarmFill, ink = LocalRa.current.onAlarm, height = 48.dp,
+                        modifier = Modifier.padding(top = RaSpace.s3),
+                    ) { onAction(action) }
+                    OpenIncidents.Action.CANCEL -> RaOutlineButton(
+                        stringResource(R.string.incident_action_cancel),
+                        enabled = enabled, color = Alarm,
+                        modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s2 + 2.dp),
+                    ) { onAction(action) }
                 }
             }
         }
@@ -2082,28 +2266,32 @@ private fun BookScreen(
 
         // Focused-mechanic banner (from the map or nearby list).
         target?.let { t ->
-            Card(
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0x1FE3B96A)),
-                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+            Reveal(0) {
+            RaCard(
+                tint = androidx.compose.ui.graphics.lerp(Panel, GoldFill, 0.10f),
+                border = BorderStroke(1.dp, GoldFill.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4),
             ) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
+                Row(Modifier.padding(start = CardPad, top = RaSpace.s3, bottom = RaSpace.s3, end = RaSpace.s1),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    MechanicAvatar(t.optString("name"))
+                    Column(Modifier.weight(1f).padding(start = RaSpace.s3)) {
                         Text(stringResource(R.string.dispatch_requesting_near), color = Muted, style = RaType.meta)
-                        Text(t.optString("name"), color = Gold, style = RaType.body, fontWeight = FontWeight.SemiBold)
+                        Text(t.optString("name"), color = Gold, style = RaType.title)
                     }
-                    Text(stringResource(R.string.action_clear), color = Muted, style = RaType.caption,
-                        modifier = Modifier.clip(RoundedCornerShape(8.dp))
-                            .clickable { target = null }.padding(6.dp))
+                    TextButton(onClick = { target = null }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(stringResource(R.string.action_clear), color = Muted, style = RaType.button)
+                    }
                 }
+            }
             }
         }
 
         Box {
             OutlinedButton(
                 onClick = { if (loadError) reloadKey++ else if (services.isNotEmpty()) svcOpen = true },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                shape = RoundedCornerShape(RaRadius.sm),
+                modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4).heightIn(min = 52.dp),
             ) {
                 Text(
                     "Service: " + when {
@@ -2142,26 +2330,25 @@ private fun BookScreen(
         }
 
         // Offers from the dispatch broadcast; the focused mechanic is tagged.
-        offers.forEach { o ->
+        offers.forEachIndexed { i, o ->
             val m = o.getJSONObject("mechanic")
             val isTarget = target?.optString("id")?.let { it == m.optString("id") } ?: false
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel),
-                modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-            ) {
+            Reveal(i) {
+            RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3)) {
                 Row(
-                    Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically,
+                    Modifier.padding(horizontal = CardPad, vertical = RaSpace.s4), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Column(Modifier.weight(1f)) {
+                    MechanicAvatar(m.getString("displayName"))
+                    Column(Modifier.weight(1f).padding(start = RaSpace.s3)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(m.getString("displayName"), color = Cream, style = RaType.body)
-                            if (isTarget) Text(stringResource(R.string.from_map), color = Gold, fontSize = 10.sp)
+                            Text(m.getString("displayName"), color = Cream, style = RaType.body, fontWeight = FontWeight.SemiBold)
+                            if (isTarget) Text(stringResource(R.string.from_map), color = Gold, style = RaType.meta)
                         }
                         Text(
                             "★ ${m.getDouble("rating")} · ${m.getDouble("distanceKm")} km · ETA ${o.getInt("etaMinutes")} min",
-                            color = Muted, style = RaType.caption,
+                            color = Muted, style = RaType.caption.copy(fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                            modifier = Modifier.padding(top = 2.dp),
                         )
                     }
                     Button(
@@ -2179,41 +2366,40 @@ private fun BookScreen(
                         enabled = !busy,
                         shape = RoundedCornerShape(RaRadius.full),
                         colors = ButtonDefaults.buttonColors(containerColor = GoldFill, contentColor = GoldInk),
-                    ) { Text(stringResource(R.string.action_accept), style = RaType.meta, fontWeight = FontWeight.Bold) }
+                        modifier = Modifier.heightIn(min = 48.dp),
+                    ) { Text(stringResource(R.string.action_accept), style = RaType.button) }
                 }
+            }
             }
         }
 
         // Nearby verified mechanics — tap "Request" to focus one for this booking.
         if (offers.isEmpty() && nearby.isNotEmpty()) {
-            Text(stringResource(R.string.mechanics_nearby), color = Cream, style = RaType.body,
-                modifier = Modifier.padding(top = 22.dp))
+            Text(stringResource(R.string.mechanics_nearby), color = Cream, style = RaType.title,
+                modifier = Modifier.padding(top = RaSpace.s5))
             nearbyAt?.let { at ->
                 Text(stringResource(BookingPosition.nearbyNoteRes(at)),
                     color = if (at.isDemo) Alarm else Muted, style = RaType.caption)
             }
-            nearby.forEach { m ->
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Panel),
-                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                ) {
-                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(m.optString("display_name"), color = Cream, fontSize = 14.sp)
+            nearby.forEachIndexed { i, m ->
+                Reveal(i) {
+                RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3)) {
+                    Row(Modifier.padding(horizontal = CardPad, vertical = RaSpace.s3), verticalAlignment = Alignment.CenterVertically) {
+                        MechanicAvatar(m.optString("display_name"))
+                        Column(Modifier.weight(1f).padding(start = RaSpace.s3)) {
+                            Text(m.optString("display_name"), color = Cream, style = RaType.body, fontWeight = FontWeight.SemiBold)
                             Text("★ ${m.optDouble("rating", 0.0)} · ${m.optDouble("km", 0.0)} km away",
-                                color = Muted, style = RaType.caption)
+                                color = Muted, style = RaType.caption.copy(fontWeight = FontWeight.Medium, fontFeatureSettings = "tnum"),
+                                modifier = Modifier.padding(top = 2.dp))
                         }
-                        OutlinedButton(
-                            onClick = {
-                                // Who to request only; the booking is placed at the phone's fix.
-                                target = JSONObject()
-                                    .put("id", m.optString("id")).put("name", m.optString("display_name"))
-                                onToast("Focused ${m.optString("display_name")}")
-                            },
-                            shape = RoundedCornerShape(RaRadius.full),
-                        ) { Text(stringResource(R.string.action_request), color = Gold, style = RaType.meta) }
+                        RaOutlineButton(stringResource(R.string.action_request), height = 48.dp) {
+                            // Who to request only; the booking is placed at the phone's fix.
+                            target = JSONObject()
+                                .put("id", m.optString("id")).put("name", m.optString("display_name"))
+                            onToast("Focused ${m.optString("display_name")}")
+                        }
                     }
+                }
                 }
             }
         }
@@ -2267,21 +2453,30 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
         Heading(R.string.head_track_plain, R.string.head_track_italic)
         Sub("Booking $bookingId")
 
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Panel),
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-        ) {
-            Column(Modifier.padding(17.dp)) {
+        RaCard(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+            Column(Modifier.padding(CardPad)) {
                 Text(stringResource(R.string.label_status), color = Muted,
-                    fontSize = 10.sp, letterSpacing = 3.sp)
-                Text(status, color = Gold, fontSize = 24.sp, modifier = Modifier.padding(top = 4.dp))
+                    style = RaType.eyebrow, letterSpacing = 2.sp)
+                // The status crossfades as the booking moves through the
+                // state machine; a shimmer stands in while it is first read.
+                if (status == "…") {
+                    Shimmer(Modifier.fillMaxWidth(0.55f).padding(top = RaSpace.s2), height = 26.dp)
+                } else {
+                    androidx.compose.animation.Crossfade(
+                        targetState = status, label = "status",
+                        animationSpec = if (LocalReduceMotion.current) androidx.compose.animation.core.snap() else RaMotion.med(),
+                    ) { st ->
+                        Text(st, color = STATUS_COLOR(st), style = RaType.heading, fontSize = 26.sp,
+                            modifier = Modifier.padding(top = RaSpace.s1))
+                    }
+                }
                 invoice?.let {
                     Text(it, color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 8.dp))
                 }
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(top = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(RaSpace.s2),
+                    verticalArrangement = Arrangement.spacedBy(RaSpace.s2),
+                    modifier = Modifier.padding(top = RaSpace.s4),
                 ) {
                     commands.forEach { cmd ->
                         OutlinedButton(
@@ -2318,7 +2513,9 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
                             },
                             enabled = !busy,
                             shape = RoundedCornerShape(RaRadius.full),
-                        ) { Text(CommandLabels[cmd] ?: cmd, style = RaType.meta, color = Cream) }
+                            border = BorderStroke(1.dp, GoldFill.copy(alpha = 0.45f)),
+                            modifier = Modifier.heightIn(min = 48.dp),
+                        ) { Text(CommandLabels[cmd] ?: cmd, style = RaType.button, fontSize = 13.sp, color = Cream) }
                     }
                 }
             }
