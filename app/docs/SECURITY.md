@@ -12,7 +12,7 @@ beside it says so.
 
 ## The one-line summary
 
-`npm run test:security` fires 87 application-level attacks at a running server.
+`npm run test:security` fires 106 application-level attacks at a running server.
 The suite passes when the platform **refuses** — "we tried and could not get in"
 is a materially different claim from "the code looks right". It runs in CI.
 

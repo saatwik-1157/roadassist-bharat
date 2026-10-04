@@ -180,4 +180,7 @@
     <string name="booking_demo_note">மெக்கானிக் NH-48, குருகிராமுக்கு அனுப்பப்படுவார் — வகுப்பறை டெமோவுக்கு மட்டும்.</string>
     <string name="mechanics_nearby_around_you">உங்கள் இருப்பிடத்தைச் சுற்றி.</string>
     <string name="mechanics_nearby_around_demo">NH-48 டெமோ இடத்தைச் சுற்றி (இன்னும் இருப்பிடம் இல்லை).</string>
+    <string name="track_status_unavailable">நிலை கிடைக்கவில்லை — நீங்கள் ஆஃப்லைனில் உள்ளீர்கள் அல்லது சர்வர் பதிலளிக்கவில்லை</string>
+    <string name="cd_theme_to_light">லைட் தீமுக்கு மாற்று</string>
+    <string name="cd_theme_to_dark">டார்க் தீமுக்கு மாற்று</string>
 </resources>

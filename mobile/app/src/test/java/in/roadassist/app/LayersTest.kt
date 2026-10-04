@@ -58,4 +58,34 @@ class LayersTest {
         assertFalse(Layers.staysInApp(live, "not a url"))
         assertFalse(Layers.staysInApp("", "https://app.roadassistbharat.online/"))
     }
+
+    @Test
+    fun `the theme script stores and applies exactly the app's theme`() {
+        val dark = Layers.themeScript(isDark = true)
+        val light = Layers.themeScript(isDark = false)
+        assertTrue(dark.contains("localStorage.setItem('ra.theme','dark')"))
+        assertTrue(dark.contains("setAttribute('data-theme','dark')"))
+        assertFalse(dark.contains("'light'"))
+        assertTrue(light.contains("localStorage.setItem('ra.theme','light')"))
+        assertTrue(light.contains("setAttribute('data-theme','light')"))
+        assertFalse(light.contains("'dark'"))
+    }
+
+    /**
+     * The script above only works while layers.html keeps its theme under the
+     * same key and applies it the same way. Read the page and hold it to that,
+     * so a rename on the web side fails here instead of silently leaving the
+     * app's light theme showing a dark page.
+     */
+    @Test
+    fun `layers html still reads its theme from the key the app writes`() {
+        val page = listOf(
+            java.io.File("../../app/apps/web/layers.html"),   // from mobile/app (Gradle's test cwd)
+            java.io.File("../app/apps/web/layers.html"),      // from mobile/
+        ).firstOrNull { it.isFile }
+        org.junit.Assume.assumeTrue("layers.html is not in this checkout", page != null)
+        val src = page!!.readText()
+        assertTrue(src.contains("localStorage.getItem(\"${Layers.THEME_KEY}\")"))
+        assertTrue(src.contains("setAttribute(\"data-theme\""))
+    }
 }

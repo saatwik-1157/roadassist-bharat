@@ -1,8 +1,32 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// ── release signing ─────────────────────────────────────────────────────────
+// The upload/release key lives OUTSIDE the repository, in a properties file
+// that names the keystore and its passwords:
+//   storeFile=..., storePassword=..., keyAlias=..., keyPassword=...
+// Its path is RA_SIGNING_PROPS, or the default folder beside the repo. Neither
+// the keystore nor that file is ever committed (.gitignore covers both).
+//
+// On a machine without it (CI, a classmate's laptop) the release build still
+// works, signed with the debug key as before, and says so loudly: an APK
+// signed that way installs for a demo but can never be updated by, or
+// published as, the real release.
+val signingPropsFile = file(
+    System.getenv("RA_SIGNING_PROPS")?.takeIf { it.isNotBlank() }
+        ?: "S:/PROJECTS/RoadAssist-Bharat-signing/keystore.properties",
+)
+val signingProps = Properties().apply {
+    if (signingPropsFile.isFile) signingPropsFile.inputStream().use { load(it) }
+}
+val hasReleaseKey = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+    .all { !signingProps.getProperty(it).isNullOrBlank() } &&
+    file(signingProps.getProperty("storeFile")).isFile
 
 android {
     namespace = "in.roadassist.app"
@@ -12,8 +36,24 @@ android {
         applicationId = "in.roadassist.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "1.0.0"
+    }
+
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = file(signingProps.getProperty("storeFile"))
+                storePassword = signingProps.getProperty("storePassword")
+                keyAlias = signingProps.getProperty("keyAlias")
+                keyPassword = signingProps.getProperty("keyPassword")
+                // v1 for nothing (minSdk 26 verifies v2), v2 + v3 so a future
+                // key rotation is possible without a new package name.
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
     }
 
     buildTypes {
@@ -28,10 +68,19 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // Signed with the debug key so the fast build is installable on a
-            // demo device without provisioning a keystore. This is NOT a
-            // distribution build — publishing needs a real signing config.
-            signingConfig = signingConfigs.getByName("debug")
+            // The real release key when this machine has it (see the top of
+            // this file); otherwise the debug key, with a warning, so the
+            // build never fails for want of a secret that is not in git.
+            signingConfig = if (hasReleaseKey) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn(
+                    "WARNING: no release signing key at ${signingPropsFile.path} (set RA_SIGNING_PROPS). " +
+                        "The release APK/AAB will be signed with the DEBUG key: installable for a demo, " +
+                        "NOT release-signed, and not updatable by or publishable as the real release.",
+                )
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
@@ -29,6 +30,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -72,7 +75,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
@@ -100,6 +102,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -210,45 +215,58 @@ private fun BrandMark(size: Int = 24) {
 /**
  * The sign-in beacon: the brand shield hovering over a patch of road, sending
  * out the same signal the logo draws. The Compose twin of `.emblem3d` in the
- * web's ds.css, with the same numbers: a 6 s float that bobs 8dp and sways
- * ±16° about the vertical axis (with a little counter-tilt about the
- * horizontal one), over three rings that grow from 18% to 120% and fade, a
- * second apart, on a 3 s cycle.
+ * web's ds.css, slowed down: an 8 s float that bobs 8dp and sways ±16° about
+ * the vertical axis (with a little counter-tilt about the horizontal one),
+ * over three rings that grow from 18% to 120% and fade, a third of a cycle
+ * apart, on a 4 s cycle. The sway is a sine, so it eases at both ends.
  *
  * Cheap on purpose, because it sits on the first screen of an app meant for
- * old phones on bad days:
- *  · ONE infinite transition drives everything. The shield's phase and each
- *    ring's phase are derived from that single number.
- *  · The phase is read only inside `graphicsLayer {}` and the Canvas draw
- *    lambda. Those are deferred reads, so a frame of animation is a redraw of
- *    two small layers — nothing recomposes, nothing re-measures.
- *  · The rings are ellipses on a Canvas, not three animated composables.
+ * old phones on bad days. It measured about 44% CPU on the emulator when it
+ * was an infinite 60 fps transition, and nearly all of a frame's cost is the
+ * window being redrawn (the UI thread's share is under a millisecond), so the
+ * lever is how many frames there are and for how long:
+ *  · it plays BEACON_CYCLES floats (about 16 s) and then rests, still, at the
+ *    pose it started from — the way the SOS glow takes a few breaths and stops;
+ *  · it updates the phase about 20 times a second (every third 60 Hz vsync),
+ *    not every frame: nothing else on this screen moves, so a frame is
+ *    produced only when the phase changes. An 8 s sway moves well under a
+ *    degree between updates, so the eye does not see the steps;
+ *  · the phase is read only inside `graphicsLayer {}` and the Canvas draw
+ *    lambda — deferred reads, so a frame redraws two small layers and nothing
+ *    recomposes or re-measures. The rings are ellipses on one Canvas.
  *
- * "Remove animations" in the system settings sets ANIMATOR_DURATION_SCALE to
- * 0. Compose's own animations would then jump straight to their end values,
- * which for an infinite transition can mean a loop that spins every frame to
- * no visible effect. So that setting is read directly and the scene is drawn
- * once, still, at a pose that shows all three rings and a front-facing shield.
+ * With "Remove animations" (LocalReduceMotion) or battery saver on, it never
+ * starts: the scene is drawn once at a pose that shows all three rings and a
+ * front-facing shield.
  */
 @Composable
 private fun SignInBeacon(modifier: Modifier = Modifier) {
     val ctx = LocalContext.current
-    val animate = remember {
-        android.provider.Settings.Global.getFloat(
-            ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f,
-        ) != 0f
+    val reduce = LocalReduceMotion.current
+    val powerSave = remember {
+        (ctx.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager)
+            ?.isPowerSaveMode == true
     }
-    // 0.25 of the float cycle is the midpoint of the sway: the shield faces
-    // forward, raised half its bob, and the rings sit at three different sizes.
-    val phase: androidx.compose.runtime.State<Float> = if (animate) {
-        androidx.compose.animation.core.rememberInfiniteTransition(label = "beacon").animateFloat(
-            initialValue = 0f, targetValue = 1f,
-            animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-                androidx.compose.animation.core.tween(6000, easing = androidx.compose.animation.core.LinearEasing),
-            ),
-            label = "beacon-phase",
-        )
-    } else remember { androidx.compose.runtime.mutableFloatStateOf(0.25f) }
+    // BEACON_REST (0.25 of the float cycle) is the midpoint of the sway: the
+    // shield faces forward, raised half its bob, and the rings sit at three
+    // different sizes. Every pose is periodic in the phase, so the loop runs
+    // from REST to REST + CYCLES and ends exactly where it began.
+    val phase = remember { androidx.compose.runtime.mutableFloatStateOf(BEACON_REST) }
+    LaunchedEffect(reduce, powerSave) {
+        phase.floatValue = BEACON_REST
+        if (reduce || powerSave) return@LaunchedEffect
+        val periodNs = BEACON_PERIOD_MS * 1_000_000f
+        val start = androidx.compose.runtime.withFrameNanos { it }
+        while (true) {
+            val now = androidx.compose.runtime.withFrameNanos { it }
+            val cycles = (now - start) / periodNs
+            if (cycles >= BEACON_CYCLES) break
+            phase.floatValue = BEACON_REST + cycles
+            // Sleep through the next two frames: ~20 updates a second, on vsync.
+            kotlinx.coroutines.delay(BEACON_STEP_MS)
+        }
+        phase.floatValue = BEACON_REST
+    }
 
     val ring = LocalRa.current.ok.copy(alpha = 0.7f)
     Box(modifier.size(width = 150.dp, height = 138.dp), contentAlignment = Alignment.TopCenter) {
@@ -270,7 +288,7 @@ private fun SignInBeacon(modifier: Modifier = Modifier) {
                 topLeft = androidx.compose.ui.geometry.Offset(cx - rx * 0.56f, cy - ry * 0.56f),
                 size = androidx.compose.ui.geometry.Size(rx * 1.12f, ry * 1.12f),
             )
-            val t = phase.value
+            val t = phase.floatValue
             for (i in 0 until 3) {
                 // Rings run twice per float cycle (3 s), a third of that apart.
                 val p = ((t * 2f) + i / 3f) % 1f
@@ -296,7 +314,7 @@ private fun SignInBeacon(modifier: Modifier = Modifier) {
                 .graphicsLayer {
                     // A sine, not a triangle: it eases in and out at both ends
                     // the way the web's ease-in-out keyframes do.
-                    val sway = (1f - kotlin.math.cos(2f * Math.PI.toFloat() * phase.value)) / 2f
+                    val sway = (1f - kotlin.math.cos(2f * Math.PI.toFloat() * phase.floatValue)) / 2f
                     rotationY = -16f + 32f * sway
                     rotationX = 4f - 6f * sway
                     translationY = -8.dp.toPx() * sway
@@ -307,6 +325,12 @@ private fun SignInBeacon(modifier: Modifier = Modifier) {
         )
     }
 }
+
+private const val BEACON_REST = 0.25f
+private const val BEACON_PERIOD_MS = 8000L
+private const val BEACON_CYCLES = 2
+/** Two and a half 60 Hz frames, so each update lands on every third vsync (~20 fps). */
+private const val BEACON_STEP_MS = 42L
 
 /** Mark + wordmark, used in the top bar. */
 @Composable
@@ -486,12 +510,18 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                         LinkChip(online)
                         // A 48dp target. It used to be the glyph plus 3dp of
                         // padding, about 26dp tall — half a thumb.
+                        // Named for what a tap does: a screen reader used to
+                        // announce the bare glyph ("black sun with rays").
+                        val themeLabel = stringResource(
+                            if (isDark) R.string.cd_theme_to_light else R.string.cd_theme_to_dark,
+                        )
                         Box(
                             Modifier
                                 .padding(start = RaSpace.s1)
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .clickable(role = androidx.compose.ui.semantics.Role.Button) { onToggleTheme() },
+                                .clickable(role = androidx.compose.ui.semantics.Role.Button) { onToggleTheme() }
+                                .semantics { contentDescription = themeLabel },
                             contentAlignment = Alignment.Center,
                         ) {
                             // U+FE0E asks for the text form of the symbol, so the
@@ -500,6 +530,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                             Text(
                                 if (isDark) "☀︎" else "☾︎",
                                 color = Muted, fontSize = 19.sp,
+                                modifier = Modifier.clearAndSetSemantics {},
                             )
                         }
                     }
@@ -658,7 +689,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                     }
                 }
             }
-            if (showLayers) LayersScreen(onClose = { showLayers = false })
+            if (showLayers) LayersScreen(isDark = isDark, onClose = { showLayers = false })
         }
 
         // The toast rises on a spring and fades out. The last message is kept
@@ -889,7 +920,13 @@ private fun ReportHazardDialog(
                 }
                 Text(stringResource(R.string.label_severity, severity), color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 14.dp))
                 // 48dp targets (they were 42), selected one filled and lifted.
-                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // A radio group, not five buttons: selectable() tells a screen
+                // reader which value is chosen ("selected, 3 of 5"), and
+                // selectableGroup() makes the five one group.
+                Row(
+                    Modifier.padding(top = 6.dp).selectableGroup(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     (1..5).forEach { s ->
                         val sel = s == severity
                         val lift by androidx.compose.animation.core.animateFloatAsState(
@@ -901,7 +938,11 @@ private fun ReportHazardDialog(
                                 .shadow((6 * lift).dp, CircleShape)
                                 .clip(CircleShape)
                                 .background(if (sel) GoldFill else GoldFill.copy(alpha = 0.14f))
-                                .clickable(role = androidx.compose.ui.semantics.Role.RadioButton) { severity = s },
+                                .selectable(
+                                    selected = sel,
+                                    role = androidx.compose.ui.semantics.Role.RadioButton,
+                                    onClick = { severity = s },
+                                ),
                             contentAlignment = Alignment.Center,
                         ) { Text("$s", color = if (sel) GoldInk else Cream, style = RaType.figures, fontSize = 16.sp) }
                     }
@@ -1353,8 +1394,14 @@ private fun FontLicences() {
     var text by remember { mutableStateOf<String?>(null) }
     TextButton(
         onClick = { open = true },
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp, vertical = RaSpace.s2),
-        modifier = Modifier.padding(top = RaSpace.s1).heightIn(min = 48.dp),
+        // Real side padding: with none, the pill-shaped press ripple and its
+        // clip cut into the first and last glyphs of the credit. The offset
+        // pulls the button back by that padding (into the card's own 20dp), so
+        // the words still line up with the paragraph above.
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = RaSpace.s3, vertical = RaSpace.s2),
+        modifier = Modifier.padding(top = RaSpace.s1)
+            .offset(x = -RaSpace.s3)
+            .heightIn(min = 48.dp),
     ) { Text(stringResource(R.string.font_credit), color = Gold, style = RaType.caption, fontWeight = FontWeight.SemiBold) }
     if (open) {
         LaunchedEffect(Unit) {
@@ -2433,11 +2480,19 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
     var commands by remember { mutableStateOf<List<String>>(emptyList()) }
     var invoice by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // The first read of the booking can fail (no signal, server asleep). The
+    // shimmer used to stand in for as long as status was "…", which after a
+    // failure was forever: a loading state that never loads. So the read is
+    // either in flight (shimmer), failed (a sentence and a Retry), or done.
+    var statusFailed by remember { mutableStateOf(false) }
+    var attempt by remember { mutableIntStateOf(0) }
 
     // A LaunchedEffect keyed on the booking, not `remember { scope.launch }`:
     // that launched from inside composition and was never keyed, so a new
     // bookingId kept showing the previous booking's status and commands.
-    LaunchedEffect(bookingId) {
+    // Keyed on `attempt` too, so Retry re-runs the same read.
+    LaunchedEffect(bookingId, attempt) {
+        statusFailed = false
         try {
             val r = Api.get("/v1/bookings/$bookingId")
             status = r.getJSONObject("data").getString("status")
@@ -2445,7 +2500,10 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
             commands = (0 until next.length()).map { next.getString(it) }
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
-        } catch (e: Exception) { onToast(e.message ?: "Failed") }
+        } catch (e: Exception) {
+            if (status == "…") statusFailed = true
+            onToast(e.message ?: "Failed")
+        }
     }
 
     ScreenColumn {
@@ -2458,8 +2516,16 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
                 Text(stringResource(R.string.label_status), color = Muted,
                     style = RaType.eyebrow, letterSpacing = 2.sp)
                 // The status crossfades as the booking moves through the
-                // state machine; a shimmer stands in while it is first read.
-                if (status == "…") {
+                // state machine; a shimmer stands in only while it is first
+                // read, and a failed read says so and offers a retry.
+                if (status == "…" && statusFailed) {
+                    Text(stringResource(R.string.track_status_unavailable), color = LocalRa.current.warn,
+                        style = RaType.label, lineHeight = 19.sp, modifier = Modifier.padding(top = RaSpace.s2))
+                    RaOutlineButton(
+                        stringResource(R.string.action_retry), height = 48.dp,
+                        modifier = Modifier.padding(top = RaSpace.s3),
+                    ) { attempt++ }
+                } else if (status == "…") {
                     Shimmer(Modifier.fillMaxWidth(0.55f).padding(top = RaSpace.s2), height = 26.dp)
                 } else {
                     androidx.compose.animation.Crossfade(

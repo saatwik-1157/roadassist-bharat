@@ -180,4 +180,7 @@
     <string name="booking_demo_note">মেকানিককে NH-48, গুরুগ্রামে পাঠানো হবে — শুধু ক্লাসের ডেমোর জন্য।</string>
     <string name="mechanics_nearby_around_you">আপনার অবস্থানের আশেপাশে।</string>
     <string name="mechanics_nearby_around_demo">NH-48 ডেমো পয়েন্টের আশেপাশে (এখনও অবস্থান নেই)।</string>
+    <string name="track_status_unavailable">স্ট্যাটাস পাওয়া যাচ্ছে না — আপনি অফলাইন, অথবা সার্ভার সাড়া দেয়নি</string>
+    <string name="cd_theme_to_light">লাইট থিমে যান</string>
+    <string name="cd_theme_to_dark">ডার্ক থিমে যান</string>
 </resources>

@@ -180,4 +180,7 @@
     <string name="booking_demo_note">मेकॅनिक NH-48, गुरुग्राम येथे पाठवला जाईल — फक्त वर्गातील डेमोसाठी.</string>
     <string name="mechanics_nearby_around_you">तुमच्या लोकेशनच्या आसपास.</string>
     <string name="mechanics_nearby_around_demo">NH-48 डेमो पॉइंटच्या आसपास (अजून लोकेशन नाही).</string>
+    <string name="track_status_unavailable">स्थिती उपलब्ध नाही — तुम्ही ऑफलाइन आहात किंवा सर्व्हरने उत्तर दिले नाही</string>
+    <string name="cd_theme_to_light">लाइट थीमवर जा</string>
+    <string name="cd_theme_to_dark">डार्क थीमवर जा</string>
 </resources>

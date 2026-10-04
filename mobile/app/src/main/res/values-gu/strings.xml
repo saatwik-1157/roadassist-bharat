@@ -180,4 +180,7 @@
     <string name="booking_demo_note">મિકેનિકને NH-48, ગુરુગ્રામ મોકલાશે — માત્ર ક્લાસના ડેમો માટે.</string>
     <string name="mechanics_nearby_around_you">તમારા લોકેશનની આસપાસ.</string>
     <string name="mechanics_nearby_around_demo">NH-48 ડેમો પોઇન્ટની આસપાસ (હજી લોકેશન નથી).</string>
+    <string name="track_status_unavailable">સ્થિતિ ઉપલબ્ધ નથી — તમે ઑફલાઇન છો અથવા સર્વરે જવાબ આપ્યો નથી</string>
+    <string name="cd_theme_to_light">લાઇટ થીમ પર જાઓ</string>
+    <string name="cd_theme_to_dark">ડાર્ક થીમ પર જાઓ</string>
 </resources>

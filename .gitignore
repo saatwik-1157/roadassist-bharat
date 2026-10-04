@@ -66,11 +66,16 @@ skills-lock.json
 
 # Release APKs are build output, handed over by path, never committed.
 mobile/*.apk
+# The signed release hand-over folder: INSTALL.md is committed, the binaries
+# are not (they are rebuilt from source and are tens of MB each).
+release/*.apk
+release/*.aab
 
 # Signing keys and service credentials: none exist in this repo, and none may
 # ever be committed by accident.
 *.jks
 *.keystore
+keystore.properties
 *.p12
 *.pem
 google-services.json

@@ -518,7 +518,12 @@ fun SosControl(
 @Composable
 private fun rememberCountdownRing(armed: Boolean, secondsLeft: Int, totalSeconds: Int): Animatable<Float, *> {
     val reduce = LocalReduceMotion.current
-    val ring = remember { Animatable(if (armed) 1f else 0f) }
+    // Starts at the share actually left. It used to start full whenever it was
+    // armed, so a rotation two seconds into the countdown flashed the ring back
+    // to full before it glided down to where the number already was.
+    val ring = remember {
+        Animatable(if (armed) (secondsLeft.toFloat() / totalSeconds.coerceAtLeast(1)).coerceIn(0f, 1f) else 0f)
+    }
     LaunchedEffect(armed, secondsLeft, reduce) {
         if (!armed) { ring.snapTo(0f); return@LaunchedEffect }
         val total = totalSeconds.coerceAtLeast(1).toFloat()

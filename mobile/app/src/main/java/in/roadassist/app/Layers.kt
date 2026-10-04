@@ -42,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.doOnLayout
 
 /**
  * "Layers in 3D": the web's layers.html — every layer of the platform as a
@@ -75,6 +76,25 @@ object Layers {
             port(b) == port(t)
     }
 
+    /** The key layers.html (and the other web pages) keep the theme choice under. */
+    const val THEME_KEY = "ra.theme"
+
+    /**
+     * A script that puts the page in the app's theme.
+     *
+     * layers.html has no theme parameter: a script in its <head> reads
+     * localStorage["ra.theme"] and sets data-theme on <html>, and its own ◐
+     * button writes the same key. So the app writes that key (the next open is
+     * right from the page's first script) and sets the attribute (this open
+     * is right as soon as the document exists). Only "light" or "dark" is
+     * ever written — the value is chosen here, never taken from the page.
+     */
+    fun themeScript(isDark: Boolean): String {
+        val t = if (isDark) "dark" else "light"
+        return "(function(){try{localStorage.setItem('$THEME_KEY','$t')}catch(e){}" +
+            "var d=document.documentElement;if(d&&d.getAttribute('data-theme')!=='$t')d.setAttribute('data-theme','$t')})()"
+    }
+
     private fun parse(s: String): java.net.URI? = try {
         java.net.URI(s.trim()).takeIf { it.scheme != null && it.host != null }
     } catch (_: Exception) { null }
@@ -95,10 +115,14 @@ object Layers {
  * the map, it is not retained: a three.js scene holds a GPU context and runs
  * an animation loop, and keeping one alive behind the SOS screen for the rest
  * of the session would cost battery on the phones this app is for.
+ *
+ * The page is shown in the app's theme ([Layers.themeScript]). Its 3D stage is
+ * a dark studio in both of the page's themes by design; the chrome around it
+ * (header, journey bar, layer list) is what follows light or dark.
  */
 @android.annotation.SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun LayersScreen(onClose: () -> Unit) {
+fun LayersScreen(isDark: Boolean, onClose: () -> Unit) {
     val ctx = LocalContext.current
     val base = remember { Api.base }
     val url = remember { Layers.url(base) }
@@ -138,7 +162,16 @@ fun LayersScreen(onClose: () -> Unit) {
                     loading = true
                 }
 
+                // The theme is applied when the new document is about to be
+                // drawn and again when it has finished, both while the opaque
+                // loading cover is still up, so the page is never seen in the
+                // other theme. Only on the configured server's own pages.
+                override fun onPageCommitVisible(view: android.webkit.WebView, u: String?) {
+                    if (u != null && Layers.staysInApp(base, u)) view.evaluateJavascript(Layers.themeScript(isDark), null)
+                }
+
                 override fun onPageFinished(view: android.webkit.WebView, u: String?) {
+                    if (u != null && Layers.staysInApp(base, u)) view.evaluateJavascript(Layers.themeScript(isDark), null)
                     loading = false
                 }
 
@@ -163,7 +196,13 @@ fun LayersScreen(onClose: () -> Unit) {
                     if (request.isForMainFrame && response.statusCode >= 400) { failed = true; loading = false }
                 }
             }
-            loadUrl(url)
+            // Loaded after the first layout, not here. Built inside remember,
+            // the WebView has no size yet, and a page that starts loading at
+            // 0 x 0 lays itself out for a zero-height viewport and then jumps
+            // when the real size arrives. The view itself is MATCH_PARENT in a
+            // weighted box, so it has its full height from the first frame;
+            // this makes the page's first layout use that height too.
+            doOnLayout { loadUrl(url) }
         }
     }
     DisposableEffect(web) {

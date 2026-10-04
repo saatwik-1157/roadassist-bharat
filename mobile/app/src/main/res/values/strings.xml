@@ -220,4 +220,7 @@
     <string name="booking_demo_note">A mechanic would be sent to NH-48, Gurugram — for the classroom demo only.</string>
     <string name="mechanics_nearby_around_you">Around your location.</string>
     <string name="mechanics_nearby_around_demo">Around the NH-48 demo point (no location yet).</string>
+    <string name="track_status_unavailable">Status unavailable — you’re offline or the server didn’t answer</string>
+    <string name="cd_theme_to_light">Switch to light theme</string>
+    <string name="cd_theme_to_dark">Switch to dark theme</string>
 </resources>

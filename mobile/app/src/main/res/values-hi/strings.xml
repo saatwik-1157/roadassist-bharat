@@ -182,4 +182,7 @@
     <string name="booking_demo_note">मैकेनिक NH-48, गुरुग्राम भेजा जाएगा — सिर्फ़ कक्षा के डेमो के लिए।</string>
     <string name="mechanics_nearby_around_you">आपकी लोकेशन के आसपास।</string>
     <string name="mechanics_nearby_around_demo">NH-48 डेमो पॉइंट के आसपास (अभी लोकेशन नहीं)।</string>
+    <string name="track_status_unavailable">स्थिति उपलब्ध नहीं — आप ऑफ़लाइन हैं या सर्वर ने जवाब नहीं दिया</string>
+    <string name="cd_theme_to_light">लाइट थीम पर जाएँ</string>
+    <string name="cd_theme_to_dark">डार्क थीम पर जाएँ</string>
 </resources>

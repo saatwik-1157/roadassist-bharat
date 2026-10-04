@@ -82,7 +82,7 @@ clarified. Class mapping (skipped labels are counted, never folded in):
 python -m unittest discover -s tests -v     # from ai/, or -s ai/tests from the repo root
 ```
 
-Twelve tests, ~0.02s, **stdlib only** — no `ultralytics`, no torch, no `cv2`.
+39 tests, ~0.02s, **stdlib only** — no `ultralytics`, no torch, no `cv2`.
 That is the point: they run on every push in CI, which is the only way they stay
 honest. They pin the two things that decide what the model is taught and what the
 platform is told:
