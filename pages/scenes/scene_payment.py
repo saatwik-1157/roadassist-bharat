@@ -32,9 +32,10 @@ def warp_to(img, quad, size):
 def invoice_card(target_h):
     """The real screenshot, trimmed of its browser gutter/scrollbar, as a glass card."""
     shot = Image.open(SHOTS / "16-payment.png").convert("RGB")
-    # The page content sits between x=32 and x=462; outside it is empty page
-    # margin and the browser scrollbar. Trimming it keeps only real UI.
-    shot = shot.crop((32, 0, 463, shot.height))
+    # The app's 430 px frame sits between x=37 and x=466 (the 2026-10 capture
+    # has no scrollbar, so the frame is centred in the 504 px window); outside
+    # it is empty page margin. Trimming it keeps only real UI.
+    shot = shot.crop((37, 0, 467, shot.height))
     pad = 14
     sw = int(shot.width * (target_h - pad * 2) / shot.height)
     sh = target_h - pad * 2

@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-09-30T15:07:12.111Z",
-  "base": "http://localhost:4490",
+  "capturedAt": "2026-10-04T16:47:48.163Z",
+  "base": "http://localhost:4498",
   "shots": [
     {
       "name": "01-login",
@@ -53,6 +53,10 @@
     {
       "name": "13-mechanic-login",
       "caption": "Mechanic console sign-in"
+    },
+    {
+      "name": "24-mechanic-console",
+      "caption": "Mechanic console — availability, stats, the active job"
     },
     {
       "name": "14-authority",

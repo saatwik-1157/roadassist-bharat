@@ -465,7 +465,7 @@ footer(s); page_no(s, 14)
 s = new_slide()
 title_block(s, "Mechanic console and authority dashboard",
             eyebrow="THE OTHER TWO SURFACES")
-shot(s, 0.85, 2.15, 5.6, 3.6, "13-mechanic-login", "Mechanic console · dispatch inbox, live badge, job lifecycle")
+shot(s, 0.85, 2.15, 5.6, 3.6, "13-mechanic-login", "Mechanic console · phone sign-in, the demo mechanics named on it")
 shot(s, 6.85, 2.15, 5.6, 3.6, "14-authority", "RAKSHA authority · live map, road health, detection triage")
 txt(s, 0.85, 6.0, 11.6, 0.5,
     "Mechanic: availability · incoming request · accept · decline · en route · arrived · in service · complete — every transition persisted and pushed to the customer.",

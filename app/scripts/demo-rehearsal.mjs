@@ -32,7 +32,9 @@ const PORT = 9555;
 // Capturing here rather than in a second script means the screenshot is of a
 // screen an assertion has just passed on, so it cannot be of an error state.
 const SHOTS = process.argv.includes("--shots");
-const SHOT_DIR = new URL("../docs/screenshots/", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+// SHOTS_OUT puts them somewhere else, for a trial run (see capture-screens.mjs).
+const SHOT_DIR = process.env.SHOTS_OUT ? process.env.SHOTS_OUT.replace(/[\\/]?$/, "/")
+  : new URL("../docs/screenshots/", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
 
 const CHROME_CANDIDATES = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -104,8 +106,27 @@ class Page {
   }
   async shot(name, caption) {
     if (!SHOTS) return;
+    // Reduced motion only for the shutter: it lands every transition on its
+    // final frame, but it also stretches the SOS hold to 5 s (app.css), which
+    // the beats' own timings are not written for. Then wait for the webfonts
+    // and for the status toast ("Payment successful", "Responders alerted"),
+    // which clears itself after 3.2 s and otherwise sits over the very card it
+    // describes.
+    await this.send("Emulation.setEmulatedMedia", { features: [
+      { name: "prefers-color-scheme", value: "dark" },
+      { name: "prefers-reduced-motion", value: "reduce" }] });
+    await this.eval(`(async () => {
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      const t0 = Date.now();
+      while (document.querySelector(".toast.show") && Date.now() - t0 < 4500) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      document.querySelectorAll(".toast.show").forEach(t => t.classList.remove("show"));
+      return true; })()`);
     await sleep(600);                       // let animations settle
     const { data } = await this.send("Page.captureScreenshot", { format: "png" });
+    await this.send("Emulation.setEmulatedMedia", { features: [
+      { name: "prefers-color-scheme", value: "dark" }] });
     mkdirSync(SHOT_DIR, { recursive: true });
     writeFileSync(SHOT_DIR + name + ".png", Buffer.from(data, "base64"));
     console.log(`       shot ${name}.png — ${caption}`);
@@ -203,6 +224,18 @@ const run = async () => {
   await customer.send("Emulation.setGeolocationOverride", {
     latitude: 28.4595, longitude: 77.0266, accuracy: 12,
   }).catch(() => { /* not fatal */ });
+  if (SHOTS) {
+    // The evidence shots are 504×804 at 1x - the size 16-payment and
+    // 17-sos-online have always been, and the size pages/scenes/scene_payment.py
+    // crops by pixel - and dark, as every published capture is. Headless
+    // Chrome reports a light scheme otherwise and the app follows it.
+    await customer.send("Emulation.setDeviceMetricsOverride", {
+      width: 504, height: 804, deviceScaleFactor: 1, mobile: false,
+    });
+    await customer.send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-color-scheme", value: "dark" }],
+    });
+  }
 
   const reg = "RC" + Math.floor(Math.random() * 90 + 10) + "DM" + Math.floor(Math.random() * 9000 + 1000);
   const msisdn = "+917000000" + String(Math.floor(Math.random() * 1000)).padStart(3, "0");
@@ -390,6 +423,24 @@ const run = async () => {
       }
       await customer.waitFor(`document.getElementById("t-stars") ||
         /PAID/i.test(document.getElementById("t-body").textContent)`, 35000);
+      if (SHOTS) {
+        // Bring the settled invoice's total up above the tab bar, keeping as
+        // much of the timeline above it as fits: at 804 px the total otherwise
+        // sits under the tab bar, and the shot's subject is the invoice.
+        await customer.eval(`(async () => {
+          const inv = document.getElementById("t-invoice");
+          const tabs = document.getElementById("tabs");
+          if (!inv) return false;
+          const limit = (tabs && !tabs.hidden ? tabs.getBoundingClientRect().top : innerHeight) - 16;
+          if (inv.getBoundingClientRect().bottom > limit) {
+            // scroll-margin, so this works whichever element is the scroller.
+            inv.style.scrollMarginBottom = (innerHeight - limit) + "px";
+            inv.scrollIntoView({ block: "end" });
+            inv.style.scrollMarginBottom = "";
+          }
+          await new Promise(r => setTimeout(r, 400));
+          return true; })()`);
+      }
       await customer.shot("16-payment", "Invoice settled — booking PAID, provider mock");
       return `invoice ${total} settled (provider=mock, simulated)${note}`;
     });

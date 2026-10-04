@@ -31,6 +31,8 @@
   html, body, #map { height: 100%; width: 100%; background: var(--bg); }
   #map { font-family: var(--sans); }
   .leaflet-container { background: var(--surface-2); font-family: var(--sans); }
+  /* ds.css caps canvas at max-width:100% of a 0-px pane: the detections were drawn, never shown. */
+  .leaflet-container canvas { max-width: none; }
   /* Dark basemap without an API key: invert the tiles and spin the hue back so
      water stays blue-ish and land stays neutral. Only the tile pane is
      filtered — markers, popups and controls keep their real colours. */

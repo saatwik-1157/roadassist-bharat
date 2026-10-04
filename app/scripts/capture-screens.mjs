@@ -26,7 +26,9 @@ import { fileURLToPath } from "node:url";
 const BASE = process.env.BASE_URL ?? "http://localhost:4000";
 const HEADED = process.argv.includes("--headed");
 const PORT = 9444;
-const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "screenshots");
+// SHOTS_OUT writes somewhere else - a trial run that should not touch the
+// committed captures until every shot in it has been looked at.
+const OUT = process.env.SHOTS_OUT ?? join(dirname(fileURLToPath(import.meta.url)), "..", "docs", "screenshots");
 
 const CHROME = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -50,6 +52,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * released its providers since the same thing bit it; this does the same.
  */
 let sessionToken = "";
+let assignedMech = "";
 const ACTIVE = ["MATCHING", "ASSIGNED", "EN_ROUTE", "ON_SITE", "IN_PROGRESS",
                 "AWAITING_PARTS", "ESCALATED"];
 
@@ -134,7 +137,34 @@ class Page {
     if (!okNow) throw new Error(`expected ${what}, but the page does not show it`);
   }
 
+  /**
+   * Wait for the page to be in a state worth photographing.
+   *
+   * Three things made a capture look half-loaded or staged without failing
+   * anything: a webfont still swapping in (the 2026-10 redesign self-hosts
+   * Space Grotesk, Inter and JetBrains Mono, and a shot taken before
+   * document.fonts.ready is set in the fallback face); an <img> still
+   * decoding; and a status toast ("Payment successful", "Signed in") parked
+   * over the content it describes. The toast clears itself after 3.2 s
+   * (app.html toast()); this waits for that rather than racing it, and only
+   * hides one that outlives the wait.
+   */
+  async settle() {
+    await this.eval(`
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      const t0 = Date.now();
+      while (document.querySelector(".toast.show") && Date.now() - t0 < 4500) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      document.querySelectorAll(".toast.show").forEach(t => t.classList.remove("show"));
+      await Promise.all([...document.images].filter(i => !i.complete).map(i =>
+        new Promise(r => { i.addEventListener("load", r, { once: true });
+          i.addEventListener("error", r, { once: true }); setTimeout(r, 4000); })));
+      return true;`);
+  }
+
   async shot(name, caption) {
+    await this.settle();
     await sleep(500);                                  // let animations settle
     const { data } = await this.send("Page.captureScreenshot", { format: "png" });
     const file = join(OUT, `${name}.png`);
@@ -170,6 +200,16 @@ async function launch() {
   const page = new Page(ws);
   await page.send("Page.enable");
   await page.send("Runtime.enable");
+  // Dark, as every published capture has been: headless Chrome reports a light
+  // scheme, and the apps follow the system theme when none is chosen. Reduced
+  // motion makes every CSS transition land on its final frame (ds.css), so a
+  // card that animates in is photographed where it comes to rest, not mid-slide.
+  await page.send("Emulation.setEmulatedMedia", {
+    features: [
+      { name: "prefers-color-scheme", value: "dark" },
+      { name: "prefers-reduced-motion", value: "reduce" },
+    ],
+  });
   return { page, proc, profile };
 }
 
@@ -208,8 +248,16 @@ const run = async () => {
     // Captured here rather than at the end: the cleanup below has to work for a
     // run that dies half way, which is exactly the run that leaves a booking
     // assigned. app.html keeps the session under this key (see loadSession).
+    // The access token moved to sessionStorage when the refresh token became
+    // an HttpOnly cookie (apps/web/session.js); localStorage now holds only
+    // who and which vehicle. Reading localStorage alone returned "", so the
+    // release below silently released nothing and the map got no token.
     sessionToken = await page.eval(
-      `return (JSON.parse(localStorage.getItem("ra.app.session") || "null") || {}).token || "";`);
+      `const k = "ra.app.session";
+       const s = JSON.parse(sessionStorage.getItem(k) || "null") || {};
+       const l = JSON.parse(localStorage.getItem(k) || "null") || {};
+       return s.token || l.token || "";`);
+    if (!sessionToken) throw new Error("signed in, but no access token found in the session store");
     await page.shot("02-home", "Home — SOS, emergency readiness, quick actions");
 
     // TS09 AB 1234 — two LETTERS then four digits. base36 could yield a digit
@@ -266,6 +314,14 @@ const run = async () => {
       await new Promise(r => setTimeout(r, 3000));
       document.querySelector('.tab[data-nav="track"]')?.click();
       await new Promise(r => setTimeout(r, 1500)); return true;`);
+    await page.waitFor(`document.querySelector("#t-contact a[href^='tel:']")`, 20000);
+    await page.expect(`/assigned|en route/i.test(document.getElementById("scr-track").innerText)`,
+      "an assigned mechanic on the tracking screen");
+    // The mechanic the customer just accepted, so the console shot further
+    // down is of the same job, seen from the other side. The tracking card is
+    // the only place the platform hands a customer the mechanic's number.
+    assignedMech = await page.eval(
+      `return document.querySelector("#t-contact a[href^='tel:']").href.replace("tel:", "");`);
     await page.shot("06-tracking", "Tracking — live status, provider, ETA, last updated");
 
     // ── the emergency and off-grid story ─────────────────────────────────
@@ -324,6 +380,24 @@ const run = async () => {
     await page.goto(`${BASE}/mechanic.html`);
     await page.waitFor(`document.getElementById("m-msisdn")`);
     await page.shot("13-mechanic-login", "Mechanic console sign-in");
+
+    // The console signed in, phone-sized, as the mechanic assigned above: the
+    // availability toggle, their stats and the job this run created, still
+    // ASSIGNED because nothing releases it until the end of the run.
+    console.log("\nmechanic console, signed in (390×844, 2x)");
+    await page.viewport(390, 844);
+    await page.goto(`${BASE}/mechanic.html`);
+    await page.waitFor(`document.getElementById("m-msisdn")`);
+    await page.eval(`
+      document.getElementById("m-msisdn").value = ${JSON.stringify(assignedMech)};
+      document.getElementById("m-signin").click(); return true;`);
+    await page.waitFor(`document.getElementById("scr-work").hidden === false`, 25000);
+    await page.waitFor(`document.getElementById("job-box").hidden === false &&
+      document.getElementById("job").innerText.trim().length > 10`, 25000);
+    await page.expect(`/assigned/i.test(document.getElementById("job").innerText)`,
+      "the assigned job on the mechanic's dashboard");
+    await page.shot("24-mechanic-console", "Mechanic console — availability, stats, the active job");
+    await page.viewport(1280, 860, false);             // back to desktop for RAKSHA
 
     // ── authority dashboard ──────────────────────────────────────────────
     console.log("\nauthority dashboard + map");
