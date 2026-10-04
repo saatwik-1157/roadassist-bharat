@@ -56,9 +56,15 @@
   .livepill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: var(--r-full);
           border: 1px solid var(--line); background: var(--surface); font: 600 12px/1 var(--mono); white-space: nowrap; }
   .livepill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); }
-  .livepill.ok .dot { background: var(--green); box-shadow: 0 0 0 0 var(--green); animation: beat 2.4s infinite; }
+  /* The heartbeat ring is a scaled, fading disc: a compositor animation. It
+     was an animated box-shadow, which repainted the header on every frame
+     the 3D stage was also drawing. */
+  .livepill .dot { position: relative; flex: none; }
+  .livepill.ok .dot { background: var(--green); }
+  .livepill.ok .dot::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--green);
+                             opacity: 0; will-change: transform, opacity; animation: beat 2.4s infinite; }
   .livepill.bad .dot { background: var(--red); }
-  @keyframes beat { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--green) 60%, transparent); } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+  @keyframes beat { 0% { transform: scale(1); opacity: .6; } 70% { transform: scale(3.25); opacity: 0; } 100% { transform: scale(1); opacity: 0; } }
   /* The live badge gives way before anything else does: with a long reading
      ("LIVE · API 493 ms") it pushed the theme button off a 375 px screen. */
   .livepill { min-width: 0; overflow: hidden; }
@@ -78,7 +84,12 @@
      to inherit the stage's light text on white glass, and could not be read. */
   .stage {
     color-scheme: dark;
-    --glass: rgba(12, 14, 20, .62); --glass-strong: rgba(12, 14, 20, .80);
+    /* Nothing drawn over the canvas blurs what is behind it: a backdrop-filter
+       over a picture that changes every frame is re-blurred every frame, and
+       on a laptop's integrated GPU that cost more than the 3D itself (headless
+       Chrome, Radeon iGPU, 1440x900: 65 ms a frame with the blurs, 31 ms
+       without). A denser glass instead. */
+    --glass: rgba(12, 14, 20, .70); --glass-strong: rgba(12, 14, 20, .86);
     --surface: #161922; --surface-2: #1d212c; --surface-3: #252a36;
     --line: rgba(240, 238, 232, .13); --line-2: rgba(240, 238, 232, .22);
     --line-brand: rgba(227, 185, 106, .42);
@@ -95,15 +106,15 @@
   .stage .intro p { color: #d9d6cc; opacity: .8; }
   .stage canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; cursor: grab; }
   .stage canvas:active { cursor: grabbing; }
-  /* Its own stacking layer: CSS2DRenderer gives every label a z-index for depth
+  /* Its own stacking layer: the frame loop gives every label a z-index for depth
      order, and without this those could climb over the HUD and journey bar. */
-  .labels { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+  .labels { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; contain: layout paint style; }
   .panel { border-left: 1px solid var(--line); background: var(--glass-strong); overflow-y: auto; padding: 18px 18px 28px; }
 
   /* ── stage overlays ──────────────────────────────────────────────────── */
   .hud { position: absolute; top: 14px; left: 14px; display: flex; flex-wrap: wrap; gap: 8px; z-index: 5; max-width: calc(100% - 28px); }
   /* The design system's .chip (ds.css), on glass so the model shows through. */
-  .hud .chip:not([aria-pressed="true"]) { background: var(--glass-strong); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .hud .chip:not([aria-pressed="true"]) { background: var(--glass-strong); }
   .intro { position: absolute; top: 60px; left: 16px; max-width: 420px; z-index: 4; pointer-events: none; }
   .intro h1 { font-family: var(--display); font-weight: 600; font-size: clamp(26px, 3.2vw, 40px); line-height: 1.05; letter-spacing: -0.02em; }
   .intro h1 em { font-style: normal; color: var(--brand); }
@@ -113,7 +124,7 @@
   .journey { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 6; display: grid; gap: 10px;
              grid-template-columns: auto 1fr; align-items: stretch; }
   .jctl { display: flex; gap: 6px; align-items: center; padding: 8px; border-radius: var(--r-lg); border: 1px solid var(--line);
-          background: var(--glass-strong); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+          background: var(--glass-strong); }
   .jctl select { border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-full); padding: 8px 10px; font-size: 13px; font-weight: 650; max-width: 190px; }
   .jctl button { width: 36px; height: 36px; border-radius: var(--r-full); border: 1px solid var(--line); background: var(--surface); font-size: 14px;
                  transition: transform var(--t-2) var(--spring), border-color var(--t-2) var(--ease), background var(--t-2) var(--ease); }
@@ -123,7 +134,7 @@
                       box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 0 4px rgba(227,185,106,.14), 0 8px 22px -6px rgba(227,185,106,.55); }
   .jctl button.play:hover { background: linear-gradient(180deg, #f6d998, #e0ad52); }
   .caption { padding: 10px 14px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--glass-strong);
-             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); min-height: 56px; display: flex; flex-direction: column; justify-content: center; }
+             min-height: 56px; display: flex; flex-direction: column; justify-content: center; }
   .caption .k { font: 700 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
   .caption .t { margin-top: 3px; font-size: 14px; line-height: 1.4; color: var(--text); }
   .progress i { transition: background var(--t-3) var(--ease); }
@@ -139,25 +150,31 @@
   .no-webgl .nogl { display: grid; }
   .no-webgl canvas { display: none; }
 
-  /* ── 3D labels (CSS2D) ───────────────────────────────────────────────── */
-  /* Labels are dark glass with a blur behind them, so they read over the
-     brightest slab as well as over the dark studio. CSS2DRenderer owns their
-     transform; only their own child moves, so nothing here fights it. */
+  /* ── 3D labels ───────────────────────────────────────────────────────── */
+  /* Labels are dense dark glass, so they read over the brightest slab as well
+     as over the dark studio. The frame loop owns their transform, rounded to
+     whole device pixels, and each is its own compositor layer: moving one is a
+     re-position, never a re-paint, and its text is never resampled between
+     pixels (a label on a half pixel is a blurred label). */
+  .lbl-layer, .lbl-comp { position: absolute; left: 0; top: 0; will-change: transform; user-select: none; -webkit-user-select: none; }
   .lbl-layer { font: 700 12.5px/1.1 var(--sans); letter-spacing: -0.005em; color: var(--text); padding: 6px 11px 6px 9px; border-radius: var(--r-full);
-               background: var(--glass-strong); border: 1px solid var(--line-2); white-space: nowrap; pointer-events: auto; cursor: pointer;
-               -webkit-backdrop-filter: blur(8px) saturate(1.3); backdrop-filter: blur(8px) saturate(1.3);
-               box-shadow: var(--shadow-1); transition: opacity .35s var(--ease), border-color .25s var(--ease), background .25s var(--ease);
+               background: rgba(12, 14, 20, .9); border: 1px solid var(--line-2); white-space: nowrap; pointer-events: auto; cursor: pointer;
+               box-shadow: var(--shadow-1); transition: opacity .35s var(--ease);   /* opacity only: it fades on the compositor, a colour change would repaint every frame of it */
                display: flex; align-items: center; gap: 7px; }
   .lbl-layer:hover { border-color: var(--line-brand); background: rgba(20, 23, 31, .9); }
   .lbl-layer b { width: 9px; height: 9px; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px currentColor; }
   .lbl-layer small { font: 600 10.5px var(--mono); color: var(--text-3); }
-  .lbl-layer.dim { opacity: .42; }
+  /* Dimmed, a layer's name still holds 4.6:1 over the brightest slab (pure
+     white behind it) and 7.6:1 over the studio; at .42 on the old glass it fell
+     to 2.1:1 over the slab and could not be read. */
+  .lbl-layer.dim { opacity: .66; }
   .lbl-layer.sel { border-color: var(--line-brand); box-shadow: var(--shadow-1), 0 0 0 3px var(--brand-soft); }
+  /* A part's name is hidden, not just transparent, once it has faded: a
+     hidden label costs the frame nothing. */
   .lbl-comp { font: 650 11.5px/1.15 var(--sans); color: var(--text); padding: 5px 9px; border-radius: 9px; white-space: nowrap;
-              background: var(--glass-strong); border: 1px solid var(--line-2); opacity: 0;
-              -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-              transition: opacity .3s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease); }
-  .lbl-comp.show { opacity: 1; }
+              background: rgba(12, 14, 20, .9); border: 1px solid var(--line-2); opacity: 0; visibility: hidden;
+              transition: opacity .3s var(--ease), visibility 0s linear .3s; }
+  .lbl-comp.show { opacity: 1; visibility: visible; transition: opacity .3s var(--ease), visibility 0s; }
   .lbl-comp.hot { border-color: var(--brand); color: #fff; box-shadow: 0 0 0 3px var(--brand-soft), 0 0 18px rgba(227,185,106,.35); }
 
   /* While the live model is on its way, the render holds the stage and says so. */
@@ -167,7 +184,7 @@
               transition: opacity .5s var(--ease); pointer-events: none; }
   .loadpill::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--line-2);
                       border-top-color: var(--brand); animation: spin .9s linear infinite; }
-  .is-ready .loadpill, .no-webgl .loadpill { opacity: 0; }
+  .is-ready .loadpill, .no-webgl .loadpill { opacity: 0; visibility: hidden; transition: opacity .5s var(--ease), visibility 0s .5s; }
 
   /* ── side panel ──────────────────────────────────────────────────────── */
   /* Panel greys are colours, not opacity: an opacity-faded label sat near
@@ -276,7 +293,7 @@
     @supports (height: 100dvh) { .embedded .stage { --vp-h: max(280px, calc(100dvh - 196px)); } }
     .embedded .panel { display: none; }
   }
-  @media (prefers-reduced-motion: reduce) { .livepill.ok .dot, .loadpill::before { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .livepill.ok .dot::after, .loadpill::before { animation: none; } }
 </style>
 </head>
 <body>
@@ -351,13 +368,14 @@
    live readings are already on screen. Static imports made the whole module
    wait for the library before it ran a line, so the layer list arrived a
    second or more after first paint and pushed the panel down as it did. */
-let THREE, OrbitControls, CSS2DRenderer, CSS2DObject, GLTFLoader, DRACOLoader,
+let THREE, OrbitControls, GLTFLoader, DRACOLoader, mergeGeometries,
     RoomEnvironment, EffectComposer, RenderPass, UnrealBloomPass, OutputPass;
 async function loadThree() {
   const m = await Promise.all([
     import("three"),
     import("three/addons/OrbitControls.js"),
-    import("three/addons/CSS2DRenderer.js"),
+    // The module GLTFLoader already imports (same URL, so the same instance).
+    import("./vendor/three/utils/BufferGeometryUtils.js"),
     import("three/addons/GLTFLoader.js"),
     import("three/addons/DRACOLoader.js"),
     import("./vendor/three/environments/RoomEnvironment.js"),
@@ -367,7 +385,7 @@ async function loadThree() {
     import("./vendor/three/postprocessing/OutputPass.js"),
   ]);
   THREE = m[0];
-  ({ OrbitControls } = m[1]); ({ CSS2DRenderer, CSS2DObject } = m[2]);
+  ({ OrbitControls } = m[1]); ({ mergeGeometries } = m[2]);
   ({ GLTFLoader } = m[3]); ({ DRACOLoader } = m[4]); ({ RoomEnvironment } = m[5]);
   ({ EffectComposer } = m[6]); ({ RenderPass } = m[7]); ({ UnrealBloomPass } = m[8]); ({ OutputPass } = m[9]);
 }
@@ -456,7 +474,9 @@ const JOURNEYS = [
 ];
 
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-const narrow = () => stage.clientWidth < 600;
+// From the ResizeObserver's last reading once the model is up: reading the
+// stage's width here forced a full layout in the middle of every step.
+const narrow = () => (cssW || stage.clientWidth) < 600;
 // The stack turns by itself, live. A hand on it (drag, pinch, keys) pauses the
 // turn; 2.5 s after the hand lets go it carries on. Only the Auto-rotate
 // button, or a request for reduced motion, stops it for good.
@@ -494,9 +514,11 @@ function liveLine(id) {
 function renderList() {
   const list = $("layer-list");
   if (list.children.length === LAYERS.length) {
+    // Written only when they change: each write re-laid-out the panel.
     list.querySelectorAll("button").forEach((b, i) => {
-      b.setAttribute("aria-pressed", String(i === selected));
-      b.querySelector(".lv").textContent = liveLine(LAYERS[i].id);
+      const p = String(i === selected), lv = b.querySelector(".lv"), t = liveLine(LAYERS[i].id);
+      if (b.getAttribute("aria-pressed") !== p) b.setAttribute("aria-pressed", p);
+      if (lv.textContent !== t) lv.textContent = t;
     });
     return;
   }
@@ -513,6 +535,13 @@ function renderLive() {
 }
 function renderDetail() {
   const box = $("detail");
+  // Another part of the layer already shown (a journey often stays on a
+  // layer for two steps): only the highlight moves, nothing is rebuilt.
+  if (selected >= 0 && box.dataset.layer === String(selected) && !!box.querySelector(".live-box") === !!live[LAYERS[selected].id]) {
+    box.querySelectorAll(".comps li").forEach((li) => li.classList.toggle("hot", +li.dataset.j === hotComp));
+    return;
+  }
+  box.dataset.layer = String(selected);
   if (selected < 0) {
     box.innerHTML = `<h2>How it fits together</h2><p class="tag">Requests enter at the top and settle in the data layer; the cloud layer underneath runs and ships all of it. Tap any layer to open it.</p>`;
     return;
@@ -526,8 +555,29 @@ function renderDetail() {
 }
 
 /* ── 3D scene ── */
-let renderer, labelRenderer, scene, camera, controls, composer, bloom;
-let _v, _sph, _off;   // scratch vectors, made once three.js has loaded
+let renderer, scene, camera, controls, composer, bloom;
+let _v, _sph, _off, _lv;   // scratch vectors, made once three.js has loaded
+
+/* ── quality: sharp first, then steady ──
+   The picture is drawn at the screen's own pixel density (up to 2x) with
+   multisampling. The composer used to draw into a target without it, so the
+   antialias flag on the canvas did nothing while Glow was on and every slab
+   edge was a staircase. If frames run long (over 20 ms on average for three
+   seconds running) the page steps down a rung: fewer pixels, then fewer
+   samples. A rung that does not help (a 30 Hz screen, a busy CPU) is undone
+   and becomes the floor, so the picture is never softened for nothing. It
+   never steps back up within a visit: a ladder that climbs again only to fall
+   again is a picture that keeps changing sharpness. */
+const DPR = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+const LADDER = (() => {
+  const prs = [DPR, 1.5, 1.25, 1].filter((p, i, a) => p <= DPR && a.indexOf(p) === i);
+  const l = prs.map((pr) => ({ pr, aa: 2 }));
+  if (DPR <= 1) l.unshift({ pr: DPR, aa: 4 });   // one pixel per pixel: more samples instead
+  l.push({ pr: prs[prs.length - 1], aa: 0 });
+  return l;
+})();
+const Q = { level: 0, floor: LADDER.length - 1, sum: 0, n: 0, slow: 0, probe: null, hold: 0 };
+let cssW = 0, cssH = 0, devBox = null;   // the canvas's size, from a ResizeObserver: never read in the loop
 
 let selected = -1, hotComp = -1;
 const W = 7.4, DEP = 4.4, TH = 0.22, GAP0 = 1.75;   // GAP0: the spacing the model was built at
@@ -560,6 +610,9 @@ function radialTexture(stops) {
   stops.forEach(([at, col]) => grd.addColorStop(at, col));
   g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  // Mipmapped (a power-of-two canvas) and filtered anisotropically: the pool
+  // of light under the stack is seen at a grazing angle, where plain mipmaps smear.
+  t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   return t;
 }
 let GLOW;
@@ -595,7 +648,7 @@ async function loadModel() {
 
 // Every mesh gets its own materials, remembering how it started: dimming one
 // layer must not dim another that shares Blender's "metal" or "letters".
-function own(o, rec, tag, fromBlender = true) {
+function own(o, rec, tag, fromBlender = true, pick = true) {
   o.userData = tag;
   const mats = Array.isArray(o.material) ? o.material : [o.material];
   const mine = mats.map((m) => {
@@ -606,27 +659,124 @@ function own(o, rec, tag, fromBlender = true) {
     // A mirror-sharp coat on the glass puts the key light on every slab as one
     // white hot spot, which the bloom then spreads: a softer, thinner coat.
     if (/^(slab|panel)_/.test(m.name) && "clearcoat" in c) { c.clearcoat = 0.35; c.clearcoatRoughness = 0.35; c.roughness = Math.max(c.roughness, 0.28); }
+    // three.js draws a see-through two-sided part twice, back faces then front,
+    // and flags the material for a rebuild before each of the two draws: every
+    // frame, every glass slab, panel and pipe sleeve went back through shader
+    // selection twice. One pass each: the slabs are thin and evenly tinted, so
+    // the two orders look the same, and a dimmed layer (18%) even more so.
+    c.forceSinglePass = true;
     c.userData = { op: c.opacity, tr: c.transparent, em: c.emissiveIntensity ?? 0, comp: tag.comp, slab: !!tag.slab };
-    rec.mats.push(c);
+    // A solid part steps back (see-through) while another layer is open. It
+    // used to be switched to transparent in place, which made three.js pick
+    // its shader again: every part of the stack at once, a 100 ms stall on
+    // each journey step. Instead it has a see-through twin, made once, and
+    // the mesh is handed one or the other.
+    const twin = !c.transparent && !Array.isArray(o.material);
+    const dim = twin ? c.clone() : null;
+    if (dim) { dim.transparent = true; dim.depthWrite = false; }
+    rec.looks.push({ mesh: twin ? o : null, solid: c, dim });
     return c;
   });
   o.material = Array.isArray(o.material) ? mine : mine[0];
-  pickables.push(o);
+  if (pick) pickables.push(o);
+}
+
+// A layer's four light pipes are one draw per material instead of four: they
+// share a height and always stretch together, so merged they stretch the same
+// (the model's 72 pipe meshes become 18). Anything unexpected - a rotated or
+// scaled pipe, mismatched attributes - leaves the pipes as they were.
+function mergeConduits(node, id) {
+  const roots = [];
+  node.traverse((o) => { if (o.name && o.name.startsWith(`conduit_${id}_`) && !(o.parent && o.parent.name.startsWith(`conduit_${id}_`))) roots.push(o); });
+  if (roots.length < 2 || !mergeGeometries) return null;
+  const y = roots[0].position.y;
+  if (roots.some((r) => r.parent !== node || Math.abs(r.position.y - y) > 1e-5 || r.quaternion.w < 0.99999 ||
+      Math.abs(r.scale.x - 1) + Math.abs(r.scale.y - 1) + Math.abs(r.scale.z - 1) > 1e-5)) return null;
+  const byMat = new Map();
+  let odd = false;
+  for (const r of roots) {
+    r.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(r.matrixWorld).invert();
+    r.traverse((o) => {
+      if (!o.isMesh) return;
+      if (Array.isArray(o.material) || !o.geometry.index) { odd = true; return; }
+      const g = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      g.translate(r.position.x, 0, r.position.z);
+      if (!byMat.has(o.material)) byMat.set(o.material, []);
+      byMat.get(o.material).push(g);
+    });
+  }
+  if (odd) return null;
+  const group = new THREE.Group(); group.name = `conduits_${id}`; group.position.set(0, y, 0);
+  for (const [mat, geos] of byMat) {
+    const g = mergeGeometries(geos, false);
+    if (!g) return null;
+    group.add(new THREE.Mesh(g, mat));
+  }
+  roots.forEach((r) => node.remove(r));
+  node.add(group);
+  return group;
+}
+
+// A layer's parts, merged by material into one draw each (the model.s 110
+// part meshes become 41). The part in play needs its own glow and its pulse,
+// so the layer it is on shows its parts one by one instead (solo); every
+// other layer draws the lump. Hidden parts still answer a tap: three.js
+// raycasts invisible meshes.
+function mergeComps(node, id, comps) {
+  if (comps.length < 2 || !mergeGeometries) return null;
+  node.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(node.matrixWorld).invert();
+  const groups = new Map();
+  let odd = false;
+  for (const c of comps) c.traverse((o) => {
+    if (!o.isMesh) return;
+    if (Array.isArray(o.material) || !o.geometry.index) { odd = true; return; }
+    // Same material and the same vertex attributes, or they cannot share a buffer.
+    const key = Object.keys(o.geometry.attributes).sort().join(",");
+    if (!groups.has(o.material)) groups.set(o.material, new Map());
+    const byAttr = groups.get(o.material);
+    if (!byAttr.has(key)) byAttr.set(key, []);
+    byAttr.get(key).push(o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)));
+  });
+  if (odd) return null;
+  const lump = new THREE.Group(); lump.name = `parts_${id}`;
+  for (const [mat, byAttr] of groups) for (const geos of byAttr.values()) {
+    const g = geos.length > 1 ? mergeGeometries(geos, false) : geos[0];
+    if (!g) return null;
+    lump.add(new THREE.Mesh(g, mat.clone()));   // its own copy: own() below must not touch the parts'
+  }
+  node.add(lump);
+  return lump;
+}
+function solo(rec, on) {
+  if (!rec.lump || rec.solo === on) return;
+  rec.solo = on; rec.lump.visible = !on;
+  rec.comps.forEach((c) => { if (c) c.visible = on; });
 }
 
 function fromModel(model, l, i) {
   const node = model.getObjectByName(`layer_${l.id}`);
   if (!node) return null;
-  const rec = { node, mats: [], comps: [], conduits: [] };
+  const rec = { node, looks: [], comps: [], conduits: [] };
+  const merged = mergeConduits(node, l.id);
+  if (merged) rec.conduits.push(merged);
   l.comps.forEach((_, j) => {
     const c = node.getObjectByName(`comp_${l.id}_${j}`);
     if (c) rec.comps[j] = c;
   });
+  const lump = mergeComps(node, l.id, rec.comps.filter(Boolean));   // before the parts take their own materials
   rec.comps.forEach((c, j) => c.traverse((o) => { if (o.isMesh) own(o, rec, { layer: i, comp: j }); }));
+  if (lump) {
+    // Drawn as one lump per material; the parts themselves stay in the scene,
+    // hidden, for picking, labels, and for the layer whose part is in play.
+    lump.traverse((o) => { if (o.isMesh) own(o, rec, { layer: i, comp: -1 }, true, false); });
+    rec.lump = lump; rec.solo = true; solo(rec, false);
+  }
   node.traverse((o) => {
     // Only the pipe itself: GLTFLoader names its child meshes conduit_x_0_1 and so
     // on, and stretching those as well squared the stretch.
-    if (o.name && o.name.startsWith(`conduit_${l.id}_`) && !(o.parent && o.parent.name.startsWith(`conduit_${l.id}_`))) rec.conduits.push(o);
+    if (!merged && o.name && o.name.startsWith(`conduit_${l.id}_`) && !(o.parent && o.parent.name.startsWith(`conduit_${l.id}_`))) rec.conduits.push(o);
     if (o.isMesh && o.userData.layer === undefined) {
       own(o, rec, { layer: i, comp: -1, slab: o === node });
       if (o.material.transparent) o.material.depthWrite = false;
@@ -637,13 +787,13 @@ function fromModel(model, l, i) {
 
 function fromPrimitives(l, i, geo) {
   const node = new THREE.Group();
-  const rec = { node, mats: [], comps: [], conduits: [] };
+  const rec = { node, looks: [], comps: [], conduits: [] };
   const slab = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ color: l.color, transparent: true, opacity: 0.5,
     roughness: 0.25, clearcoat: 1, emissive: l.color, emissiveIntensity: 0.12, depthWrite: false }));
   node.add(slab); own(slab, rec, { layer: i, comp: -1, slab: true }, false);
   const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 25), new THREE.LineBasicMaterial({ color: l.color, transparent: true }));
   edges.material.userData = { op: 1, tr: true, em: 0, comp: -1 };
-  rec.mats.push(edges.material);
+  rec.looks.push({ mesh: null, solid: edges.material, dim: null });
   node.add(edges);
   l.comps.forEach((_, j) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.3, 0.6), new THREE.MeshStandardMaterial({
@@ -661,26 +811,37 @@ async function build() {
   camera.position.set(14.2, 10.2, 16.4);
   if (narrow()) camera.position.multiplyScalar(0.98);   // all seven layers fill a phone
 
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, narrow() ? 1.5 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.9;
   stage.insertBefore(renderer.domElement, stage.firstChild);
+  // A software rasteriser (no GPU, or a blocklisted one) starts on the lowest
+  // rung: there every pixel is drawn by the CPU.
+  try {
+    const gl = renderer.getContext(), dbg = gl.getExtension("WEBGL_debug_renderer_info");
+    const name = String(gl.getParameter(dbg ? dbg.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+    if (/swiftshader|llvmpipe|softpipe|software|basic render/i.test(name)) Q.level = LADDER.length - 1;
+  } catch (e) { /* unknown renderer: start sharp, the ladder will catch it */ }
+  const maxAA = renderer.capabilities.maxSamples || 0;
+  LADDER.forEach((r) => { r.aa = Math.min(r.aa, maxAA); });
 
   // Reflections: a studio environment, so glass and metal have something to show.
   const pmrem = new THREE.PMREMGenerator(renderer);
   scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environmentIntensity = 0.16;   // more and the room's lights sit on the glass as white blobs
+  pmrem.dispose();
 
-  // Bloom: what makes the traces, pipes and packets read as light.
-  composer = new EffectComposer(renderer);
+  // Bloom: what makes the traces, pipes and packets read as light. It is drawn
+  // into a multisampled target, so the edges stay smooth under it, and kept
+  // tight: a wide radius spread the brightest slab into a haze over its
+  // neighbours. With Glow off the scene goes straight to the canvas.
+  composer = new EffectComposer(renderer, sceneTarget(LADDER[Q.level].aa));
+  composer.setPixelRatio(1);   // sized in device pixels by resize()
   composer.addPass(new RenderPass(scene, camera));
-  bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.45, 0.38, 0.95);
+  bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.4, 0.2, 0.95);
   bloom.enabled = glowOn;
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
-
-  labelRenderer = new CSS2DRenderer({ element: $("labels") });
 
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; controls.dampingFactor = 0.07;
@@ -717,21 +878,21 @@ async function build() {
       const box = new THREE.Box3().setFromObject(node);
       node.userData.h = Math.max(0.3, box.max.y - node.getWorldPosition(_v).y);
       const div = document.createElement("div"); div.className = "lbl-comp"; div.textContent = c[0];
-      const lab = new CSS2DObject(div); lab.position.set(0, node.userData.h + 0.12, 0); node.add(lab);
-      compLabels.push({ layer: i, comp: j, el: div });
+      const lab = addLabel(div, node, 0, node.userData.h + 0.12, 0, false);
+      compLabels.push({ layer: i, comp: j, el: div, lab });
     });
 
     const tag = document.createElement("div"); tag.className = "lbl-layer";
     tag.innerHTML = `<b style="background:${hex(l.color)}"></b>${esc(l.name)} <small data-live="${l.id}"></small>`;
     tag.onclick = () => select(i, -1, true);
-    const tl = new CSS2DObject(tag); tl.position.set(-W / 2 - 0.2, 0, DEP / 2 + 0.2); rec.node.add(tl);
-    layerLabels.push(tag); layerTags.push(tl);
+    const tl = addLabel(tag, rec.node, -W / 2 - 0.2, 0, DEP / 2 + 0.2, true);
+    layerLabels.push(tag); layerTags.push(tl.anchor);
   });
 
   plinth = model && model.getObjectByName("plinth");
   if (plinth) {
     scene.add(plinth);
-    plinth.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; baseMats.push(o.material); } });
+    plinth.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.forceSinglePass = true; baseMats.push(o.material); } });
   }
   // A pool of light under the stack, so it stands on something.
   ground = new THREE.Mesh(new THREE.CircleGeometry(16, 64), new THREE.MeshBasicMaterial({
@@ -774,7 +935,25 @@ async function build() {
     camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(sph));
   });
 
-  addEventListener("resize", resize); resize();
+  // Sized by observation, not by reading layout in the frame loop: the
+  // canvas's own box, in CSS pixels and (where the browser can say) in exact
+  // device pixels, so the picture maps one-to-one onto the screen.
+  const cv = renderer.domElement;
+  cssW = cv.clientWidth || stage.clientWidth; cssH = cv.clientHeight || stage.clientHeight;
+  if ("ResizeObserver" in window) {
+    const ro = new ResizeObserver((es) => {
+      const e = es[es.length - 1];
+      cssW = e.contentRect.width; cssH = e.contentRect.height;
+      const d = e.devicePixelContentBoxSize && e.devicePixelContentBoxSize[0];
+      devBox = d ? [d.inlineSize, d.blockSize] : null;
+      resize();
+    });
+    try { ro.observe(cv, { box: "device-pixel-content-box" }); } catch (e) { ro.observe(cv); }
+  } else {
+    addEventListener("resize", () => { cssW = cv.clientWidth; cssH = cv.clientHeight; resize(); });
+  }
+  resize();
+  prewarm();
   // Drawn only while the stage is on screen: framed on the home page or the
   // showcase, this page used to keep rendering bloom at full rate after the
   // visitor had scrolled far past it. Inside a frame the observer measures
@@ -795,7 +974,9 @@ async function build() {
 let running = false, lastT = 0;
 function run(on) {
   if (!renderer || on === running) return;
-  running = on; lastT = 0;
+  // The first seconds after a start (shaders, the model's first upload) are
+  // not the pace the page will run at, so they are not judged.
+  running = on; lastT = 0; Q.sum = 0; Q.n = 0; Q.slow = 0; Q.probe = null; Q.hold = performance.now() + 3000;
   renderer.setAnimationLoop(on ? frame : null);
 }
 
@@ -821,11 +1002,25 @@ function retheme() {
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", retheme);
 
+function sceneTarget(aa) {
+  return new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: aa });
+}
+// The drawing buffer, in device pixels. At full density it is the canvas's
+// exact device-pixel box where the browser reports one: a buffer a pixel off
+// is stretched over the canvas, and that stretch is a blur.
+let bufW = 0, bufH = 0;
 function resize() {
-  const w = stage.clientWidth, h = renderer.domElement.clientHeight || stage.clientHeight;
-  if (!w || !h) return;
-  renderer.setSize(w, h, false); labelRenderer.setSize(w, h);
-  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
+  const w = cssW, h = cssH;
+  if (!w || !h || !renderer) return;
+  const pr = LADDER[Q.level].pr;
+  const exact = devBox && pr === DPR && Math.abs(devBox[0] / w - (window.devicePixelRatio || 1)) < 0.01;
+  bufW = exact ? devBox[0] : Math.max(1, Math.round(w * pr));
+  bufH = exact ? devBox[1] : Math.max(1, Math.round(h * pr));
+  renderer.setDrawingBufferSize(bufW, bufH, 1);
+  composer.setSize(bufW, bufH);
+  // The glow is soft by nature: it is worked out at the CSS size whatever the
+  // density, so a sharper picture does not cost a dearer bloom.
+  bloom.setSize(Math.round(w), Math.round(h));
   camera.aspect = w / h;
   // Narrow screens see the stack from further back, so all seven layers fit.
   camera.fov = w < 600 ? 52 : 38;
@@ -836,6 +1031,111 @@ function resize() {
   if (w >= 700) camera.setViewOffset(w, h, -w * 0.11, -h * 0.04, w, h);
   else camera.setViewOffset(w, h, 0, -h * 0.03, w, h);
   camera.updateProjectionMatrix();
+  labelDpr = window.devicePixelRatio || 1;
+  for (const r of labels) r.x = NaN;   // re-placed on the next frame
+}
+
+function setQuality(level) {
+  const was = LADDER[Q.level];
+  Q.level = level;
+  const now = LADDER[level];
+  if (now.aa !== was.aa) composer.reset(sceneTarget(now.aa));
+  resize();
+  Q.sum = 0; Q.n = 0; Q.hold = performance.now() + 300;   // the re-allocation frame is not the new pace
+}
+// Fed every frame's length. Decides once a second; steps down only, after
+// three slow seconds in a row.
+function qualityTick(ms, now) {
+  if (ms > 250 || now < Q.hold) return;   // a hitch, a return from another tab, a warm-up
+  Q.sum += ms; Q.n++;
+  if (Q.sum < 1000) return;
+  const avg = Q.sum / Q.n; Q.sum = 0; Q.n = 0;
+  if (Q.probe) {                     // the second after a step down: did it help?
+    if (avg > Q.probe.avg * 0.9) { Q.floor = Q.probe.from; setQuality(Q.probe.from); }
+    Q.probe = null; return;
+  }
+  if (avg <= 20) { Q.slow = 0; return; }
+  if (++Q.slow < 3 || Q.level >= Q.floor) return;
+  Q.slow = 0; Q.probe = { avg, from: Q.level };
+  setQuality(Q.level + 1);
+}
+
+// Shaders are built before they are needed. Opening a layer hands every
+// other layer its see-through twins and shows its own parts one by one; each
+// of those would otherwise have its shader built, and looked up, on the frame
+// that first showed it - in the middle of a camera move. compile() starts the
+// work at load (where the browser compiles in parallel, off the main thread);
+// a second later, once, both looks are drawn off screen, so their first real
+// frame is an ordinary one.
+function offscreen(fn) {
+  // Into the target the scene is really drawn into: with Glow on that is the
+  // composer's (linear, tone-mapped later), a different shader from the canvas's.
+  try { renderer.setRenderTarget(bloom.enabled ? composer.readBuffer : null); fn(); }
+  catch (e) { /* only a head start */ }
+  renderer.setRenderTarget(null);
+}
+function withTwins(fn) {
+  const swapped = [];
+  L3.forEach((rec) => rec.looks.forEach((e) => { if (e.dim) { e.mesh.material = e.dim; swapped.push(e); } }));
+  offscreen(fn);
+  swapped.forEach((e) => { e.mesh.material = e.solid; });
+}
+function warmUp() {
+  if (selected >= 0) return;   // a layer is already open: its looks are being drawn anyway
+  withTwins(() => renderer.render(scene, camera));
+  L3.forEach((rec) => solo(rec, true));
+  offscreen(() => renderer.render(scene, camera));
+  L3.forEach((rec) => solo(rec, false));
+}
+let warmTwins = false;
+function prewarm() {
+  withTwins(() => renderer.compile(scene, camera));
+  setTimeout(() => { warmTwins = true; }, 1000);
+}
+
+/* ── labels: HTML names pinned to points of the model ──
+   Placed by the frame loop: projected, kept inside the stage, and rounded to
+   whole device pixels. A label is moved only when its pixel changes, and a
+   hidden part's name is not moved at all. Sizes come from a ResizeObserver,
+   so nothing here reads layout. */
+const labels = [];
+let labelDpr = window.devicePixelRatio || 1;
+const labelRO = "ResizeObserver" in window ? new ResizeObserver((es) => {
+  for (const e of es) {
+    const r = e.target._lab; if (!r) continue;
+    const b = e.borderBoxSize && e.borderBoxSize[0];
+    r.w = b ? b.inlineSize : e.target.offsetWidth; r.h = b ? b.blockSize : e.target.offsetHeight; r.x = NaN;
+  }
+}) : null;
+function addLabel(el, parent, x, y, z, on) {
+  const anchor = new THREE.Object3D(); anchor.position.set(x, y, z); parent.add(anchor);
+  const r = { el, anchor, on, until: 0, x: NaN, y: NaN, z: 0, shown: true, w: 0, h: 0 };
+  el._lab = r; $("labels").appendChild(el); labels.push(r);
+  if (labelRO) labelRO.observe(el); else { r.w = el.offsetWidth; r.h = el.offsetHeight; }
+  return r;
+}
+function showLabel(r, on) {
+  if (r.on === on) return;
+  r.on = on; r.x = NaN;
+  if (!on) r.until = performance.now() + 400;   // keeps its place while it fades
+}
+function drawLabels(now) {
+  const w = cssW, h = cssH, d = labelDpr, cam = camera.position;
+  for (let k = 0; k < labels.length; k++) {
+    const r = labels[k];
+    if (!r.on && now > r.until) continue;
+    r.anchor.getWorldPosition(_lv);
+    const z = 1000 - Math.round(_lv.distanceTo(cam) * 2);    // nearer on top; coarse, so it is rarely rewritten
+    _lv.project(camera);
+    const vis = _lv.z >= -1 && _lv.z <= 1;
+    if (vis !== r.shown) { r.shown = vis; r.el.style.display = vis ? "" : "none"; }
+    if (!vis) continue;
+    let x = (_lv.x * 0.5 + 0.5) * w - r.w / 2;
+    const y = Math.round(((-_lv.y * 0.5 + 0.5) * h - r.h / 2) * d) / d;
+    x = Math.round(Math.max(4, Math.min(x, w - r.w - 4)) * d) / d;   // never cut off at the edge
+    if (x !== r.x || y !== r.y) { r.x = x; r.y = y; r.el.style.transform = `translate(${x}px,${y}px)`; }
+    if (z !== r.z) { r.z = z; r.el.style.zIndex = z; }
+  }
 }
 
 /* ── camera moves ── */
@@ -865,19 +1165,21 @@ function focusOn(i) {
 function applyLook() {
   L3.forEach((rec, k) => {
     const on = selected < 0 || k === selected;
-    rec.mats.forEach((m) => {
+    solo(rec, k === selected && hotComp >= 0);
+    for (const e of rec.looks) {
+      let m = e.solid;
+      if (e.dim) { m = on ? e.solid : e.dim; if (e.mesh.material !== m) e.mesh.material = m; }
+      else if (!m.userData.tr && m.transparent === on) { m.transparent = !on; m.needsUpdate = true; }   // no twin: as before
       const u = m.userData;
-      const needT = u.tr || !on;
-      if (m.transparent !== needT) { m.transparent = needT; m.needsUpdate = true; }
-      m.depthWrite = !needT;
+      m.depthWrite = !m.transparent;
       m.opacity = u.op * (on ? 1 : 0.18);
       if ("emissiveIntensity" in m) {
-        let e = u.em;
-        if (k === selected && u.slab) e = Math.max(0.3, u.em * 2.2);
-        if (k === selected && u.comp === hotComp && hotComp >= 0) e = Math.max(1.2, u.em * 3);
-        m.emissiveIntensity = e;
+        let em = u.em;
+        if (k === selected && u.slab) em = Math.max(0.3, u.em * 2.2);
+        if (k === selected && u.comp === hotComp && hotComp >= 0) em = Math.max(1.2, u.em * 3);
+        m.emissiveIntensity = em;
       }
-    });
+    }
   });
 }
 function select(i, j, fromUser) {
@@ -891,6 +1193,7 @@ function select(i, j, fromUser) {
   compLabels.forEach((c) => {
     c.el.classList.toggle("show", c.layer === i);
     c.el.classList.toggle("hot", c.layer === i && c.comp === j);
+    showLabel(c.lab, c.layer === i);
   });
   if (controls) focusOn(i);
   renderList(); renderDetail();
@@ -905,32 +1208,38 @@ function spawn(from, to, color, size, speed, onDone) {
   const side = new THREE.Vector3(b.z - a.z, 0, a.x - b.x).normalize().multiplyScalar(0.8);
   mid.add(new THREE.Vector3(0, 0.9 + a.distanceTo(b) * 0.12, 0)).add(side);
   const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
-  const core = new THREE.Mesh(new THREE.SphereGeometry(size, 16, 12),
-    new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(2.2) }));
+  if (!BALL) BALL = new THREE.SphereGeometry(1, 16, 12);   // one sphere for every packet, scaled
+  const core = new THREE.Mesh(BALL, new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(2.2) }));
+  core.scale.setScalar(size);
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-  glow.scale.setScalar(size * 9); core.add(glow);
+  glow.scale.setScalar(9); core.add(glow);   // 9 x size, inside the scaled core
   const N = 28, trailPos = new Float32Array(N * 3);
   const trailGeo = new THREE.BufferGeometry(); trailGeo.setAttribute("position", new THREE.BufferAttribute(trailPos, 3));
   const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+  trail.frustumCulled = false;   // its bounds were taken from the empty buffer, at the origin
   scene.add(core); scene.add(trail);
   const p = { curve, core, trail, trailPos, N, t: 0, speed, onDone };
   if (reduced) p.t = 1;
   packets.push(p);
 }
+let BALL = null;
+// Nothing is allocated per frame here: points are written into a scratch
+// vector and straight into the trail's buffer.
 function stepPackets(dt) {
   for (let k = packets.length - 1; k >= 0; k--) {
     const p = packets[k];
     p.t = Math.min(1, p.t + dt * p.speed);
     const e = p.t < 0.5 ? 2 * p.t * p.t : 1 - Math.pow(-2 * p.t + 2, 2) / 2;
-    p.core.position.copy(p.curve.getPoint(e));
+    p.curve.getPoint(e, p.core.position);
+    const tp = p.trailPos;
     for (let n = 0; n < p.N; n++) {
-      const q = p.curve.getPoint(Math.max(0, e - (n / p.N) * 0.35));
-      p.trailPos.set([q.x, q.y, q.z], n * 3);
+      p.curve.getPoint(Math.max(0, e - (n / p.N) * 0.35), _v);
+      tp[n * 3] = _v.x; tp[n * 3 + 1] = _v.y; tp[n * 3 + 2] = _v.z;
     }
     p.trail.geometry.attributes.position.needsUpdate = true;
     if (p.t >= 1) {
       scene.remove(p.core); scene.remove(p.trail);
-      p.core.geometry.dispose(); p.trail.geometry.dispose();
+      p.trail.geometry.dispose();
       p.core.material.dispose(); p.trail.material.dispose(); p.core.children.forEach((g) => g.material.dispose());
       packets.splice(k, 1);
       p.onDone && p.onDone();
@@ -1011,14 +1320,20 @@ $("b-glow").onclick = (e) => {
 };
 
 /* ── frame loop ── */
-let drawn = false;
+// Every step below is driven by the real time since the last frame, so the
+// motion is the same speed at 30, 60 or 120 Hz, and eases exponentially
+// (1 - e^-kt) rather than by a fixed share per frame.
+const ease = (k, dt) => 1 - Math.exp(-k * dt);
+let drawn = false, pulsed = null;
 function frame() {
   const now = performance.now();
-  const dt = lastT ? Math.min((now - lastT) / 1000, 0.05) : 1 / 60;
+  const raw = lastT ? now - lastT : 0;
+  const dt = lastT ? Math.min(raw / 1000, 0.05) : 1 / 60;
   lastT = now;
+  if (raw) qualityTick(raw, now);
   if (!drawn) { drawn = true; requestAnimationFrame(() => { $("poster").classList.add("gone"); stage.classList.add("is-ready"); }); }
   if (Math.abs(gap - gapTarget) > 0.001) {
-    gap += (gapTarget - gap) * Math.min(1, dt * 4);
+    gap += (gapTarget - gap) * ease(4, dt);
     placeStack();
   }
   if (tween) {
@@ -1031,27 +1346,35 @@ function frame() {
   }
   // The turn eases in after a hand lets go (about a second), and out at once.
   const spinTarget = spinWanted && !spinHeld && !tween ? 1 : 0;
-  spinGain += (spinTarget - spinGain) * Math.min(1, dt * (spinTarget ? 1.1 : 6));
+  spinGain += (spinTarget - spinGain) * ease(spinTarget ? 1.1 : 6, dt);
   controls.autoRotate = spinGain > 0.002;
   controls.autoRotateSpeed = 0.8 * spinGain;
+  // OrbitControls damps by a fixed share per frame; this is the same 0.07 at
+  // 60 Hz, made a share per second, so a flick glides as far at any rate.
+  controls.dampingFactor = 1 - Math.pow(0.93, dt * 60);
   // The part a journey is on breathes, so the eye finds it.
-  const pulse = 1 + Math.sin(performance.now() / 260) * 0.08;
-  L3.forEach((rec, i) => rec.comps.forEach((c, j) => {
-    if (c) c.scale.setScalar(i === selected && j === hotComp && !reduced ? pulse : 1);
-  }));
+  const hot = selected >= 0 && hotComp >= 0 && !reduced && L3[selected] ? L3[selected].comps[hotComp] : null;
+  if (pulsed && pulsed !== hot) pulsed.scale.setScalar(1);
+  if (hot) hot.scale.setScalar(1 + Math.sin(now / 260) * 0.08);
+  pulsed = hot;
   // Seen from underneath, a solid plinth would hide the whole stack: it fades.
   if (plinth) {
     const below = camera.position.y < plinth.position.y + 0.3;
-    const want = below ? 0.1 : 1;
-    baseMats.forEach((m) => {
-      m.opacity += (want - m.opacity) * Math.min(1, dt * 6);
+    const want = below ? 0.1 : 1, f = ease(6, dt);
+    for (let k = 0; k < baseMats.length; k++) {
+      const m = baseMats[k];
+      if (m.opacity === want) continue;
+      m.opacity = Math.abs(want - m.opacity) < 0.002 ? want : m.opacity + (want - m.opacity) * f;
       m.depthWrite = m.opacity > 0.95;
-    });
+    }
     if (ground) ground.visible = !below;
   }
   ambient(dt); stepPackets(dt);
   controls.update(dt);   // seconds: the turn is the same speed at 60, 90 or 120 Hz
-  composer.render(); labelRenderer.render(scene, camera);
+  if (warmTwins) { warmTwins = false; warmUp(); }
+  if (bloom.enabled) composer.render();
+  else renderer.render(scene, camera);   // straight to the canvas: its own multisampling, one pass
+  drawLabels(now);
 }
 
 /* ── live readings from the running platform ── */
@@ -1101,7 +1424,7 @@ async function boot() {
   catch (e) { console.warn("3D library unavailable - showing the render instead:", e && e.message); stage.classList.add("no-webgl"); return; }
   try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" }); } catch (e) { renderer = null; }
   if (!renderer || !renderer.getContext()) { renderer = null; stage.classList.add("no-webgl"); return; }
-  _v = new THREE.Vector3(); _sph = new THREE.Spherical(); _off = new THREE.Vector3();
+  _v = new THREE.Vector3(); _sph = new THREE.Spherical(); _off = new THREE.Vector3(); _lv = new THREE.Vector3();
   try { await build(); } catch (e) { console.error(e); run(false); stage.classList.add("no-webgl"); }
 }
 setInterval(() => { if (!document.hidden) poll(); }, 8000);
