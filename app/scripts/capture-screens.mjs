@@ -232,7 +232,10 @@ const run = async () => {
     await page.waitFor(`document.getElementById("a-send")`);
     await page.shot("01-login", "OTP sign-in — real API, dev OTP returned in the response");
 
-    const msisdn = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+    // These screenshots are published. A random 9xxxxxxxxx number could be
+    // somebody's real phone, so the account lives in the seed's own demo block
+    // (+917000…), fresh per run so the screens still show a new account.
+    const msisdn = "+9170000" + (10000 + Math.floor(Math.random() * 89999));
     await page.eval(`
       document.getElementById("a-msisdn").value = ${JSON.stringify(msisdn)};
       document.getElementById("a-send").click(); return true;`);

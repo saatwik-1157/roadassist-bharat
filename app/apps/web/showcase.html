@@ -121,7 +121,7 @@
 
   nav { display: flex; align-items: center; gap: 16px; padding: 22px clamp(18px, 4vw, 52px); }
   .logo { display: inline-flex; align-items: center; gap: 10px; }
-  .logo .mark { width: 30px; height: 30px; filter: drop-shadow(0 0 10px rgba(227,185,106,0.45)); }
+  .logo .mark { width: 30px; height: 30px; flex-shrink: 0; filter: drop-shadow(0 0 10px rgba(227,185,106,0.45)); }
   .logo .wordmark { font-family: var(--serif); font-weight: 500; font-size: 20px; letter-spacing: -0.012em; }
   .logo .wordmark i { font-style: normal; color: var(--gold); }
   .raksha-chip { display: inline-flex; align-items: center; gap: 7px; margin-left: 2px;
@@ -275,13 +275,13 @@
     font-size: 10.5px; letter-spacing: 0.2em; font-weight: 800; }
   .hud .row { display: flex; justify-content: space-between; align-items: center; gap: 10px;
     padding: 0; border: 0; }
-  .hud .rec { display: inline-flex; align-items: center; gap: 8px; color: var(--crit);
-    background: rgba(5,7,10,0.65); padding: 5px 12px; border-radius: 999px; backdrop-filter: blur(4px); }
+  .hud .rec { display: inline-flex; align-items: center; gap: 8px; color: #ff8a80;
+    background: rgba(5,7,10,0.72); padding: 5px 12px; border-radius: 999px; backdrop-filter: blur(4px); }
   .hud .rec::before { content: ""; width: 8px; height: 8px; border-radius: 50%;
     background: var(--crit); box-shadow: 0 0 12px var(--crit); animation: blink 1.2s infinite; }
   .hud .chip { color: var(--teal); background: rgba(5,7,10,0.65); padding: 5px 12px;
     border-radius: 999px; backdrop-filter: blur(4px); border: 1px solid var(--line-teal); }
-  .hud .cnt { color: var(--cream); background: rgba(5,7,10,0.65); padding: 5px 12px;
+  .hud .cnt { color: #f2efe6; background: rgba(5,7,10,0.72); padding: 5px 12px;
     border-radius: 999px; font-variant-numeric: tabular-nums; }
   .hud .corner { position: absolute; width: 26px; height: 26px; border: 2px solid var(--teal); opacity: 0.75; }
   .hud .c1 { top: 12px; left: 12px; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
@@ -416,7 +416,7 @@
   .logo { min-height: 44px; }
   @media (pointer: coarse), (max-width: 760px) {
     nav .theme-btn { width: 44px; height: 44px; }
-    footer nav a { display: inline-flex; align-items: center; min-height: 44px; }
+    footer nav a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
   }
   footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--text-2); }
   footer nav a:hover { color: var(--text); }
