@@ -513,7 +513,7 @@ x = 5.28
 for i, (lab, w) in enumerate([("Sohna Road, Shivaji Nagar, Gurgaon", 2.4),
                               ("Aarvy Hospital · 290 m", 1.52),
                               ("Road 28.4 km · 33 min", 1.47),
-                              ("US AQI 195 · Unhealthy", 1.52)]):
+                              ("US AQI 267 · 5 Oct (live)", 1.52)]):
     chip(s, x, 5.82, w, 0.3, lab, color=AMBER if i == 3 else CYAN, size=8)
     x += w + 0.06
 txt(s, 0.85, 6.4, 11.6, 0.4,
@@ -711,7 +711,7 @@ rows = [("Two dispatches of one booking at the same instant", "both sent a wave 
          "whole chain from a checkpoint, range stated"),
         ("A device's image reference, joined to the upload folder", "could read and delete files outside it",
          "refused"),
-        ("Sign-out while a refresh was in flight", "session survived · 8 of 8",
+        ("Sign-out while a refresh was in flight", "a racing refresh outlived it",
          "session ended"),
         ("Break-glass response to the responder", "always “the subject has been notified”",
          "sent · opted out · failed · no number")]
@@ -741,7 +741,8 @@ Audit: the verifier re-hashed only the first 2,000 rows (operations view) or 5,0
 endpoint) and still answered "intact". It now verifies the whole chain from a checkpoint
 and names the range it checked.
 
-Sign-out race: 8 of 8 racing refreshes kept a working session on the old code. Sign-out
+Sign-out race: on the old code a refresh racing the sign-out could mint a session that
+outlived it. The test races several each run; on 5 Oct 0 of 7 kept a session. Sign-out
 and rotation now serialise on the family's lock.
 
 Break-glass: the response claimed the subject had been notified even when the SMS failed.
@@ -968,7 +969,7 @@ footer(s); page_no(s, 29)
 s = new_slide()
 title_block(s, "Limitations", eyebrow="STATED BEFORE YOU ASK",
             sub="In order of importance. Every one of these is also written in the code or the docs.")
-lims = ["The demo is one free-tier Render + Neon instance in Singapore, no India region, no cluster; it sleeps after 15 min idle (keep-awake ping in progress).",
+lims = ["The demo is one free-tier Render + Neon instance in Singapore, no India region, no cluster; it sleeps after 15 min idle (Render docs), so an external uptime monitor pings it.",
         "Single instance only: SSE registry, rate limiter and offer sweeper are in-process.",
         "Location lookups send positions, coarsened to about 110 m, to OpenStreetMap and OSRM servers in Germany/EU. Declared (ADR-0012).",
         "The ERSS 112 handoff is a stub, and the API response says so. Emergency isolation (ADR-0005) is a design, not a deployment.",
