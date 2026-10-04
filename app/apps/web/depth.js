@@ -47,8 +47,11 @@
   var HERO = ".tilt3d, [data-depth='hero'] > .card";
   var coarse = window.matchMedia && window.matchMedia(
     "(hover: none) and (pointer: coarse) and (prefers-reduced-motion: no-preference)");
+  // ...and only on a page that has something to tilt: the listener keeps the
+  // phone's motion sensors running at ~60 Hz for as long as it is attached.
   if (coarse && coarse.matches && window.DeviceOrientationEvent &&
-      typeof window.DeviceOrientationEvent.requestPermission !== "function") {
+      typeof window.DeviceOrientationEvent.requestPermission !== "function" &&
+      document.querySelector(".tilt3d, [data-depth='hero']") && !root.classList.contains("ra-lite")) {
     var base = null, gx = 0, gy = 0, gFrame = 0;
     var clamp = function (v) { return Math.max(-4, Math.min(4, v)); };
     var paint = function () {

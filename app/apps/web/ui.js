@@ -44,6 +44,13 @@
         if (back && back.isConnected && (sheet.contains(active) || active === doc.body || !active)) {
           try { back.focus({ preventScroll: true }); } catch { /* element gone */ }
         }
+        // The opener can be gone from view (e.g. the sheet switched screens):
+        // then focus the active screen, so keyboard users are never dropped on body.
+        if (doc.activeElement === doc.body || sheet.contains(doc.activeElement)) {
+          var scr = doc.querySelector(".screen.active");
+          if (scr) { if (!scr.hasAttribute("tabindex")) scr.setAttribute("tabindex", "-1");
+            try { scr.focus({ preventScroll: true }); } catch { /* ignore */ } }
+        }
       }
     }).observe(sheet, { attributes: true, attributeFilter: ["class"] });
   }

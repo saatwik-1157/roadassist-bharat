@@ -20,7 +20,9 @@
 // v15: emergency-numbers.js (tap-to-call 112/1033/..., "Text my location") joins the shell; app.html and ds.css changed.
 // v16: booking-position.js (no GPS fix is never booked silently; the demo point only by choice) joins the shell; app.html changed.
 // v17: app.css (app.html's styles, moved out of the page) and ui.js (sheet focus, top-bar hairline) join the shell; app.html, ds.css and depth.js changed.
-const VERSION = "ra-v18";
+// v18: the fonts change to Space Grotesk / Inter / JetBrains Mono (vendor/fonts).
+// v19: Call 112 contrast, low-power SOS halo, motion-sensor and focus-return fixes (app.css, depth.js, ui.js).
+const VERSION = "ra-v19";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
