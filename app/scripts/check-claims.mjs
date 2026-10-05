@@ -22,10 +22,12 @@
  * appear in, and fails on any that disagrees.
  *
  * ── dated evidence is exempt, on purpose ───────────────────────────────────
- * `docs/release/` and `docs/verification/` record what was true for a given
- * build. A figure there that no longer matches is not stale, it is history, and
- * rewriting it would falsify the record. They are skipped, and that distinction
- * is the one thing to preserve if this script is ever extended.
+ * A document that records what was true for a given build is history, not a
+ * claim: a figure there that no longer matches is not stale, and rewriting it
+ * would falsify the record. The RC1 release and verification reports were
+ * skipped for that reason until they left the tree on 2026-10-05. If dated
+ * evidence is ever added back, exempt it in EXEMPT_DIRS rather than correcting
+ * it; that distinction is the one thing to preserve if this script is extended.
  *
  * ── the label is not always beside the number ──────────────────────────────
  * The prose checks read "920 assertions": a number, then the word that says
@@ -350,17 +352,17 @@ const CHECKS = [
 ];
 
 /**
- * Three kinds of file legitimately hold a number that is not today's.
+ * Some files legitimately hold a number that is not today's.
  *
- * 1. DATED EVIDENCE — docs/release, docs/verification. What was true for a
- *    past build. Correcting it would falsify the record.
- * 2. THE PLAN — docs/00..05-*.md describe all 18 phases in the present tense,
- *    including the 60 tables and 140 endpoints that were never built. They are
- *    targets, and the README is the authority on what exists.
- * 3. THE REVIEW-1 DECK — ppt/part_[a-g].py and review1-ppt. Superseded; only
- *    part_final.py builds the current deck.
+ * THE REVIEW-1 DECK — ppt/part_[a-g].py and review1-ppt. Superseded; only
+ * part_final.py builds the current deck. The audit that quotes the corrected
+ * figures, and the first landing page, are named in EXEMPT_FILES below.
+ *
+ * Until 2026-10-05 this list also exempted the RC1 dated evidence
+ * (docs/release, docs/verification), the 18-phase plan (docs/00..05-*.md) and
+ * review-plan/. Those were removed from the tree and stay in git history.
  */
-const EXEMPT_DIRS = ["docs/release", "docs/verification", "review1-ppt", "review-plan"];
+const EXEMPT_DIRS = ["review1-ppt"];
 const EXEMPT_FILES = [
   "app/docs/CLAIMS-AUDIT.md",      // documents the corrections, so it quotes both
   "app/scripts/check-claims.mjs",
@@ -371,7 +373,6 @@ const EXEMPT_FILES = [
   "site/index.html",
 ];
 const EXEMPT_PATTERNS = [
-  /^docs\/0\d-.*\.md$/,            // the 18-phase plan
   /^ppt\/part_[a-g]\d?\.py$/,      // Review-1 deck sources
   /^ppt\/(make|build_deck|md2pdf|render_visuals)\.py$/,
 ];
@@ -734,7 +735,7 @@ function main() {
     console.log(`\nmeasured.json against apps/api/src, counted on each run:`);
     console.log(`  ${"api.routes".padEnd(34)} ${measured.api.routes} recorded, ${countRoutes()} in the code`);
     console.log(`  ${"api.underV1".padEnd(34)} ${measured.api.underV1} recorded, ${countV1Routes()} in the code`);
-    console.log(`Exempt (dated evidence): ${EXEMPT_DIRS.join(", ")}`);
+    console.log(`Exempt directories: ${EXEMPT_DIRS.join(", ")}`);
     console.log(`Read as text: element text (figcaption included) and the attributes ${VISIBLE_ATTR.source.match(/\(([a-z|-]+)\)/)[1].split("|").join(", ")}`);
     process.exit(0);
   }

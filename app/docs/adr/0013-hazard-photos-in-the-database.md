@@ -9,9 +9,9 @@ attributed to [ADR-0006](0006-ai-rules-first.md)
 A citizen's hazard report can carry a photo (`POST /v1/raksha/report`). Until
 now the API wrote it to `UPLOAD_DIR` and kept only the file key in
 `raksha_detections.image_ref`. The code and several documents cite ADR-0006 for
-that rule: `env.ts`, `raksha.ts`, `server.ts`, `app/README.md`, `VIVA.md`,
-`SWE4004-MAPPING.md` and the root `DEPLOYMENT.md`. **ADR-0006's text does not
-say it.** ADR-0006 records that every AI capability ships rules-first behind a
+that rule: `env.ts`, `raksha.ts`, `server.ts`, `app/README.md`, the viva pack
+(`VIVA.md`, since removed), `SWE4004-MAPPING.md` and the root `DEPLOYMENT.md`.
+**ADR-0006's text does not say it.** ADR-0006 records that every AI capability ships rules-first behind a
 stable contract. The nearest thing it has is model governance: inference is
 journaled by hash (`model_predictions.input_hash`), never with its input. The
 photo rule grew out of that and was never written down as a decision of its

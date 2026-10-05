@@ -1,21 +1,12 @@
 # Documentation index
 
-Fifty-six files live under `docs/`, and until this index existed the root README
-linked six of them. The rest were reachable only by knowing the filename.
+`docs/` holds the repository-wide reference: the directory map, the toolchain
+inventory, the RAKSHA design documents and the translation review sheets. The
+technical documentation for the platform itself lives in
+[`app/docs/`](../app/docs/).
 
-**The first thing to know is which kind of document you are reading**, because
-two kinds live here and they age differently.
-
-| | |
-|---|---|
-| **Living** | Kept current. If it disagrees with the code, the document is wrong and should be fixed. The planning set below, plus everything in [`app/docs/`](../app/docs/). |
-| **Dated evidence** | A record of what was true for one build, usually v1.0.0-RC1. It is **not** updated when the code moves on — rewriting it would falsify the record. `docs/release/`, `docs/verification/`, and the claim-check files under `docs/demo/`. |
-
-So: a figure in `docs/release/` that disagrees with today's code is not
-necessarily a bug. A figure in `app/docs/TESTING.md` that disagrees with today's
-code *is*. When a number changes, correct the living documents and annotate the
-dated ones — [`app/docs/CLAIMS-AUDIT.md`](../app/docs/CLAIMS-AUDIT.md) §4 is the
-worked example.
+Every document listed here is **living**: kept current, and if it disagrees with
+the code, the document is wrong and should be fixed.
 
 ---
 
@@ -23,7 +14,7 @@ worked example.
 
 | Document | For |
 |---|---|
-| [`../README.md`](../README.md) | What the platform is, what exists today, what is roadmap |
+| [`../README.md`](../README.md) | What the platform is, who built it, what exists today, what is roadmap |
 | [`../ENGINEERING-NOTES.md`](../ENGINEERING-NOTES.md) | How to run and change this repo — toolchain traps, migration rules, the honesty rules |
 | [`../app/docs/PROJECT_OVERVIEW.md`](../app/docs/PROJECT_OVERVIEW.md) | The system in one read |
 | [`../app/docs/adr/`](../app/docs/adr/) | Thirteen ADRs. Every non-obvious decision, with the alternative that was rejected |
@@ -37,21 +28,9 @@ worked example.
 | [`../app/docs/SECURITY.md`](../app/docs/SECURITY.md) · [`security/threat-model.md`](../app/docs/security/threat-model.md) | Threats, and what answers each |
 | [`../app/docs/OFFLINE.md`](../app/docs/OFFLINE.md) | Off-Grid Mode end to end (ADR-0009) |
 | [`../app/docs/CLAIMS-AUDIT.md`](../app/docs/CLAIMS-AUDIT.md) | **Every claim checked against the code.** Read before writing a slide |
+| [`../app/docs/DEMO-SCRIPT.md`](../app/docs/DEMO-SCRIPT.md) | The live demo, beat by beat |
 | [`PROJECT-STRUCTURE.md`](PROJECT-STRUCTURE.md) | Directory-by-directory map |
-
-## Planning — the 18-phase roadmap
-
-| Document | Contents |
-|---|---|
-| [`00-team-charter.md`](00-team-charter.md) | RACI, rituals, git/PR rules, Definition of Done, risk register |
-| [`01-master-roadmap.md`](01-master-roadmap.md) | All 18 phases, target architecture, business model |
-| [`02-backend-lead-roadmap.md`](02-backend-lead-roadmap.md) | Schema, APIs, state machines, dispatch, auth |
-| [`03-frontend-lead-roadmap.md`](03-frontend-lead-roadmap.md) | Design system, screens, offline client, maps, a11y, i18n |
-| [`04-ai-lead-roadmap.md`](04-ai-lead-roadmap.md) | The nine AI systems, metrics, on-device bundle |
-| [`05-devops-qa-lead-roadmap.md`](05-devops-qa-lead-roadmap.md) | K8s, Terraform, CI/CD, observability, telecom, DR |
-
-These describe the **plan**, in the present tense, for all 18 phases. Much of
-what they name is not built. `../README.md` is the authority on what exists.
+| [`TOOLS-AND-SOFTWARE.md`](TOOLS-AND-SOFTWARE.md) | Every tool, library and service the project uses, and where |
 
 ## RAKSHA
 
@@ -61,51 +40,24 @@ what they name is not built. `../README.md` is the authority on what exists.
 | [`raksha/05-dataset-license-verification.md`](raksha/05-dataset-license-verification.md) | RDD2022 licensing, and the class mapping the CV tests enforce |
 | [`../ai/README.md`](../ai/README.md) | Trained models with measured metrics, and the honest CPU-only caveat |
 
----
+## Translations
 
-## Dated evidence — v1.0.0-RC1
-
-Not updated as the code moves. Useful as a record, and as a worked example of
-auditing your own claims.
-
-### `release/` — the release decision
-`RELEASE-RC1-REPORT.md` (the full report) · `FINAL_GO_NO_GO.md` (the decision
-and its blockers) · `RELEASE_NOTES.md` / `FINAL_RELEASE_NOTES.md` ·
-`FINAL_REPOSITORY_STATUS.md` · `FINAL_EVIDENCE_MAP.md` (claim → where to show
-it) · `FINAL_SUBMISSION_CHECKLIST.md` · `FINAL_SUBMISSION_PACKAGE.md`
-
-### `verification/` — per-area test reports
-One per area, each recording a run rather than an intention:
-`ROADASSIST_FINAL_VERIFICATION_REPORT.md` (the umbrella) ·
-`DATABASE_FINAL_VERIFICATION.md` · `SECURITY_FINAL_VERIFICATION.md` ·
-`SOS_FINAL_TEST_REPORT.md` · `OFFLINE_FINAL_TEST_REPORT.md` ·
-`PAYMENT_FINAL_TEST_REPORT.md` · `CONCURRENCY_FINAL_TEST_REPORT.md` ·
-`REALTIME_FINAL_TEST_REPORT.md` · `CUSTOMER_FINAL_TEST_REPORT.md` ·
-`MECHANIC_FINAL_TEST_REPORT.md` · `FAILURE_MODE_FINAL_REPORT.md` ·
-`PERFORMANCE_FINAL_REPORT.md` · `FINAL_BUILD_VERIFICATION.md` ·
-`ZERO_TO_RUN_VERIFICATION.md` (clone to running) · `FINAL_DEMO_SMOKE_TEST.md` ·
-`CLAIM_VERIFICATION_FINAL.md`
-
-### `demo/` — running the demo
-`FINAL_10_MINUTE_DEMO_SCRIPT.md` and `FINAL_DEMO_SCRIPT.md` (the beats) ·
-`DEMO_COMMAND_CARD.md` (commands to hand) · `FINAL_STARTUP_CHECKLIST.md` ·
-`PRESENTATION_DAY_CHECKLIST.md` · `DEMO_FAILURE_BACKUP_PLAN.md` (what to do
-when it breaks live) · `FINAL_SCREENSHOT_CHECKLIST.md` ·
-`FINAL_PRESENTATION_PLAN.md` · `PPT_CLAIM_CHECKLIST.md`,
-`FINAL_PPT_CLAIM_CHECK.md`, `FINAL_PPT_FACT_CHECK.md` (slide-by-slide claim
-audits)
-
-### `viva/` — defending it
-`ROADASSIST_FINAL_CHEAT_SHEET.md` (one page) · `VIVA_COMMAND_CARD.md` ·
-`PROFESSOR_TRAP_QUESTIONS.md` (the 20 hardest) · `FINAL_PROFESSOR_DEFENSE.md`
-and `FINAL_PROFESSOR_SIMULATION.md` (a rehearsed grilling) ·
-`FINAL_VIVA_100.md` · `ROADASSIST_FINAL_VIVA.md` · `CODE_TO_VIVA_MAP.md`
-(question → file) · `SWE4004_IMPLEMENTATION_MAPPING_FINAL.md` and
-`FINAL_SWE4004_DEFENSE_MAP.md` (syllabus mapping) ·
-`FINAL_MARKS_LOSS_AUDIT.md` (where marks were being lost, and why)
+| Document | Contents |
+|---|---|
+| [`translations/README.md`](translations/README.md) | Native-speaker review sheets for the machine-translated Android, web and SMS strings, and how to use them |
 
 ---
 
-*Substantial overlap exists between the dated files — several were written in
-the same sitting and restate each other. They are kept as the record rather than
-merged, but do not read them as independent confirmations of the same fact.*
+## Removed on 2026-10-05
+
+The 18-phase planning set (`00-team-charter.md` to `05-devops-qa-lead-roadmap.md`),
+the v1.0.0-RC1 dated evidence (`release/`, `verification/`), the demo and viva
+preparation packs (`demo/`, `viva/`, `app/docs/VIVA.md`), `addons.txt`, the
+`review-plan/` folder and the exported Tools and Software PDF were taken out of
+the working tree so the repository holds only the product, its technical
+documentation, the website, the demo videos and the brand. The team table now
+lives in the root [`README.md`](../README.md#team).
+
+Nothing was lost: every one of those files is still in git history. Read one
+with `git show 95672c2:<path>`, for example
+`git show 95672c2:docs/viva/CODE_TO_VIVA_MAP.md`.

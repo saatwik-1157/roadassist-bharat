@@ -10,7 +10,7 @@ roadassist-bharat/
 ├── mobile/               ← native Android app (Kotlin + Compose)
 ├── ai/                   ← computer-vision toolchain (Python)
 ├── site/                 ← demo videos and a photo, served at /media
-├── docs/                 ← planning corpus + RAKSHA design docs
+├── docs/                 ← documentation index, tools inventory, RAKSHA design docs
 └── .github/workflows/    ← CI
 ```
 
@@ -97,7 +97,7 @@ The data models and everything that shapes the schema.
 | `app/docs/security/threat-model.md` | STRIDE threats → controls |
 | `docs/raksha/00-requirements.md` | RAKSHA Phase-0 requirements + scenarios |
 | `docs/raksha/05-dataset-license-verification.md` | Dataset/model license verification + measured results |
-| `docs/00–05-*.md` | Team charter, master roadmap, four lead roadmaps |
+| `docs/README.md` · `docs/TOOLS-AND-SOFTWARE.md` | Documentation index · every tool and library in use. The old planning set, dated evidence and viva packs were removed on 2026-10-05; `docs/README.md` says how to read them from git history |
 | `docs/PROJECT-STRUCTURE.md` | This file |
 
 ## 7. DEVOPS / INFRA

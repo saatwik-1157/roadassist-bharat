@@ -32,7 +32,6 @@ document itself — never left to be inferred.
 | Document | What it answers |
 |---|---|
 | [`SWE4004-MAPPING.md`](SWE4004-MAPPING.md) | Module 1–6 mapping and a 21-row cloud-concept audit, each marked IMPLEMENTED / PARTIAL / DESIGN |
-| [`VIVA.md`](VIVA.md) | 56 questions with answers grounded in the code |
 | [`DEMO-SCRIPT.md`](DEMO-SCRIPT.md) | 10-minute demo, every step with a backup that does not fake success |
 | [`CLAIMS-AUDIT.md`](CLAIMS-AUDIT.md) | Every material claim checked against the code that backs it |
 | [`ATTACK-PACK.md`](ATTACK-PACK.md) | The 30/60-second answers, marks-loss analysis, and the five questions most likely to hurt |

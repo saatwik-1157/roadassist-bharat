@@ -84,10 +84,9 @@ GPU**, or the T4 sits idle.
    from ultralytics import YOLO
    YOLO("../runs/yolo11s-multi-rich-gpu/weights/best.pt").export(format="onnx", imgsz=512)
    ```
-3. **Re-measure the claims.** `app/docs/CLAIMS-AUDIT.md` and
-   `docs/verification/CLAIM_VERIFICATION_FINAL.md` both rest on "a trained
+3. **Re-measure the claims.** `app/docs/CLAIMS-AUDIT.md` rests on "a trained
    detector with measured metrics". New training means new numbers, and every
    place quoting them has to change with it.
-4. **Say which model is served.** Both docs say "YOLO11n". A yolo11n run does
+4. **Say which model is served.** Older text says "YOLO11n". A yolo11n run does
    exist, so that is not false — but `serve.py` serves **yolo11s**. Make the docs
    name the one actually deployed.

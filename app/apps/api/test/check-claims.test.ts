@@ -361,7 +361,7 @@ describe("exemptions", () => {
   });
 
   it("claims-check:ignore on the line, including as an HTML comment", () => {
-    passes("docs/demo/x.md", `Footer "${stale(TOTAL)} assertions" <!-- claims-check:ignore: quoted on purpose -->`);
+    passes("docs/x.md", `Footer "${stale(TOTAL)} assertions" <!-- claims-check:ignore: quoted on purpose -->`);
     passes("pages/index.html", `<p>${stale(TOTAL)} assertions</p> <!-- claims-check:ignore: quoted on purpose -->`);
     // A caption that must name a past figure on purpose says so the same way.
     passes("pages/index.html", `${shot(oldCaption)} <!-- claims-check:ignore: a capture of a past run -->`);
@@ -370,11 +370,11 @@ describe("exemptions", () => {
       `<tr><td>Unit</td><td>${stale(SUITE.unit)}</td></tr><!-- claims-check:ignore: a past run --></table>`);
   });
 
-  it("dated evidence and the plan are exempt; living documents are not", () => {
-    assert.ok(isExempt("docs/release/v1.0.md"));
-    assert.ok(isExempt("docs/verification/CLAIM_VERIFICATION_FINAL.md"));
-    assert.ok(isExempt("docs/01-master-roadmap.md"));
+  it("the audit and the superseded first landing page are exempt; living documents are not", () => {
     assert.ok(isExempt("app/docs/CLAIMS-AUDIT.md"));
+    assert.ok(isExempt("site/index.html"));
+    assert.ok(!isExempt("docs/README.md"));
+    assert.ok(!isExempt("docs/TOOLS-AND-SOFTWARE.md"));
     assert.ok(!isExempt("pages/index.html"));
     assert.ok(!isExempt("app/apps/web/layers.html"));
     assert.ok(!isExempt("app/docs/TESTING.md"));

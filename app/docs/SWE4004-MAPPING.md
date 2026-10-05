@@ -52,7 +52,7 @@ position.
 | Topic | Feature | Code | Status |
 |---|---|---|---|
 | Service models | Adapter pattern over SaaS vendors, each with a local fallback | `apps/api/src/providers.ts` | IMPLEMENTED |
-| Deployment models | Public cloud, deployed in Singapore (Render + Neon); Indian data residency is the production target | `render.yaml`, `docs/00-team-charter.md`, ADR-0001 | PARTIAL |
+| Deployment models | Public cloud, deployed in Singapore (Render + Neon); Indian data residency is the production target | `render.yaml`, `app/docs/DEPLOYMENT.md`, ADR-0001 | PARTIAL |
 | Characteristics | Broad network access — one platform, five client types | `apps/web/`, `mobile/`, `/v1/telecom/sms` | IMPLEMENTED |
 | Business drivers | Cost proportionality; the platform runs on zero paid accounts by default | `providers.ts`, `env.ts` | IMPLEMENTED |
 

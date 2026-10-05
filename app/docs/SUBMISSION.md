@@ -22,7 +22,6 @@ Ticked only where the artefact exists **and** has been verified in this session.
 | ✅ | Claims audit | `app/docs/CLAIMS-AUDIT.md` | Every claim checked against the code |
 | ✅ | Presentation | `ppt/RoadAssist-Bharat-FINAL.pptx` | **38 slides**, generated, 0 over-claims |
 | ✅ | Demo script | `app/docs/DEMO-SCRIPT.md` | 10 minutes, every step with a backup |
-| ✅ | Viva questions | `app/docs/VIVA.md` | **56 questions**, grouped, grounded in code |
 | ✅ | Screenshots | `app/docs/screenshots/` | **24 PNGs** captured from the running app |
 | ✅ | Environment example | `app/.env.example` | 141 lines, every variable documented |
 | ✅ | CI pipeline | `.github/workflows/ci.yml` | 21 steps incl. chaos + backup rehearsal |

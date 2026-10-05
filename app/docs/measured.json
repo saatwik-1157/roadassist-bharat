@@ -8,8 +8,8 @@
     "reproduce is an assertion, not a measurement.",
     "",
     "scripts/check-claims.mjs fails the build when a document disagrees with this",
-    "file. docs/release/ and docs/verification/ are exempt: they record what was",
-    "true for a past build, and correcting them would falsify the record."
+    "file. Dated evidence (a record of what was true for a past build) is exempt,",
+    "because correcting it would falsify the record."
   ],
   "measuredOn": "2026-10-05",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",

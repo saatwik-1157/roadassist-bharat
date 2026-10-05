@@ -211,8 +211,9 @@ the workspace-link trap under “Before you trust a green run”. To test a JDK 
 real, pass `-Dorg.gradle.java.home=<path>` and read the `Daemon JVM:` line that
 `./gradlew -version` prints.
 
-**Dated evidence left standing.** `docs/verification/ZERO_TO_RUN_VERIFICATION.md`
-already gave the correct cause — “Java 25 is not supported by Gradle 8.13” — when
+**Dated evidence left standing.** The RC1 clone-to-running verification report
+(`docs/verification/ZERO_TO_RUN_VERIFICATION.md`, removed from the tree on
+2026-10-05 and still in git history) already gave the correct cause — “Java 25 is not supported by Gradle 8.13” — when
 it was written on 2026-09-06. Only the `JAVA_HOME` it suggests has gone stale,
 after Android Studio updated itself on 2026-09-14 and left that JBR with no
-`lib/jvm.cfg`. It is annotated in place, not rewritten.
+`lib/jvm.cfg`. It was annotated in place, not rewritten.

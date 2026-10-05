@@ -35,7 +35,7 @@ import { airQuality } from "./routes/geo.js";
 
 // Re-exported for the live map in server.ts, which labels the same points and
 // must use the same sentence (and, taken from here, adds no line to server.ts
-// that would move the line numbers docs/viva cite into it).
+// that would move the line numbers the documents cite into it).
 export { describePosition };
 
 const ok = <T>(data: T, meta: Record<string, unknown> = {}) => ({ data, meta });

@@ -442,7 +442,6 @@ of them ships to users.
 | **Python 3.12 + venv** | The AI pipeline lives in `ai/.venv` (gitignored) | `ai/` |
 | **python-pptx + Pillow** | Generate the final deck: 38 slides from `ppt/part_final.py` via `python ppt/make_final.py`. Never edit the `.pptx` by hand | `ppt/` |
 | **Microsoft PowerPoint (COM)** | Applies the slide transitions and exports the deck PDF after each build | `ppt/README.md` |
-| **pptxgenjs** | Builds a separate review deck from `measured.json`. It is not declared in any `package.json` | `design/deck/build.js` |
 | **Pillow scripts** | Web-sized thumbnails, the 3D journey scenes and the deck visuals, all built from real screenshots | `pages/build-thumbs.py`, `pages/scenes/`, `ppt/render_visuals.py` |
 | **Blender 5.2** | A headless script models the seven-layer architecture stack (7 layers, 31 parts), exports it as glTF with Draco compression (595 KB, `assets/3d/layers.glb`) for three.js, and renders the still shown before the live scene loads | `design/blender/build_layers.py` |
 | **Figma** | The design boards are written as SVG that Figma imports as editable layers | `design/build_boards.py`, `design/figma/` |
@@ -480,7 +479,7 @@ against the running system, and each one has to fail.
 | Lint | `npm run lint` | ESLint errors |
 | Boundaries | `npm run boundaries` | A module importing another module's internals; an incomplete offline shell; the app shell loading in the wrong order |
 | Claims | `npm run claims` | Any document, deck source or page whose numbers disagree with `app/docs/measured.json` |
-| Citations | `npm run citations` | A `file.ts` line reference in the viva packs that no longer points at real code |
+| Citations | `npm run citations` | A `file.ts` line reference in the documents that no longer points at real code |
 | No LLM | `npm run no-llm` | A language-model SDK in any manifest, or a chat endpoint called from any source file |
 | Residency | `npm run residency` | A page loading a third-party resource; an undeclared server-side host; an analytics or crash-reporting SDK; personal data in a URL |
 | Unit | `npm test` | Any failing unit test |

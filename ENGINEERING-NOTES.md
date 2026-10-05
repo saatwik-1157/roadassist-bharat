@@ -122,8 +122,9 @@ tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
 What went wrong:` followed by the bare version, `25.0.1`, naming nothing. Build
 on JDK 21 — what CI pins (Temurin 21), and the only JDK this is measured on.
 This note used to claim "any JDK 17–25, verified on all three", which JDK 25
-cannot satisfy: it postdates Gradle 8.13, and
-`docs/verification/ZERO_TO_RUN_VERIFICATION.md` had said so all along.
+cannot satisfy: it postdates Gradle 8.13, and the RC1 clone-to-running
+verification report (now in git history only, see `docs/README.md`) had said
+so all along.
 
 **A green Gradle build does not verify the JDK you set.** `JAVA_HOME` loses to
 `org.gradle.java.home` in `~/.gradle/gradle.properties` — machine-local, so it
@@ -308,16 +309,17 @@ for it: `app/docs/CLAIMS-AUDIT.md`. Follow it.
   `app/docs/measured.json` and checks the total, every individual suite, and the
   `npm run … # N` comments the command lists are written as.
 - **A `file.ts:123` in the docs is a claim too.** `npm run citations` checks that
-  every one still resolves. `docs/viva/CODE_TO_VIVA_MAP.md` and
-  `FINAL_PROFESSOR_DEFENSE.md` tell the reader to *open* the file rather than
-  describe it, so a rotted line number is discovered in front of an examiner —
+  every one still resolves. A document that cites code tells the reader to
+  *open* the file rather than describe it, so a rotted line number is
+  discovered in front of an examiner —
   lifting the auth and emergency routes out of `server.ts` shifted ten of them
   and pushed two past the end of the file. After any refactor, re-derive them by
   grepping for the route or the function; never nudge the number.
-- **Dated evidence is not a living document.** `docs/release/` and
-  `docs/verification/` record what was true for a given build. If a figure was
-  *correct when written* and has since changed, annotate — do not rewrite. If it
-  was *wrong when written*, correct it and say so in CLAIMS-AUDIT.
+- **Dated evidence is not a living document.** The v1.0.0-RC1 release and
+  verification reports recorded what was true for one build; they were removed
+  from the tree on 2026-10-05 and stay in git history. If you quote a figure
+  from one, say which build it describes. If it was *wrong when written*, say
+  so in CLAIMS-AUDIT.
 - The decks under `ppt/` are generated: edit `ppt/part_final.py`, then
   `python ppt/make_final.py`. Editing the `.pptx` directly gets overwritten.
   The `.pdf` needs a manual PowerPoint export and goes stale silently.

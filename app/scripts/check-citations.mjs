@@ -13,8 +13,8 @@
  *   server.ts:1265  "POST /v1/bookings/:id/pay"   → a blank line
  *   server.ts:835   "bookingAudience()"           → the middle of an unrelated reduce
  *
- * These live in `docs/viva/CODE_TO_VIVA_MAP.md` and `FINAL_PROFESSOR_DEFENSE.md`,
- * whose whole instruction to the reader is *"open the file, do not describe it"*.
+ * These lived in the viva packs (removed from the tree on 2026-10-05), whose
+ * whole instruction to the reader was *"open the file, do not describe it"*.
  * A stale line number there is found by opening it in front of an examiner.
  *
  * ── what it can and cannot check ───────────────────────────────────────────
@@ -44,8 +44,8 @@ const CITATION = /((?:[\w.-]+\/)+[\w.-]+\.(?:ts|kt|mjs|js|py|sql|kts|xml|html)):
  * gone stale while `npm run citations` stayed green: `server.ts:1434` was
  * cited by two documents as the payment webhook and is the star-rating Zod
  * schema in POST /v1/bookings/:id/review, and `server.ts:1060` was cited as
- * `SELECT … FOR UPDATE` and is a service-types lookup. Both live in the viva
- * packs, whose instruction to the reader is *open the file*.
+ * `SELECT … FOR UPDATE` and is a service-types lookup. Both lived in the viva
+ * packs, whose instruction to the reader was *open the file*.
  *
  * A bare name cannot be resolved reliably — basenames repeat across the four
  * toolchains here — so this does not try. It refuses the SHAPE, and the fix is
@@ -54,10 +54,10 @@ const CITATION = /((?:[\w.-]+\/)+[\w.-]+\.(?:ts|kt|mjs|js|py|sql|kts|xml|html)):
 const BARE_CITATION = /(?:^|[^\w./-])([\w-]+\.(?:ts|kt|mjs|js|py|sql|kts)):(\d+)/g;
 
 /**
- * Dated evidence, the plan, and the superseded deck — the same exemptions
- * `check-claims.mjs` carries, and for the same reason. See its header.
+ * The superseded deck — the same directory exemption `check-claims.mjs`
+ * carries, and for the same reason. See its header.
  */
-const EXEMPT_DIRS = ["docs/release", "docs/verification", "review1-ppt", "review-plan"];
+const EXEMPT_DIRS = ["review1-ppt"];
 const IGNORE_MARK = "citation-check:ignore";
 
 /**

@@ -84,9 +84,8 @@ A four-person team project for **SWE4004: Cloud Computing and Applications**.
 | T. V. S. Jignesh | 24MIC7190 | AI & data services |
 | G. Parthavi | 24MIC7145 | DevOps, QA & cloud security |
 
-The `docs/0X-*-roadmap.md` files are written as four lead roadmaps, because
-that is how the 18-phase plan divides the work. D1 to D4 map onto the four
-members in that order. The repository is pushed from a single account, so
+The 18-phase plan divided the work into four lead workstreams, D1 to D4,
+which map onto the four members in that order. The repository is pushed from a single account, so
 `git log` shows one committer. That reflects how the code reached GitHub, not
 how the work was split.
 
@@ -361,8 +360,8 @@ it regresses.
 *how* each one was obtained. Five gates guard the claims:
 
 - **`npm run claims`** fails when any document disagrees with it.
-- **`npm run citations`** checks that every `file.ts:123` reference in the viva
-  packs still points at real code.
+- **`npm run citations`** checks that every `file.ts:123` reference in the
+  documents still points at real code.
 - **`npm run boundaries`** enforces module boundaries, the offline shell's
   completeness and the app shell's load order.
 - **`npm run no-llm`** keeps a language model out of the system by
@@ -421,7 +420,7 @@ idempotently.
 | [`mobile`](mobile) | Android client | Kotlin, Compose, Gradle 8.13 |
 | [`ai`](ai) | RAKSHA CV pipeline: training, ONNX export, serving | Python 3.12 |
 | [`pages`](pages) | The public showcase site | Static HTML |
-| [`docs`](docs), [`app/docs`](app/docs) | Plan, ADRs, dated evidence, viva packs | n/a |
+| [`docs`](docs), [`app/docs`](app/docs) | Documentation index, ADRs, security, testing, deployment, RAKSHA design | n/a |
 | [`ppt`](ppt) | The deck. It is generated: edit `ppt/part_final.py`, never the `.pptx` | Python |
 
 ---
@@ -467,10 +466,10 @@ latency is measured for a single user on one machine.
 
 ## Documentation
 
-[docs/README.md](docs/README.md) indexes every document and says which are kept
-current and which are dated evidence for a given build. Those two kinds age
-differently, and mixing them up is how a correct figure gets "fixed" into a
-wrong one.
+[docs/README.md](docs/README.md) indexes every document. All of them are kept
+current: if one disagrees with the code, the document is wrong. The old
+planning set, dated release evidence and viva packs were removed on
+2026-10-05 and remain readable from git history; docs/README.md says how.
 
 | Document | Contents |
 |---|---|
@@ -478,14 +477,5 @@ wrong one.
 | [Testing](app/docs/TESTING.md) | Every suite, what it proves, and how to run it |
 | [Deployment](DEPLOYMENT.md) | Render, Neon, Cloudflare, Pages and the one-command demo |
 | [Engineering notes](ENGINEERING-NOTES.md) | Toolchain traps and hard-won facts |
-| [Master Roadmap](docs/01-master-roadmap.md) | All 18 phases: objectives, dependencies, acceptance criteria |
-| [Backend workstream](docs/02-backend-lead-roadmap.md) | Schema (60 tables planned; 56 shipped) <!-- claims-check:ignore -->, booking state machine, dispatch, auth, sync |
-| [Frontend workstream](docs/03-frontend-lead-roadmap.md) | Design system, screens, offline client, maps, accessibility, localisation |
-| [AI workstream](docs/04-ai-lead-roadmap.md) | The 9 planned AI systems with inputs, algorithms, metrics and baselines |
-| [DevOps / QA workstream](docs/05-devops-qa-lead-roadmap.md) | CI/CD, observability, telecom gateway, load and chaos testing, DR |
 | [ADRs](app/docs/adr/) | Thirteen decision records, including the five above |
 | [Claims audit](app/docs/CLAIMS-AUDIT.md) | Every over-claim found, what it was, and what it actually is |
-
-The roadmap documents describe the **plan**, in the present tense, including
-things that were never built. [What runs today](#what-runs-today) is the
-authority on what exists.

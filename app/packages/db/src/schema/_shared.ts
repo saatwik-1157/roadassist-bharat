@@ -1,7 +1,7 @@
 /**
  * Conventions every table in RoadAssist follows.
  *
- * Universal columns (see docs/02-backend-lead-roadmap.md §Phase 3):
+ * Universal columns (from the backend plan, Phase 3):
  *   id          uuid primary key
  *   created_at  timestamptz
  *   updated_at  timestamptz
