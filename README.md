@@ -131,8 +131,8 @@ how the work was split.
 
 **Signing in to the demo.** With no SMS gateway, the server shows the one-time
 code on screen, and only for the published demo numbers: `+917000000000` to
-`+917000009999`, the demo citizen `+919876543210`, and the demo mechanics
-`+919600000000` to `+919600000099`. Any other number is refused with
+`+917000009999` (the demo citizen `+917000009876` is one of them), and the
+demo mechanics `+919600000000` to `+919600000099`. Any other number is refused with
 `demo_number_required`. The admin, RAKSHA officer and listed mechanic accounts
 sign in by emailed code only.
 
@@ -327,7 +327,7 @@ npm start                    # API on :4000, serves every web surface too
 npm run demo:raksha          # second terminal: 65 real YOLO11 detections, positions simulated on NH-48
 ```
 
-Sign in with `+919876543210` (citizen), `+919999900001` (authority) or
+Sign in with `+917000009876` (citizen), `+919999900001` (authority) or
 `+919600000000` (mechanic). In development the server returns the OTP and it
 fills in automatically.
 

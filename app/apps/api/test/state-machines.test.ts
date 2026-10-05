@@ -192,7 +192,7 @@ test("logs never carry credentials, codes or coordinates", () => {
     bookingId: "b1",
     token: "eyJhbGci...", refreshToken: "r", authorization: "Bearer x",
     otp: "000000", code: "123456", signature: "deadbeef",
-    msisdn: "+919876543210", email: "a@b.c",
+    msisdn: "+917000009876", email: "a@b.c",
     lat: 28.4595, lng: 77.0266,
     bloodGroup: "O+", allergies: "penicillin", symptoms: "car wont start",
   }) as Record<string, unknown>;

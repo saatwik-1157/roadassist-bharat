@@ -54,5 +54,5 @@ test("a protected number is refused whenever the phone code is not a random one 
   assert.equal(phoneSignInBlocked("+919999900001", cfg, hiddenButFixed), true,
     "EXPOSE_DEV_OTP=false hides the code, but with no gateway it is still the fixed DEV_OTP");
   assert.equal(phoneSignInBlocked("+919999900001", cfg, delivered), false, "a real SMS gateway delivers the code");
-  assert.equal(phoneSignInBlocked("+919876543210", cfg, shown), false, "unlisted numbers keep the demo path");
+  assert.equal(phoneSignInBlocked("+917000009876", cfg, shown), false, "unlisted numbers keep the demo path");
 });

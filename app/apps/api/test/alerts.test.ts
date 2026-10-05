@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 
 import { AlertGate, maskMsisdn, recipients, type Alert } from "../src/alerts.js";
 
-const NUMBER = "+919876543210";
+const NUMBER = "+917000009876";
 
 function gate(o: Partial<{ signinsPerHour: number; otpBurst: number; otpWindowMs: number }> = {}) {
   const sent: Alert[] = [];
@@ -21,7 +21,7 @@ function gate(o: Partial<{ signinsPerHour: number; otpBurst: number; otpWindowMs
 }
 
 test("a number is masked to its last three digits, at a fixed width", () => {
-  assert.equal(maskMsisdn(NUMBER), "+91 ••••••• 210");
+  assert.equal(maskMsisdn(NUMBER), "+91 ••••••• 876");
   assert.equal(maskMsisdn("+14155550123"), "••••••• 123");
   assert.equal(maskMsisdn("12"), "•••");
 });
@@ -35,7 +35,7 @@ test("no alert ever carries the full number", () => {
   for (let i = 0; i < 3; i++) g.otpFailure(NUMBER);
   for (const a of sent) {
     const text = a.subject + "\n" + a.lines.join("\n");
-    assert.ok(!text.includes("9876543210") && !text.includes("98765"), `${a.kind} leaked the number`);
+    assert.ok(!text.includes("7000009876") && !text.includes("70000"), `${a.kind} leaked the number`);
   }
 });
 

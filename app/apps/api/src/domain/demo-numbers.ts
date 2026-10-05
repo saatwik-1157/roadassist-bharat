@@ -11,8 +11,8 @@
  * development or a test run, the phone path accepts only numbers that are
  * demo numbers by construction:
  *
- *   +91 70000 00000 ... +91 70000 09999   the seeded synthetic citizens
- *   +91 98765 43210                       the documented demo citizen
+ *   +91 70000 00000 ... +91 70000 09999   the seeded synthetic citizens, and
+ *                                         the documented demo citizen inside it
  *   +91 96000 00000 ... +91 96000 00099   the seeded simulated fleet mechanics
  *
  * Hard-coded rather than configurable on purpose: the refusal message quotes
@@ -32,8 +32,15 @@
  */
 import { isLocalEnv } from "./local-env.js";
 
-/** The one documented demo citizen outside the synthetic ranges. */
-export const DEMO_CITIZEN = "+919876543210";
+/**
+ * The documented demo citizen: the number app.html, the request console and
+ * the Android app pre-fill. It sits inside the synthetic citizen range, above
+ * the default seed (SEED_USERS=4000 makes +917000000000..+917000003999), so it
+ * signs in a fresh account. It replaced +919876543210, which looked like a
+ * real person's phone and was accepted here as a one-off exception; that
+ * exception is gone, so no number outside the ranges below is a demo number.
+ */
+export const DEMO_CITIZEN = "+917000009876";
 
 /** Inclusive ranges, as the national-significant number after +91. */
 export const DEMO_RANGES: ReadonlyArray<readonly [number, number]> = [
@@ -50,7 +57,6 @@ export function isDemoNumber(msisdn: string): boolean {
   if (typeof msisdn !== "string") return false;
   const m = E164_IN.exec(msisdn);
   if (!m) return false;
-  if (msisdn === DEMO_CITIZEN) return true;
   const n = Number(m[1]);
   return DEMO_RANGES.some(([lo, hi]) => n >= lo && n <= hi);
 }
@@ -88,7 +94,7 @@ export const DEMO_NUMBER_REQUIRED: PhoneSignInRefusal = {
   status: 403,
   code: "demo_number_required",
   title: "This demo signs in demo numbers only (real SMS is not connected). " +
-    "Use +91 70000 00000 to +91 70000 09999, the demo citizen +91 98765 43210, " +
+    "Use +91 70000 00000 to +91 70000 09999 (the demo citizen is +91 70000 09876), " +
     "or a demo mechanic +91 96000 00000 to +91 96000 00099.",
 };
 

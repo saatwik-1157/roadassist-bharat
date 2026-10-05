@@ -51,7 +51,7 @@ const PRIVILEGED = new Set(["admin", "gov_officer", "authority", "ops", "operato
 const BURST_ALERTS_PER_HOUR = 5;
 
 /**
- * "+919876543210" -> "+91 ••••••• 210". Only the last three digits survive,
+ * "+917000009876" -> "+91 ••••••• 876". Only the last three digits survive,
  * and the mask is a fixed width so it does not give away the length either.
  */
 export function maskMsisdn(msisdn: string): string {

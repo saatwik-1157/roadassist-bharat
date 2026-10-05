@@ -321,7 +321,7 @@ screens.login = () => `
   <h2>Sign in</h2>
   <p class="sub">A one-time code is sent by SMS. In development the code is always 000000 and the API returns it.</p>
   <label for="msisdn">Mobile number</label>
-  <input id="msisdn" value="+919876543210" inputmode="tel">
+  <input id="msisdn" value="+917000009876" inputmode="tel">
   <button class="btn" data-act="send-otp">Send code</button>`;
 
 screens.otp = () => `
@@ -598,7 +598,7 @@ $("clear").addEventListener("click", () => { log.innerHTML = ""; });
 // platform without an app — not the signed-in session in disguise. Drawn from
 // the published demo range (+917000000000-9999): a hosted demo with no signed
 // SMS webhook refuses every other number, so nobody can text as a real phone.
-const fpNumber = "+917000" + String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+const fpNumber = "+91700000" + (9000 + Math.floor(Math.random() * 800)); // demo block, clear of the demo citizen 09876
 const thread = $("fp-thread");
 const bubble = (cls, text) => {
   const p = document.createElement("p");

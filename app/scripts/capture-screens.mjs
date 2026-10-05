@@ -234,10 +234,13 @@ const run = async () => {
     // These screenshots are published. A random 9xxxxxxxxx number could be
     // somebody's real phone, so the account lives in the seed's own demo block
     // (+917000…), fresh per run so the screens still show a new account.
-    // The field is filled BEFORE the sign-in shot: app.html pre-fills it with
-    // +919876543210, a real-looking number that every earlier 01-login.png
-    // published. The shot now shows the number this run actually signs in with.
-    const msisdn = "+9170000" + (10000 + Math.floor(Math.random() * 89999));
+    // The field is filled BEFORE the sign-in shot: app.html pre-fills the demo
+    // citizen +917000009876 (it once pre-filled a real-looking 98765 number,
+    // which every earlier 01-login.png published). The shot shows the number
+    // this run actually signs in with.
+    // Inside the demo block (+91 70000 00000-09999), above the seeded 0000-3999
+    // citizens and below the demo citizen 09876.
+    const msisdn = "+91700000" + (4000 + Math.floor(Math.random() * 5000));
     await page.eval(`
       document.getElementById("a-msisdn").value = ${JSON.stringify(msisdn)}; return true;`);
     await page.shot("01-login", "OTP sign-in — real API, dev OTP returned in the response");
@@ -473,7 +476,7 @@ const run = async () => {
     // The console gets its own shot, captioned as what it actually is.
     await page.goto(`${BASE}/index.html`);
     await sleep(2200);
-    // The console pre-fills the same +919876543210 as app.html; show this
+    // The console pre-fills the same +917000009876 as app.html; show this
     // run's demo-block number instead (see the 01-login step).
     await page.eval(`
       const f = document.getElementById("msisdn");

@@ -1,12 +1,12 @@
-# RoadAssist Bharat 1.0.3 — installing the Android app
+# RoadAssist Bharat 1.0.4 — installing the Android app
 
 | File | What it is |
 |---|---|
-| `RoadAssist-Bharat-1.0.3.apk` | The app, ready to install on a phone (Android 8.0 / API 26 or newer). |
-| `RoadAssist-Bharat-1.0.3.aab` | The same build as an Android App Bundle, the format Google Play takes. It cannot be installed on a phone directly. |
+| `RoadAssist-Bharat-1.0.4.apk` | The app, ready to install on a phone (Android 8.0 / API 26 or newer). |
+| `RoadAssist-Bharat-1.0.4.aab` | The same build as an Android App Bundle, the format Google Play takes. It cannot be installed on a phone directly. |
 
 Both are built from `mobile/` with `gradlew.bat :app:assembleRelease :app:bundleRelease`,
-version 1.0.3 (versionCode 5), package `in.roadassist.app`, and signed with the
+version 1.0.4 (versionCode 6), package `in.roadassist.app`, and signed with the
 RoadAssist Bharat release key (certificate `CN=RoadAssist Bharat, OU=SWE4004,
 O=VIT-AP University, C=IN`, APK Signature Scheme v2 + v3). The binaries are not
 in git; rebuild them from source or take them from whoever holds this folder.
@@ -24,7 +24,7 @@ needs a debug build; see ENGINEERING-NOTES.md, "Reaching the API from the Androi
 
 ## 1. Install the APK on a phone
 
-1. Copy `RoadAssist-Bharat-1.0.3.apk` to the phone (USB cable, Google Drive,
+1. Copy `RoadAssist-Bharat-1.0.4.apk` to the phone (USB cable, Google Drive,
    a messaging app sent to yourself, or a download link).
 2. Allow the app you will open it with to install apps. Android asks the first
    time: tap **Settings** on the prompt, then turn on **Allow from this source**
@@ -84,7 +84,7 @@ Play takes the `.aab`, not the `.apk`.
    current "SMS and Call Log permissions" policy before submitting; if the
    declaration is not accepted, the SMS fallback has to be removed from the
    Play build.
-6. Upload `RoadAssist-Bharat-1.0.3.aab` to an **Internal testing** track first,
+6. Upload `RoadAssist-Bharat-1.0.4.aab` to an **Internal testing** track first,
    add testers by email, and install from the opt-in link. New personal
    developer accounts must also run a closed test with testers for a period
    before production access is granted; follow what Play Console asks for.
@@ -93,10 +93,10 @@ Play takes the `.aab`, not the `.apk`.
 ## 4. Checking a file before you share it
 
 ```
-apksigner verify --print-certs RoadAssist-Bharat-1.0.3.apk
+apksigner verify --print-certs RoadAssist-Bharat-1.0.4.apk
 ```
 
 (`apksigner` is in the Android SDK under `build-tools\<version>\`.) It must say
 `Verifies` and show the `CN=RoadAssist Bharat, OU=SWE4004, O=VIT-AP University, C=IN`
 certificate. Compare the SHA-256 of the file with the one published alongside it
-(`certutil -hashfile RoadAssist-Bharat-1.0.3.apk SHA256` on Windows).
+(`certutil -hashfile RoadAssist-Bharat-1.0.4.apk SHA256` on Windows).

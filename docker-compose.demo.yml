@@ -11,7 +11,7 @@
 # the API is genuinely answering before it says so.
 #
 # Sign in with any of these; the OTP is returned by the API and auto-fills:
-#   +919876543210  citizen      +919999900001  authority      +919600000000  mechanic
+#   +917000009876  citizen      +919999900001  authority      +919600000000  mechanic
 # NODE_ENV=demo otherwise accepts only the demo numbers on the phone path and
 # never an admin or officer (apps/api/src/domain/demo-numbers.ts). The authority
 # signs in here only because this file sets LOCAL_DEMO_PRIVILEGED_OTP below.

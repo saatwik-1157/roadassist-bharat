@@ -33,13 +33,13 @@ describe("decideWebhookIntake — no secret configured", () => {
   });
 
   it("still accepts the published demo numbers, so the demo keeps its feature-phone walkthrough", () => {
-    for (const from of ["+917000000042", "+917000000000", "+917000009999", "+919876543210"]) {
+    for (const from of ["+917000000042", "+917000000000", "+917000009999", "+917000009876"]) {
       assert.deepEqual(decideWebhookIntake(input({ from })), { accept: true, mode: "unsigned_demo_number" }, from);
     }
   });
 
   it("does not stretch the demo range by one", () => {
-    for (const from of ["+917000010000", "+916999999999", "+919876543211"]) {
+    for (const from of ["+917000010000", "+916999999999", "+919876543210", "+919876543211"]) {
       assert.equal(decideWebhookIntake(input({ from })).accept, false, from);
     }
   });

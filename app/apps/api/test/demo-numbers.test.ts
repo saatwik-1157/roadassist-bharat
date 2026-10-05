@@ -36,10 +36,14 @@ describe("isDemoNumber", () => {
     assert.equal(isDemoNumber("+916999999999"), false, "one below the bottom");
   });
 
-  it("accepts the documented demo citizen", () => {
-    assert.equal(DEMO_CITIZEN, "+919876543210");
+  it("accepts the documented demo citizen, which sits inside the synthetic range", () => {
+    assert.equal(DEMO_CITIZEN, "+917000009876");
     assert.equal(isDemoNumber(DEMO_CITIZEN), true);
-    assert.equal(isDemoNumber("+919876543211"), false, "its neighbour is somebody's phone");
+  });
+
+  it("no longer accepts the retired real-looking default +919876543210", () => {
+    assert.equal(isDemoNumber("+919876543210"), false, "it may be somebody's phone");
+    assert.equal(isDemoNumber("+919876543211"), false);
   });
 
   it("accepts the simulated fleet mechanics +919600000000..+919600000099", () => {
@@ -99,7 +103,8 @@ describe("phoneSignInRefusal under NODE_ENV=demo with the demo's policy", () => 
     assert.equal(r?.status, 403);
     assert.equal(r?.code, "demo_number_required");
     assert.match(r!.title, /\+91 70000 00000 to \+91 70000 09999/);
-    assert.match(r!.title, /\+91 98765 43210/);
+    assert.match(r!.title, /\+91 70000 09876/, "the demo citizen is named");
+    assert.doesNotMatch(r!.title, /98765/, "the retired default is not offered");
     assert.match(r!.title, /\+91 96000 00000 to \+91 96000 00099/, "the mechanic range is named too");
   });
 

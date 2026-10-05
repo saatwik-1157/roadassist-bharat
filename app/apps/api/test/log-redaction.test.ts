@@ -14,7 +14,7 @@ import {
 
 describe("maskMsisdn", () => {
   it("keeps the country code and the last four digits only", () => {
-    assert.equal(maskMsisdn("+919876543210"), "+91******3210");
+    assert.equal(maskMsisdn("+917000009876"), "+91******9876");
   });
   it("never reveals a short value", () => {
     assert.equal(maskMsisdn("1234"), "****");
@@ -36,13 +36,13 @@ describe("redactCodes", () => {
     assert.equal(redactCodes("111111 then 222222"), "•••••• then ••••••");
   });
   it("leaves longer digit runs alone — a phone number is not a code", () => {
-    assert.equal(redactCodes("call 9876543210"), "call 9876543210");
+    assert.equal(redactCodes("call 7000009876"), "call 7000009876");
     assert.equal(redactCodes("ref 1234567"), "ref 1234567");
   });
 });
 
 describe("consoleSmsLine", () => {
-  const to = "+919876543210";
+  const to = "+917000009876";
   const body = "Your code is 482913";
 
   it("prints development output exactly as before", () => {
@@ -57,7 +57,7 @@ describe("consoleSmsLine", () => {
       const line = consoleSmsLine(to, body, env);
       assert.ok(!line.includes(to), `${env}: number leaked`);
       assert.ok(!line.includes("482913"), `${env}: code leaked`);
-      assert.ok(line.includes("3210"), `${env}: last four digits should remain for correlation`);
+      assert.ok(line.includes("+91******9876"), `${env}: last four digits should remain for correlation`);
     }
   });
 

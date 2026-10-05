@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="volt">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -75,13 +75,13 @@
     box-shadow: inset -2px -3px 4px rgba(0,0,0,0.35), inset 1px 2px 3px rgba(255,255,255,0.45), var(--shadow-1);
   }
 
-  /* Cluster count bubble */
+  /* Cluster count bubble: lime fill (ds.css :root.volt) with a dark ink ring, or it vanishes on light tiles. */
   .cl {
-    display: flex; align-items: center; justify-content: center; border-radius: 50%;
-    color: var(--brand-ink); font: 700 12px/1 var(--sans);
-    background: radial-gradient(circle at 34% 30%, #fff, #e3b96a 62%, #a8813f);
-    box-shadow: 0 0 0 4px rgba(227,185,106,0.26), var(--shadow-2);
+    display: flex; align-items: center; justify-content: center; border-radius: 50%; color: var(--brand-ink); font: 700 12px/1 var(--sans);
+    background: radial-gradient(circle at 34% 30%, #fff, var(--brand-fill) 62%, color-mix(in srgb, var(--brand-fill) 62%, #000));
+    box-shadow: 0 0 0 1.5px var(--brand-ink), 0 0 0 5px color-mix(in srgb, var(--brand-fill) 30%, transparent), var(--shadow-2);
   }
+  .dot.mech { background: var(--brand-fill); box-shadow: 0 0 0 1.5px var(--brand-ink); }
 
   /* Leaflet chrome, restyled onto the token palette. */
   .leaflet-popup-content-wrapper, .leaflet-popup-tip {
@@ -114,7 +114,7 @@
 <div class="panel badge" id="badge">Loading live map…</div>
 
 <div class="panel legend">
-  <div><span class="dot" style="background:#e3b96a"></span>Verified mechanic</div>
+  <div><span class="dot mech"></span>Verified mechanic</div>
   <div><span class="dot" style="background:#4aa3ff"></span>Responder unit</div>
   <div><span class="dot" style="background:#ff9f43"></span>Road detection · location simulated</div>
   <div><span class="dot" style="background:#ff9f43;box-shadow:0 0 0 2px #fff"></span>Citizen report · phone GPS</div>
@@ -288,16 +288,17 @@
   window.addEventListener("load", fix);
   window.addEventListener("resize", fix);
 
-  function icon(color, glow, size, cls) {
+  function icon(color, glow, size, cls, ring) {   // ring: an outline colour, for a fill too pale to hold on light tiles
     return L.divIcon({ className: "",
       html: '<div class="pin' + (cls ? " " + cls : "") + '" style="background:radial-gradient(circle at 34% 30%,#fff,' + color + ' 60%,' +
-        'color-mix(in srgb,' + color + ' 55%,#000));box-shadow:inset -2px -3px 4px rgba(0,0,0,.4),' +
+        'color-mix(in srgb,' + color + ' 55%,#000));box-shadow:' + (ring ? "0 0 0 2px " + ring + "," : "") + 'inset -2px -3px 4px rgba(0,0,0,.4),' +
         '0 0 10px ' + glow + '"></div>',
       iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
   }
   var SEV = { 1:"#3ddc97",2:"#3ddc97",3:"#ffd166",4:"#ff9f43",5:"#ff4d5a" };
 
   var lastSig = "";   // redraw only when the payload actually changes — no 10s blink
+  var popupOpen = false; map.on("popupopen", function () { popupOpen = true; }).on("popupclose", function () { popupOpen = false; load(); });
 
   /* ── offline map support (ADR-0009) ───────────────────────────────────────
      Every successful load is cached. When a load fails, the last cache is drawn
@@ -410,11 +411,21 @@
       var sig = (snapshotAt ? "snap:" : "live:") +
         d.mechanics.length + ":" + d.responders.length + ":" + d.detections.length +
         "#" + samp(d.mechanics) + "#" + samp(d.detections);
-      if (sig === lastSig) return;
+      var counts = d.mechanics.length + " mechanics · " + d.responders.length +
+        " responders · " + d.detections.length + " detections";
+      document.getElementById("badge").innerHTML = snapshotAt
+        ? offlineBadge(snapshotAt, counts)
+        : "<span class='num'>" + d.mechanics.length + "</span> mechanics · " +
+          "<span class='num'>" + d.responders.length + "</span> responders · " +
+          "<span class='num'>" + d.detections.length + "</span> detections" +
+          "<span class='foot'>around this view · live · auto-refresh" +
+          // Say so when a cap cut the list, rather than let 150 pins pass for all of them.
+          (meta && meta.truncated && meta.truncated.mechanics
+            ? " · nearest " + d.mechanics.length + " mechanics to the centre, zoom in for more" : "") + "</span>";
+      // A rebuild closes an open popup, and that popup's own autoPan is the move that
+      // fetched this: hold the pins while one is open (closing it reloads). Badge above.
+      if (sig === lastSig || popupOpen) return;
       lastSig = sig;
-
-      // The signature guard above means we only reach here when data actually
-      // changed, so a direct rebuild never causes a periodic blink.
       layer.clearLayers();
       cluster.clearLayers();
       mechById = {};
@@ -424,7 +435,7 @@
         // The API's `km` is from the centre of the view it was asked about, so
         // it is only "away" from anyone once the device has said where it is.
         var away = located ? (map.distance(center, [m.lat, m.lng]) / 1000).toFixed(1) + " km from you" : "";
-        L.marker([m.lat, m.lng], { icon: icon("#e3b96a", "rgba(227,185,106,.6)", 18) })
+        L.marker([m.lat, m.lng], { icon: icon("var(--brand-fill)", "color-mix(in srgb,var(--brand-fill) 60%,transparent)", 18, "", "var(--brand-ink)") })
           .bindPopup("<b>" + esc(m.display_name) + "</b><br>★ " + esc(m.rating) + (away ? " · " + esc(away) : "") +
             '<button class="rabook" data-id="' + esc(m.id) + '">Request assistance</button>')
           .addTo(cluster);
@@ -454,17 +465,6 @@
               (x.created_at ? " · " + esc(new Date(x.created_at).toLocaleString()) : "") + "</small>" : ""))
           .addTo(layer);
       });
-      var counts = d.mechanics.length + " mechanics · " + d.responders.length +
-        " responders · " + d.detections.length + " detections";
-      document.getElementById("badge").innerHTML = snapshotAt
-        ? offlineBadge(snapshotAt, counts)
-        : "<span class='num'>" + d.mechanics.length + "</span> mechanics · " +
-          "<span class='num'>" + d.responders.length + "</span> responders · " +
-          "<span class='num'>" + d.detections.length + "</span> detections" +
-          "<span class='foot'>around this view · live · auto-refresh" +
-          // Say so when a cap cut the list, rather than let 150 pins pass for all of them.
-          (meta && meta.truncated && meta.truncated.mechanics
-            ? " · nearest " + d.mechanics.length + " mechanics to the centre, zoom in for more" : "") + "</span>";
   }
 
   // Open on the whole country, then on the user as soon as the device says

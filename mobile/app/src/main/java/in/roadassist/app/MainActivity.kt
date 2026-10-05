@@ -407,7 +407,12 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
     var vehicleId by rememberSaveable { mutableStateOf<String?>(null) }
     var vehicleLabel by rememberSaveable { mutableStateOf<String?>(null) }
     var bookingId by rememberSaveable { mutableStateOf<String?>(null) }
-    var msisdn by rememberSaveable { mutableStateOf("+919876543210") }
+    // Its short reference ("RA4F2A9B1C"), as the booking flow learned it, so
+    // Track can name the booking before its own first read lands. Display only.
+    var bookingRef by rememberSaveable { mutableStateOf<String?>(null) }
+    // A number in the API's demo block (+91 70000 00000-09999), not one that
+    // could belong to a real person. Still an ordinary editable field.
+    var msisdn by rememberSaveable { mutableStateOf("+917000009876") }
     // A mechanic tapped on the live map ("Request assistance"), handed to Book.
     var requestedMechanic by remember { mutableStateOf<JSONObject?>(null) }
     var showReport by rememberSaveable { mutableStateOf(false) }
@@ -431,6 +436,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
             signedIn = false
             tab = 0
             bookingId = null
+            bookingRef = null
             vehicleId = null
             vehicleLabel = null
         }
@@ -683,7 +689,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                 requested = requestedMechanic,
                                 onConsumed = { requestedMechanic = null },
                                 onToast = { toast = it },
-                                onTracked = { id -> bookingId = id; tab = 3 },
+                                onTracked = { id, ref -> bookingId = id; bookingRef = ref; tab = 3 },
                                 onNeedVehicle = { tab = 0 },
                             )
                         }
@@ -691,7 +697,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                         3 -> Box(Modifier.fillMaxSize().background(Bg)) {
                             val id = bookingId
                             if (id == null) EmptyTrack(onBook = { tab = 1 })
-                            else TrackScreen(bookingId = id, onToast = { toast = it })
+                            else TrackScreen(bookingId = id, knownReference = bookingRef, onToast = { toast = it })
                         }
                         else -> Box(Modifier.fillMaxSize().background(Bg)) {
                             MoreScreen(
@@ -701,7 +707,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                     // moved Api.base, and clear() drops the token.
                                     val access = Api.token
                                     val at = Api.base
-                                    Api.clear(); signedIn = false; bookingId = null
+                                    Api.clear(); signedIn = false; bookingId = null; bookingRef = null
                                     sessionScope.launch { Api.logout(access, at) }
                                 },
                             )
@@ -1146,7 +1152,7 @@ private fun EmptyTrack(onBook: () -> Unit) {
                     RaCard(Modifier.fillMaxWidth().padding(top = RaSpace.s3)) {
                         Row(Modifier.padding(CardPad), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text(b.optString("reference"), color = Cream, style = RaType.figures, fontSize = 15.sp)
+                                Text(BookingRef.label(b), color = Cream, style = RaType.figures, fontSize = 15.sp)
                                 b.optString("highwayMarker").takeIf { it.isNotBlank() && it != "null" }?.let {
                                     Text(it, color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 2.dp))
                                 }
@@ -2288,7 +2294,7 @@ private fun BookScreen(
     requested: JSONObject?,
     onConsumed: () -> Unit,
     onToast: (String) -> Unit,
-    onTracked: (String) -> Unit,
+    onTracked: (id: String, reference: String?) -> Unit,
     onNeedVehicle: () -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -2299,6 +2305,7 @@ private fun BookScreen(
     var symptoms by remember { mutableStateOf("") }
     var offers by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
     var bookingId by remember { mutableStateOf<String?>(null) }
+    var bookingRef by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableIntStateOf(0) }
@@ -2391,8 +2398,9 @@ private fun BookScreen(
                             .put("idempotencyKey", "and-" + System.nanoTime()),
                     ).getJSONObject("data")
                     bookingId = b.getString("id")
+                    bookingRef = BookingRef.of(b)
                     notSent = null
-                    onToast("Booking ${b.getString("reference")} — dispatching…")
+                    onToast("Booking ${BookingRef.label(b)} — dispatching…")
                     val d = Api.post("/v1/bookings/${bookingId}/dispatch",
                         JSONObject().put("radiusKm", 30).put("limit", 5)).getJSONObject("data")
                     val arr = d.optJSONArray("offers") ?: JSONArray()
@@ -2530,7 +2538,7 @@ private fun BookScreen(
                                 try {
                                     Api.post("/v1/offers/${o.getString("id")}/accept")
                                     onToast("Assigned to ${m.getString("displayName")}")
-                                    onTracked(bookingId!!)
+                                    onTracked(bookingId!!, bookingRef)
                                 } catch (e: Exception) { onToast(e.message ?: "Failed") }
                                 busy = false
                             }
@@ -2599,12 +2607,15 @@ private val CommandLabels = mapOf(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
+private fun TrackScreen(bookingId: String, knownReference: String?, onToast: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf("…") }
     var commands by remember { mutableStateOf<List<String>>(emptyList()) }
     var invoice by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // The booking's short reference from its own read; the full id below is
+    // only ever sent to the API, never shown (BookingRef).
+    var reference by remember(bookingId) { mutableStateOf<String?>(null) }
     // The first read of the booking can fail (no signal, server asleep). The
     // shimmer used to stand in for as long as status was "…", which after a
     // failure was forever: a loading state that never loads. So the read is
@@ -2620,7 +2631,9 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
         statusFailed = false
         try {
             val r = Api.get("/v1/bookings/$bookingId")
-            status = r.getJSONObject("data").getString("status")
+            val data = r.getJSONObject("data")
+            BookingRef.of(data)?.let { reference = it }
+            status = data.getString("status")
             val next = r.optJSONObject("meta")?.optJSONArray("nextCommands") ?: JSONArray()
             commands = (0 until next.length()).map { next.getString(it) }
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -2634,7 +2647,7 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
         Heading(R.string.head_track_plain, R.string.head_track_italic)
-        Sub("Booking $bookingId")
+        Sub("Booking " + BookingRef.label(reference ?: knownReference, bookingId))
 
         RaCard(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
             Column(Modifier.padding(CardPad)) {

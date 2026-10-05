@@ -267,25 +267,25 @@ const run = async () => {
     const norm = await page.eval(`
       const f = window.__ra.normalizeMsisdn;
       return {
-        plain:     f("9876543210"),
-        spaced:    f("98765 43210"),
-        contact:   f("+91 98765 43210"),
-        stdZero:   f("09876543210"),
-        noPlus:    f("919876543210"),
-        dashed:    f("98765-43210"),
-        canonical: f("+919876543210"),
-        starts5:   f("5876543210"),
-        tooShort:  f("987654321"),
+        plain:     f("7000009876"),
+        spaced:    f("70000 09876"),
+        contact:   f("+91 70000 09876"),
+        stdZero:   f("07000009876"),
+        noPlus:    f("917000009876"),
+        dashed:    f("70000-09876"),
+        canonical: f("+917000009876"),
+        starts5:   f("5000009876"),
+        tooShort:  f("700000987"),
         us:        f("+12025550123"),
       };
     `);
-    check(norm.plain === "+919876543210", "10 digits gets the +91", norm.plain);
-    check(norm.spaced === "+919876543210", "spaces are stripped", norm.spaced);
-    check(norm.contact === "+919876543210", "a pasted contact-card number works", norm.contact);
-    check(norm.stdZero === "+919876543210", "a leading STD zero is dropped", norm.stdZero);
-    check(norm.noPlus === "+919876543210", "91 without the plus works", norm.noPlus);
-    check(norm.dashed === "+919876543210", "dashes are stripped", norm.dashed);
-    check(norm.canonical === "+919876543210", "an already-correct number is unchanged");
+    check(norm.plain === "+917000009876", "10 digits gets the +91", norm.plain);
+    check(norm.spaced === "+917000009876", "spaces are stripped", norm.spaced);
+    check(norm.contact === "+917000009876", "a pasted contact-card number works", norm.contact);
+    check(norm.stdZero === "+917000009876", "a leading STD zero is dropped", norm.stdZero);
+    check(norm.noPlus === "+917000009876", "91 without the plus works", norm.noPlus);
+    check(norm.dashed === "+917000009876", "dashes are stripped", norm.dashed);
+    check(norm.canonical === "+917000009876", "an already-correct number is unchanged");
     check(norm.starts5 === null, "a number starting 5 is still rejected");
     check(norm.tooShort === null, "a 9-digit number is still rejected");
     check(norm.us === null, "a non-Indian number is still rejected");

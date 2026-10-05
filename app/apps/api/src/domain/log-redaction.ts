@@ -16,7 +16,7 @@ export function isDeveloperConsole(nodeEnv: string): boolean {
   return nodeEnv === "development" || nodeEnv === "test";
 }
 
-/** `+919876543210` → `+91******3210`. Anything shorter than five digits is hidden entirely. */
+/** `+917000009876` → `+91******9876`. Anything shorter than five digits is hidden entirely. */
 export function maskMsisdn(msisdn: string): string {
   const digits = msisdn.replace(/\D/g, "");
   if (digits.length < 5) return "****";

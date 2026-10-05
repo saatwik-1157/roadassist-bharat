@@ -347,7 +347,8 @@ Two settings in `render.yaml` are deliberate, and one of them is a door.
 code, so the API returns it in the response. That is what makes the demo usable
 and it also means **anyone with the URL can sign in as any demo-number account
 that is not listed in `EMAIL_SIGNIN`**: `+91 70000 00000` to `+91 70000 09999`,
-`+91 98765 43210` and `+91 96000 00000` to `+91 96000 00099`. Every other
+including the demo citizen `+91 70000 09876`, and `+91 96000 00000` to
+`+91 96000 00099`. Every other
 number answers `403 demo_number_required`, and an admin or RAKSHA officer is
 refused on the phone path whatever its number, so those accounts and the
 listed mechanics can only be entered with a code emailed to their address (see
