@@ -49,7 +49,8 @@ simplification.
 `navigator.onLine` reports whether the OS has a network *interface* — a phone
 camped on a cell with no backhaul says `true`. It is therefore one input among
 several, and it can only ever make the verdict **worse**, never better. The
-decision function is pure and unit-tested (`classifyConnectivity`).
+decision function is pure and unit-tested (`classifyConnectivity`,
+`apps/web/offline-engine.js:194`).
 
 `GET /v1/ping` touches no database; `/health` does. That is what keeps "the
 network is dead" and "the platform is sick" distinguishable from a phone at the
@@ -93,7 +94,8 @@ The phrase *"Emergency services contacted"* appears nowhere in the codebase.
 
 **Encryption.** Payloads are AES-GCM-256 under a **non-extractable** `CryptoKey`
 generated on the device and held in IndexedDB — the browser will use it but will
-not hand its bytes to any script. That protects a copy of the storage taken off
+not hand its bytes to any script (the `false` in the `generateKey` call at
+`apps/web/offline-store.js:188`). That protects a copy of the storage taken off
 the device: a forensic dump, a shared phone, a backup.
 
 It is **not** protection against code running on this origin, which can ask the
@@ -105,8 +107,10 @@ plain-http origin that is not localhost) the store falls back to plaintext and
 The journal has never needed one, so it has never held one.
 
 **Retention:** a synchronised incident is deleted 24 hours after it reaches the
-platform. An unsynchronised one is **never** deleted, at any age — losing
-somebody's emergency to a retention timer is not an acceptable trade.
+platform (`apps/web/offline-store.js:47`). An unsynchronised one is **never**
+deleted, at any age — the purge only touches rows already marked synced
+(`apps/web/offline-store.js:524`). Losing somebody's emergency to a retention
+timer is not an acceptable trade.
 
 ---
 
@@ -121,14 +125,16 @@ Each entry carries an operation id (which *is* the idempotency key), the inciden
 id, a type, a timestamp, the payload, a sync status, a retry count and a SHA-256
 integrity digest.
 
-- `incidents.client_incident_id` is **UNIQUE**, so a retry after a lost
-  response — the normal way retries duplicate things — converges on the incident
-  it already created rather than raising a second emergency.
-- Retries use exponential backoff with **full jitter**, so a convoy leaving a
-  tunnel does not stampede the platform in the same second.
+- `incidents.client_incident_id` is **UNIQUE** (`packages/db/src/schema/ops.ts:58`),
+  so a retry after a lost response — the normal way retries duplicate things —
+  converges on the incident it already created rather than raising a second
+  emergency.
+- Retries use exponential backoff with **full jitter**
+  (`apps/web/offline-engine.js:324`), so a convoy leaving a tunnel does not
+  stampede the platform in the same second.
 - Entries are never dropped. Past the automatic retry ceiling the record stays
   for a manual "Sync now".
-- The integrity digest is **evidence, not authorisation**: it proves the payload
+- The integrity digest (`apps/web/offline-engine.js:296`) is **evidence, not authorisation**: it proves the payload
   the server received is the one the device wrote, catching a truncated record.
   It proves nothing about who wrote it — that is the access token's job, and the
   server re-validates every field regardless.
@@ -136,14 +142,16 @@ integrity digest.
 **Syncing records an incident; it does not alert anybody.** Escalation stays an
 explicit `POST /v1/sos/:id/confirm`, called as a visible step of the reconnection
 flow. An incident that may be hours old must not silently SMS a family at 3am.
+`POST /v1/sos/offline-sync` sends nothing, and its answer says so
+(`apps/api/src/routes/emergency.ts:828`).
 
 ## Conflicts
 
 Booking status is server-authoritative. A device that left the network at
 `EN_ROUTE` and reconnects after the mechanic marked `ARRIVED` does not overwrite
 the newer state: the operation is refused, written to `conflict_log` with the
-rule that fired (`server_wins`), and the device is handed the authoritative value
-in the same response.
+rule that fired (`server_wins`, `apps/api/src/server.ts:1569`), and the device
+is handed the authoritative value in the same response.
 
 ---
 
@@ -170,4 +178,5 @@ body is GSM 03.38 only and fits one 160-character SMS. Android takes the RFC
 5724 form `sms:?body=…`; iOS Messages takes `sms:&body=…`, so the page picks the
 form from the user agent (an iPad that reports itself as a Mac is told apart by
 its touch points). The number list is shared with the Android client
-(`EmergencyNumbers.kt`), and a unit test fails if the two lists diverge.
+(`EmergencyNumbers.kt`), and a unit test fails if the two lists diverge
+(`apps/api/test/emergency-numbers.test.ts:157`).

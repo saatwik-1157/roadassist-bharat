@@ -44,7 +44,7 @@ expected outcome of each, and times it. It fails if any beat fails.
 
 | Suite | Assertions | What it exists for |
 |---|---|---|
-| `npm test` (node:test) | **462** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's. Six more are skipped, not counted: the least-privilege role test (`packages/db/test/least-privilege.test.ts`) needs a database with the role applied and runs only when `LEAST_PRIVILEGE_DB_URL` points at it. |
+| `npm test` (node:test) | **462** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's (`apps/api/test/offline-engine.test.ts:58`). Six more are skipped, not counted: the least-privilege role test (`packages/db/test/least-privilege.test.ts`) needs a database with the role applied and runs only when `LEAST_PRIVILEGE_DB_URL` points at it. |
 | `scripts/e2e-journey.mjs` | **249** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. 249 with the database photo store (`PHOTO_STORE=db`, as CI and the hosted demo run it); a disk-store server skips §29 and gives 238. |
 | `scripts/concurrency-test.mjs` | **92** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
 | `scripts/gateway-security-test.mjs` | **58** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |
@@ -54,15 +54,24 @@ expected outcome of each, and times it. It fails if any beat fails.
 
 ## Verified against the production image, not just the source
 
-Every integration suite has been run against the container built by
-`app/Dockerfile`, not only against `tsx` on the source tree:
+The integration suites have been run against the container built by
+`app/Dockerfile`, not only against `tsx` on the source tree. **This is a dated
+record, not the current figures:** it was measured on 2026-09-06 for
+v1.0.0-RC1, at commit `01b9ec2`, when the source suites were e2e 189,
+concurrency 65, gateway 26 and browser 163. The current per-suite counts are in
+[`measured.json`](measured.json) and the table above; they have not been
+re-run against the image since.
 
 ```
-E2E vs container image          194 passed, 0 failed
+E2E vs container image          189 passed, 0 failed
 Concurrency vs container image   64 passed, 0 failed
 Gateway vs container image       26 passed, 0 failed
 Browser vs container image      163 passed, 0 failed
 ```
+
+The E2E row was later edited to 191 (`6692237`, 2026-09-25) and 194
+(`21a99f9`, 2026-09-27) to follow the source suite, with no container run
+recorded in either commit; it is restored here to the 189 that was measured.
 
 This is the check that caught a real packaging bug: `UPLOAD_DIR` defaulted to a
 path inside the read-only application directory, so photo upload failed with
@@ -77,8 +86,9 @@ had nobody left and the race tests had nothing to race.
 
 `concurrency-test.mjs` releases each provider as soon as the section that
 borrowed them is finished, sweeps up at the end, and — via
-`unhandledRejection` / `uncaughtException` handlers — releases them even when
-the run dies. Without that last part, one failed run poisoned every run after it.
+`unhandledRejection` / `uncaughtException` handlers
+(`scripts/concurrency-test.mjs:159`) — releases them even when the run dies.
+Without that last part, one failed run poisoned every run after it.
 
 ## What is deliberately not covered
 
@@ -135,14 +145,14 @@ enforce is a suggestion.
 | `check-boundaries.mjs` rule 3 | **A cached page loading a script, stylesheet, font sheet, manifest or icon that is not itself cached.** Off-Grid Mode fails in the quietest possible way — the page boots, one file is missing, the feature is gone. It caught `i18n.js`: `app.html` loaded it, `SHELL_ASSETS` did not list it, and every off-grid user silently fell back to English. The rule originally checked only `<script src>`, which left the identical failure open one tag along — an uncached stylesheet boots off-grid with no styling and logs nothing |
 | `check-boundaries.mjs` rule 4 | **The app shell losing the load order it assumes.** `app.html` carries the whole citizen app in one inline IIFE and says so in a comment: *this file is one classic script and stays that way*. That is not style, it is load order — a `<script type="module">` is DEFERRED and runs after every classic script, which is why Off-Grid Mode is reached through a dynamic `import()` rather than a module tag. Convert the block to a module and the app still loads, simply in a different order, and the failure surfaces as Off-Grid Mode being absent rather than as an error. The rule refuses a module tag on any cached page, refuses the shell being unwrapped from its IIFE, and holds each cached page to a recorded line ceiling so growth is a decision rather than a drift |
 | `check-claims.mjs` | A number in the documents disagreeing with `docs/measured.json`. The same figure went stale in twenty-odd files three separate times before this existed. It gates the total, each individual suite, and the `npm run … # N` comments the command lists are written as — the per-suite numbers were ungated at first and drifted while the total beside them stayed right |
-| `check-citations.mjs` | A `file.ts:123` in the documents that no longer points at code. It also refuses the two shapes it used to be blind to — a citation written with no path (`server.ts:1431`), and a shorthand continuation (`audit.ts:83` / `` `:122` ``) — which is where three rotted ones survived while the check stayed green, one of them pointing two viva packs at a star-rating schema when they claimed payment verification. The viva packs tell the reader to *open* the file, so a rotted line number is found in front of an examiner — lifting the auth and emergency routes out of `server.ts` shifted ten citations and pushed two past the end of the file | <!-- citation-check:ignore: the two citations named here are the ROTTED ones, quoted to explain the rule -->
+| `check-citations.mjs` | A `file.ts:123` in the documents that no longer points at code. It also refuses the two shapes it used to be blind to — a citation written with no path (`server.ts:1431`), and a shorthand continuation (`audit.ts:83` / `` `:122` ``) — which is where three rotted ones survived while the check stayed green, one of them pointing two viva packs at a star-rating schema when they claimed payment verification. Lifting the auth and emergency routes out of `server.ts` shifted ten citations and pushed two past the end of the file. The citations now live in SECURITY.md, OFFLINE.md, this file and ADR-0005. **Finding none fails too**: when the viva packs left the tree the check printed "0 code citations still resolve" and passed, verifying nothing; a tree with genuinely no citations has to say so with `--allow-none` | <!-- citation-check:ignore: the two citations named here are the ROTTED ones, quoted to explain the rule -->
 
 Every one of them was mutation-tested — the rule was broken on purpose and the
 build failed — because a check that has never failed has not been shown to work.
 For `check-claims.mjs` that meant faking a suite size in `measured.json` and
 confirming it fails on both the prose and the `npm run … # N` forms; for
 `check-citations.mjs`, nudging one citation past the end of its file and another
-onto a blank line.
+onto a blank line, and running it on the tree with no citations, which fails.
 
 ---
 

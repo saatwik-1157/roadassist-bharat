@@ -1302,7 +1302,8 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
             }
         }
 
-        // Emergency contacts — who gets alerted when you confirm an SOS.
+        // Emergency contacts — who is texted when you confirm an SOS. The sub-line
+        // says the demo server only logs that SMS (smsLive: false), as the web does.
         RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4)) {
             Column(Modifier.padding(CardPad)) {
                 Text(stringResource(R.string.emergency_contacts), color = Cream, style = RaType.title)
@@ -2040,9 +2041,24 @@ private fun HomeScreen(
                 val result = Emergency.raise(app, pos) { ref ->
                     val raised = Api.post("/v1/sos", SosPosition.apiBody(pos, ref)).getJSONObject("data")
                     val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
-                    val responder = c.optJSONObject("nearestResponder")?.optString("name") ?: "—"
                     val where = if (raised.optBoolean("locationKnown", pos is SosPosition.Located)) "real GPS" else "location unknown"
-                    "Escalated ($where) · contacts ${c.optInt("contactsAlerted")} · $responder · ${c.optInt("elapsedMs")} ms"
+                    // Worded like the web's step list: contacts are "alerted" only
+                    // when the server says SMS is live (smsLive; the console
+                    // provider only logs), and a unit is "alerted" only when
+                    // respondersNotified > 0 — otherwise it was located, not contacted.
+                    val n = c.optInt("contactsAlerted")
+                    val contacts = when {
+                        n == 0 -> "contacts 0 alerted"
+                        c.optBoolean("smsLive", false) -> "contacts $n alerted"
+                        else -> "contacts $n logged, not sent"
+                    }
+                    val unit = c.optJSONObject("nearestResponder")?.optString("name")
+                    val responder = when {
+                        unit == null -> "no unit in range"
+                        c.optInt("respondersNotified") > 0 -> "$unit alerted"
+                        else -> "$unit located, not contacted"
+                    }
+                    "Escalated ($where) · $contacts · $responder · ${c.optInt("elapsedMs")} ms"
                 }
                 val line = when (result.rung) {
                     SosLadder.Rung.DATA -> "✓ ONLINE — ${result.detail}"
@@ -2088,9 +2104,12 @@ private fun HomeScreen(
                 },
                 text = {
                     Text(
-                        "Your emergency contacts and the nearest responder will be alerted with " +
-                            "your location. Cancel now if this was a mistake — a false alarm costs " +
-                            "a responder a real journey.",
+                        // No smsLive yet: the countdown runs before anything is
+                        // raised, so this says what the server does, not that
+                        // anyone will be reached (the web's sos.grace.logged).
+                        "At zero, RoadAssist texts your emergency contacts and looks for the " +
+                            "nearest responder unit, with your location. On this demo server SMS " +
+                            "is only logged, not sent. Cancel now if this was a mistake.",
                         color = Muted, style = RaType.label, lineHeight = 19.sp,
                     )
                 },

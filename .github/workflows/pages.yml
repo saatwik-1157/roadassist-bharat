@@ -142,6 +142,13 @@ jobs:
           fi
           echo "  clean - every asset is served from this origin"
 
+      # Pages cannot send headers, so the page's CSP is a <meta> that allows each
+      # inline script and the <style> block by its SHA-256. An edit that moves
+      # a hash without updating the meta ships a page the browser refuses to
+      # run - silently, apart from the console. Fix: python pages/csp-hashes.py --write
+      - name: CSP hashes match the inline code
+        run: python3 pages/csp-hashes.py _site/index.html
+
       - name: Every referenced asset must exist
         run: |
           fail=0

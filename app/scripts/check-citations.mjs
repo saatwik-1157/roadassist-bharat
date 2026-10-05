@@ -16,6 +16,16 @@
  * These lived in the viva packs (removed from the tree on 2026-10-05), whose
  * whole instruction to the reader was *"open the file, do not describe it"*.
  * A stale line number there is found by opening it in front of an examiner.
+ * The citations now live in the technical docs — app/docs/SECURITY.md,
+ * OFFLINE.md, TESTING.md and the ADRs — for the same reader.
+ *
+ * ── zero is a failure ──────────────────────────────────────────────────────
+ * When the viva packs left, every citation left with them and this printed
+ * "✓ 0 code citations still resolve" — green, and checking nothing. A gate
+ * that verifies nothing is a silent success, so finding no citation at all
+ * now fails. If a tree genuinely has none, say so on the command line:
+ *
+ *   node scripts/check-citations.mjs --allow-none
  *
  * ── what it can and cannot check ───────────────────────────────────────────
  * It cannot know that line 719 is `bookingAudience`. It can know that the file
@@ -53,11 +63,6 @@ const CITATION = /((?:[\w.-]+\/)+[\w.-]+\.(?:ts|kt|mjs|js|py|sql|kts|xml|html)):
  */
 const BARE_CITATION = /(?:^|[^\w./-])([\w-]+\.(?:ts|kt|mjs|js|py|sql|kts)):(\d+)/g;
 
-/**
- * The superseded deck — the same directory exemption `check-claims.mjs`
- * carries, and for the same reason. See its header.
- */
-const EXEMPT_DIRS = ["review1-ppt"];
 const IGNORE_MARK = "citation-check:ignore";
 
 /**
@@ -116,7 +121,6 @@ let checked = 0;
 
 for (const file of markdownFiles(ROOT)) {
   const rel = relative(ROOT, file).replaceAll("\\", "/");
-  if (EXEMPT_DIRS.some((d) => rel.startsWith(d))) continue;
 
   const text = readFileSync(file, "utf8");
   const lines = text.split(/\r?\n/);
@@ -215,6 +219,16 @@ if (problems.length) {
   console.error(
     "Re-derive them by grepping for the route or the function — never by nudging\n" +
     "the number. A line that merely exists is not the line that was meant.\n",
+  );
+  process.exit(1);
+}
+
+if (checked === 0 && !process.argv.includes("--allow-none")) {
+  console.error(
+    "✗ found no code citations to check, so this gate verified nothing.\n\n" +
+    "  The documents are expected to cite code as path/to/file.ts:123 (see\n" +
+    "  app/docs/SECURITY.md). If they were removed on purpose, pass --allow-none;\n" +
+    "  if not, the scan or the citation pattern stopped matching them.\n",
   );
   process.exit(1);
 }

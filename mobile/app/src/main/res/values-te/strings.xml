@@ -37,7 +37,7 @@
     <string name="my_reports">మీ ప్రమాద నివేదికలు</string>
     <string name="my_reports_sub">ప్రతి నివేదికను అధికారి సమీక్షించే స్థితి చూడండి.</string>
     <string name="emergency_contacts">అత్యవసర పరిచయాలు</string>
-    <string name="emergency_contacts_sub">మీరు SOS ధృవీకరించినప్పుడు వీరికి మీ లైవ్ లొకేషన్ పంపబడుతుంది.</string>
+    <string name="emergency_contacts_sub">మీరు SOS ధృవీకరించినప్పుడు వీరికి ప్రాధాన్య క్రమంలో ఆటోమేటిక్‌గా SMS వెళ్తుంది. ఈ డెమో సర్వర్‌లో SMS లాగ్ మాత్రమే అవుతుంది, పంపబడదు.</string>
     <string name="emergency_contacts_empty">ఇంకా ఎవరూ లేరు — SOS ఎవరికైనా చేరేలా ఒకరిని జోడించండి.</string>
     <string name="action_add_contact">పరిచయం జోడించు</string>
     <string name="field_contact_name">పరిచయం పేరు</string>

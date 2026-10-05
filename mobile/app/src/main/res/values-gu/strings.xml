@@ -37,7 +37,7 @@
     <string name="my_reports">તમારા જોખમ અહેવાલ</string>
     <string name="my_reports_sub">દરેક અહેવાલની અધિકારી પાસેની સ્થિતિ જુઓ.</string>
     <string name="emergency_contacts">કટોકટી સંપર્કો</string>
-    <string name="emergency_contacts_sub">તમે SOS પાકો કરો ત્યારે આમને તમારું જીવંત લોકેશન મોકલાશે.</string>
+    <string name="emergency_contacts_sub">તમે SOS પાકો કરો ત્યારે આમને પ્રાથમિકતાના ક્રમમાં આપમેળે SMS જાય છે. આ ડેમો સર્વર પર SMS ફક્ત લૉગ થાય છે, મોકલાતો નથી.</string>
     <string name="emergency_contacts_empty">હજી કોઈ નથી — એક ઉમેરો જેથી SOS કોઈ સુધી પહોંચે.</string>
     <string name="action_add_contact">સંપર્ક ઉમેરો</string>
     <string name="field_contact_name">સંપર્કનું નામ</string>

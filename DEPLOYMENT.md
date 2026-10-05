@@ -417,8 +417,9 @@ Hosting the surfaces there and the API elsewhere would also split what ADR-0001
 deliberately keeps in one process, adding a CORS boundary and a second
 deployment unit in exchange for nothing — and the API would still need a home.
 
-[`fly.toml`](fly.toml) is a ready alternative to Render; both run the same
-image, so nothing about the application changes between them.
+The project deploys to Render (Docker, Singapore) over Neon, and nowhere else.
+An unused Fly.io config (`fly.toml`) was removed on 2026-10-05; see git history
+at 3d0340b.
 
 ## Checking a deployment
 

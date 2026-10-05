@@ -181,7 +181,7 @@ page makes a visitor's browser contact a third party (enforced by
 | Gradle (wrapper) | 8.13 | The build tool. Must run on **JDK 21**: Gradle 8.13 rejects JDK 25 (ENGINEERING-NOTES.md) |
 | Java target | 17 (`sourceCompatibility`, `jvmTarget`) | Bytecode level of the app |
 | Android SDK | `compileSdk` 36, `targetSdk` 36, `minSdk` 26 | Runs on Android 8.0 and newer; built and targeted for Android 16 |
-| App version | `versionName` 1.0.5, `versionCode` 7 | The release published as `android-v1.0.5` on GitHub Releases |
+| App version | `versionName` 1.0.6, `versionCode` 8 | The release published as `android-v1.0.6` on GitHub Releases |
 | Jetpack Compose | BOM 2024.09.03; `ui`, `foundation`, `material3` | The user interface |
 | androidx.activity:activity-compose | 1.9.2 | Hosts Compose in the activity |
 | androidx.lifecycle:lifecycle-runtime-ktx | 2.8.6 | Lifecycle-aware coroutines |
@@ -201,7 +201,7 @@ repository (`RA_SIGNING_PROPS`, or a folder beside the repository; neither the
 keystore nor its properties file is committed). Its certificate SHA-256 is
 `f602bb634f6e5dfc76752aec42ac36bf1a35c081a1f04b545e3ab107dcf84359`, and the
 signed APKs are published as GitHub Releases tagged `android-vX.Y.Z` (latest
-`android-v1.0.5`; install and verification steps in `release/INSTALL.md`). A
+`android-v1.0.6`; install and verification steps in `release/INSTALL.md`). A
 machine without the key, such as CI, still builds a release APK but signs it
 with the debug key and prints a warning: that APK installs for a demo and can
 never update, or stand in for, the published release. The app is not on a
@@ -293,15 +293,15 @@ tests every change automatically.
 | **Neon** | Managed PostgreSQL 16 + PostGIS, Singapore (`ap-southeast-1`), TLS required. The direct (not pooled) connection string is used, because migrations and live streams need a real session | Set by hand as `DATABASE_URL` in Render; never committed | `IMPLEMENTED` (live) |
 | **Least-privilege database role** | `roadassist_app` can read and write rows only: no `CREATE`, `TRUNCATE` or ownership, and only `SELECT`/`INSERT` on `audit_log`. Migrations run as the owner through `MIGRATION_DATABASE_URL`, which `docker-start.sh` uses for the migrate step and then removes | `app/packages/db/sql/least-privilege-role.sql`, DEPLOYMENT.md | `IMPLEMENTED` (live since 5 Oct 2026): Render's `DATABASE_URL` is the `roadassist_app` string, and the live database's `pg_stat_activity` shows the service connected as `roadassist_app` |
 | **Cloudflare** | The edge in front of Render. It is Render's, not a separate account: `app` is a CNAME to Render, and Render serves custom domains through Cloudflare. Visitors' HTTPS ends here, and the API takes the caller's address from `CF-Connecting-IP`, which a caller cannot forge | `CLIENT_IP_HEADER=cf-connecting-ip`, `TRUST_PROXY=true` (`render.yaml`) | `IMPLEMENTED` (live) |
-| **Hostinger** | Where the domain and its DNS are managed (Hostinger's nameservers). DEPLOYMENT.md §3 adds the `app` CNAME and the Resend DKIM/SPF records there, and switching to the AWS kit is an edit to that same `app` record | DNS records | `IMPLEMENTED` |
+| **Hostinger** | Where the domain and its DNS are managed (Hostinger's nameservers). DEPLOYMENT.md §3 adds the `app` CNAME and the Resend DKIM/SPF records there | DNS records | `IMPLEMENTED` |
 | **GitHub Pages** | Hosts the static showcase. Built and checked by `pages.yml`, which fails if the page loads anything from another origin | `.github/workflows/pages.yml`, `pages/` | `IMPLEMENTED` (live) |
 | **GitHub Container Registry (GHCR)** | Stores the published image `ghcr.io/saatwik-1157/roadassist-bharat`, tagged by branch, version and commit SHA so a bad deploy can roll back to a known image | `.github/workflows/publish-image.yml` | `IMPLEMENTED` |
 | **GitHub Actions** | Runs the checks and publishing (table below) | `.github/workflows/*.yml` | `IMPLEMENTED` |
-| **UptimeRobot** | An uptime monitor that pings the platform. Its settings live in the UptimeRobot dashboard, not in the repository; `deploy/aws/README.md` is the only file that names it | UptimeRobot dashboard | `IMPLEMENTED` (configured outside the repo) |
+| **UptimeRobot** | An uptime monitor that pings the platform. Its settings live in the UptimeRobot dashboard, not in the repository, and no file in the repository configures it | UptimeRobot dashboard | `IMPLEMENTED` (configured outside the repo) |
 | **Resend** | Sends operator alert emails and email sign-in codes from the verified domain `send.roadassistbharat.online` | `EMAIL_PROVIDER=http`, `EMAIL_BASE_URL=https://api.resend.com/emails` | `IMPLEMENTED` (live) |
 | **Google Search Console** | Both sites are verified URL-prefix properties and both sitemaps are submitted (done 2026-09-30). The verification files `googlee923ee0decf8e5e0.html` must not be deleted | DEPLOYMENT.md, "Search engines" | `IMPLEMENTED` |
-| **Fly.io** | A ready alternative to Render that runs the same image, region Mumbai (`bom`) | `fly.toml` | `PREPARED`, not live |
-| **AWS (free plan)** | One EC2 `t3.micro` (Amazon Linux 2023, Singapore) running the same GHCR image with **Caddy 2** as the HTTPS origin, against the same Neon database. Switching is one DNS edit at Hostinger. The kit's Caddy uses its internal certificate and expects a Cloudflare proxy in SSL mode "Full" in front; the Cloudflare edge the live site has is Render's and does not follow the record to EC2, so that has to be provided first (see `deploy/aws/README.md`) | `deploy/aws/README.md`, `user-data.sh`, `env.example` | `PREPARED`, not live |
+
+An AWS kit was drafted and removed on 2026-10-05 because it assumed a Cloudflare proxy the project doesn't have; see git history at 3d0340b. An unused Fly.io config (`fly.toml`) was removed the same day.
 
 ### GitHub Actions workflows
 
@@ -595,14 +595,12 @@ which is fine for a demo but not for real emergencies.
 |---|---|---|
 | Render | Free web service | Sleeps after **15 minutes** idle and takes about a minute to wake. 750 instance hours a month per workspace; one service awake all month is about 720 to 744, so `keep-awake.yml` fits only while it is the only free service. The disk is ephemeral (persistent disks need a paid instance), so hazard photos are kept in the database instead ([ADR-0013](../app/docs/adr/0013-hazard-photos-in-the-database.md)) |
 | Neon | Free | 0.5 GB storage, roughly 750 hazard photos at the 600 KiB cap |
-| Cloudflare | No account of the project's own | The edge in front of the live site comes with Render. The AWS kit would need a Cloudflare zone of its own, on the free plan (`deploy/aws/README.md`) |
+| Cloudflare | No account of the project's own | The edge in front of the live site comes with Render |
 | GitHub (repository, Actions, Pages, GHCR) | No paid plan is referenced anywhere in the repository; the repository and the image are public | Scheduled runs may be delayed under load, so keep-awake means "usually awake" |
 | Resend | Free | The free sender delivers only to the account's own address; a verified domain (`send.roadassistbharat.online`) lifts that |
 | UptimeRobot | Not recorded in the repository | |
 | Open data services (OSM, Nominatim, Overpass, OSRM, Open-Meteo, USGS) | No account or key | Fair use: paced to about one request a second and cached. The OSRM server is a demo router |
 | Domain `roadassistbharat.online` | Registered and managed at Hostinger | The price is not recorded in the repository |
-| AWS (`PREPARED`, not live) | Free plan for accounts created since 15 July 2025 | Up to **US$200** in credits (US$100 at sign-up and up to US$100 more), valid for **6 months** or until the credits run out; then the account must upgrade or AWS closes it. Estimated running cost about US$14 a month (t3.micro about US$10, public IPv4 about US$3.60, 8 GB disk about US$0.80) |
-| Fly.io (`PREPARED`, not live) | Not recorded | |
 
 **The cost of free, said plainly:** a free service that sleeps after 15 minutes
 and takes about a minute to wake is fine for a demo and not fine for the emergency
@@ -659,11 +657,11 @@ for the architecture (DEPLOYMENT.md, `render.yaml`).
 ---
 
 *Sources: `README.md`, `DEPLOYMENT.md`, `ENGINEERING-NOTES.md`, `render.yaml`,
-`fly.toml`, `app/Dockerfile`, `app/docker-start.sh`, `app/package.json`,
+`app/Dockerfile`, `app/docker-start.sh`, `app/package.json`,
 `app/package-lock.json`, `app/docs/measured.json`, `app/docs/SECURITY.md`,
 `app/docs/TESTING.md`, `app/scripts/check-data-residency.mjs`,
 `.github/workflows/*.yml`, `mobile/build.gradle.kts`,
 `mobile/app/build.gradle.kts`, `mobile/gradle/wrapper/gradle-wrapper.properties`,
 `ai/README.md`, `ai/requirements.txt`, `ai/requirements-serve.txt`,
-`docs/raksha/05-dataset-license-verification.md`, `deploy/aws/`,
+`docs/raksha/05-dataset-license-verification.md`,
 `design/`. Written 2026-10-05.*

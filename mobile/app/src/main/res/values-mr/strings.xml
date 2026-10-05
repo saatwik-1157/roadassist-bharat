@@ -37,7 +37,7 @@
     <string name="my_reports">तुमचे धोका अहवाल</string>
     <string name="my_reports_sub">प्रत्येक अहवालाची अधिकाऱ्यांकडील स्थिती पहा.</string>
     <string name="emergency_contacts">आणीबाणी संपर्क</string>
-    <string name="emergency_contacts_sub">SOS निश्चित केल्यावर यांना तुमचे थेट लोकेशन पाठवले जाईल.</string>
+    <string name="emergency_contacts_sub">SOS निश्चित केल्यावर यांना प्राधान्यक्रमाने आपोआप SMS जातो. या डेमो सर्व्हरवर SMS फक्त लॉग होतो, पाठवला जात नाही.</string>
     <string name="emergency_contacts_empty">अजून कोणी नाही — एक जोडा जेणेकरून SOS कोणापर्यंत पोहोचेल.</string>
     <string name="action_add_contact">संपर्क जोडा</string>
     <string name="field_contact_name">संपर्काचे नाव</string>

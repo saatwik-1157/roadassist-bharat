@@ -484,7 +484,14 @@ async function main() {
 
   console.log(`✓ seeded in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   console.log(`  tables: ${tables}   approx rows: ${totalRows}`);
-  console.log(`  demo login: +917000000000  (any OTP in dev)`);
+  // The documented demo citizen (DEMO_CITIZEN in apps/api/src/domain/demo-numbers.ts).
+  // The default SEED_USERS=4000 seeds +917000000000..+917000003999, below it,
+  // so the account is made by its first sign-in. With SMS_PROVIDER=console the
+  // code is DEV_OTP (000000 unless set), shown on screen while EXPOSE_DEV_OTP is on.
+  const demoCitizenSeeded = USERS > 9876;
+  console.log(`  demo login: the demo citizen +917000009876` +
+              ` (${demoCitizenSeeded ? "seeded" : "created on first sign-in"};` +
+              ` code DEV_OTP, 000000 by default, with SMS_PROVIDER=console)`);
 }
 
 main()

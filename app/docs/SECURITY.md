@@ -34,12 +34,26 @@ The OTP ceilings are counted in **Postgres**, not in process memory. That is
 deliberate: credential stuffing is the one attack where a per-instance ceiling
 would be worth nothing.
 
+**In the code** (paths from `app/`, checked by `npm run citations`):
+
+- The code is stored only as its hash: `apps/api/src/routes/auth.ts:102`.
+- Both ceilings and the insert are one step under two advisory locks — per
+  number at `apps/api/src/auth.ts:450`, per IP at `:451`.
+- A guess spends an attempt **before** the compare, in one conditional UPDATE
+  (`apps/api/src/routes/auth.ts:179`); the compare is constant-time
+  (`apps/api/src/routes/auth.ts:187`), and the consume just below it is
+  conditional, so two correct submissions cannot both get a session.
+- Rotation is `rotateSession()` at `apps/api/src/auth.ts:165`. The claim is the
+  conditional UPDATE at `apps/api/src/auth.ts:216`, so of two simultaneous
+  presentations of one token exactly one wins; presenting a token that was
+  already rotated burns the family at `apps/api/src/auth.ts:183`.
+
 ### Email sign-in for protected accounts
 
 The hosted demo has no SMS gateway, so the phone code is shown on screen
 (`EXPOSE_DEV_OTP`) — which on its own would let anyone who types the admin's
 number become the admin. Email sign-in closes that for the accounts that matter
-(`apps/api/src/domain/email-signin.ts`, `routes/email-auth.ts`):
+(`apps/api/src/domain/email-signin.ts`, `apps/api/src/routes/email-auth.ts`):
 
 - `EMAIL_SIGNIN` maps an address to an **existing** account's number
   (`email=+91XXXXXXXXXX` pairs). It is set in the host's environment, never in
@@ -57,7 +71,7 @@ number become the admin. Email sign-in closes that for the accounts that matter
   429 reveals which addresses are listed.
 - `POST /v1/auth/email/verify` repeats the phone path's checks: expiry, an
   attempt slot taken **before** the compare (so simultaneous guesses cannot all
-  slip under the cap), a constant-time hash compare, and a conditional consume
+  slip under the cap; `apps/api/src/routes/email-auth.ts:123`), a constant-time hash compare, and a conditional consume
   so two correct submissions cannot both get a session. A code that failed to
   send is deleted, so it cannot be redeemed.
 - Challenges are stored under `e:` + 14 hex characters of the address's SHA-256,
@@ -90,7 +104,8 @@ Two independent layers, and the second is the one that matters.
 1. **Role gates** — `requireRole("admin", "gov_officer")` and friends on every
    operator surface.
 2. **Resource ownership**, checked *at the resource*. `bookingAudience()` is
-   consulted on every booking read and write, so the read path is never more
+   consulted on every booking read and write (the rule itself is one line,
+   `apps/api/src/booking-access.ts:28`), so the read path is never more
    permissive than the write path — an earlier version had exactly that bug: an
    assigned mechanic could drive a job they were not allowed to look at.
 
@@ -132,10 +147,13 @@ client save up an hour of allowance and spend it in one second.
 
 **The emergency rule, which is a test and not a comment:**
 
-- the SOS ceiling sits far above any human rate;
+- the SOS ceiling sits far above any human rate — 30 in five minutes
+  (`LIMITS.sos`), applied to `POST /v1/sos` at
+  `apps/api/src/routes/emergency.ts:63`;
 - a double tap is absorbed by **idempotency**, not throttling;
 - and `POST /v1/sos/:id/confirm` — the call that actually summons help — is
-  **never rate limited at all**.
+  **never rate limited at all**: its route carries `authenticate` and nothing
+  else (`apps/api/src/routes/emergency.ts:368`).
 
 Verified: ten genuine SOS in a row are all accepted; a booking flood is
 throttled; every 429 carries `retryAfterSeconds` so a client can back off
@@ -149,9 +167,11 @@ ceiling is N×. Redis is already in `docker-compose.yml` for exactly this.
 The client never decides that money arrived.
 
 - The amount is **never** taken from the request — it is the invoice total, and
-  the webhook refuses a captured amount that does not match.
-- Settlement requires an HMAC-SHA256 signature the server recomputes, compared
-  in constant time.
+  the webhook refuses a captured amount that does not match
+  (`apps/api/src/routes/payments.ts:431`).
+- Settlement requires an HMAC-SHA256 signature the server recomputes over the
+  raw body (`apps/api/src/routes/payments.ts:386`), compared in constant time
+  three lines below.
 - Two paths exist and the **webhook** is authoritative, because a customer can
   pay and immediately close the tab.
 - Delivery is at-least-once, so every path is idempotent; the settlement UPDATE
@@ -174,8 +194,9 @@ preserved for exactly that reason.
 
 The **inbound SMS** webhook can raise an SOS for any phone number it is handed,
 so when `TELECOM_WEBHOOK_SECRET` is unset it now **says so on every response**:
-`"UNSIGNED INTAKE — … Development only."` Production cannot reach that state;
-`assertProductionSafe()` refuses to boot without the secret. *(This was a real
+`"UNSIGNED INTAKE — … Development only."` (`apps/api/src/routes/telecom.ts:277`).
+Production cannot reach that state; `assertProductionSafe()` refuses to boot
+without the secret. *(This was a real
 finding: the code comment claimed the state was "flagged" and it was not.)*
 
 ## Audit trail
@@ -183,9 +204,12 @@ finding: the code comment claimed the state was "flagged" and it was not.)*
 `audit_log` is a **hash chain**: each entry hashes its own content together with
 its predecessor's hash, so editing or deleting any historical row invalidates
 every hash after it — detectable without trusting the database it lives in.
+The hash is `digest()` at `apps/api/src/audit.ts:60`.
 
-Postgres `RULES` block `UPDATE` and `DELETE` on the table outright. The chain is
-re-verified **live** by `/v1/ops/overview`, and again on any restored backup —
+Postgres `RULES` block `UPDATE` and `DELETE` on the table outright
+(`packages/db/src/migrate.ts:179`, the delete rule three lines below). The
+chain is re-verified **live** by `/v1/ops/overview` through
+`verifyAuditChain()`, and again on any restored backup —
 during this audit it verified intact across all 639 entries on a restore.
 
 Audited actions: `auth.login`, `sos.created`, `sos.cancelled`, `sos.escalated`,
@@ -200,9 +224,12 @@ Audited actions: `auth.login`, `sos.created`, `sos.cancelled`, `sos.escalated`,
 **Break-glass medical access** requires all of: the `admin` or `gov_officer`
 role, an incident that is **currently live**, and a written reason of 10–300
 characters. It writes a `break_glass_access` row and the subject is told it
-happened. There is no route to it for any other role.
+happened. There is no route to it for any other role. The role gate and the
+reason's length sit at the top of the route; the live-incident check is
+`apps/api/src/server.ts:1739`.
 
-**Logging.** `observability.ts` redacts, at any depth: tokens, authorization
+**Logging.** `observability.ts` redacts, at any depth (the field list is
+`apps/api/src/observability.ts:26`): tokens, authorization
 headers, passwords, secrets, OTP codes, signatures, API keys, phone numbers,
 email addresses, **coordinates**, blood group, allergies, conditions,
 medications, symptoms and free-text notes. A log aggregator is not a place to
@@ -225,8 +252,8 @@ screen**. No token, payment credential or server secret is ever stored there.
 ## Transport and origins
 
 Production requires an explicit `CORS_ORIGINS` allowlist and refuses to boot
-without one — reflecting the caller's `Origin` is functionally "any website may
-call this API with your users' credentials". Verified: an allowed origin is
+without one (`apps/api/src/env.ts:404`) — reflecting the caller's `Origin` is
+functionally "any website may call this API with your users' credentials". Verified: an allowed origin is
 reflected, any other gets no allow-origin header.
 
 `TRUST_PROXY` is **off by default and never inferred**. Trusting every hop lets
@@ -303,13 +330,13 @@ answers 404 on the live hosts. What changed:
 
 | Finding | Severity | Fix | Verified by |
 |---|---|---|---|
-| With the OTP echoed on the hosted demo, **any** number — including a privileged one — could be signed into | High | Outside local environments an echoed or fixed code is accepted only for the published demo numbers, and never for a privileged role (`domain/demo-numbers.ts`) | `demo-numbers.test.ts`; live: a non-demo number is refused |
-| The inbound-SMS webhook with no secret accepted any number on the hosted demo, so a stranger could act as a real phone | High | 503 `webhook_not_configured` except for demo numbers; a set secret is required of everyone; limited per sending number (`domain/webhook-intake.ts`) | `webhook-intake.test.ts`, `gateway-security-test.mjs` |
+| With the OTP echoed on the hosted demo, **any** number — including a privileged one — could be signed into | High | Outside local environments an echoed or fixed code is accepted only for the published demo numbers, and never for a privileged role (`apps/api/src/domain/demo-numbers.ts:135`) | `demo-numbers.test.ts`; live: a non-demo number is refused |
+| The inbound-SMS webhook with no secret accepted any number on the hosted demo, so a stranger could act as a real phone | High | 503 `webhook_not_configured` except for demo numbers; a set secret is required of everyone; limited per sending number (`apps/api/src/domain/webhook-intake.ts:60`) | `webhook-intake.test.ts`, `gateway-security-test.mjs` |
 | `/v1/notify/email` would send an operator-written message to any address | High | Plain text only, and only to the platform's own alert and sign-in recipients — else 403 `recipient_not_allowed` | `e2e-journey.mjs` §25 |
 | Behind Cloudflare, the client address came from `X-Forwarded-For`, which the caller writes — every per-IP limit could be dodged | High | `CLIENT_IP_HEADER=cf-connecting-ip`: the address the edge saw, used only when it is a valid IP (`client-ip.ts`) | `route-limits.test.ts` |
-| No security headers | Medium | CSP (`object-src 'none'`, `frame-ancestors` limited to the showcase, `base-uri`/`form-action 'self'`, inline scripts by hash only), nosniff, Referrer-Policy, Permissions-Policy, COOP, CORP, HSTS over HTTPS; `no-store` on the API (`security-headers.ts`) | `security-headers.test.ts`, `e2e-journey.mjs` §25 |
+| No security headers | Medium | CSP (`object-src 'none'`, `frame-ancestors` limited to the showcase, `base-uri`/`form-action 'self'`, inline scripts by hash only), nosniff, Referrer-Policy, Permissions-Policy, COOP, CORP, HSTS over HTTPS; `no-store` on the API (CSP built at `apps/api/src/security-headers.ts:89`) | `security-headers.test.ts`, `e2e-journey.mjs` §25 |
 | No sign-out on the server — a stolen refresh token outlived "sign out" | Medium | `POST /v1/auth/logout` revokes the whole session family; its access tokens are refused as `AUTH_REVOKED` | `security-audit.mjs` (9 checks) |
-| A repeated SOS confirm re-texted every emergency contact | Medium | Confirm is idempotent per incident; at most 10 alert batches an hour per account (the escalation itself is never limited); at most 5 contacts, each number once | Contacts: `e2e-journey.mjs` §25. Confirm idempotency and the alert cap: a manual probe (10 simultaneous confirms, one send) — **not yet in a counted suite** |
+| A repeated SOS confirm re-texted every emergency contact | Medium | Confirm is idempotent per incident — a compare-and-swap into RESPONDING, `apps/api/src/routes/emergency.ts:422`; at most 10 alert batches an hour per account (the escalation itself is never limited); at most 5 contacts, each number once | Contacts: `e2e-journey.mjs` §25. Confirm idempotency and the alert cap: a manual probe (10 simultaneous confirms, one send) — **not yet in a counted suite** |
 | The generic transition route let a non-admin issue `mechanic.accept` and other system commands | Medium | 409 `command_not_allowed`; only the customer or an admin may cancel | `e2e-journey.mjs` §25 |
 | Another user's idempotency key replayed *their* booking | Medium | 409 `idempotency_key_in_use` | `e2e-journey.mjs` §25 |
 | The tile proxies would fetch any tile, anywhere, unlimited | Low | Only tiles that exist, over the region, 1,200 a minute | `route-limits.test.ts` |
@@ -319,7 +346,7 @@ answers 404 on the live hosts. What changed:
 | Database connections to a remote host did not require TLS | Low | `ssl: "require"` unless the URL says otherwise or the host is local | `database-tls.test.ts` |
 | Pages: `innerHTML` with server strings, CSV formula injection, a token left in the map URL | Low | Escaped, neutralised, cleared | Code review; the browser suite still passes |
 | Android: map WebView could navigate anywhere and its bridge answered any page; app data was backed up | Low | Origin allow-list for navigation, bridge and geolocation; file access off; `allowBackup=false` | `MapWebGuardTest.kt` |
-| A device-supplied `imageRef` was joined onto the upload folder unchecked: the photo route could read, and an officer's reject could delete, a file outside it | High | Any path that resolves outside `UPLOAD_DIR` is refused (`domain/upload-path.ts`) | `upload-path.test.ts`, `security-audit.mjs` §12 |
+| A device-supplied `imageRef` was joined onto the upload folder unchecked: the photo route could read, and an officer's reject could delete, a file outside it | High | Any path that resolves outside `UPLOAD_DIR` is refused (`apps/api/src/domain/upload-path.ts:22`) | `upload-path.test.ts`, `security-audit.mjs` §12 |
 | A refresh racing a sign-out could still mint a working session | Medium | Sign-out and rotation serialise on a per-family advisory lock; the loser gets `signed_out` | `concurrency-test.mjs` §7a |
 | The five-contact cap was count-then-insert: eight parallel adds stored eight | Medium | Count and insert in one transaction under a per-user lock | `concurrency-test.mjs` §6e |
 | Three parallel dispatches each sent a wave (12 offers to 4 mechanics) | Medium | The booking is claimed by compare-and-swap before a wave is sent | `concurrency-test.mjs` §6d |

@@ -195,8 +195,8 @@ Both outputs are real, captured from this build.
 
 Secrets must never be in source, in the image, in Git or in logs. The image
 contains no secret — every one arrives as an environment variable at run time.
-For a real deployment use your platform's secret store (AWS Secrets Manager,
-GCP Secret Manager, Fly secrets, Render environment groups) rather than a
+The demo sets them in Render (**roadassist → Environment**; `render.yaml`
+declares them `sync: false`, so the values never enter Git) rather than in a
 `.env` file on disk. `.gitignore` already excludes `.env*` except `.env.example`.
 
 The audit log and the operation logger both redact credentials, OTP codes,
@@ -433,7 +433,7 @@ does not have. **None of it has been guessed or stubbed.**
 
 | # | What | Why | Where it goes |
 |---|---|---|---|
-| 1 | **A host** — VM, Fly.io, Render, Railway, an EC2 instance | Nothing can be deployed without somewhere to deploy it | — |
+| 1 | **A host** — Render (Docker, Singapore) for the demo | Nothing can be deployed without somewhere to deploy it | [`render.yaml`](../../render.yaml) |
 | 2 | **A domain + DNS** | HTTPS, and Off-Grid Mode needs HTTPS for service workers and geolocation | `CORS_ORIGINS`, the proxy config |
 | 3 | **Managed Postgres with PostGIS**, or the compose `db` service | PostGIS is not optional — dispatch is a geospatial query | `DATABASE_URL` |
 | 4 | **Twilio or MSG91 account** (MSG91 needs a TRAI DLT-registered template for India) | OTP sign-in and emergency SMS | `SMS_PROVIDER`, `SMS_API_KEY`, `SMS_SENDER_ID`, `SMS_DLT_TEMPLATE_ID` |

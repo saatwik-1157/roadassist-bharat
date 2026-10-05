@@ -37,7 +37,7 @@
     <string name="my_reports">আপনার বিপদ রিপোর্ট</string>
     <string name="my_reports_sub">প্রতিটি রিপোর্ট কর্তৃপক্ষ কীভাবে দেখছে তা জানুন।</string>
     <string name="emergency_contacts">জরুরি পরিচিতি</string>
-    <string name="emergency_contacts_sub">SOS নিশ্চিত করলে এঁদের আপনার লাইভ লোকেশন পাঠানো হবে।</string>
+    <string name="emergency_contacts_sub">SOS নিশ্চিত করলে এঁদের অগ্রাধিকার অনুযায়ী নিজে থেকেই SMS পাঠানো হয়। এই ডেমো সার্ভারে SMS শুধু লগ হয়, পাঠানো হয় না।</string>
     <string name="emergency_contacts_empty">এখনও কেউ নেই — একজন যোগ করুন যাতে SOS কারও কাছে পৌঁছায়।</string>
     <string name="action_add_contact">পরিচিতি যোগ করুন</string>
     <string name="field_contact_name">পরিচিতির নাম</string>

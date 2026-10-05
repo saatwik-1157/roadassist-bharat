@@ -9,7 +9,7 @@
 #   ==> Exited with status 127
 #
 # A file is one token, so there is nothing left to quote or split, and it
-# behaves identically on Render, Fly, docker run and a local shell.
+# behaves identically on Render, docker run and a local shell.
 #
 # migrate.ts is idempotent — it applies the journal, pins SRIDs, rebuilds the
 # GiST indexes and re-asserts the append-only audit RULES — so running it on

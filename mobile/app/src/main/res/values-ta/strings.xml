@@ -37,7 +37,7 @@
     <string name="my_reports">உங்கள் ஆபத்து அறிக்கைகள்</string>
     <string name="my_reports_sub">ஒவ்வொரு அறிக்கையையும் அதிகாரி பரிசீலிக்கும் நிலையைப் பாருங்கள்.</string>
     <string name="emergency_contacts">அவசரத் தொடர்புகள்</string>
-    <string name="emergency_contacts_sub">SOS உறுதி செய்தால் இவர்களுக்கு உங்கள் நேரடி இருப்பிடம் அனுப்பப்படும்.</string>
+    <string name="emergency_contacts_sub">SOS உறுதி செய்தால் இவர்களுக்கு முன்னுரிமை வரிசையில் தானாக SMS அனுப்பப்படும். இந்த டெமோ சர்வரில் SMS பதிவு மட்டுமே செய்யப்படுகிறது, அனுப்பப்படுவதில்லை.</string>
     <string name="emergency_contacts_empty">இன்னும் யாரும் இல்லை — SOS யாரையாவது சேர ஒருவரைச் சேர்க்கவும்.</string>
     <string name="action_add_contact">தொடர்பைச் சேர்</string>
     <string name="field_contact_name">தொடர்பின் பெயர்</string>

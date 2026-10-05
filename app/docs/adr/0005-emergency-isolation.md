@@ -34,3 +34,19 @@ policy document.
 - If the measured false-positive rate over ≥200 real driving hours misses target,
   crash detection **ships disabled by default** and manual SOS carries the feature.
   Pre-committing this removes the judgement call under demo-day pressure.
+
+## Where rule 2 lives in the code
+
+Paths from `app/`, checked by `npm run citations`.
+
+- The incident transition table allows `escalate` only from `CONFIRMED`
+  (`apps/api/src/domain/incident-machine.ts:46`), so a model-detected crash
+  cannot reach `RESPONDING` without a human confirmation first.
+- What an escalation may claim is held to what was actually sent. The
+  escalation ladder locates the nearest unit but sends it nothing, and the
+  112 handoff is stubbed, so every escalation answer carries
+  `respondersNotified` from a constant that is 0
+  (`apps/api/src/routes/emergency.ts:55`). Whether the emergency-contact texts
+  reached a phone is each SMS provider's `live` flag
+  (`apps/api/src/providers.ts:23`), returned as `smsLive`: false for the
+  console provider the hosted demo runs on.

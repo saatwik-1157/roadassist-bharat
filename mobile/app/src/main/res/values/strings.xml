@@ -47,7 +47,7 @@
     <string name="my_reports">Your hazard reports</string>
     <string name="my_reports_sub">Track each report as an authority reviews it.</string>
     <string name="emergency_contacts">Emergency contacts</string>
-    <string name="emergency_contacts_sub">These people are alerted with your live location when you confirm an SOS.</string>
+    <string name="emergency_contacts_sub">Texted automatically when you confirm an SOS, in priority order. On this demo server SMS is only logged, not sent.</string>
     <string name="emergency_contacts_empty">None yet — add one so SOS can reach someone.</string>
     <string name="action_add_contact">Add contact</string>
     <string name="field_contact_name">Contact name</string>

@@ -277,7 +277,7 @@ export async function rotateSession(db: Db, presented: string, meta: { ip?: stri
  * plain http (a laptop) `SameSite=Lax`. The trade-off: the project site
  * (roadassistbharat.online) frames these pages in iframes. The hosted pair is
  * same-site (app. is a subdomain of the site), where Lax would still be sent,
- * but the site's live mode frames other hosts - a tunnel, a Render or Fly
+ * but the site's live mode frames other hosts - a tunnel or a Render
  * address - which are cross-site, and there a Lax or Strict cookie is never
  * sent, so a framed page could sign in and then never refresh. None gives up
  * the browser's own cross-site filter in exchange for working in those

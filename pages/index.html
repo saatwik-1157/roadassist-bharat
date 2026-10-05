@@ -2,6 +2,56 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!--
+  Content-Security-Policy, as a meta tag because GitHub Pages cannot send
+  headers. It comes before every script, style and link, since a meta policy
+  only governs what follows it.
+  · Inline scripts and the <style> block run by SHA-256 hash, never
+    'unsafe-inline'. Edit one and its hash moves: run
+    `python pages/csp-hashes.py --write`; pages.yml fails a deploy whose
+    hashes do not match the page.
+  · Styles need 'unsafe-inline' for the page's style="" attributes (in the
+    markup and in HTML the scripts insert); style-src-attr is where it
+    applies. A <style> element still needs its hash (style-src-elem).
+    style-src carries 'unsafe-inline' and no hash only as the fallback for
+    browsers older than those two directives: a hash there would make them
+    ignore 'unsafe-inline' and drop every style attribute.
+  · connect-src and frame-src name the hosted platform and the viewer's own
+    machine, the two places "Live platform" connects to. An address on any
+    other host typed into that box is refused, and the page says so before
+    trying (canReach() in the surfaces script; keep the two in step).
+  · A meta policy cannot carry frame-ancestors, report-uri or sandbox; the
+    browser ignores them here, so none is relied on.
+-->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self'
+    'sha256-pGhE/rgDM4xc+3rEJqZFLDJJNRUAVEWNiX4gPZu9+dw='
+    'sha256-KhhDDZZNShVwulCK8URk8nSm3it+t5EpWKGIhiSlG3s='
+    'sha256-/EIDYcDDWX2HXu8wbN5y1vK2A2cGC9Tz83vihhWPFws='
+    'sha256-tamMfbw0hqshlkx8vkO+cekBPHIg+Ot5y5bFojs4mWE='
+    'sha256-RCP/FQrgQ8Jaq1sMEm31DKFyVUe0yh7Gl54VSwjyaIE='
+    'sha256-VuE0WFvto+JNPW5V8QQhuDClSSdYjDGw1MxgsDIr3CY='
+    'sha256-GmtvbxOOSPpGHbmWKYyUDGUXsFK9B/fJSZ1uRQXf3bM='
+    'sha256-Yjzrr/yaXY/6k0WDzhYstkEX06R24+T+VkaDM/qJArM='
+    'sha256-DGnzcu5+eEBc6EG3eYgif5DxqtZB4WsbtU3smQKl6VY='
+    'sha256-WL/nS77uETDDkTMw79SuGJbnPo2yCThXk3RV/miBvzM='
+    'sha256-Os+4iRhFHW6ve5RlOyYAPEqpV7Wo/oAWqSfLuMlWtXw=';
+  style-src 'self' 'unsafe-inline';
+  style-src-elem 'self'
+    'sha256-Dt0+E3Xw+O5tNihApZKV3f/fAZZ+CpYRDEcGOmcfS8g=';
+  style-src-attr 'unsafe-inline';
+  img-src 'self' data: blob:;
+  font-src 'self';
+  media-src 'self';
+  connect-src 'self' https://app.roadassistbharat.online http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*;
+  frame-src https://app.roadassistbharat.online http://localhost:* http://127.0.0.1:* https://localhost:* https://127.0.0.1:*;
+  worker-src 'none';
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+  upgrade-insecure-requests">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RoadAssist Bharat — Offline Roadside Assistance &amp; SOS for India</title>
 <meta name="description" content="Offline-first roadside assistance and SOS for Indian highways: nearest-mechanic dispatch, SOS over SMS with no data, and YOLO11 road-damage detection.">
@@ -2823,10 +2873,14 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       try { return localStorage.getItem(KEY); } catch (e) { return null; }
     }
 
-    // Any http(s) origin the viewer types is theirs to choose. One arriving in
-    // a link is not: ?live=https://elsewhere would put a stranger's page -
-    // sign-in form and all - inside a frame on this domain. So a link may only
-    // name the viewer's own machine.
+    // Any http(s) origin the viewer types is parsed here, but this page's CSP
+    // (connect-src and frame-src, in the meta at the top) only lets it reach
+    // two places: the hosted platform and the viewer's own machine.
+    // canReach() below says which, so anything else is refused in words before
+    // the browser refuses it silently. One arriving in a link is narrower
+    // still: ?live=https://elsewhere would put a stranger's page - sign-in form
+    // and all - inside a frame on this domain. So a link may only name the
+    // viewer's own machine.
     function toOrigin(v, fromLink) {
       try {
         var u = new URL(String(v).trim());
@@ -2834,6 +2888,16 @@ docker compose -f docker-compose.demo.yml up</code></pre>
         if (fromLink && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(u.hostname)) return null;
         return u.origin;
       } catch (e) { return null; }
+    }
+
+    // The origins the CSP's connect-src and frame-src allow, besides this
+    // site: keep the two in step. [::1] is not here because a CSP source
+    // cannot name an IPv6 address.
+    var APP_HOST = "https://app.roadassistbharat.online";
+    function canReach(origin) {
+      if (origin === APP_HOST) return true;
+      var u = new URL(origin);
+      return /^(localhost|127\.0\.0\.1)$/.test(u.hostname);
     }
 
     function setBadge(d, live) {
@@ -3015,6 +3079,15 @@ docker compose -f docker-compose.demo.yml up</code></pre>
         return;
       }
       input.value = origin;
+      if (!canReach(origin)) {
+        // Said before trying, and instead of the docker hint: the request would
+        // be refused by this page's own policy, not by a platform that is down.
+        attempt++;                             // a pending check must not overwrite this
+        say("This page only connects to <code>app.roadassistbharat.online</code> or a platform on this " +
+            "computer (<code>localhost</code>). For any other address, <a href=\"" + esc(origin) +
+            "/app.html\" target=\"_blank\" rel=\"noopener\">open it directly</a>.", "bad");
+        return;
+      }
       var mine = ++attempt;
       say("Checking <code>" + esc(origin) + "/health</code>…");
       var answered = false, blocked = false, connected = false;

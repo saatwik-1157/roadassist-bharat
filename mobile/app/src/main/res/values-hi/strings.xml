@@ -9,7 +9,8 @@
 
   Written for the screen a stranded person is actually holding — short lines,
   the outcome first. A faithful translation of the English would be longer than
-  the button it sits under.
+  the button it sits under. Machine-translated and NOT yet reviewed by a native
+  speaker; see app/docs/TESTING.md for what that means for the claim.
 -->
 <resources>
     <string name="sos_sms_sent">SOS एसएमएस से भेज दिया (%1$s)। डेटा की ज़रूरत नहीं — आपका सिम ही पहचान है।</string>
@@ -42,7 +43,7 @@
     <string name="my_reports">आपकी खतरा रिपोर्ट</string>
     <string name="my_reports_sub">हर रिपोर्ट की जाँच की स्थिति देखें।</string>
     <string name="emergency_contacts">आपात संपर्क</string>
-    <string name="emergency_contacts_sub">SOS पक्का करने पर इन्हें आपकी लाइव लोकेशन भेजी जाएगी।</string>
+    <string name="emergency_contacts_sub">SOS पक्का करने पर इन्हें प्राथमिकता के क्रम में अपने-आप SMS जाता है। इस डेमो सर्वर पर SMS सिर्फ़ लॉग होता है, भेजा नहीं जाता।</string>
     <string name="emergency_contacts_empty">अभी कोई नहीं — एक जोड़ें ताकि SOS किसी तक पहुँचे।</string>
     <string name="action_add_contact">संपर्क जोड़ें</string>
     <string name="field_contact_name">संपर्क का नाम</string>
