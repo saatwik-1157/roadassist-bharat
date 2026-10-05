@@ -304,21 +304,66 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
 .card p{font-size:.92rem;margin-bottom:0}
 .card .adr{display:inline-block;margin-top:12px;font-size:.82rem}
 
-/* ── journey ────────────────────────────────────────────────── */
-.stages{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
-.stage{
-  background:var(--surface);border:1px solid var(--line-soft);color:var(--ink-2);
-  border-radius:999px;padding:9px 14px;font-size:.86rem;cursor:pointer;
-  font-family:inherit;transition:all .16s;display:inline-flex;align-items:center;gap:9px;
+/* ── journey: the field report ───────────────────────────────────
+   A post whose media is the journey's real screens. The album floats either
+   side; the script moves each card to its slot and the transition carries it
+   there, so neighbours travel out from behind the post. The section clips
+   them, so a card parked off the edge never widens a phone's page. */
+.fr{position:relative;display:grid;place-items:center;margin:24px 0 30px;padding:18px 0 26px;
+    overflow:hidden;overflow:clip}
+.fr-album{position:absolute;inset:0;pointer-events:none}
+.fr-ghost{position:absolute;left:50%;top:50%;width:172px;height:300px;margin:-150px 0 0 -86px;
+  border-radius:16px;overflow:hidden;background:var(--surface);border:1px solid var(--line);
+  box-shadow:0 26px 50px -22px rgba(0,0,0,.9);
+  transition:transform .75s cubic-bezier(.2,.8,.2,1),opacity .5s ease,filter .5s ease}
+.fr-ghost img{width:100%;height:100%;object-fit:cover;object-position:top}
+.fr-ghost i{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,9,12,.25),rgba(8,9,12,.85));transition:opacity .75s ease}
+.fr-ghost.jump,.fr-ghost.jump i{transition:opacity .3s ease}
+.fr-post{position:relative;z-index:20;width:min(400px,100%);background:var(--surface);
+  border:1px solid var(--line);border-radius:22px;overflow:hidden;
+  box-shadow:0 44px 90px -34px rgba(0,0,0,.95),0 0 0 1px rgba(240,180,41,.07),0 0 80px -30px rgba(240,180,41,.25)}
+.fr-head{display:flex;align-items:center;gap:11px;padding:13px 16px;border-bottom:1px solid var(--line-soft)}
+.fr-head b{display:block;font-size:.95rem;color:var(--ink);line-height:1.2}
+.fr-head div span{display:block;font:600 .74rem/1.3 var(--mono);color:var(--ink-3);letter-spacing:.04em}
+.fr-tag{margin-left:auto;font:700 .62rem/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--cyan);border:1px solid rgba(95,208,216,.35);border-radius:999px;padding:6px 9px;white-space:nowrap}
+.fr-media{position:relative;aspect-ratio:4/5;overflow:hidden;touch-action:pan-y;cursor:grab;
+  background:radial-gradient(80% 60% at 50% 30%,rgba(240,180,41,.08),transparent 70%),linear-gradient(180deg,var(--bg-2),var(--bg))}
+.fr-media:focus-visible{outline-offset:-3px}
+.fr-media.drag{cursor:grabbing}
+.fr-track{display:flex;height:100%;
+  transition:transform .55s cubic-bezier(.2,.8,.2,1);will-change:transform}
+.fr-media.drag .fr-track{transition:none}
+.fr-slide{position:relative;flex:0 0 100%;height:100%}
+.fr-slide img{position:absolute;inset:14px;margin:auto;width:auto;height:auto;
+  max-width:calc(100% - 28px);max-height:calc(100% - 28px);border-radius:12px;
+  border:1px solid var(--line-soft);box-shadow:0 18px 40px -18px rgba(0,0,0,.9);
+  -webkit-user-drag:none;user-select:none}
+.fr-bar{display:flex;align-items:center;gap:4px;padding:8px 10px 2px}
+.fr-arrow{flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);
+  background:var(--surface-2);color:var(--ink);font:400 1.5rem/1 var(--sans);cursor:pointer;
+  display:grid;place-items:center;padding:0 0 3px}
+.fr-arrow:hover{border-color:var(--accent)}
+.fr-dots{flex:1;display:flex;justify-content:center;flex-wrap:wrap}
+.fr-dots button{width:28px;height:44px;padding:0;border:0;background:none;cursor:pointer;display:grid;place-items:center}
+.fr-dots button::before{content:"";width:7px;height:7px;border-radius:999px;background:#6b7488;transition:width .3s,background .3s}
+.fr-dots button[aria-current="true"]::before{width:18px;background:var(--accent)}
+.fr-count{flex:0 0 auto;min-width:3.2em;text-align:right;font:700 .74rem var(--mono);color:var(--ink-3);padding-right:4px}
+.fr-cap{margin:4px 0 0;padding:0 16px;font-size:.93rem;line-height:1.55;color:var(--ink-2);min-height:3.1em}
+.fr-cap b{color:var(--ink);font-weight:650}
+.fr-note{margin:8px 0 0;padding:0 16px 16px;font-size:.76rem;color:var(--ink-3)}
+@media (max-width:560px){
+  .fr-post{width:min(340px,calc(100% - 40px))}
+  .fr-head{gap:9px;padding:11px 12px}
+  .fr-head img{width:30px;height:30px}
+  .fr-head b{font-size:.86rem;white-space:nowrap}
+  .fr-head div span{font-size:.66rem;white-space:nowrap}
+  .fr-tag{font-size:.54rem;padding:5px 7px;letter-spacing:.08em}
+  .fr-dots{flex-wrap:nowrap}
+  .fr-dots button{width:24px}
+  .fr-count{display:none}
+  .fr-ghost{width:124px;height:216px;margin:-108px 0 0 -62px}
 }
-.stage:hover{border-color:var(--line);color:var(--ink)}
-.stage[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#16110a;font-weight:620}
-.stage .i{font-family:var(--mono);font-size:.74rem;opacity:.75}
-.panel{display:grid;grid-template-columns:.92fr 1.08fr;gap:28px;align-items:center;
-       background:var(--bg-2);border:1px solid var(--line-soft);border-radius:var(--r);padding:24px}
-.panel img{border:1px solid var(--line-soft);border-radius:10px;width:auto;
-           max-width:100%;max-height:440px;margin:0 auto}
-.panel h3{font-size:1.15rem}
 
 /* ── tables / test dashboard ────────────────────────────────── */
 .tbl{width:100%;border-collapse:collapse;font-size:.92rem;
@@ -380,6 +425,28 @@ code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);
 .shots-label{font-size:.73rem;letter-spacing:.1em;text-transform:uppercase;
              color:var(--ink-3);font-weight:700;margin:26px 0 12px}
 .shot .cap{display:block;padding:11px 15px 13px;font-size:.87rem;color:var(--ink-2);line-height:1.45}
+/* The wave (WebGL) with the screen names as chips beneath it, or - no wave -
+   the tiles as a still row that scrolls sideways inside itself. */
+.wave{display:none;margin:0 0 4px}
+.wave-ok .wave{display:block}
+.wave-vp{position:relative;aspect-ratio:21/9;margin:0 -24px;touch-action:pan-y;cursor:grab}
+.wave-vp.drag{cursor:grabbing}
+.wave-vp canvas{position:absolute;inset:0;width:100%;height:100%}
+.wave figcaption{font-size:.84rem;line-height:1.6;color:var(--ink-3);margin-top:4px}
+@media (max-width:720px){.wave-vp{aspect-ratio:1/1}}
+.wave-ok .gal .shots{display:flex;flex-wrap:wrap;gap:8px}
+.wave-ok .gal .shots-label{margin:16px 0 10px}
+.wave-ok .gal .shot{display:inline-flex;align-items:center;border-radius:999px;cursor:pointer;background:var(--surface)}
+.wave-ok .gal .shot img{display:none}
+.wave-ok .gal .shot .cap{padding:8px 15px;font-size:.84rem}
+.wave-ok .gal .shot:hover{transform:none}
+.wave-ok .gal .shot.at{border-color:var(--accent)}
+.wave-ok .gal .shot.at .cap{color:var(--ink)}
+html:not(.wave-ok) .gal .shots{display:grid;grid-template-columns:none;grid-auto-flow:column;
+  grid-auto-columns:clamp(150px,24vw,212px);overflow-x:auto;scroll-snap-type:x proximity;
+  overscroll-behavior-x:contain;padding:4px 2px 12px}
+html:not(.wave-ok) .gal .shots-wide{grid-auto-columns:clamp(260px,72vw,440px)}
+html:not(.wave-ok) .gal .shot{scroll-snap-align:start}
 dialog.lb{border:0;padding:0;background:transparent;max-width:min(94vw,1100px);max-height:94vh;max-height:94dvh}
 dialog.lb:not([open]){display:none}
 dialog.lb[open]{position:fixed;inset:0;margin:auto;z-index:100;width:min(94vw,1100px)}
@@ -494,27 +561,6 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 @media (max-width:820px){.surf{grid-template-columns:1fr}}
 
 /* ── feature visuals ────────────────────────────────────────── */
-.journey-hero{margin:0 0 26px;position:relative;border:1px solid var(--line);
-              border-radius:var(--r);overflow:hidden;background:var(--bg-2)}
-.journey-hero img{width:100%;max-height:460px;object-fit:cover;object-position:center 22%}
-/* 3D stage scenes. The renders fade to the page colour at their own edges, so
-   the frame is a stage rather than a box; the pointer steers a gentle tilt. */
-.scene3d{perspective:1400px;background:radial-gradient(120% 90% at 50% 40%,#0f1624,var(--bg-2) 70%)}
-.scene-layers{position:relative;aspect-ratio:16/10;transform-style:preserve-3d;
-              transition:transform .5s cubic-bezier(.2,.7,.2,1);will-change:transform}
-.scene3d .scene-img{position:absolute;inset:0;width:100%;height:100%;max-height:none;
-              object-fit:contain;opacity:0;transform:scale(1.035) translateZ(0);
-              transition:opacity .7s ease,transform 1.1s cubic-bezier(.2,.7,.2,1)}
-.scene3d .scene-img.is-on{opacity:1;transform:none}
-.scene-auto{visibility:hidden}.scene-auto.on{visibility:visible}
-/* The 3D scene is built from the stage's own screenshot, so the flat copy
-   beside the text repeated it. Where the scene is shown, the text gets the
-   panel to itself. */
-.scene3d ~ .panel #stageShot{display:none}
-.scene3d ~ .panel{grid-template-columns:1fr}
-@supports not (aspect-ratio:1/1){.scene-layers{height:0;padding-top:62.5%}}
-.scene-step{font-family:var(--mono);color:var(--accent);margin-right:6px}
-.scene-auto{color:var(--ink-3)}
 /* The render fades into the page at its own edges, so it can run a little past
    its column instead of sitting inside the figure's default 40px margins. */
 .hero-3d{border:0;background:none;box-shadow:none;overflow:visible;perspective:1400px;
@@ -523,10 +569,9 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
              animation:hero-float 7s ease-in-out infinite}
 @keyframes hero-float{50%{translate:0 -8px}}
 @media (prefers-reduced-motion:reduce){
-  .scene3d .scene-img{transition:none;transform:none}
-  .scene-layers,.hero-3d img{transition:none;transform:none!important;animation:none}
+  .hero-3d img{transition:none;transform:none!important;animation:none}
 }
-.journey-hero figcaption,.arch-devices figcaption{color:var(--ink-3);font-size:.84rem;
+.arch-devices figcaption{color:var(--ink-3);font-size:.84rem;
               padding:12px 18px;border-top:1px solid var(--line-soft)}
 .arch-devices{margin:26px 0 0;border:1px solid var(--line);border-radius:var(--r);
               overflow:hidden;background:var(--bg-2)}
@@ -740,14 +785,14 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   /* Anything you tap with a thumb gets a 44px target. The chips and small
      buttons were landing near 30px, which is fine for a cursor and a guess
      for a finger. */
-  .btn,.chip-q,.stage,.shot,.nav-links a{min-height:44px}
+  .btn,.chip-q,.shot,.nav-links a{min-height:44px}
   /* The measured stragglers on a 390 px phone: the ADR links were 21 px tall,
      the footer links 20, the brand 25 and the menu button 35. */
   .card .adr,.foot a,.brand{display:inline-flex;align-items:center;min-height:44px}
   .live-open{min-height:44px;align-items:center}
   .foot a{min-width:44px}
   .nav-toggle{min-height:44px;min-width:44px}
-  .btn,.chip-q,.stage{display:inline-flex;align-items:center}
+  .btn,.chip-q{display:inline-flex;align-items:center}
   .chip-q{padding:0 16px}
   .btn-sm{padding:0 18px}
   .ask-bar input{min-height:48px}
@@ -775,6 +820,24 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   *,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}
   .rv{opacity:1;transform:none}
 }
+
+/* ── off-grid header: the dot globe ─────────────────────────────
+   A canvas sized by CSS (aspect-ratio reserves its box, so nothing shifts when
+   it starts). Horizontal drags turn it; vertical ones stay the page's. */
+.og-head{display:grid;gap:10px 40px;align-items:center}
+@media (min-width:900px){.og-head{grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr)}}
+.globe{margin:0;max-width:440px;width:100%;justify-self:center}
+.globe-vp{position:relative;aspect-ratio:1/1;border-radius:50%;cursor:grab;touch-action:pan-y;
+  background:radial-gradient(closest-side,rgba(95,208,216,.08),rgba(240,180,41,.04) 70%,transparent 100%)}
+.globe-vp:focus-visible{outline-offset:-6px;border-radius:50%}
+.globe-vp.drag{cursor:grabbing}
+.globe-vp canvas{position:absolute;inset:0;width:100%;height:100%}
+.globe figcaption{font-size:.84rem;line-height:1.6;color:var(--ink-3);margin-top:8px}
+.globe-key{display:flex;align-items:baseline;gap:8px;color:var(--ink-2);margin:4px 0}
+.globe-key i{flex:0 0 auto;width:9px;height:9px;border-radius:50%;transform:translateY(1px)}
+.k-gold{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+.k-cyan{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+@media (max-width:899px){.globe{max-width:340px}}
 
 /* ── 3D explainers ─────────────────────────────────────────────────────────
    A stepped scene, a list of steps, and the words for the current one. The
@@ -1026,6 +1089,13 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 <script>
 (function (d) {
   d.classList.add("js");
+  // Decided before first paint, so the gallery never changes shape under the
+  // reader: the WebGL wave (and the name chips that drive it), or, under
+  // reduced motion, Save-Data or no WebGL, a still row of tiles.
+  try {
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches && "WebGLRenderingContext" in window &&
+        !(navigator.connection && navigator.connection.saveData)) d.classList.add("wave-ok");
+  } catch (e) { /* no wave */ }
   // Sections start hidden for the reveal. If the main script never gets to
   // revealing them - it threw, it was blocked, the browser is old - they must
   // not stay hidden, so this fails open on its own, outside that script.
@@ -1036,8 +1106,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   // load would blank it for every later source.
   document.addEventListener("error", function (e) {
     var el = e.target;
-    if (el.tagName !== "IMG" || el.id === "lbImg" || el.id === "stageShot" ||
-        (el.classList && el.classList.contains("scene-img"))) return;
+    if (el.tagName !== "IMG" || el.id === "lbImg") return;
     el.style.display = "none";
     var host = el.closest && el.closest("figure, .shot, .panel, .hero-fig");
     if (host && !host.querySelector(".fallback")) {
@@ -1219,10 +1288,28 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 <!-- ═══ OFF-GRID, EXPLAINED ═══ -->
 <section id="offgrid" class="rv">
   <div class="wrap">
-    <p class="eyebrow">Off-grid, explained</p>
-    <h2>What happens when there is no signal</h2>
-    <p class="lead">Most apps fail at the exact moment a breakdown happens: on a highway stretch with no coverage.
-      Here is the path an SOS takes instead, one step at a time.</p>
+    <div class="og-head">
+      <div>
+        <p class="eyebrow">Off-grid, explained</p>
+        <h2>What happens when there is no signal</h2>
+        <p class="lead">Most apps fail at the exact moment a breakdown happens: on a highway stretch with no coverage.
+          Here is the path an SOS takes instead, one step at a time.</p>
+      </div>
+      <!-- The two places this project names, on a dot sphere centred on
+           India. A plain sphere, not a map: the repository has no coastline
+           data, so no land is drawn. The faint frame is map.html's own India
+           bounds. The canvas is decoration; the caption says all of it. -->
+      <figure class="globe" id="globe">
+        <div class="globe-vp" tabindex="0" role="group" aria-label="A dot globe centred on India. Drag, or use the arrow keys, to turn it.">
+          <canvas width="440" height="440" aria-hidden="true"></canvas>
+        </div>
+        <figcaption><span class="ill-tag">Illustration</span>
+          <span class="globe-key"><i class="k-gold"></i>Demo service area: Gurugram and the NH-48 corridor, where the seed places a simulated fleet</span>
+          <span class="globe-key"><i class="k-cyan"></i>VIT-AP University, Amaravati, where the project is built (position approximate)</span>
+          The dots are a plain sphere, not land: no coastline data is in the repository. The faint frame
+          is the India bounds the live map opens on.</figcaption>
+      </figure>
+    </div>
 
     <div class="x3d ofg" id="ofg" data-x3d data-step="0">
       <div class="x3d-stage" aria-hidden="true">
@@ -1520,45 +1607,43 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
   <div class="wrap">
     <p class="eyebrow">How it works</p>
     <h2>From breakdown to resolution</h2>
-    <p>Select a stage to see it in the running application.</p>
+    <p>One breakdown, eight screens, in the order a driver meets them. Swipe the post, use the
+      arrow keys, or pick a dot.</p>
 
-    <div class="stages" role="tablist" aria-label="Journey stages">
-      <button class="stage" role="tab" aria-selected="true"  data-shot="02-home"          data-title="Request or escalate" data-body="The home screen carries both paths: an ordinary assistance request, and an SOS that must be held for 1.5 seconds so a pocket press never calls a responder.">
-        <span class="i">01</span> Citizen</button>
-      <button class="stage" role="tab" aria-selected="false" data-shot="04-ai-diagnosis"  data-title="Diagnosis, labelled" data-body="A deterministic rule table names a likely cause with a confidence and a safety action, and every screen that shows it says it is a rules engine — returning rules-1.0.0, not a model.">
-        <span class="i">02</span> Diagnosis</button>
-      <button class="stage" role="tab" aria-selected="false" data-shot="05-dispatch"      data-title="Dispatch, ranked" data-body="Providers are scored at run time from a live pool by distance, ETA and rating. Two mechanics accepting one job is settled by a row lock, not by timing.">
-        <span class="i">03</span> Dispatch</button>
-      <button class="stage" role="tab" aria-selected="false" data-shot="06-tracking"      data-title="Live status" data-body="The booking state machine drives the client over a live event stream — and the stream is never the source of truth, so a dropped connection loses nothing.">
-        <span class="i">04</span> Tracking</button>
-      <button class="stage" role="tab" aria-selected="false" data-shot="09-offgrid-sos"   data-title="Off-grid SOS" data-body="With no network an SOS still becomes a real incident, stored on the device with its own reference and GPS fix. The screen says &ldquo;nothing has been transmitted&rdquo; rather than pretending it was sent.">
-        <span class="i">05</span> Off-grid</button>
-      <button class="stage" role="tab" aria-selected="false" data-shot="11-sync-complete" data-title="Idempotent sync" data-body="When connectivity returns the journal replays itself against a client-minted reference, so a retry becomes the same incident and never a second ambulance.">
-        <span class="i">06</span> Sync</button>
-      <button class="stage" role="tab" aria-selected="false" data-shot="16-payment"       data-title="Settlement" data-body="The client never decides that money arrived: a payment is recorded only against a settlement the server verified, and a partial unique index makes &ldquo;paid once&rdquo; hold under concurrent confirmations.">
-        <span class="i">07</span> Payment</button>
-      <button class="stage" role="tab" aria-selected="false" data-shot="14-authority"     data-title="Authority oversight" data-body="RAKSHA shows the live map, road-health scoring and detection triage. A model-detected incident waits in a confirmation queue until a person moves it.">
-        <span class="i">08</span> RAKSHA</button>
-    </div>
-
-    <!-- One 3D scene per stage, built from that stage's real screenshot. Two
-         stacked images so a change cross-fades instead of flashing empty. -->
-    <figure class="journey-hero scene3d tilt3d" id="sceneFig" aria-live="polite">
-      <div class="scene-layers">
-        <img class="scene-img is-on" src="shots/scene/02-home.webp" width="1600" height="1000" loading="lazy"
-             alt="Request or escalate, in 3D: the real home screen with the SOS control">
-        <img class="scene-img" src="shots/scene/02-home.webp" alt="" width="1600" height="1000" aria-hidden="true">
-      </div>
-      <figcaption><span class="scene-step" id="sceneStep">01 / 08</span> <span id="sceneCap">Request or escalate</span>
-        <span class="scene-auto" id="sceneAuto">· advancing on its own — select a stage to stop</span></figcaption>
-    </figure>
-
-    <div class="panel">
-      <div>
-        <h3 id="stageTitle">Request or escalate</h3>
-        <p id="stageBody">The home screen carries both paths: an ordinary assistance request, and an SOS that must be held for 1.5 seconds so a pocket press never calls a responder.</p>
-      </div>
-      <img id="stageShot" src="shots/stage/02-home.webp" width="780" height="1688" alt="Citizen home screen with the SOS control and emergency readiness">
+    <!-- Field report: a post whose media is the journey's real screens. The
+         rest of the album floats either side of it; when the slide changes,
+         the neighbours travel out from behind the post to their new places.
+         The album is decoration (aria-hidden): every screen and its caption
+         is in the post itself, which is a labelled carousel. -->
+    <div class="fr" id="fieldReport">
+      <div class="fr-album" aria-hidden="true"></div>
+      <article class="fr-post" aria-roledescription="carousel" aria-labelledby="frName">
+        <header class="fr-head">
+          <img src="brand/logo-mark.svg" width="36" height="36" alt="">
+          <div><b id="frName">RoadAssist Bharat</b><span>SWE4004 · VIT-AP</span></div>
+          <span class="fr-tag">Field report</span>
+        </header>
+        <div class="fr-media" tabindex="0" aria-label="Journey screens; use the left and right arrow keys">
+          <div class="fr-track">
+            <div class="fr-slide" role="group" aria-roledescription="slide" aria-label="1 of 8" data-cap="Home — SOS, emergency readiness, quick actions" data-title="Request or escalate"><img src="shots/thumbs/02-home.webp" width="520" height="1125" loading="lazy" alt="Citizen home screen with the SOS control and emergency readiness"></div>
+            <div class="fr-slide" role="group" aria-roledescription="slide" aria-label="2 of 8" data-cap="Diagnosis — cause, confidence, severity and safety action, labelled a rules engine" data-title="Diagnosis, labelled"><img src="shots/thumbs/04-ai-diagnosis.webp" width="520" height="1125" loading="lazy" alt="Diagnosis screen naming a likely cause, labelled a rules engine"></div>
+            <div class="fr-slide" role="group" aria-roledescription="slide" aria-label="3 of 8" data-cap="Dispatch — ranked offers with distance, ETA and score" data-title="Dispatch, ranked"><img src="shots/thumbs/05-dispatch.webp" width="520" height="1125" loading="lazy" alt="Dispatch screen with ranked offers"></div>
+            <div class="fr-slide" role="group" aria-roledescription="slide" aria-label="4 of 8" data-cap="Tracking — live status, provider, ETA, last updated" data-title="Live status"><img src="shots/thumbs/06-tracking.webp" width="520" height="1125" loading="lazy" alt="Live job tracking screen"></div>
+            <div class="fr-slide" role="group" aria-roledescription="slide" aria-label="5 of 8" data-cap="Off-grid SOS created — &ldquo;nothing has been transmitted&rdquo;" data-title="Off-grid SOS"><img src="shots/thumbs/09-offgrid-sos.webp" width="520" height="1125" loading="lazy" alt="Off-grid SOS created, stored on the phone"></div>
+            <div class="fr-slide" role="group" aria-roledescription="slide" aria-label="6 of 8" data-cap="SOS synchronised — journal empty, platform reference returned" data-title="Idempotent sync"><img src="shots/thumbs/11-sync-complete.webp" width="520" height="1125" loading="lazy" alt="SOS synchronised, with the platform reference"></div>
+            <div class="fr-slide" role="group" aria-roledescription="slide" aria-label="7 of 8" data-cap="Payment — settlement recorded against the booking, never decided by the client" data-title="Settlement"><img src="shots/thumbs/16-payment.webp" width="504" height="804" loading="lazy" alt="Payment screen"></div>
+            <div class="fr-slide" role="group" aria-roledescription="slide" aria-label="8 of 8" data-cap="RAKSHA authority — live map, road health, detection triage" data-title="Authority oversight"><img src="shots/thumbs/14-authority.webp" width="880" height="591" loading="lazy" alt="RAKSHA authority dashboard with live map, road health and detection triage"></div>
+          </div>
+        </div>
+        <div class="fr-bar">
+          <button class="fr-arrow" type="button" data-fr="prev" aria-label="Previous screen">&#8249;</button>
+          <div class="fr-dots" role="group" aria-label="Choose a screen"></div>
+          <button class="fr-arrow" type="button" data-fr="next" aria-label="Next screen">&#8250;</button>
+          <span class="fr-count" aria-hidden="true">1/8</span>
+        </div>
+        <p class="fr-cap" aria-live="polite"><b class="fr-title">Request or escalate</b> <span class="fr-line">Home — SOS, emergency readiness, quick actions</span></p>
+        <p class="fr-note">Real screenshots of the running app, captured by <code>scripts/capture-screens.mjs</code>.</p>
+      </article>
     </div>
 
     <!-- Illustration of dispatch.ts: ST_DWithin, ranked waves, the row lock,
@@ -2351,15 +2436,25 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 </section>
 
 <!-- ═══ SCREENSHOTS ═══ -->
-<section class="rv">
+<section class="rv gal" id="gallery">
   <div class="wrap">
     <p class="eyebrow">The running system</p>
     <h2>Captured from the application, not designed for this page</h2>
     <p class="sub" style="margin-bottom:20px">
       Produced by <code>scripts/capture-screens.mjs</code> against the live API — regenerable in
       about ninety seconds, so they cannot quietly drift from what the product does.
-      Select any image to enlarge.
+      Select any screen to enlarge it.
     </p>
+    <!-- The wave: the same captures as the buttons below, as cards on a ribbon
+         bent into a wave (WebGL, no library). The buttons stay the way in: from
+         a keyboard, a screen reader, or with reduced motion, where the wave is
+         not drawn and they show as a still row of tiles. -->
+    <figure class="wave" id="wave">
+      <div class="wave-vp"><canvas aria-hidden="true"></canvas></div>
+      <figcaption><span class="ill-tag">Real screenshots</span> Every card is a capture of the running
+        app, its screen name printed on it. Drag the ribbon, or choose a name below to bring that
+        card to the crest.</figcaption>
+    </figure>
     <p class="shots-label">On the phone &mdash; citizen surfaces</p>
     <div class="shots shots-phone">
       <button class="shot" data-src="shots/01-login.png"            data-cap="OTP sign-in — real API, development code returned in the response"><img srcset="shots/thumbs/01-login.webp 520w, shots/stage/01-login.webp 780w" sizes="(max-width: 720px) 46vw, (max-width: 980px) 31vw, 260px" src="shots/thumbs/01-login.webp" alt="OTP sign-in screen" loading="lazy"><span class="cap">Sign in</span></button>
@@ -2650,96 +2745,12 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     targets.forEach(function (t) { so.observe(t); });
   }
 
-  /* journey stages */
-  var stages = Array.prototype.slice.call(document.querySelectorAll(".stage"));
-  var sTitle = document.getElementById("stageTitle");
-  var sBody = document.getElementById("stageBody");
-  var sShot = document.getElementById("stageShot");
-  var sceneFig = document.getElementById("sceneFig");
-  var sceneImgs = sceneFig ? [].slice.call(sceneFig.querySelectorAll(".scene-img")) : [];
-  var sceneFront = 0;
-  function showScene(btn) {
-    if (sceneImgs.length !== 2) return;
-    var i = stages.indexOf(btn);
-    document.getElementById("sceneStep").textContent =
-      String(i + 1).padStart(2, "0") + " / " + String(stages.length).padStart(2, "0");
-    document.getElementById("sceneCap").textContent = btn.dataset.title;
-    var src = "shots/scene/" + btn.dataset.shot + ".webp";
-    var cur = sceneImgs[sceneFront], back = sceneImgs[1 - sceneFront];
-    if (cur.getAttribute("src") === src) return;
-    // Swap only once the next render has decoded, so a slow connection shows
-    // the previous scene rather than an empty stage.
-    back.onload = function () {
-      back.onload = null;
-      back.alt = btn.dataset.title + ", in 3D, built from the real screen";
-      back.removeAttribute("aria-hidden"); cur.setAttribute("aria-hidden", "true");
-      back.classList.add("is-on"); cur.classList.remove("is-on");
-      sceneFront = 1 - sceneFront;
-      // Warm the one after, so the next change is instant too.
-      var nb = stages[(i + 1) % stages.length];
-      new Image().src = "shots/scene/" + nb.dataset.shot + ".webp";
-    };
-    back.src = src;
-  }
-  function selectStage(btn) {
-    stages.forEach(function (b) { b.setAttribute("aria-selected", String(b === btn)); });
-    sTitle.textContent = btn.dataset.title;
-    sBody.innerHTML = btn.dataset.body;
-    var next = "shots/stage/" + btn.dataset.shot + ".webp";
-    // Hidden where the 3D scene shows the stage; do not fetch what nobody sees.
-    if (sShot && sShot.offsetParent !== null) {
-      sShot.src = next;
-      sShot.alt = btn.dataset.title;
-    }
-    showScene(btn);
-  }
-
-  /* The journey plays itself while it is on screen, one stage every few
-     seconds, and stops for good the moment somebody chooses a stage - after
-     that the page is theirs. Off screen, or with reduced motion, it waits. */
-  var autoTimer = null, autoOn = !reduced, autoSeen = false;
-  var autoNote = document.getElementById("sceneAuto");
-  function stopAuto() {
-    autoOn = false; clearInterval(autoTimer); autoTimer = null;
-    if (autoNote) autoNote.classList.remove("on");
-  }
-  function tickAuto() {
-    if (document.hidden) return;
-    var cur = stages.findIndex(function (b) { return b.getAttribute("aria-selected") === "true"; });
-    selectStage(stages[(cur + 1) % stages.length]);
-  }
-  if (autoOn && sceneFig && "IntersectionObserver" in window) {
-    new IntersectionObserver(function (es) {
-      es.forEach(function (e) {
-        if (!autoOn) return;
-        if (e.isIntersecting && !autoTimer) {
-          if (autoNote) autoNote.classList.add("on");
-          // First sight holds on stage 01 a moment before moving on.
-          autoTimer = setInterval(tickAuto, autoSeen ? 5200 : 6000);
-          autoSeen = true;
-        } else if (!e.isIntersecting && autoTimer) {
-          clearInterval(autoTimer); autoTimer = null;
-        }
-      });
-    }, { threshold: 0.35 }).observe(sceneFig);
-  }
-
-  stages.forEach(function (b) {
-    b.addEventListener("click", function () { stopAuto(); selectStage(b); });
-    b.addEventListener("keydown", function (e) {
-      var i = stages.indexOf(b), n = null;
-      if (e.key === "ArrowRight") n = stages[(i + 1) % stages.length];
-      if (e.key === "ArrowLeft") n = stages[(i - 1 + stages.length) % stages.length];
-      if (n) { e.preventDefault(); stopAuto(); n.focus(); selectStage(n); }
-    });
-  });
-
-  /* Pointer-steered 3D tilt on the hero and the journey stage. Eased toward the
+  /* Pointer-steered 3D tilt on the hero. Eased toward the
      pointer each frame and settled back on leave; a touch screen has no hover,
      so it simply stays flat there. */
   if (!reduced && matchMedia("(hover: hover)").matches) {
     [].slice.call(document.querySelectorAll(".tilt3d")).forEach(function (host) {
-      var el = host.querySelector(".scene-layers") || host.querySelector("img");
+      var el = host.querySelector("img");
       if (!el) return;
       var tx = 0, ty = 0, x = 0, y = 0, raf = null;
       function step() {
@@ -3574,6 +3585,615 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   } else {
     start();
   }
+})();
+</script>
+<script>
+/* Field report: the journey as a post with a swipeable media carousel. The
+   post is the carousel (buttons, dots, arrow keys, swipe); the album either
+   side is decoration that follows it. Native scroll is never touched: the
+   media takes horizontal drags only (touch-action: pan-y). */
+(function () {
+  "use strict";
+  var root = document.getElementById("fieldReport");
+  if (!root) return;
+  var post = root.querySelector(".fr-post"), media = root.querySelector(".fr-media");
+  var track = root.querySelector(".fr-track"), album = root.querySelector(".fr-album");
+  var slides = [].slice.call(track.children), N = slides.length;
+  var dotsBox = root.querySelector(".fr-dots"), count = root.querySelector(".fr-count");
+  var title = root.querySelector(".fr-title"), line = root.querySelector(".fr-line");
+  var cur = 0, ghosts = [], dots = [], placed = [];
+
+  slides.forEach(function (s, i) {
+    var g = document.createElement("div");
+    g.className = "fr-ghost";
+    var im = document.createElement("img");
+    im.alt = ""; im.loading = "lazy"; im.decoding = "async";
+    im.src = s.querySelector("img").getAttribute("src");
+    g.appendChild(im); g.appendChild(document.createElement("i"));
+    album.appendChild(g); ghosts.push(g);
+    var d = document.createElement("button");
+    d.type = "button";
+    d.setAttribute("aria-label", "Screen " + (i + 1) + ": " + s.dataset.title);
+    d.addEventListener("click", function () { go(i); });
+    dotsBox.appendChild(d); dots.push(d);
+  });
+
+  // Where each album card sits, by its distance from the current slide. The
+  // nearest pair tuck a third of their width behind the post, so on a change
+  // the outgoing slide is seen to come out from behind it.
+  function layout() {
+    var w = root.clientWidth, pw = post.offsetWidth, gw = ghosts[0].offsetWidth || 150;
+    var step = gw * 0.78;
+    var side = Math.max(1, Math.min(3, Math.floor(((w - pw) / 2 + gw * 0.3) / step)));
+    ghosts.forEach(function (g, i) {
+      var k = ((i - cur) % N + N) % N;
+      if (k > N / 2) k -= N;
+      var a = Math.abs(k), sg = k < 0 ? -1 : 1;
+      var prev = placed[i];
+      // A card wrapping round from one end of the album to the other would
+      // fly across the post; it fades instead.
+      g.classList.toggle("jump", prev != null && prev * k < 0 && Math.abs(prev - k) > 2);
+      placed[i] = k;
+      var x = a ? sg * (pw / 2 + gw * 0.2 + (a - 1) * step) : 0;
+      var s = a ? 1 - (a - 1) * 0.09 : 0.86;
+      g.style.transform = "translate3d(" + x.toFixed(1) + "px," + (a * 10) + "px,0) rotate(" + (sg * a * 4) + "deg) scale(" + s.toFixed(3) + ")";
+      g.style.opacity = a <= side ? "1" : "0";
+      g.lastChild.style.opacity = String(Math.min(1, 0.15 + (a - 1) * 0.38));
+      g.style.zIndex = String(10 - a);
+    });
+  }
+
+  function go(i) {
+    cur = (i % N + N) % N;
+    track.style.transform = "translateX(" + (-cur * 100) + "%)";
+    slides.forEach(function (s, k) {
+      if (k === cur) s.removeAttribute("aria-hidden"); else s.setAttribute("aria-hidden", "true");
+    });
+    dots.forEach(function (d, k) { d.setAttribute("aria-current", k === cur ? "true" : "false"); });
+    title.textContent = slides[cur].dataset.title;
+    line.textContent = slides[cur].dataset.cap;
+    count.textContent = (cur + 1) + "/" + N;
+    layout();
+  }
+
+  root.querySelector('[data-fr="prev"]').addEventListener("click", function () { go(cur - 1); });
+  root.querySelector('[data-fr="next"]').addEventListener("click", function () { go(cur + 1); });
+  post.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowLeft") { e.preventDefault(); go(cur - 1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); go(cur + 1); }
+  });
+
+  // Swipe. A vertical pan belongs to the page and ends this as pointercancel.
+  var x0 = 0, t0 = 0, dx = 0, id = null;
+  media.addEventListener("pointerdown", function (e) {
+    if (e.button !== 0) return;
+    id = e.pointerId; x0 = e.clientX; t0 = performance.now(); dx = 0;
+    media.setPointerCapture(id);
+  });
+  media.addEventListener("pointermove", function (e) {
+    if (e.pointerId !== id) return;
+    dx = e.clientX - x0;
+    if (Math.abs(dx) > 4) media.classList.add("drag");
+    track.style.transform = "translateX(calc(" + (-cur * 100) + "% + " + dx.toFixed(1) + "px))";
+  });
+  function end(e) {
+    if (e.pointerId !== id) return;
+    id = null;
+    media.classList.remove("drag");
+    var v = dx / Math.max(1, performance.now() - t0);
+    if (e.type === "pointerup" && (Math.abs(dx) > media.clientWidth * 0.18 || Math.abs(v) > 0.5)) go(cur + (dx < 0 ? 1 : -1));
+    else go(cur);
+  }
+  media.addEventListener("pointerup", end);
+  media.addEventListener("pointercancel", end);
+  media.addEventListener("dragstart", function (e) { e.preventDefault(); });
+
+  if ("ResizeObserver" in window) new ResizeObserver(layout).observe(root);
+  else addEventListener("resize", layout);
+  go(0);
+})();
+</script>
+<script>
+/* Dot globe, centred on India. Canvas 2D, no library: a Fibonacci lattice of
+   dots on a sphere, turned and projected each frame, drawn in a handful of
+   batched paths. It is a plain sphere, not land (the repository holds no
+   coastline). Gold dots fall inside map.html's own India bounds, and the two
+   markers are the only places the project names: the centre of the demo
+   fleet's bounds in seed-demo-fleet.ts, and VIT-AP University. Drag turns it
+   with momentum and it drifts home to India when left alone; it draws only
+   while on screen and the tab is visible, and never moves on its own under
+   reduced motion. */
+(function () {
+  "use strict";
+  var fig = document.getElementById("globe");
+  if (!fig) return;
+  var vp = fig.querySelector(".globe-vp"), cv = vp.querySelector("canvas");
+  var g = cv.getContext && cv.getContext("2d");
+  if (!g) return;
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var D = Math.PI / 180, TAU = Math.PI * 2;
+  var HOME_YAW = 80 * D, HOME_PITCH = 21 * D;
+  var B = { s: 6.5, n: 35.7, w: 68.0, e: 97.5 };              // map.html: var INDIA
+  var PLACES = [
+    { lat: 28.42, lon: 76.99, col: "240,180,41", label: "Demo service area · Gurugram, NH-48", dx: -1 },
+    { lat: 16.50, lon: 80.50, col: "95,208,216", label: "VIT-AP University", dx: 1 }
+  ];
+  var N = 0, cl, sl, ln, ind, gx, gz, bk, bn = new Int32Array(9), frame = [];
+  var W = 0, R = 0, cx = 0, cy = 0, dpr = 1;
+  var yaw = HOME_YAW, pitch = HOME_PITCH, vy = 0, vp_ = 0;
+  var dragging = false, idleSince = 0, visible = false, raf = 0, last = 0, ready = false;
+
+  function build() {
+    N = innerWidth < 720 ? 2400 : 3600;
+    cl = new Float32Array(N); sl = new Float32Array(N); ln = new Float32Array(N); ind = new Uint8Array(N);
+    gx = new Float32Array(N); gz = new Float32Array(N); bk = new Float32Array(9 * N * 2);
+    var ga = Math.PI * (3 - Math.sqrt(5));
+    for (var i = 0; i < N; i++) {
+      var y = 1 - (i + 0.5) * 2 / N, la = Math.asin(y), lo = (i * ga) % TAU - Math.PI;
+      cl[i] = Math.cos(la); sl[i] = y; ln[i] = lo;
+      gx[i] = cl[i] * Math.sin(lo); gz[i] = cl[i] * Math.cos(lo);
+      var dla = la / D, dlo = lo / D;
+      ind[i] = dla >= B.s && dla <= B.n && dlo >= B.w && dlo <= B.e ? 1 : 0;
+    }
+    var k;
+    for (k = 0; k <= 40; k++) {
+      var t = k / 40;
+      frame.push([B.s, B.w + (B.e - B.w) * t], [B.n, B.w + (B.e - B.w) * t]);
+      frame.push([B.s + (B.n - B.s) * t, B.w], [B.s + (B.n - B.s) * t, B.e]);
+    }
+    frame = frame.map(function (p) { return [Math.cos(p[0] * D), Math.sin(p[0] * D), p[1] * D]; });
+    PLACES.forEach(function (p) { p.c = Math.cos(p.lat * D); p.s = Math.sin(p.lat * D); p.l = p.lon * D; });
+  }
+
+  function size() {
+    var w = vp.clientWidth;
+    if (!w) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(w * dpr); cv.height = Math.round(w * dpr);
+    W = w; R = w * 0.4; cx = w / 2; cy = w / 2;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  var o = { x: 0, y: 0, z: 0 }, cp = 1, sp = 0;
+  function P(c, s, l) {
+    var sa = Math.sin(l - yaw), ca = Math.cos(l - yaw);
+    var x = c * sa, z = c * ca;
+    o.x = cx + x * R; o.y = cy - (s * cp - z * sp) * R; o.z = s * sp + z * cp;
+    return o;
+  }
+
+  function draw(now) {
+    cp = Math.cos(pitch); sp = Math.sin(pitch);
+    g.clearRect(0, 0, W, W);
+    var body = g.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
+    body.addColorStop(0, "#121a28"); body.addColorStop(1, "#070a10");
+    g.fillStyle = body; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
+    // Dots in nine batches: the far side, then four depths each of plain and India.
+    // Turned with one multiply-add per axis (no trig per dot), and binned
+    // into preallocated arrays, so a frame allocates nothing.
+    var i, b, cyw = Math.cos(yaw), syw = Math.sin(yaw);
+    bn.fill(0);
+    for (i = 0; i < N; i++) {
+      var x = gx[i] * cyw - gz[i] * syw, z = gz[i] * cyw + gx[i] * syw, y = sl[i];
+      var zz = y * sp + z * cp;
+      if (zz < -0.25) continue;
+      b = zz < 0 ? 0 : 1 + Math.min(3, (zz * 4) | 0) + (ind[i] ? 4 : 0);
+      var at = (b * N + bn[b]++) * 2;
+      bk[at] = cx + x * R; bk[at + 1] = cy - (y * cp - z * sp) * R;
+    }
+    var cols = ["150,175,210", "150,175,210", "150,175,210", "150,175,210", "150,175,210", "240,180,41", "240,180,41", "240,180,41", "240,180,41"];
+    var alph = [0.08, 0.22, 0.34, 0.48, 0.62, 0.45, 0.62, 0.8, 0.95];
+    for (b = 0; b < 9; b++) {
+      if (!bn[b]) continue;
+      var r = b === 0 ? 0.9 : (b > 4 ? 1.9 : 1.4) * (0.75 + 0.1 * ((b - 1) % 4));
+      g.fillStyle = "rgba(" + cols[b] + "," + alph[b] + ")";
+      g.beginPath();
+      for (i = 0; i < bn[b]; i++) { var j = (b * N + i) * 2; g.rect(bk[j] - r / 2, bk[j + 1] - r / 2, r, r); }
+      g.fill();
+    }
+    // map.html's India bounds, dotted
+    g.fillStyle = "rgba(240,180,41,.42)";
+    g.beginPath();
+    for (i = 0; i < frame.length; i++) { P(frame[i][0], frame[i][1], frame[i][2]); if (o.z > 0) g.rect(o.x - 0.6, o.y - 0.6, 1.2, 1.2); }
+    g.fill();
+    // rim and a soft highlight
+    g.strokeStyle = "rgba(95,208,216,.22)"; g.lineWidth = 1;
+    g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.stroke();
+    var hl = g.createRadialGradient(cx - R * 0.45, cy - R * 0.5, 0, cx - R * 0.45, cy - R * 0.5, R * 0.9);
+    hl.addColorStop(0, "rgba(255,255,255,.07)"); hl.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = hl; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
+    // the two places
+    var fs = Math.max(11, Math.min(13, W / 34));
+    g.font = "600 " + fs + "px Inter, system-ui, sans-serif";
+    g.textBaseline = "middle";
+    PLACES.forEach(function (p, k) {
+      P(p.c, p.s, p.l);
+      if (o.z <= 0.05) return;
+      var x = o.x, y = o.y, a = Math.min(1, (o.z - 0.05) * 4);
+      if (!reduce) {
+        var ph = ((now / 2200) + k * 0.5) % 1;
+        g.strokeStyle = "rgba(" + p.col + "," + (0.7 * (1 - ph) * a).toFixed(3) + ")";
+        g.lineWidth = 1.5;
+        g.beginPath(); g.arc(x, y, 4 + ph * 16, 0, TAU); g.stroke();
+      }
+      g.fillStyle = "rgba(" + p.col + "," + a + ")";
+      g.beginPath(); g.arc(x, y, 4, 0, TAU); g.fill();
+      var lx = x + p.dx * 22, ly = y + p.dx * 26 - (p.dx < 0 ? 4 : -4);
+      var tw = g.measureText(p.label).width, px = p.dx < 0 ? lx - tw - 10 : lx;
+      px = Math.max(4, Math.min(W - tw - 14, px));
+      g.strokeStyle = "rgba(" + p.col + "," + (0.6 * a) + ")"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(p.dx < 0 ? px + tw + 10 : px, ly); g.stroke();
+      g.fillStyle = "rgba(8,9,12," + (0.86 * a) + ")";
+      g.beginPath(); g.rect(px, ly - fs * 0.9, tw + 10, fs * 1.8); g.fill();
+      g.fillStyle = "rgba(242,244,248," + a + ")";
+      g.fillText(p.label, px + 5, ly + 0.5);
+    });
+  }
+
+  function wrap(a) { return Math.atan2(Math.sin(a), Math.cos(a)); }
+  function step(now) {
+    raf = 0;
+    var dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
+    last = now;
+    if (!dragging) {
+      yaw += vy * dt; pitch += vp_ * dt;
+      var k = Math.exp(-dt * 2.4); vy *= k; vp_ *= k;
+      if (now - idleSince > 2500 && Math.abs(vy) < 0.05) {
+        var ty = HOME_YAW + 0.38 * Math.sin(now / 4200), e = 1 - Math.exp(-dt * 0.9);
+        yaw += wrap(ty - yaw) * e; pitch += (HOME_PITCH - pitch) * e;
+      }
+    }
+    pitch = Math.max(-1.2, Math.min(1.2, pitch));
+    draw(now);
+    if (visible && !document.hidden) raf = requestAnimationFrame(step);
+  }
+  function kick() {
+    if (!ready) return;
+    if (reduce) { draw(0); return; }
+    if (!raf && visible && !document.hidden) { last = 0; raf = requestAnimationFrame(step); }
+  }
+
+  var px0 = 0, py0 = 0, pt = 0, pid = null;
+  vp.addEventListener("pointerdown", function (e) {
+    if (!ready || e.button !== 0) return;
+    pid = e.pointerId; dragging = true; vy = vp_ = 0;
+    px0 = e.clientX; py0 = e.clientY; pt = performance.now();
+    vp.setPointerCapture(pid); vp.classList.add("drag");
+  });
+  vp.addEventListener("pointermove", function (e) {
+    if (e.pointerId !== pid) return;
+    var now = performance.now(), dt = Math.max(8, now - pt) / 1000;
+    var dx = (e.clientX - px0) / R, dy = (e.clientY - py0) / R;
+    yaw -= dx; pitch += dy;
+    vy = reduce ? 0 : vy * 0.5 + (-dx / dt) * 0.5; vp_ = reduce ? 0 : vp_ * 0.5 + (dy / dt) * 0.5;
+    px0 = e.clientX; py0 = e.clientY; pt = now;
+    if (reduce) { pitch = Math.max(-1.2, Math.min(1.2, pitch)); draw(0); }
+  });
+  function up(e) {
+    if (e.pointerId !== pid) return;
+    pid = null; dragging = false; idleSince = performance.now(); vp.classList.remove("drag");
+    if (performance.now() - pt > 80) { vy = 0; vp_ = 0; }
+    kick();
+  }
+  vp.addEventListener("pointerup", up);
+  vp.addEventListener("pointercancel", up);
+  vp.addEventListener("keydown", function (e) {
+    var k = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (!k || !ready) return;
+    e.preventDefault();
+    yaw += k[0] * 12 * D; pitch = Math.max(-1.2, Math.min(1.2, pitch + k[1] * 8 * D));
+    vy = vp_ = 0; idleSince = performance.now();
+    if (reduce) draw(0); else kick();
+  });
+
+  function start() {
+    if (ready) return;
+    ready = true; build(); size(); idleSince = performance.now();
+    if ("ResizeObserver" in window) new ResizeObserver(function () { size(); if (reduce || !raf) draw(performance.now()); }).observe(vp);
+    draw(performance.now()); kick();
+  }
+  document.addEventListener("visibilitychange", kick);
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (es) {
+      visible = es[0].isIntersecting;
+      if (visible) { start(); kick(); }
+    }, { rootMargin: "120px 0px" }).observe(vp);
+  } else { visible = true; start(); }
+})();
+</script>
+<script>
+/* Wave gallery: the gallery's own captures as glossy cards on an endless
+   ribbon, bent into a wave that rises over the crest and sinks into fog. Raw
+   WebGL, one small shader, one draw per card; no library. Each card's texture
+   is the real screenshot with its screen name printed on it, drawn once in a
+   2D canvas, so the name bends with the card. The chips below are the real
+   controls: hover or focus one and its card glides to the crest, select it
+   (or the card) to enlarge. Starts only when the gallery is near the
+   viewport, draws only while it is on screen and the tab is visible, and is
+   never started under reduced motion (the head script decides). */
+(function () {
+  "use strict";
+  var html = document.documentElement;
+  var fig = document.getElementById("wave");
+  if (!fig || !html.classList.contains("wave-ok")) return;
+  var vp = fig.querySelector(".wave-vp"), cv = vp.querySelector("canvas");
+  var small = matchMedia("(max-width: 720px)").matches;
+  var CH = 1.5, IMG = 1.28, GAP = 0.16, DIST = 4.0, FY = 1 / Math.tan(15 * Math.PI / 180);
+  var items = [].slice.call(document.querySelectorAll(".gal .shot")).map(function (b) {
+    var name = b.dataset.src.replace(/^.*\/|\.png$/g, ""), wide = !!b.closest(".shots-wide");
+    return { b: b, wide: wide, title: b.querySelector(".cap").textContent.trim(), src: "shots/thumbs/" + name + ".webp", w: wide ? 1.92 : 0.68 };
+  });
+  // Fewer cards on a phone: the portrait captures only, eight of them.
+  var cards = small ? items.filter(function (c) { return !c.wide; }).slice(0, 8) : items;
+  var L = 0;
+  cards.forEach(function (c) { c.c = L + c.w / 2; L += c.w + GAP; });
+
+  var gl, prog, loc = {}, buf, ibuf, nIdx, started = false, visible = false, raf = 0;
+  var off = 0, vel = 0, target = null, hold = false, t = 0, last = 0, fx = 1, W = 0, Hh = 0;
+
+  function Y(x) { return 0.55 * Math.exp(-x * x * 0.16) - 0.42 + 0.07 * Math.sin(x * 1.15 - t * 0.9); }
+  function Z(x) { return -0.1 * x * x + 0.06 * Math.cos(x * 1.15 - t * 0.9); }
+  function wrapX(x) { x = (x + L / 2) % L; if (x < 0) x += L; return x - L / 2; }
+
+  var VS = [
+    "attribute vec2 a;",
+    "uniform mediump vec2 uSize; uniform float uX; uniform float uT; uniform vec2 uView;",
+    "varying vec2 vUv; varying float vFog; varying float vN; varying float vX;",
+    "float Y(float x){ return 0.55*exp(-x*x*0.16) - 0.42 + 0.07*sin(x*1.15 - uT*0.9); }",
+    "float Z(float x){ return -0.1*x*x + 0.06*cos(x*1.15 - uT*0.9); }",
+    "void main(){",
+    "  float x = uX + (a.x - 0.5)*uSize.x;",
+    "  float z = Z(x);",
+    "  float dz = (Z(x + 0.01) - Z(x - 0.01))*50.0;",
+    "  vN = 1.0/sqrt(1.0 + dz*dz) * (1.0 - 0.6*dz*0.35);",
+    "  vUv = a; vX = x;",
+    "  vec3 p = vec3(x, (0.5 - a.y)*uSize.y + Y(x) - 0.05, z - " + DIST.toFixed(2) + ");",
+    "  vFog = clamp((abs(x) - 1.1)/3.4, 0.0, 1.0);",
+    "  gl_Position = vec4(p.x*uView.x, p.y*uView.y, 0.0, -p.z);",
+    "}"].join("\n");
+  var FS = [
+    "precision mediump float;",
+    "uniform sampler2D uTex; uniform vec2 uSize; uniform float uHi;",
+    "varying vec2 vUv; varying float vFog; varying float vN; varying float vX;",
+    "void main(){",
+    "  vec4 c = texture2D(uTex, vUv);",
+    "  vec2 q = abs((vUv - 0.5)*uSize) - uSize*0.5 + 0.06;",
+    "  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - 0.06;",
+    "  float m = 1.0 - smoothstep(-0.006, 0.0, d);",
+    "  float spec = pow(clamp(vN, 0.0, 1.0), 24.0)*0.10;",
+    "  float sheen = exp(-pow((vUv.x*0.8 + vUv.y*0.5 - 0.62 - vX*0.16)*5.0, 2.0))*0.10;",
+    "  float rim = (1.0 - smoothstep(-0.03, 0.0, d))*smoothstep(-0.03, -0.012, d);",
+    "  vec3 col = c.rgb + vec3(1.0, 0.96, 0.88)*(spec + sheen)*c.a + vec3(0.94, 0.71, 0.16)*rim*(0.18 + 0.6*uHi);",
+    "  float k = m*(1.0 - vFog);",
+    "  gl_FragColor = vec4(col*k*mix(1.0, 0.5, vFog), max(c.a, rim)*k);",
+    "}"].join("\n");
+
+  function sh(type, src) {
+    var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+
+  // One texture per card: the capture, cover-fitted from the top, and a band
+  // under it with the screen's name. Drawn at the card's own proportions and
+  // stretched into a power-of-two canvas so it can be mipmapped.
+  function paint(c, img) {
+    var lw = Math.round(c.w * 500), lh = Math.round(CH * 500), ih = Math.round(IMG * 500);
+    var tw = c.wide ? 1024 : 512, th = c.wide ? 512 : 1024;
+    var k = document.createElement("canvas"); k.width = tw; k.height = th;
+    var x = k.getContext("2d");
+    x.scale(tw / lw, th / lh);
+    x.beginPath(); x.roundRect ? x.roundRect(0, 0, lw, lh, 30) : x.rect(0, 0, lw, lh); x.clip();
+    x.fillStyle = "#0d1016"; x.fillRect(0, 0, lw, lh);
+    if (img) {
+      var s = Math.max(lw / img.naturalWidth, ih / img.naturalHeight);
+      x.drawImage(img, (lw - img.naturalWidth * s) / 2, 0, img.naturalWidth * s, img.naturalHeight * s);
+      var gr = x.createLinearGradient(0, ih - 120, 0, ih);
+      gr.addColorStop(0, "rgba(13,16,22,0)"); gr.addColorStop(1, "rgba(13,16,22,.92)");
+      x.fillStyle = gr; x.fillRect(0, ih - 120, lw, 120);
+    }
+    x.fillStyle = "#12151c"; x.fillRect(0, ih, lw, lh - ih);
+    x.fillStyle = "rgba(240,180,41,.75)"; x.fillRect(0, ih, lw, 3);
+    var fs = 40;
+    x.font = "600 " + fs + "px 'Space Grotesk', Inter, sans-serif";
+    while (x.measureText(c.title).width > lw - 48 && fs > 22) { fs -= 2; x.font = "600 " + fs + "px 'Space Grotesk', Inter, sans-serif"; }
+    x.fillStyle = "#f2f4f8"; x.textBaseline = "alphabetic";
+    x.fillText(c.title, 24, ih + 54);
+    x.font = "700 17px 'JetBrains Mono', monospace";
+    x.fillStyle = "#5fd0d8";
+    x.fillText("REAL SCREENSHOT", 24, ih + 92);
+    if (!c.tex) c.tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, c.tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, k);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (aniso) gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, 4);
+  }
+  var aniso = null, queue = [], pumping = 0;
+  function pump() {
+    if (pumping || !queue.length) return;
+    pumping = requestAnimationFrame(function () {
+      pumping = 0;
+      var job = queue.shift();
+      // a blank card is never painted over its finished one
+      if (!(job[1] === null && job[0].done)) { paint(job[0], job[1]); if (job[1]) job[0].done = true; }
+      if (!raf) draw();
+      pump();
+    });
+  }
+
+  function size() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = vp.clientWidth; Hh = vp.clientHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr);
+    fx = FY * Hh / W;
+    if (gl) gl.viewport(0, 0, cv.width, cv.height);
+  }
+
+  function init() {
+    gl = cv.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: true, powerPreference: "low-power" });
+    if (!gl) { html.classList.remove("wave-ok"); return false; }
+    try {
+      prog = gl.createProgram();
+      gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    } catch (e) { html.classList.remove("wave-ok"); return false; }
+    gl.useProgram(prog);
+    ["uSize", "uX", "uT", "uView", "uTex", "uHi"].forEach(function (n) { loc[n] = gl.getUniformLocation(prog, n); });
+    aniso = gl.getExtension("EXT_texture_filter_anisotropic");
+    // a grid across each card: 40 columns so it bends smoothly, 1 row
+    var SX = 40, v = [], idx = [], i;
+    for (i = 0; i <= SX; i++) v.push(i / SX, 0, i / SX, 1);
+    for (i = 0; i < SX; i++) { var a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
+    ibuf = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibuf); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
+    nIdx = idx.length;
+    var al = gl.getAttribLocation(prog, "a");
+    gl.enableVertexAttribArray(al); gl.vertexAttribPointer(al, 2, gl.FLOAT, false, 0, 0);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(0, 0, 0, 0);
+    size();
+    var fonts = document.fonts && document.fonts.load
+      ? Promise.all([document.fonts.load("600 40px 'Space Grotesk'"), document.fonts.load("700 17px 'JetBrains Mono'")]).catch(function () {})
+      : Promise.resolve();
+    // Textures are painted and uploaded one per frame, each once its image
+    // has decoded off the main thread, so starting the wave never stalls a
+    // scroll that is passing through it.
+    fonts.then(function () {
+      cards.forEach(function (c) {
+        queue.push([c, null]);
+        var im = new Image();
+        im.decoding = "async";
+        im.src = c.src;
+        (im.decode ? im.decode() : new Promise(function (r) { im.onload = r; }))
+          .then(function () { queue.push([c, im]); pump(); }, function () { /* the named blank card stays */ });
+      });
+      pump();
+    });
+    cv.addEventListener("webglcontextlost", function (e) { e.preventDefault(); cancelAnimationFrame(raf); raf = 0; html.classList.remove("wave-ok"); });
+    return true;
+  }
+
+  var front = -1;
+  function draw() {
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1f(loc.uT, t);
+    gl.uniform2f(loc.uView, fx, FY);
+    var list = [];
+    cards.forEach(function (c, i) {
+      var x = wrapX(c.c - off);
+      if (Math.abs(x) - c.w / 2 < 6.2) list.push([x, c, i]);
+    });
+    list.sort(function (p, q) { return Math.abs(q[0]) - Math.abs(p[0]); });
+    var near = list.length ? list[list.length - 1][2] : -1;
+    list.forEach(function (p) {
+      if (!p[1].tex) return;
+      gl.bindTexture(gl.TEXTURE_2D, p[1].tex);
+      gl.uniform1f(loc.uX, p[0]);
+      gl.uniform2f(loc.uSize, p[1].w, CH);
+      gl.uniform1f(loc.uHi, p[2] === near ? 1 : 0);
+      gl.drawElements(gl.TRIANGLES, nIdx, gl.UNSIGNED_SHORT, 0);
+    });
+    if (near !== front) {
+      if (front >= 0) cards[front].b.classList.remove("at");
+      front = near;
+      if (front >= 0) cards[front].b.classList.add("at");
+    }
+  }
+
+  function step(now) {
+    raf = 0;
+    var dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
+    last = now; t += dt;
+    if (!dragging) {
+      if (target != null) {
+        var e = 1 - Math.exp(-dt * 4.5);
+        off += (target - off) * e;
+        if (Math.abs(target - off) < 0.002 && !hold) target = null;
+      } else {
+        off += (0.14 + vel) * dt;
+        vel *= Math.exp(-dt * 2.2);
+      }
+    }
+    draw();
+    if (visible && !document.hidden) raf = requestAnimationFrame(step);
+  }
+  function kick() {
+    if (started && !raf && visible && !document.hidden) { last = 0; raf = requestAnimationFrame(step); }
+  }
+
+  // Bring a card to the crest by the shorter way round the ribbon.
+  function bring(i) {
+    var k = cards.indexOf(items[i]);
+    if (k < 0 || !started) return;
+    target = off + wrapX(cards[k].c - off);
+    kick();
+  }
+  items.forEach(function (c, i) {
+    c.b.addEventListener("pointerenter", function () { hold = true; bring(i); });
+    c.b.addEventListener("pointerleave", function () { hold = false; });
+    c.b.addEventListener("focus", function () { hold = true; bring(i); });
+    c.b.addEventListener("blur", function () { hold = false; });
+  });
+
+  // Drag the ribbon; a tap on a card enlarges it.
+  var dragging = false, pid = null, x0 = 0, xs = 0, tp = 0;
+  function pxToWorld(px) { return (2 * px / W) * DIST / fx; }
+  vp.addEventListener("pointerdown", function (e) {
+    if (!started || e.button !== 0) return;
+    pid = e.pointerId; dragging = true; target = null; x0 = xs = e.clientX; tp = performance.now(); vel = 0;
+    vp.setPointerCapture(pid); vp.classList.add("drag");
+  });
+  vp.addEventListener("pointermove", function (e) {
+    if (e.pointerId !== pid) return;
+    var now = performance.now(), d = pxToWorld(e.clientX - x0);
+    off -= d; vel = -d / Math.max(0.008, (now - tp) / 1000) * 0.6; x0 = e.clientX; tp = now;
+  });
+  function up(e) {
+    if (e.pointerId !== pid) return;
+    pid = null; dragging = false; vp.classList.remove("drag");
+    if (performance.now() - tp > 90) vel = 0;
+    vel = Math.max(-3, Math.min(3, vel));
+    if (e.type === "pointerup" && Math.abs(e.clientX - xs) < 6) pick(e);
+  }
+  vp.addEventListener("pointerup", up);
+  vp.addEventListener("pointercancel", up);
+  function pick(e) {
+    var r = vp.getBoundingClientRect();
+    var nx = (e.clientX - r.left) / r.width * 2 - 1, ny = 1 - (e.clientY - r.top) / r.height * 2;
+    var best = null;
+    cards.forEach(function (c) {
+      var x = wrapX(c.c - off), dz = DIST - Z(x);
+      var x0 = (x - c.w / 2) * fx / dz, x1 = (x + c.w / 2) * fx / dz;
+      var yc = Y(x) - 0.05, y0 = (yc - CH / 2) * FY / dz, y1 = (yc + CH / 2) * FY / dz;
+      if (nx >= x0 && nx <= x1 && ny >= y0 && ny <= y1 && (!best || Math.abs(x) < Math.abs(best[0]))) best = [x, c];
+    });
+    if (best) best[1].b.click();
+  }
+
+  function start() {
+    if (started) return;
+    started = true;
+    if (!init()) return;
+    if ("ResizeObserver" in window) new ResizeObserver(function () { size(); if (!raf) draw(); }).observe(vp);
+    kick();
+  }
+  document.addEventListener("visibilitychange", kick);
+  if ("IntersectionObserver" in window) {
+    // Set up well before it is reached; animate only while it is on screen.
+    new IntersectionObserver(function (es, o) {
+      if (es[0].isIntersecting) { o.disconnect(); start(); }
+    }, { rootMargin: "900px 0px" }).observe(vp);
+    new IntersectionObserver(function (es) {
+      visible = es[0].isIntersecting;
+      if (visible) { start(); kick(); }
+    }).observe(vp);
+  } else { visible = true; start(); }
 })();
 </script>
 <script>

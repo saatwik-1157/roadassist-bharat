@@ -149,15 +149,16 @@ jobs:
           for ref in $(grep -oE 'srcset="[^"]+"' _site/index.html | cut -d'"' -f2 | tr ',' '\n' | awk '{print $1}' | sort -u); do
             if [ -f "_site/$ref" ]; then echo "  ok   $ref (srcset)"; else echo "  MISS $ref (srcset)"; fail=1; fi
           done
-          # The journey switcher builds its image URL in script from
-          # data-shot, so the grep above never sees those paths. A renamed
-          # screenshot would pass it and then show a broken frame on click.
-          for shot in $(grep -oE 'data-shot="[^"]+"' _site/index.html | cut -d'"' -f2 | sort -u); do
-            ref="shots/stage/$shot.webp"
-            if [ -f "_site/$ref" ]; then echo "  ok   $ref (switcher)"; else echo "  MISS $ref (switcher)"; fail=1; fi
-            # ...and the stage's 3D scene, which the switcher swaps in beside it.
-            ref="shots/scene/$shot.webp"
-            if [ -f "_site/$ref" ]; then echo "  ok   $ref (scene)"; else echo "  MISS $ref (scene)"; fail=1; fi
+          # The gallery's wave builds each card's texture URL in script, from
+          # the button's data-src (shots/NAME.png -> shots/thumbs/NAME.webp), so
+          # the greps above never see those paths. A renamed screenshot would
+          # pass them and then draw a blank card.
+          for name in $(grep -oE 'data-src="shots/[^"]+\.png"' _site/index.html | sed -E 's#.*shots/([^"]+)\.png"#\1#' | sort -u); do
+            ref="shots/thumbs/$name.webp"
+            if [ -f "_site/$ref" ]; then echo "  ok   $ref (wave)"; else echo "  MISS $ref (wave)"; fail=1; fi
+            # ...and the full-size PNG the lightbox opens.
+            ref="shots/$name.png"
+            if [ -f "_site/$ref" ]; then echo "  ok   $ref (lightbox)"; else echo "  MISS $ref (lightbox)"; fail=1; fi
           done
           exit $fail
 
