@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,7 +42,9 @@ import androidx.core.net.toUri
 
 /**
  * Home's "Emergency numbers" card: every entry of [EmergencyNumbers.ALL], each
- * one tap from the dialer.
+ * one tap from the dialer — the emergency numbers first, then the national
+ * helplines ([EmergencyNumbers.HELPLINE_IDS]) under their own subheading, in
+ * the same row style as the secondary numbers.
  *
  * Static on purpose. It needs no network, no session and no permission, so it
  * is there on the screen a stranded person is holding even when the SOS
@@ -63,9 +66,19 @@ fun EmergencyNumbersCard(modifier: Modifier = Modifier) {
                 color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp),
             )
             Spacer(Modifier.height(RaSpace.s1))
-            EmergencyNumbers.ALL.forEach { n ->
+            val (helplines, emergency) = EmergencyNumbers.ALL.partition { it.id in EmergencyNumbers.HELPLINE_IDS }
+            emergency.forEach { n ->
                 if (n.primary) PrimaryRow(n) { dialEmergency(ctx, n.number) }
                 else SecondaryRow(n) { dialEmergency(ctx, n.number) }
+            }
+            if (helplines.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.emergency_helplines_heading),
+                    color = Muted, style = RaType.eyebrow,
+                    modifier = Modifier.padding(start = RaSpace.s4, top = RaSpace.s3, bottom = 2.dp)
+                        .semantics { heading() },
+                )
+                helplines.forEach { n -> SecondaryRow(n) { dialEmergency(ctx, n.number) } }
             }
         }
     }

@@ -183,6 +183,14 @@ It is written here rather than drawn on the screen, which is the whole point —
 so it has to be written here. The field is only committed when it is visible, so
 a stale value cannot overwrite what `MainActivity.onCreate` restored.
 
+**A local API needs a DEBUG build** (1.0.2 on). A release APK is HTTPS only
+(`src/main/res/xml/network_security_config.xml`); the debug build's override in
+`src/debug/res/xml/` allows plain HTTP to `10.0.2.2`, `localhost` and
+`127.0.0.1` and nowhere else. A LAN address such as `192.168.1.8:4000` is
+refused in both, so from a phone on USB run `adb reverse tcp:4000 tcp:4000` and
+use `localhost:4000`. A refused address is explained under the server field
+(`server_https_required`) and nothing is saved.
+
 ## Open map services
 
 The `/v1/geo/*` routes (`apps/api/src/routes/geo.ts`, ADR-0012) are **off in

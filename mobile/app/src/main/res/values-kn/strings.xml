@@ -47,6 +47,7 @@
     <string name="server_queued_warning">ಈ ಫೋನ್‌ನಲ್ಲಿ ಕಳುಹಿಸದ ತುರ್ತು ವರದಿಗಳು: %1$d. ಇವು ಹೊಸ ಸರ್ವರ್‌ಗೆ ಹೋಗುತ್ತವೆ.</string>
     <string name="action_use_server">ಈ ಸರ್ವರ್ ಬಳಸಿ</string>
     <string name="server_unreachable">ಆ ವಿಳಾಸದಲ್ಲಿ ಯಾವುದೇ RoadAssist API ಉತ್ತರಿಸಲಿಲ್ಲ. ಏನೂ ಬದಲಾಗಿಲ್ಲ — ನೀವು ಇಲ್ಲಿಯೇ ಸೈನ್ ಇನ್ ಆಗಿದ್ದೀರಿ.</string>
+    <string name="server_https_required">ಈ ವಿಳಾಸಕ್ಕೆ HTTPS ಬೇಕು: ಇದನ್ನು https:// ಜೊತೆ ನಮೂದಿಸಿ. ಸಾದಾ http:// ಡೀಬಗ್ ಬಿಲ್ಡ್‌ನಲ್ಲಿ ಮಾತ್ರ, ಅದೂ ಎಮ್ಯುಲೇಟರ್ ಹೋಸ್ಟ್ (10.0.2.2) ಅಥವಾ localhost ಗೆ ಮಾತ್ರ ಅನುಮತಿಸಲಾಗಿದೆ.</string>
     <string name="about">ಪರಿಚಯ</string>
     <string name="about_body">RoadAssist ಭಾರತ್ — ಒಂದು ವೇದಿಕೆ, ಪ್ರತಿ ವಾಹನ, ಪ್ರತಿ ರಸ್ತೆ. ಇದು ವಿದ್ಯಾರ್ಥಿ ಮಾದರಿ; ನಿಜವಾದ ತುರ್ತು ಸೇವೆ ಜೋಡಿಸಿಲ್ಲ.</string>
     <string name="action_sign_out">ಸೈನ್ ಔಟ್</string>
@@ -116,7 +117,10 @@
     <string name="toast_sos_cancelled">SOS ರದ್ದು — ಏನನ್ನೂ ಕಳುಹಿಸಿಲ್ಲ</string>
     <string name="toast_vehicle_added">ವಾಹನ ಸೇರಿಸಲಾಗಿದೆ</string>
     <string name="toast_no_mechanic">ಈ ವ್ಯಾಪ್ತಿಯಲ್ಲಿ ಮೆಕ್ಯಾನಿಕ್ ಇಲ್ಲ — ವ್ಯಾಪ್ತಿ ಹೆಚ್ಚಿಸಿ</string>
-    <string name="toast_sos_synced">ಆನ್‌ಲೈನ್ ಆದ ಕೂಡಲೆ %1$d SOS ಸಿಂಕ್ ಆಗಿವೆ</string>
+    <plurals name="toast_sos_synced">
+        <item quantity="one">ಆನ್‌ಲೈನ್ ಆದ ಕೂಡಲೆ %1$d SOS ಸಿಂಕ್ ಆಗಿವೆ</item>
+        <item quantity="other">ಆನ್‌ಲೈನ್ ಆದ ಕೂಡಲೆ %1$d SOS ಸಿಂಕ್ ಆಗಿವೆ</item>
+    </plurals>
     <string name="layers_title">3D ಯಲ್ಲಿ ಪದರಗಳು</string>
     <string name="layers_sub">RoadAssist ನ ಪ್ರತಿಯೊಂದು ಪದರ ಲೈವ್ 3D ಯಲ್ಲಿ: ಸ್ಟಾಕ್ ಅನ್ನು ತಿರುಗಿಸಿ, ಒಂದು ಪದರವನ್ನು ತೆರೆಯಿರಿ ಮತ್ತು ನಿಜವಾದ ವಿನಂತಿ ಅದರ ಮೂಲಕ ಸಾಗುವುದನ್ನು ನೋಡಿ.</string>
     <string name="layers_open">3D ಯಲ್ಲಿ ತೆರೆಯಿರಿ</string>
@@ -171,6 +175,10 @@
     <string name="emergency_102">ಆಂಬ್ಯುಲೆನ್ಸ್ (ಕೆಲವು ರಾಜ್ಯಗಳು)</string>
     <string name="emergency_100">ಪೊಲೀಸ್</string>
     <string name="emergency_101">ಅಗ್ನಿಶಾಮಕ ದಳ</string>
+    <string name="emergency_181">ಮಹಿಳಾ ಸಹಾಯವಾಣಿ (24×7)</string>
+    <string name="emergency_1098">ಚೈಲ್ಡ್‌ಲೈನ್ — ಸಂಕಷ್ಟದಲ್ಲಿರುವ ಮಕ್ಕಳು (24×7)</string>
+    <string name="emergency_14567">ಎಲ್ಡರ್‌ಲೈನ್ — ಹಿರಿಯ ನಾಗರಿಕರು (ಬೆಳಿಗ್ಗೆ 8–ರಾತ್ರಿ 8)</string>
+    <string name="emergency_helplines_heading">ಇತರ ರಾಷ್ಟ್ರೀಯ ಸಹಾಯವಾಣಿಗಳು</string>
     <string name="sos_location_unknown">ಸ್ಥಳ ತಿಳಿದಿಲ್ಲ — ಸ್ಥಳವಿಲ್ಲದೆ SOS ಕಳುಹಿಸಲಾಗಿದೆ. 112 ಗೆ ಕರೆ ಮಾಡಿ ನೀವು ಎಲ್ಲಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿ.</string>
     <string name="sos_location_unknown_saved">ಸ್ಥಳ ತಿಳಿದಿಲ್ಲ — ಉಳಿಸಿದ SOS ನಲ್ಲಿ ಸ್ಥಳವಿಲ್ಲ. 112 ಗೆ ಕರೆ ಮಾಡಿ ನೀವು ಎಲ್ಲಿದ್ದೀರಿ ಎಂದು ತಿಳಿಸಿ.</string>
     <string name="booking_not_sent">ಇನ್ನೂ ಸ್ಥಳ ಸಿಕ್ಕಿಲ್ಲ — ವಿನಂತಿಯನ್ನು ಕಳುಹಿಸಲಾಗಿಲ್ಲ.</string>

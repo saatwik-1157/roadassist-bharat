@@ -97,12 +97,23 @@ jobs:
           cp site/roadassist-app-demo.mp4 _site/media/
           cp site/raksha-full-demo.mp4    _site/media/
           cp site/roadassist-promo.mp4 site/roadassist-promo-vertical.mp4 site/roadassist-promo-poster.png _site/media/
+          # The page's own <video poster> is a WebP copy of that PNG (368 KB ->
+          # 43 KB), made locally with Pillow (quality 90: at 82 the poster's faint
+          # background grid washed out) and committed under pages/media/,
+          # because this step has no Pillow. The PNG above still ships for
+          # anything that links it.
+          cp pages/media/*.webp _site/media/
           # The generated 3D visuals, all of them: naming three by hand meant
           # adding a fourth to the page failed the build instead of shipping.
           # render_visuals.py builds them from the
           # real screenshots above and refuses a landscape capture in a phone
           # frame, which is how the hero silently rendered as overlap once.
           cp ppt/assets/vis_*.png _site/visuals/
+          # WebP copies of the visuals the page shows (vis_hero: 712 KB -> 79 KB),
+          # committed under pages/visuals/ like the poster's above. The PNGs stay
+          # for og:image, the sitemap and the deck. Re-make one after its PNG
+          # changes: Image.open(png).convert("RGB").save(webp, "WEBP", quality=82, method=6)
+          cp pages/visuals/*.webp _site/visuals/
           # Jekyll would otherwise try to process this and skip _-prefixed files.
           touch _site/.nojekyll
 

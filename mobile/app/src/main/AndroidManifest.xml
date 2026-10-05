@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -28,15 +29,21 @@
         </intent>
     </queries>
 
-    <!-- The default server is the live platform over HTTPS. Cleartext stays
-         allowed for development only because a developer's API runs over
-         plain HTTP on their own machine (10.0.2.2 from an emulator, a LAN
-         address from a phone), and those addresses cannot be enumerated.
-         network_security_config.xml keeps that exactly as permissive as
-         before and additionally REFUSES cleartext to the live domain. On
-         API 24+ that file takes precedence over usesCleartextTraffic, which is
-         kept only so the intent reads the same in both places. A store build
-         would drop the base-config allowance and ship HTTPS only.
+    <!-- HTTPS only in a release build. network_security_config.xml refuses
+         cleartext to every host; the debug build swaps in its own copy
+         (src/debug/res/xml/network_security_config.xml) that allows plain
+         HTTP to the emulator host 10.0.2.2 and localhost and nowhere else,
+         because a developer's API runs over plain HTTP on their own machine.
+         A phone reaches a laptop's API through `adb reverse tcp:4000 tcp:4000`
+         and localhost:4000. android:usesCleartextTraffic is gone: on API 24+
+         the config file decides, and a second switch here that said the
+         opposite was only something to misread.
+         enableOnBackInvokedCallback opts in to predictive back on Android 13+.
+         Every back path (Compose BackHandler, dialogs, the Layers WebView)
+         goes through the OnBackPressedDispatcher; nothing overrides
+         onBackPressed, which predictive back no longer calls. Android 8–12
+         ignore the attribute and keep classic back (tools:targetApi says
+         that is intended).
          allowBackup is off: the app keeps queued SOS records (where and when
          a crash happened) and trip data on the device, and none of it belongs
          in a cloud backup or an adb backup of the phone. -->
@@ -48,7 +55,8 @@
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.RoadAssist"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:usesCleartextTraffic="true">
+        android:enableOnBackInvokedCallback="true"
+        tools:targetApi="33">
 
         <activity
             android:name=".MainActivity"

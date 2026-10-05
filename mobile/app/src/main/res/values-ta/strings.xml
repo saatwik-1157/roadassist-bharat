@@ -47,6 +47,7 @@
     <string name="server_queued_warning">இந்தத் தொலைபேசியில் அனுப்பப்படாத அவசரச் செய்திகள்: %1$d. இவை புதிய சேவையகத்துக்கு அனுப்பப்படும்.</string>
     <string name="action_use_server">இந்தச் சேவையகத்தைப் பயன்படுத்து</string>
     <string name="server_unreachable">அந்த முகவரியில் RoadAssist API எதுவும் பதிலளிக்கவில்லை. எதுவும் மாறவில்லை — நீங்கள் இங்கேயே உள்நுழைந்திருக்கிறீர்கள்.</string>
+    <string name="server_https_required">இந்த முகவரிக்கு HTTPS தேவை: https:// உடன் உள்ளிடுங்கள். வெறும் http:// டீபக் பதிப்பில் மட்டும், அதுவும் எமுலேட்டர் ஹோஸ்ட் (10.0.2.2) அல்லது localhost-க்கு மட்டுமே அனுமதிக்கப்படும்.</string>
     <string name="about">பற்றி</string>
     <string name="about_body">RoadAssist பாரத் — ஒரு தளம், எல்லா வாகனமும், எல்லா சாலையும். இது மாணவர் முன்மாதிரி; உண்மையான அவசர சேவை இணைக்கப்படவில்லை.</string>
     <string name="action_sign_out">வெளியேறு</string>
@@ -116,7 +117,10 @@
     <string name="toast_sos_cancelled">SOS ரத்து — எதுவும் அனுப்பப்படவில்லை</string>
     <string name="toast_vehicle_added">வாகனம் சேர்க்கப்பட்டது</string>
     <string name="toast_no_mechanic">இந்த வரம்பில் மெக்கானிக் இல்லை — வரம்பை அதிகரிக்கவும்</string>
-    <string name="toast_sos_synced">ஆன்லைனுக்கு வந்ததும் %1$d SOS ஒத்திசைக்கப்பட்டன</string>
+    <plurals name="toast_sos_synced">
+        <item quantity="one">ஆன்லைனுக்கு வந்ததும் %1$d SOS ஒத்திசைக்கப்பட்டன</item>
+        <item quantity="other">ஆன்லைனுக்கு வந்ததும் %1$d SOS ஒத்திசைக்கப்பட்டன</item>
+    </plurals>
     <string name="layers_title">அடுக்குகள் 3D-யில்</string>
     <string name="layers_sub">RoadAssist-இன் ஒவ்வொரு அடுக்கும் நேரலை 3D-யில்: அடுக்கைச் சுழற்றுங்கள், ஒரு அடுக்கைத் திறந்து, ஒரு உண்மையான கோரிக்கை அதன் வழியே செல்வதைப் பாருங்கள்.</string>
     <string name="layers_open">3D-யில் திற</string>
@@ -171,6 +175,10 @@
     <string name="emergency_102">ஆம்புலன்ஸ் (சில மாநிலங்கள்)</string>
     <string name="emergency_100">காவல்துறை</string>
     <string name="emergency_101">தீயணைப்பு</string>
+    <string name="emergency_181">பெண்கள் உதவி எண் (24×7)</string>
+    <string name="emergency_1098">சைல்ட்லைன் — ஆபத்தில் உள்ள குழந்தைகள் (24×7)</string>
+    <string name="emergency_14567">எல்டர்லைன் — மூத்த குடிமக்கள் (காலை 8–இரவு 8)</string>
+    <string name="emergency_helplines_heading">பிற தேசிய உதவி எண்கள்</string>
     <string name="sos_location_unknown">இருப்பிடம் தெரியவில்லை — இருப்பிடம் இல்லாமல் SOS அனுப்பப்பட்டது. 112 ஐ அழைத்து நீங்கள் எங்கே இருக்கிறீர்கள் என்று சொல்லுங்கள்.</string>
     <string name="sos_location_unknown_saved">இருப்பிடம் தெரியவில்லை — சேமித்த SOS இல் இருப்பிடம் இல்லை. 112 ஐ அழைத்து நீங்கள் எங்கே இருக்கிறீர்கள் என்று சொல்லுங்கள்.</string>
     <string name="booking_not_sent">இன்னும் இருப்பிடம் கிடைக்கவில்லை — கோரிக்கை அனுப்பப்படவில்லை.</string>

@@ -117,7 +117,7 @@
       "gu"
     ],
     "serverKeys": 18,
-    "androidKeys": 167,
+    "androidKeys": 172,
     "webKeys": 30,
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."

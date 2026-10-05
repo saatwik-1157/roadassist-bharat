@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RoadAssist — Mechanic</title>
 <meta name="description" content="RoadAssist Bharat mechanic console: availability, live dispatch offers, the active job and its history.">
-<link rel="canonical" href="https://app.roadassistbharat.online/mechanic.html">
+<link rel="canonical" href="https://app.roadassistbharat.online/mechanic.html"><meta property="og:type" content="website"><meta property="og:url" content="https://app.roadassistbharat.online/mechanic.html"><meta property="og:title" content="RoadAssist — Mechanic"><meta property="og:description" content="RoadAssist Bharat mechanic console: availability, live dispatch offers, the active job and its history."><meta property="og:image" content="https://app.roadassistbharat.online/assets/shot-mechanic.jpg"><meta property="og:image:type" content="image/jpeg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#08090c" media="(prefers-color-scheme: dark)">
 <script>
@@ -272,11 +272,11 @@
       <div class="pane" id="pane-profile">
         <h1 class="display">Your <em>profile.</em></h1>
         <div class="card" style="margin-top:16px">
-          <h3 class="title">Account</h3>
+          <h2 class="title">Account</h2>
           <p class="meta" id="m-meta" style="margin-top:4px">—</p>
         </div>
         <div class="card">
-          <h3 class="title">Appearance</h3>
+          <h2 class="title">Appearance</h2>
           <p class="meta" style="margin-top:4px">Follows your system by default.</p>
           <div class="seg" style="margin-top:12px" id="theme-seg" role="tablist">
             <button role="tab" data-theme-set="light">Light</button>
@@ -930,7 +930,7 @@
       } else if (dot) { dot.remove(); }
     } catch (e) {
       $("offers").innerHTML =
-        "<div class='card'><h3 class='title'>Could not load requests</h3>" +
+        "<div class='card'><h2 class='title'>Could not load requests</h2>" +
         "<p class='meta' style='margin-top:6px'>" + esc(e.message) + "</p>" +
         "<button class='btn ghost' id='off-retry' style='margin-top:12px'>Try again</button></div>";
       var rb = $("off-retry");
@@ -1042,8 +1042,8 @@
     box.innerHTML =
       "<div class='card'>" +
         "<div style='display:flex;align-items:flex-start;gap:10px'>" +
-          "<span class='grow'><h3 class='title'>" +
-            esc((b.serviceType && b.serviceType.label) || "Roadside assistance") + "</h3>" +
+          "<span class='grow'><h2 class='title'>" +
+            esc((b.serviceType && b.serviceType.label) || "Roadside assistance") + "</h2>" +
           "<small style='display:block;color:var(--text-3);font-size:12px;margin-top:3px'>" +
             esc(b.reference) + "</small></span>" +
           "<span class='pill " + pillFor(b.status) + "'>" +

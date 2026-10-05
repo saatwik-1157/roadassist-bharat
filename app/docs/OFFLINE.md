@@ -31,9 +31,9 @@ simplification.
 | Booking state changes | YES | **NO** | Server-authoritative (ADR-0004). Never queued |
 | Add a vehicle / file a hazard report | YES | **QUEUED** | Safe to replay; the server de-duplicates by operation id |
 | Cloud synchronisation | YES | **QUEUED** | Store-and-forward, exponential backoff with full jitter |
-| App shell / PWA start | YES | **YES** | Service worker `ra-v19` caches the shell, the map, the mechanic console and the fonts; pages load network-first (3 s, then the cached copy), so a deploy shows on the next load |
+| App shell / PWA start | YES | **YES** | Service worker `ra-v20` caches the shell, the map, the mechanic console and the fonts; pages load network-first (3 s, then the cached copy), so a deploy shows on the next load |
 | Emergency instructions | YES | **YES** | Static text on the device |
-| Call emergency numbers (112, 1033, 108…) | YES | **YES** | Tap-to-call `tel:` links from `apps/web/emergency-numbers.js`. A voice call can connect where data cannot; the app only opens the dialler, it does not place or route the call |
+| Call emergency numbers (112, 1033, 108…) and national helplines (181, 1098, 14567) | YES | **YES** | Tap-to-call `tel:` links from `apps/web/emergency-numbers.js`. A voice call can connect where data cannot; the app only opens the dialler, it does not place or route the call |
 | Text my location | YES | **YES** | An `sms:` link opens the phone's messaging app with the SOS reference, GPS fix (or "Location unknown") and time typed in. The user picks the recipient and presses Send; the app sends nothing |
 
 ---
@@ -72,9 +72,11 @@ On raising an SOS with no connection:
 
 Below that, on the same sheet: a **Call 112** button, a tap-to-call list of
 1033 (NHAI national-highway helpline), 108 and 102 (state ambulance services;
-which one answers varies by state), 100 (police) and 101 (fire), and a **Text my
-location** button, under which the screen says the user chooses who it goes to
-and sends it themselves — RoadAssist has not sent anything.
+which one answers varies by state), 100 (police) and 101 (fire); under **Other
+national helplines**, 181 (Women Helpline, 24x7), 1098 (Childline, 24x7) and
+14567 (Elderline for senior citizens, 8 AM–8 PM); and a **Text my location**
+button, under which the screen says the user chooses who it goes to and sends
+it themselves — RoadAssist has not sent anything.
 
 On reconnect: **Connection restored** → *Synchronizing emergency information…*
 → **SOS synchronized. RoadAssist dispatch can now process your incident.**

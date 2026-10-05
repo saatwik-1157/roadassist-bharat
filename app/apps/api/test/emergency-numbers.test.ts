@@ -25,6 +25,8 @@ type Info = {
 const E = (globalThis as unknown as {
   RAEmergency: {
     NUMBERS: Num[];
+    HELPLINE_IDS: string[];
+    HELPLINES_HEADING: string;
     telHref(n: string): string;
     smsBody(o: Info): string;
     smsHref(body: string, ua?: string, touchPoints?: number): string;
@@ -42,20 +44,29 @@ const WITH_FIX: Info = { ref: "RA-AB12CD", lat: 28.4595, lng: 77.0266, accuracyM
 const COORD = /-?\d{1,3}\.\d{3,}/;
 
 describe("emergency-numbers.js — the list", () => {
-  it("is 112, 1033, 108, 102, 100, 101, in that order, with 112 the only primary", () => {
-    assert.deepEqual(E.NUMBERS.map((n) => n.number), ["112", "1033", "108", "102", "100", "101"]);
-    assert.deepEqual(E.NUMBERS.map((n) => n.id), ["all", "highway", "ambulance", "ambulance_alt", "police", "fire"]);
+  it("is 112, 1033, 108, 102, 100, 101, then 181, 1098, 14567, in that order, with 112 the only primary", () => {
+    assert.deepEqual(E.NUMBERS.map((n) => n.number),
+      ["112", "1033", "108", "102", "100", "101", "181", "1098", "14567"]);
+    assert.deepEqual(E.NUMBERS.map((n) => n.id),
+      ["all", "highway", "ambulance", "ambulance_alt", "police", "fire", "women", "child", "elder"]);
     assert.deepEqual(E.NUMBERS.filter((n) => n.primary).map((n) => n.number), ["112"]);
     assert.equal(E.NUMBERS[0].label, "All emergencies (police, fire, ambulance)");
+    // The national helplines are the last three, after every emergency number.
+    assert.deepEqual(E.HELPLINE_IDS, ["women", "child", "elder"]);
+    assert.deepEqual(E.NUMBERS.slice(-E.HELPLINE_IDS.length).map((n) => n.id), E.HELPLINE_IDS);
+    assert.ok(E.NUMBERS.filter((n) => E.HELPLINE_IDS.includes(n.id)).every((n) => !n.primary));
+    assert.equal(E.NUMBERS.find((n) => n.id === "elder")?.label, "Elderline — senior citizens (8 AM–8 PM)",
+      "Elderline is not 24x7, and its label says so");
   });
 
-  it("every number is digits only, and every id and number is unique", () => {
+  it("every number is digits only, and every id, number and label is unique", () => {
     for (const n of E.NUMBERS) {
       assert.match(n.number, /^\d+$/, n.number);
       assert.ok(n.label.trim().length > 0, `${n.number} has a label`);
     }
     assert.equal(new Set(E.NUMBERS.map((n) => n.id)).size, E.NUMBERS.length);
     assert.equal(new Set(E.NUMBERS.map((n) => n.number)).size, E.NUMBERS.length);
+    assert.equal(new Set(E.NUMBERS.map((n) => n.label)).size, E.NUMBERS.length);
   });
 
   it("telHref is tel: and the bare digits", () => {
@@ -63,10 +74,20 @@ describe("emergency-numbers.js — the list", () => {
     assert.equal(E.telHref("1033"), "tel:1033");
   });
 
-  it("the panel has a tel: link for every number, 112 first", () => {
+  it("the panel has a tel: link for every number, 112 first, helplines under their subheading", () => {
     const hrefs = [...E.panelHtml().matchAll(/href='(tel:[^']+)'/g)].map((m) => m[1]);
     assert.deepEqual(hrefs, E.NUMBERS.map((n) => "tel:" + n.number));
     assert.doesNotMatch(E.panelHtml(), /sms:/, "no Text my location without an incident to describe");
+    // The helplines sit under their own subheading, after the emergency numbers.
+    const html = E.panelHtml();
+    const heading = html.indexOf(`<p class='em-sub'>${E.HELPLINES_HEADING}</p>`);
+    assert.equal(E.HELPLINES_HEADING, "Other national helplines");
+    assert.ok(heading > 0, "the subheading is rendered");
+    assert.ok(html.indexOf("href='tel:101'") < heading, "the emergency numbers come before it");
+    for (const id of E.HELPLINE_IDS) {
+      assert.ok(html.indexOf(`data-em='${id}'`) > heading, `${id} is under the subheading`);
+    }
+    assert.equal(html.match(/em-call/g)?.length, 1, "still exactly one Call button, and it is 112");
   });
 });
 
@@ -133,7 +154,7 @@ describe("emergency-numbers.js — Text my location", () => {
 });
 
 describe("emergency-numbers.js — the contract with the Android client", () => {
-  it("EmergencyNumbers.kt lists the same numbers, ids and primary, in the same order", () => {
+  it("EmergencyNumbers.kt lists the same numbers, ids, primary and helplines, in the same order", () => {
     assert.ok(existsSync(KOTLIN),
       `${KOTLIN} does not exist. The Android list is the other half of this contract; ` +
       "without it there is nothing to hold the web list against.");
@@ -142,5 +163,9 @@ describe("emergency-numbers.js — the contract with the Android client", () => 
       .map((m) => ({ number: m[1], id: m[2], primary: /primary\s*=\s*true/.test(m[3]) }));
     assert.ok(rows.length > 0, "no EmergencyNumber(...) rows found — has the Kotlin shape changed?");
     assert.deepEqual(rows, E.NUMBERS.map((n) => ({ number: n.number, id: n.id, primary: n.primary })));
+    // …and groups the same ids under the helplines subheading.
+    const set = kt.match(/HELPLINE_IDS\s*=\s*setOf\(([^)]*)\)/);
+    assert.ok(set, "no HELPLINE_IDS = setOf(...) in EmergencyNumbers.kt — has the Kotlin shape changed?");
+    assert.deepEqual([...set[1].matchAll(/"([^"]*)"/g)].map((m) => m[1]), E.HELPLINE_IDS);
   });
 });

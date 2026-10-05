@@ -2,6 +2,7 @@ package `in`.roadassist.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -111,6 +112,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.content.edit
+import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -132,6 +134,13 @@ val Alarm: Color    @Composable get() = LocalRa.current.alarm
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Which hosts this build may speak plain HTTP to is the platform's
+        // decision (network_security_config.xml, per build type). Api asks it
+        // before connecting so a refusal reads as a sentence, not an exception.
+        Api.cleartextPermitted = { host ->
+            android.security.NetworkSecurityPolicy.getInstance().isCleartextTrafficPermitted(host)
+        }
+        Api.httpsRequiredMessage = getString(R.string.server_https_required)
         // A developer's server address (a LAN IP, the emulator alias) is typed
         // by hand and kept, so it is not retyped on every launch. Restored
         // before anything composes, because the map WebView reads Api.base too.
@@ -185,7 +194,7 @@ class MainActivity : ComponentActivity() {
                     isDark = dark,
                     onToggleTheme = {
                         mode = if (dark) "light" else "dark"
-                        prefs.edit().putString("theme", mode).apply()
+                        prefs.edit { putString("theme", mode) }
                     },
                 )
             }
@@ -485,6 +494,12 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                     null,
                 )
             }
+            // System back, and the predictive back gesture, from any tab but
+            // Home returns to Home, the way bottom navigation behaves on
+            // Android; back from Home leaves the app as before. Layers in 3D
+            // and every dialog register their own handlers above this one, so
+            // they close first.
+            BackHandler(enabled = tab != 0 && !showLayers) { tab = 0 }
             Scaffold(
                 containerColor = Bg,
                 topBar = {
@@ -841,8 +856,7 @@ private fun processReportImage(ctx: android.content.Context, uri: android.net.Ur
         ) ?: return null
         if (bmp.width > max || bmp.height > max) {
             val scale = max.toFloat() / maxOf(bmp.width, bmp.height)
-            bmp = android.graphics.Bitmap.createScaledBitmap(
-                bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true)
+            bmp = bmp.scale((bmp.width * scale).toInt(), (bmp.height * scale).toInt(), filter = true)
         }
         // 1280 px at quality 80 fits the cap for any ordinary photo; the rougher
         // rungs (the same ladder as apps/web/photo-shrink.js) are for a frame
@@ -852,8 +866,7 @@ private fun processReportImage(ctx: android.content.Context, uri: android.net.Ur
         for ((side, quality) in listOf(1280 to 80, 1280 to 70, 1024 to 70, 1024 to 60, 800 to 60)) {
             val s = if (maxOf(bmp.width, bmp.height) <= side) bmp else {
                 val k = side.toFloat() / maxOf(bmp.width, bmp.height)
-                android.graphics.Bitmap.createScaledBitmap(
-                    bmp, maxOf(1, (bmp.width * k).toInt()), maxOf(1, (bmp.height * k).toInt()), true)
+                bmp.scale(maxOf(1, (bmp.width * k).toInt()), maxOf(1, (bmp.height * k).toInt()), filter = true)
             }
             val out = java.io.ByteArrayOutputStream()
             s.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
@@ -1030,7 +1043,7 @@ private fun ReportHazardDialog(
 
 /** Status → colour. A composable so it reads whichever palette is active. */
 @Composable
-private fun STATUS_COLOR(s: String): Color {
+private fun statusColor(s: String): Color {
     val ra = LocalRa.current
     return when (s) {
         "PAID", "COMPLETED", "VERIFIED", "REPAIRED" -> ra.ok
@@ -1113,7 +1126,7 @@ private fun EmptyTrack(onBook: () -> Unit) {
                                     Text(it, color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 2.dp))
                                 }
                             }
-                            StatusChip(status, STATUS_COLOR(status))
+                            StatusChip(status, statusColor(status))
                         }
                     }
                 }
@@ -1148,6 +1161,10 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
     val queuedSos = remember { Emergency.queueDepth(ctx) }
     var serverBusy by remember { mutableStateOf(false) }
     var serverUnreachable by remember { mutableStateOf(false) }
+    // A plain-HTTP address this build refuses (every one, on a release build).
+    // Said before anything is tried, rather than letting the probe fail and
+    // blaming the server for what is this build's own rule.
+    var serverNeedsHttps by remember { mutableStateOf(false) }
     suspend fun loadContacts() {
         try {
             val arr = Api.get("/v1/me/emergency-contacts").getJSONArray("data")
@@ -1247,7 +1264,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                                         modifier = Modifier.padding(top = 2.dp))
                                 }
                             }
-                            StatusChip(st, STATUS_COLOR(st))
+                            StatusChip(st, statusColor(st))
                         }
                     }
                 }
@@ -1319,7 +1336,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                 Text(stringResource(R.string.server_sub),
                     color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
 
-                Field(serverUrl, { serverUrl = it; serverUnreachable = false },
+                Field(serverUrl, { serverUrl = it; serverUnreachable = false; serverNeedsHttps = false },
                     stringResource(R.string.field_api_base_url))
 
                 // Unsent emergencies belong to the phone, not to a server, so they
@@ -1342,12 +1359,18 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                     Text(stringResource(R.string.server_unreachable), color = Alarm,
                         style = RaType.caption, modifier = Modifier.padding(top = 10.dp))
                 }
+                if (serverNeedsHttps) {
+                    Text(stringResource(R.string.server_https_required), color = Alarm,
+                        style = RaType.caption, modifier = Modifier.padding(top = 10.dp))
+                }
                 if (serverBusy) Loading()
 
                 Button(
                     onClick = {
-                        serverBusy = true
                         serverUnreachable = false
+                        serverNeedsHttps = Api.needsHttps(Api.normalizeBase(serverUrl))
+                        if (serverNeedsHttps) return@Button
+                        serverBusy = true
                         scope.launch {
                             if (Api.reachable(serverUrl)) {
                                 // Sign out FIRST, while Api.base is still the
@@ -1451,7 +1474,7 @@ private fun commitApiBase(ctx: android.content.Context, input: String): String {
     val address = Api.normalizeBase(input)
     Api.base = address
     ctx.getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE)
-        .edit().putString("apiBase", address).apply()
+        .edit { putString("apiBase", address) }
     return address
 }
 
@@ -1549,6 +1572,9 @@ private fun SignInScreen(
     // in a toast. A toast lasts 3.2 s; "this account signs in with its email
     // address" is an instruction the user has to act on, so it stays put.
     var phoneError by remember { mutableStateOf<String?>(null) }
+    // The typed server address is plain HTTP and this build refuses it. Shown
+    // under the field, and nothing is committed or sent.
+    var serverNeedsHttps by remember { mutableStateOf(false) }
 
     // Sign in with email: a second, quieter path under the phone one. Saveable
     // so a rotation between "email me a code" and typing the code does not
@@ -1573,7 +1599,12 @@ private fun SignInScreen(
     // yet. Long-pressing the wordmark is that way in. It is deliberately not a
     // button: the first screen stays a phone number and a code, and the escape
     // hatch is written down in ENGINEERING-NOTES.md rather than drawn on the screen.
-    fun commitBase() { baseUrl = commitApiBase(ctx, baseUrl) }
+    fun commitBase(): Boolean {
+        serverNeedsHttps = Api.needsHttps(Api.normalizeBase(baseUrl))
+        if (serverNeedsHttps) return false
+        baseUrl = commitApiBase(ctx, baseUrl)
+        return true
+    }
 
     // THE session-saving path, shared by both ways in. The email verify answers
     // in the same shape as the phone verify — tokens, roles, user.msisdn — so
@@ -1620,16 +1651,20 @@ private fun SignInScreen(
         Sub(stringResource(R.string.signin_sub))
 
         if (showServer) {
-            Field(baseUrl, { baseUrl = it }, stringResource(R.string.field_api_base_url))
+            Field(baseUrl, { baseUrl = it; serverNeedsHttps = false }, stringResource(R.string.field_api_base_url))
+            if (serverNeedsHttps) {
+                Text(stringResource(R.string.server_https_required), color = Alarm,
+                    style = RaType.caption, modifier = Modifier.padding(top = 10.dp))
+            }
         }
         Field(msisdn, { onMsisdn(it); phoneError = null }, stringResource(R.string.field_mobile_number),
             keyboard = androidx.compose.ui.text.input.KeyboardType.Phone)
 
         if (!otpSent) {
             GoldButton(stringResource(R.string.action_send_otp), enabled = !busy) {
-                busy = true
                 phoneError = null
-                if (showServer) commitBase()
+                if (showServer && !commitBase()) return@GoldButton
+                busy = true
                 scope.launch {
                     try {
                         val r = Api.post("/v1/auth/otp/request", JSONObject().put("msisdn", msisdn.trim()))
@@ -1653,9 +1688,9 @@ private fun SignInScreen(
             Field(code, { code = it }, stringResource(R.string.field_otp_code),
                 keyboard = androidx.compose.ui.text.input.KeyboardType.NumberPassword)
             GoldButton(stringResource(R.string.action_verify_sign_in), enabled = !busy && code.length == 6) {
-                busy = true
                 phoneError = null
-                if (showServer) commitBase()
+                if (showServer && !commitBase()) return@GoldButton
+                busy = true
                 scope.launch {
                     try {
                         val r = Api.post(
@@ -1694,9 +1729,9 @@ private fun SignInScreen(
                     stringResource(R.string.action_email_code),
                     enabled = !busy && EmailSignIn.isAddress(email),
                 ) {
-                    busy = true
                     emailError = null
-                    if (showServer) commitBase()
+                    if (showServer && !commitBase()) return@GoldButton
+                    busy = true
                     scope.launch {
                         try {
                             // Only the expiry comes back. Whatever the server put
@@ -1721,9 +1756,9 @@ private fun SignInScreen(
                     stringResource(R.string.action_verify_sign_in),
                     enabled = !busy && EmailSignIn.isCode(emailCode),
                 ) {
-                    busy = true
                     emailError = null
-                    if (showServer) commitBase()
+                    if (showServer && !commitBase()) return@GoldButton
+                    busy = true
                     scope.launch {
                         try {
                             completeSignIn(EmailSignIn.verify(email, emailCode))
@@ -1886,7 +1921,7 @@ private fun HomeScreen(
         // Any queued SOS flushes automatically when data returns.
         LaunchedEffect(Unit) {
             val flushed = Emergency.flush(ctx)
-            if (flushed > 0) onToast(ctx.getString(R.string.toast_sos_synced, flushed))
+            if (flushed > 0) onToast(ctx.resources.getQuantityString(R.plurals.toast_sos_synced, flushed, flushed))
         }
 
         // ── SOS grace window ────────────────────────────────────────────────
@@ -2025,7 +2060,8 @@ private fun HomeScreen(
             modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
         )
 
-        // 112 first, then 1033 (NHAI), 108/102, 100, 101 — tap opens the dialer.
+        // 112 first, then 1033 (NHAI), 108/102, 100, 101, then the national helplines
+        // 181, 1098, 14567 under their own subheading — tap opens the dialer.
         // Static (EmergencyNumbers.kt), so it is here with no network at all.
         Spacer(Modifier.height(RaSpace.s5))
         EmergencyNumbersCard()
@@ -2532,7 +2568,7 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
                         targetState = status, label = "status",
                         animationSpec = if (LocalReduceMotion.current) androidx.compose.animation.core.snap() else RaMotion.med(),
                     ) { st ->
-                        Text(st, color = STATUS_COLOR(st), style = RaType.heading, fontSize = 26.sp,
+                        Text(st, color = statusColor(st), style = RaType.heading, fontSize = 26.sp,
                             modifier = Modifier.padding(top = RaSpace.s1))
                     }
                 }

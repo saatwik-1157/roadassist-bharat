@@ -57,6 +57,7 @@
     <string name="server_queued_warning">Unsent emergencies on this phone: %1$d. They will be sent to the new server.</string>
     <string name="action_use_server">Switch to this server</string>
     <string name="server_unreachable">No RoadAssist API answered at that address. Nothing changed — you are still signed in here.</string>
+    <string name="server_https_required">This address needs HTTPS: enter it as https://. Plain http:// is allowed only in a debug build, and only to the emulator host (10.0.2.2) or localhost.</string>
     <string name="about">About</string>
     <string name="about_body">RoadAssist Bharat — one platform, every vehicle, every road. Student prototype; no real emergency dispatch is connected.</string>
     <string name="action_sign_out">Sign out</string>
@@ -131,7 +132,10 @@
     <string name="toast_sos_cancelled">SOS cancelled — nothing was sent</string>
     <string name="toast_vehicle_added">Vehicle added</string>
     <string name="toast_no_mechanic">No mechanic in range — widen the radius</string>
-    <string name="toast_sos_synced">%1$d queued SOS synced now that you are online</string>
+    <plurals name="toast_sos_synced">
+        <item quantity="one">%1$d queued SOS synced now that you are online</item>
+        <item quantity="other">%1$d queued SOS synced now that you are online</item>
+    </plurals>
     <!-- Layers in 3D: the web's layers.html in a WebView, opened from a
          Home card. The offline state names SOS on purpose: a failed 3D model
          must not read as the app being broken. -->
@@ -207,6 +211,11 @@
     <string name="emergency_102">Ambulance (some states)</string>
     <string name="emergency_100">Police</string>
     <string name="emergency_101">Fire</string>
+    <!-- Other national helplines (EmergencyNumbers.HELPLINE_IDS), under their own subheading. -->
+    <string name="emergency_181">Women Helpline (24×7)</string>
+    <string name="emergency_1098">Childline — children in distress (24×7)</string>
+    <string name="emergency_14567">Elderline — senior citizens (8 AM–8 PM)</string>
+    <string name="emergency_helplines_heading">Other national helplines</string>
 
     <!-- SOS with no GPS fix: raised as location unknown, never at a stand-in point (SosPosition.kt). -->
     <string name="sos_location_unknown">Location unknown — SOS raised without a position. Call 112 and tell them where you are.</string>

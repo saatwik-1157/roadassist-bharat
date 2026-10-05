@@ -47,6 +47,7 @@
     <string name="server_queued_warning">এই ফোনে না-পাঠানো জরুরি বার্তা: %1$dটি। এগুলি নতুন সার্ভারে যাবে।</string>
     <string name="action_use_server">এই সার্ভার ব্যবহার করুন</string>
     <string name="server_unreachable">ওই ঠিকানায় কোনো RoadAssist API সাড়া দেয়নি। কিছুই বদলায়নি — আপনি এখানেই সাইন ইন আছেন।</string>
+    <string name="server_https_required">এই ঠিকানার জন্য HTTPS লাগবে: https:// দিয়ে লিখুন। সাধারণ http:// শুধু ডিবাগ বিল্ডে, আর শুধু এমুলেটর হোস্ট (10.0.2.2) বা localhost-এ চলে।</string>
     <string name="about">পরিচিতি</string>
     <string name="about_body">RoadAssist ভারত — এক মঞ্চ, সব গাড়ি, সব রাস্তা। এটি ছাত্র প্রোটোটাইপ; কোনো প্রকৃত জরুরি পরিষেবা যুক্ত নেই।</string>
     <string name="action_sign_out">সাইন আউট</string>
@@ -116,7 +117,10 @@
     <string name="toast_sos_cancelled">SOS বাতিল — কিছুই পাঠানো হয়নি</string>
     <string name="toast_vehicle_added">যানবাহন যোগ হয়েছে</string>
     <string name="toast_no_mechanic">এই পরিসরে কোনো মেকানিক নেই — পরিসর বাড়ান</string>
-    <string name="toast_sos_synced">অনলাইনে আসতেই %1$d SOS সিঙ্ক হয়েছে</string>
+    <plurals name="toast_sos_synced">
+        <item quantity="one">অনলাইনে আসতেই %1$d SOS সিঙ্ক হয়েছে</item>
+        <item quantity="other">অনলাইনে আসতেই %1$d SOS সিঙ্ক হয়েছে</item>
+    </plurals>
     <string name="layers_title">3D-তে স্তরগুলি</string>
     <string name="layers_sub">RoadAssist-এর প্রতিটি স্তর লাইভ 3D-তে: স্তূপটি ঘোরান, একটি স্তর খুলুন এবং একটি আসল অনুরোধ কীভাবে তার ভেতর দিয়ে যায় দেখুন।</string>
     <string name="layers_open">3D-তে খুলুন</string>
@@ -171,6 +175,10 @@
     <string name="emergency_102">অ্যাম্বুলেন্স (কিছু রাজ্য)</string>
     <string name="emergency_100">পুলিশ</string>
     <string name="emergency_101">দমকল</string>
+    <string name="emergency_181">মহিলা হেল্পলাইন (24×7)</string>
+    <string name="emergency_1098">চাইল্ডলাইন — বিপদে পড়া শিশু (24×7)</string>
+    <string name="emergency_14567">এল্ডারলাইন — প্রবীণ নাগরিক (সকাল 8–রাত 8)</string>
+    <string name="emergency_helplines_heading">অন্যান্য জাতীয় হেল্পলাইন</string>
     <string name="sos_location_unknown">অবস্থান অজানা — অবস্থান ছাড়াই SOS পাঠানো হয়েছে। 112-এ কল করে জানান আপনি কোথায় আছেন।</string>
     <string name="sos_location_unknown_saved">অবস্থান অজানা — সংরক্ষিত SOS-এ কোনো অবস্থান নেই। 112-এ কল করে জানান আপনি কোথায় আছেন।</string>
     <string name="booking_not_sent">এখনও অবস্থান পাওয়া যায়নি — অনুরোধ পাঠানো হয়নি।</string>

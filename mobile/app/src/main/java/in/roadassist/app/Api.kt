@@ -130,6 +130,50 @@ object Api {
     fun isCurrentBase(input: String): Boolean = normalizeBase(input) == base
 
     /**
+     * May this build speak plain HTTP to a host?
+     *
+     * The answer belongs to the platform, not to this object: a release build's
+     * network_security_config.xml refuses cleartext everywhere, and the debug
+     * build's (src/debug/res/xml) allows it only to the emulator host and
+     * localhost. MainActivity.onCreate points this at
+     * NetworkSecurityPolicy.isCleartextTrafficPermitted, which reads whichever
+     * of the two this APK was built with, so the app asks the same question
+     * the connection would and never keeps a second list that could drift.
+     * JVM tests have no platform policy and keep the permissive default.
+     */
+    @Volatile var cleartextPermitted: (host: String) -> Boolean = { true }
+
+    /**
+     * The sentence for an address this build will not speak plain HTTP to.
+     * MainActivity.onCreate replaces it with the localised resource
+     * (R.string.server_https_required); this object has no Context. The
+     * fallback names no scheme on purpose: a URL-shaped literal here reads as
+     * an outbound host to app/scripts/check-data-residency.mjs.
+     */
+    @Volatile var httpsRequiredMessage: String =
+        "This address needs HTTPS. Plain HTTP is allowed only in a debug build, " +
+            "and only to the emulator host or localhost."
+
+    /**
+     * Would the platform refuse this (normalised) address for being cleartext?
+     *
+     * Asked BEFORE connecting, because the refusal otherwise surfaces as the
+     * platform's own exception text ("CLEARTEXT communication to … not
+     * permitted by network security policy"), which tells the person holding
+     * the phone nothing they can act on. Pure given [permitted].
+     */
+    fun needsHttps(address: String, permitted: (String) -> Boolean = cleartextPermitted): Boolean {
+        val a = address.trim()
+        if (!a.startsWith("http://", ignoreCase = true)) return false
+        val authority = a.substring("http://".length)
+            .substringBefore('/').substringBefore('?').substringBefore('#')
+            .substringAfterLast('@')
+        val host = if (authority.startsWith("[")) authority.substringBefore(']').removePrefix("[")
+        else authority.substringBefore(':')
+        return host.isEmpty() || !permitted(host)
+    }
+
+    /**
      * The address every install used before [DEFAULT_BASE] existed: the
      * emulator's alias for the dev machine.
      *
@@ -359,6 +403,10 @@ object Api {
         bearer: String? = token, baseUrl: String = base,
     ): Pair<Int, JSONObject> =
         withContext(Dispatchers.IO) {
+            // A saved plain-HTTP address this build refuses (one kept from a
+            // build that still allowed it) fails here with a sentence the
+            // person can act on, not the platform's policy exception.
+            if (needsHttps(baseUrl)) throw ApiException(httpsRequiredMessage, code = "https_required")
             val conn = URL(baseUrl.trimEnd('/') + path).openConnection() as HttpURLConnection
             try {
                 conn.requestMethod = method

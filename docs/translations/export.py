@@ -37,15 +37,30 @@ def read(path):
 
 # ── Android ─────────────────────────────────────────────────────────────────
 STRING = re.compile(r'<string name="([^"]+)"([^>]*)>(.*?)</string>', re.S)
+# A <plurals> resource is one key with a form per quantity. Each form is its
+# own row, keyed "name[quantity]", because a reviewer judges each sentence.
+PLURALS = re.compile(r'<plurals name="([^"]+)"([^>]*)>(.*?)</plurals>', re.S)
+ITEM = re.compile(r'<item quantity="([^"]+)">(.*?)</item>', re.S)
+
+
+def android_text(raw):
+    # Android escapes apostrophes and quotes; a reviewer should see the text.
+    return html.unescape(raw).replace("\\'", "'").replace('\\"', '"')
 
 
 def android_strings(xml, translatable_only=False):
+    # Rows in the order values/ lists them, strings and plurals interleaved.
+    found = [(m.start(), m, False) for m in STRING.finditer(xml)]
+    found += [(m.start(), m, True) for m in PLURALS.finditer(xml)]
     out = {}
-    for m in STRING.finditer(xml):
+    for _, m, plural in sorted(found, key=lambda f: f[0]):
         if translatable_only and 'translatable="false"' in m.group(2):
             continue
-        # Android escapes apostrophes and quotes; a reviewer should see the text.
-        out[m.group(1)] = html.unescape(m.group(3)).replace("\\'", "'").replace('\\"', '"')
+        if plural:
+            for q, text in ITEM.findall(m.group(3)):
+                out[f"{m.group(1)}[{q}]"] = android_text(text)
+        else:
+            out[m.group(1)] = android_text(m.group(3))
     return out
 
 

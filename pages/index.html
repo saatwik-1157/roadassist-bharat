@@ -423,8 +423,11 @@ dialog.lb::backdrop{background:rgba(4,6,10,.9)}
 /* ── footer ─────────────────────────────────────────────────── */
 footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(--bg-2)}
 .foot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:34px}
-.foot h4{font-size:.73rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
-         margin:0 0 12px;font-weight:700}
+/* h2, not h4: the footer's columns sit beside the page's h2 sections, and as
+   h4s the outline filed them under whichever h3 came last. font-family and
+   line-height undo the global h2 rule, so they look exactly as the h4s did. */
+.foot h2{font-size:.73rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);
+         margin:0 0 12px;font-weight:700;font-family:inherit;line-height:inherit}
 .foot ul{list-style:none;margin:0;padding:0}
 .foot li{margin:0 0 7px;font-size:.9rem}
 .foot .team{color:var(--ink-2);font-size:.9rem;margin:0 0 5px}
@@ -1397,8 +1400,10 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
           </g>
         </svg>
         <figcaption><span class="ill-tag">Illustration</span> The numbers the app lists, in its order
-          (<code>emergency-numbers.js</code>). A tap hands the number to the phone's dialler: a voice
-          call can connect where data cannot, and the app only dials.</figcaption>
+          (<code>emergency-numbers.js</code>). After them, under <b>Other national helplines</b> (left
+          out of the drawing for room): 181, Women Helpline (24×7); 1098, Childline — children in
+          distress (24×7); 14567, Elderline — senior citizens (8 AM–8 PM). A tap hands the number to
+          the phone's dialler: a voice call can connect where data cannot, and the app only dials.</figcaption>
       </figure>
     </div>
   </div>
@@ -2177,7 +2182,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     </div>
 
     <figure class="arch-devices">
-      <img src="visuals/vis_hero.png" width="1720" height="1680" loading="lazy"
+      <img src="visuals/vis_hero.webp" width="1720" height="1680" loading="lazy"
            alt="The citizen app and mechanic console side by side over a network graph">
       <figcaption>Two clients, one contract — the same versioned /v1 API behind both.</figcaption>
     </figure>
@@ -2387,7 +2392,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     <p class="eyebrow">Recordings</p>
     <h2>See the system in motion</h2>
     <div class="vid promo" style="margin-top:20px">
-      <video controls playsinline preload="none" poster="media/roadassist-promo-poster.png" width="1920" height="1080"
+      <video controls playsinline preload="none" poster="media/roadassist-promo-poster.webp" width="1920" height="1080"
              aria-label="RoadAssist Bharat in 30 seconds">
         <source src="media/roadassist-promo.mp4" type="video/mp4">
         Your browser cannot play this video. The file is at media/roadassist-promo.mp4.
@@ -2535,7 +2540,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
         <p class="sub" style="max-width:34ch">One platform. Every vehicle. Every phone. Every road.</p>
       </div>
       <div>
-        <h4>Project</h4>
+        <h2>Project</h2>
         <ul>
           <li><a href="https://github.com/saatwik-1157/roadassist-bharat">Source</a></li>
           <li><a href="https://github.com/saatwik-1157/roadassist-bharat/tree/main/app/docs/adr">Decision records</a></li>
@@ -2544,7 +2549,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
         </ul>
       </div>
       <div>
-        <h4>Team</h4>
+        <h2>Team</h2>
         <p class="team"><a href="#team">V. Saatwik Sairaam</a></p>
         <p class="team"><a href="#team">P. Sai Nirisha Chowdary</a></p>
         <p class="team"><a href="#team">T. V. S. Jignesh</a></p>
@@ -3549,13 +3554,23 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   shield.addEventListener("click", function () { arm(false); if (frame) frame.focus(); });
 
   if ("IntersectionObserver" in window) {
+    // Within 400 px of the viewport is "close". On a 1440x900 desktop the
+    // figure's top is about 420 px below the fold, so a margin alone framed the
+    // platform's layers.html - three.js and the 581 KiB model - on the first
+    // view, before anyone scrolled. A figure that is near but not on screen
+    // therefore waits for the visitor's first scroll; one on screen starts.
+    var near = false, scrolled = false;
+    function onScreen() { var r = fig.getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }
+    function maybe() { if (near && (scrolled || onScreen())) start(); }
+    addEventListener("scroll", function () { scrolled = true; maybe(); }, { once: true, passive: true });
     new IntersectionObserver(function (es) {
       es.forEach(function (e) {
-        if (e.isIntersecting) start();
+        near = e.isIntersecting;
+        if (near) maybe();
         // Scrolled away and back, the page scrolls past it again until asked.
         else if (frame && shield.hidden) arm(true);
       });
-    }, { rootMargin: "600px 0px" }).observe(fig);
+    }, { rootMargin: "400px 0px" }).observe(fig);
   } else {
     start();
   }

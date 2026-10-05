@@ -47,6 +47,7 @@
     <string name="server_queued_warning">या फोनवर न पाठवलेल्या आपत्कालीन सूचना: %1$d. त्या नवीन सर्व्हरवर जातील.</string>
     <string name="action_use_server">हाच सर्व्हर वापरा</string>
     <string name="server_unreachable">त्या पत्त्यावर कोणतेही RoadAssist API मिळाले नाही. काहीही बदलले नाही — तुम्ही इथेच साइन इन आहात.</string>
+    <string name="server_https_required">या पत्त्यासाठी HTTPS आवश्यक आहे: तो https:// सह लिहा. साधा http:// फक्त डीबग बिल्डमध्ये, आणि फक्त एमुलेटर होस्ट (10.0.2.2) किंवा localhost साठी चालतो.</string>
     <string name="about">परिचय</string>
     <string name="about_body">RoadAssist भारत — एक व्यासपीठ, प्रत्येक वाहन, प्रत्येक रस्ता. हा विद्यार्थी नमुना आहे; कोणतीही खरी आणीबाणी सेवा जोडलेली नाही.</string>
     <string name="action_sign_out">साइन आउट</string>
@@ -116,7 +117,10 @@
     <string name="toast_sos_cancelled">SOS रद्द — काहीही पाठवले नाही</string>
     <string name="toast_vehicle_added">वाहन जोडले</string>
     <string name="toast_no_mechanic">या परिघात मेकॅनिक नाही — परिघ वाढवा</string>
-    <string name="toast_sos_synced">ऑनलाइन होताच %1$d SOS सिंक झाले</string>
+    <plurals name="toast_sos_synced">
+        <item quantity="one">ऑनलाइन होताच %1$d SOS सिंक झाले</item>
+        <item quantity="other">ऑनलाइन होताच %1$d SOS सिंक झाले</item>
+    </plurals>
     <string name="layers_title">3D मध्ये स्तर</string>
     <string name="layers_sub">RoadAssist चा प्रत्येक स्तर थेट 3D मध्ये: रचना फिरवा, एखादा स्तर उघडा आणि खरी विनंती त्यातून कशी जाते ते पाहा.</string>
     <string name="layers_open">3D मध्ये उघडा</string>
@@ -171,6 +175,10 @@
     <string name="emergency_102">रुग्णवाहिका (काही राज्ये)</string>
     <string name="emergency_100">पोलीस</string>
     <string name="emergency_101">अग्निशमन दल</string>
+    <string name="emergency_181">महिला हेल्पलाइन (24×7)</string>
+    <string name="emergency_1098">चाइल्डलाइन — संकटातील मुले (24×7)</string>
+    <string name="emergency_14567">एल्डरलाइन — ज्येष्ठ नागरिक (सकाळी 8–रात्री 8)</string>
+    <string name="emergency_helplines_heading">इतर राष्ट्रीय हेल्पलाइन</string>
     <string name="sos_location_unknown">लोकेशन अज्ञात — SOS जागेशिवाय पाठवला. 112 वर कॉल करा आणि तुम्ही कुठे आहात ते सांगा.</string>
     <string name="sos_location_unknown_saved">लोकेशन अज्ञात — सेव्ह केलेल्या SOS मध्ये जागा नाही. 112 वर कॉल करा आणि तुम्ही कुठे आहात ते सांगा.</string>
     <string name="booking_not_sent">अजून लोकेशन मिळाले नाही — विनंती पाठवली नाही.</string>

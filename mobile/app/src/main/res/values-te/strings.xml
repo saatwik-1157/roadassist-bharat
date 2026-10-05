@@ -47,6 +47,7 @@
     <string name="server_queued_warning">ఈ ఫోన్‌లో పంపని అత్యవసర సమాచారాలు: %1$d. ఇవి కొత్త సర్వర్‌కు వెళ్తాయి.</string>
     <string name="action_use_server">ఈ సర్వర్ వాడండి</string>
     <string name="server_unreachable">ఆ చిరునామాలో ఏ RoadAssist API స్పందించలేదు. ఏదీ మారలేదు — మీరు ఇక్కడే సైన్ ఇన్‌లో ఉన్నారు.</string>
+    <string name="server_https_required">ఈ చిరునామాకు HTTPS అవసరం: దీన్ని https:// తో ఇవ్వండి. సాధారణ http:// డీబగ్ బిల్డ్‌లో మాత్రమే, అదీ ఎమ్యులేటర్ హోస్ట్ (10.0.2.2) లేదా localhost కు మాత్రమే అనుమతించబడుతుంది.</string>
     <string name="about">గురించి</string>
     <string name="about_body">RoadAssist భారత్ — ఒక వేదిక, ప్రతి వాహనం, ప్రతి రహదారి. ఇది విద్యార్థి నమూనా; నిజమైన అత్యవసర సేవ అనుసంధానం కాలేదు.</string>
     <string name="action_sign_out">సైన్ అవుట్</string>
@@ -116,7 +117,10 @@
     <string name="toast_sos_cancelled">SOS రద్దు — ఏదీ పంపలేదు</string>
     <string name="toast_vehicle_added">వాహనం జోడించబడింది</string>
     <string name="toast_no_mechanic">ఈ పరిధిలో మెకానిక్ లేరు — పరిధిని పెంచండి</string>
-    <string name="toast_sos_synced">ఆన్‌లైన్‌కు రాగానే %1$d SOS సింక్ అయ్యాయి</string>
+    <plurals name="toast_sos_synced">
+        <item quantity="one">ఆన్‌లైన్‌కు రాగానే %1$d SOS సింక్ అయ్యాయి</item>
+        <item quantity="other">ఆన్‌లైన్‌కు రాగానే %1$d SOS సింక్ అయ్యాయి</item>
+    </plurals>
     <string name="layers_title">3Dలో పొరలు</string>
     <string name="layers_sub">RoadAssist ప్రతి పొర లైవ్ 3Dలో: స్టాక్‌ను తిప్పండి, ఒక పొరను తెరవండి, నిజమైన అభ్యర్థన దాని గుండా ఎలా వెళ్తుందో చూడండి.</string>
     <string name="layers_open">3Dలో తెరవండి</string>
@@ -171,6 +175,10 @@
     <string name="emergency_102">అంబులెన్స్ (కొన్ని రాష్ట్రాలు)</string>
     <string name="emergency_100">పోలీస్</string>
     <string name="emergency_101">అగ్నిమాపక దళం</string>
+    <string name="emergency_181">మహిళా హెల్ప్‌లైన్ (24×7)</string>
+    <string name="emergency_1098">చైల్డ్‌లైన్ — ఆపదలో ఉన్న పిల్లలు (24×7)</string>
+    <string name="emergency_14567">ఎల్డర్‌లైన్ — వయోవృద్ధులు (ఉదయం 8–రాత్రి 8)</string>
+    <string name="emergency_helplines_heading">ఇతర జాతీయ హెల్ప్‌లైన్‌లు</string>
     <string name="sos_location_unknown">లొకేషన్ తెలియదు — స్థానం లేకుండా SOS పంపబడింది. 112కు కాల్ చేసి మీరు ఎక్కడ ఉన్నారో చెప్పండి.</string>
     <string name="sos_location_unknown_saved">లొకేషన్ తెలియదు — సేవ్ చేసిన SOSలో స్థానం లేదు. 112కు కాల్ చేసి మీరు ఎక్కడ ఉన్నారో చెప్పండి.</string>
     <string name="booking_not_sent">ఇంకా లొకేషన్ దొరకలేదు — అభ్యర్థన పంపబడలేదు.</string>

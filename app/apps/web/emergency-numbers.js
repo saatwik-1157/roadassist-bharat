@@ -15,6 +15,12 @@
  *          patrol and crane on NHAI stretches), https://ihmcl.co.in/?p=3491.
  *   102 / 108 — ambulance services run by each state; which one answers, and
  *          whether both do, varies by state.
+ *   Other national helplines (checked 2026-10-05), listed after the six above
+ *   under their own subheading:
+ *   181  — Women Helpline, Ministry of Women & Child Development (MWCD), 24x7.
+ *   1098 — Childline, for children in distress, 24x7.
+ *   14567 — Elderline, Ministry of Social Justice & Empowerment (MoSJE),
+ *          for senior citizens; operates 8 AM–8 PM all days.
  *
  * What the page can and cannot do, said once here so no copy oversells it:
  *   - A `tel:` link hands the number to the phone's dialler. A voice call can
@@ -44,7 +50,21 @@
     { number: "102", id: "ambulance_alt", label: "Ambulance (some states)", primary: false },
     { number: "100", id: "police", label: "Police", primary: false },
     { number: "101", id: "fire", label: "Fire", primary: false },
+    { number: "181", id: "women", label: "Women Helpline (24×7)", primary: false },
+    { number: "1098", id: "child", label: "Childline — children in distress (24×7)", primary: false },
+    { number: "14567", id: "elder", label: "Elderline — senior citizens (8 AM–8 PM)", primary: false },
   ];
+
+  /**
+   * The entries shown under "Other national helplines", after the emergency
+   * numbers. They are the tail of NUMBERS, so display order is still NUMBERS
+   * order. EmergencyNumbers.kt keeps the same set (HELPLINE_IDS) and the test
+   * holds the two against each other.
+   */
+  var HELPLINE_IDS = ["women", "child", "elder"];
+  var HELPLINES_HEADING = "Other national helplines";
+
+  function isHelpline(n) { return HELPLINE_IDS.indexOf(n.id) !== -1; }
 
   /** The off-grid emergency types (app.html OFFGRID_TYPES), as words in a text. */
   var TYPE_WORDS = {
@@ -139,12 +159,23 @@
       esc(p.id) + "'>Call " + esc(p.number) + "</a>";
   }
 
+  function itemHtml(n) {
+    return "<li><a href='" + esc(telHref(n.number)) + "' data-em='" + esc(n.id) + "'>" +
+      "<b class='num'>" + esc(n.number) + "</b><span>" + esc(n.label) + "</span></a></li>";
+  }
+
+  /** The numbers after 112, then the national helplines under their own subheading. */
   function listHtml() {
+    var rest = NUMBERS.slice(1);
+    var emergency = rest.filter(function (n) { return !isHelpline(n); });
+    var helplines = rest.filter(isHelpline);
     return "<ul class='em-list' aria-label='Other emergency numbers'>" +
-      NUMBERS.slice(1).map(function (n) {
-        return "<li><a href='" + esc(telHref(n.number)) + "' data-em='" + esc(n.id) + "'>" +
-          "<b class='num'>" + esc(n.number) + "</b><span>" + esc(n.label) + "</span></a></li>";
-      }).join("") + "</ul>";
+      emergency.map(itemHtml).join("") + "</ul>" +
+      (helplines.length
+        ? "<p class='em-sub'>" + esc(HELPLINES_HEADING) + "</p>" +
+          "<ul class='em-list em-helplines' aria-label='" + esc(HELPLINES_HEADING) + "'>" +
+          helplines.map(itemHtml).join("") + "</ul>"
+        : "");
   }
 
   /** The "Text my location" link and the sentence that keeps it honest. */
@@ -161,7 +192,7 @@
   }
 
   global.RAEmergency = {
-    NUMBERS: NUMBERS, TYPE_WORDS: TYPE_WORDS,
+    NUMBERS: NUMBERS, HELPLINE_IDS: HELPLINE_IDS, HELPLINES_HEADING: HELPLINES_HEADING, TYPE_WORDS: TYPE_WORDS,
     telHref: telHref, smsBody: smsBody, smsHref: smsHref, isIOS: isIOS, formatTime: formatTime,
     callHtml: callHtml, listHtml: listHtml, textHtml: textHtml, panelHtml: panelHtml,
   };

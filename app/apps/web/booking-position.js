@@ -71,7 +71,7 @@
   /** The card shown under "Request assistance" when nothing was sent. */
   function notSentHtml(reason) {
     return "<div class='card' id='b-notsent' style='margin-top:13px'>" +
-      "<h3 class='title'>Not sent: no location</h3>" +
+      "<h2 class='title'>Not sent: no location</h2>" +
       "<p class='meta' style='margin-top:6px'>" + advice(reason) + "</p>" + choiceHtml() + "</div>";
   }
 

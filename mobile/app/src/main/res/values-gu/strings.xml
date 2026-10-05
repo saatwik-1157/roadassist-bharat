@@ -47,6 +47,7 @@
     <string name="server_queued_warning">આ ફોન પર ન મોકલેલી કટોકટી જાણ: %1$d. આ નવા સર્વર પર જશે.</string>
     <string name="action_use_server">આ સર્વર વાપરો</string>
     <string name="server_unreachable">એ સરનામે કોઈ RoadAssist API જવાબ આપ્યો નહીં. કંઈ બદલાયું નથી — તમે અહીં જ સાઇન ઇન છો.</string>
+    <string name="server_https_required">આ સરનામા માટે HTTPS જરૂરી છે: તેને https:// સાથે લખો. સાદું http:// ફક્ત ડીબગ બિલ્ડમાં, અને ફક્ત એમ્યુલેટર હોસ્ટ (10.0.2.2) અથવા localhost માટે ચાલે છે.</string>
     <string name="about">પરિચય</string>
     <string name="about_body">RoadAssist ભારત — એક મંચ, દરેક વાહન, દરેક રસ્તો. આ વિદ્યાર્થી પ્રોટોટાઈપ છે; કોઈ વાસ્તવિક કટોકટી સેવા જોડાયેલી નથી.</string>
     <string name="action_sign_out">સાઇન આઉટ</string>
@@ -116,7 +117,10 @@
     <string name="toast_sos_cancelled">SOS રદ — કશું મોકલ્યું નથી</string>
     <string name="toast_vehicle_added">વાહન ઉમેર્યું</string>
     <string name="toast_no_mechanic">આ વિસ્તારમાં મિકેનિક નથી — વિસ્તાર વધારો</string>
-    <string name="toast_sos_synced">ઑનલાઇન થતાં જ %1$d SOS સિંક થયા</string>
+    <plurals name="toast_sos_synced">
+        <item quantity="one">ઑનલાઇન થતાં જ %1$d SOS સિંક થયા</item>
+        <item quantity="other">ઑનલાઇન થતાં જ %1$d SOS સિંક થયા</item>
+    </plurals>
     <string name="layers_title">3D માં સ્તરો</string>
     <string name="layers_sub">RoadAssist નું દરેક સ્તર લાઇવ 3D માં: માળખું ફેરવો, એક સ્તર ખોલો અને એક સાચી વિનંતી તેમાંથી કેવી રીતે પસાર થાય છે તે જુઓ.</string>
     <string name="layers_open">3D માં ખોલો</string>
@@ -171,6 +175,10 @@
     <string name="emergency_102">એમ્બ્યુલન્સ (કેટલાંક રાજ્યો)</string>
     <string name="emergency_100">પોલીસ</string>
     <string name="emergency_101">ફાયર બ્રિગેડ</string>
+    <string name="emergency_181">મહિલા હેલ્પલાઇન (24×7)</string>
+    <string name="emergency_1098">ચાઇલ્ડલાઇન — મુશ્કેલીમાં બાળકો (24×7)</string>
+    <string name="emergency_14567">એલ્ડરલાઇન — વરિષ્ઠ નાગરિકો (સવારે 8–રાત્રે 8)</string>
+    <string name="emergency_helplines_heading">અન્ય રાષ્ટ્રીય હેલ્પલાઇન</string>
     <string name="sos_location_unknown">લોકેશન અજ્ઞાત — SOS સ્થાન વિના મોકલાયો. 112 પર કૉલ કરો અને જણાવો કે તમે ક્યાં છો.</string>
     <string name="sos_location_unknown_saved">લોકેશન અજ્ઞાત — સેવ થયેલા SOSમાં સ્થાન નથી. 112 પર કૉલ કરો અને જણાવો કે તમે ક્યાં છો.</string>
     <string name="booking_not_sent">હજી લોકેશન મળ્યું નથી — વિનંતી મોકલાઈ નથી.</string>

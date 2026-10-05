@@ -30,14 +30,22 @@ val hasReleaseKey = listOf("storeFile", "storePassword", "keyAlias", "keyPasswor
 
 android {
     namespace = "in.roadassist.app"
-    compileSdk = 35
+    // 36 (Android 16) is the newest platform installed here. Raising the
+    // target from 35 changed nothing this app relies on: edge-to-edge was
+    // already enforced at 35 and every screen pads for the system bars (the
+    // app never used the windowOptOutEdgeToEdgeEnforcement escape that 36
+    // removes); predictive back is on by default at 36 and already opted into
+    // in the manifest, with no onBackPressed override for it to skip; and no
+    // activity locks orientation or resizability, which 36 ignores on large
+    // screens. Smoke-tested on an API 36 emulator before it was raised.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "in.roadassist.app"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.0"
+        targetSdk = 36
+        versionCode = 4
+        versionName = "1.0.2"
     }
 
     signingConfigs {

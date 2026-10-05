@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import androidx.core.content.edit
+import androidx.core.graphics.createBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -77,7 +79,7 @@ object TripGuardian {
     suspend fun prepare(ctx: Context): Summary = withContext(Dispatchers.IO) {
         val data = Api.get("/v1/trip/prepare").getJSONObject("data")
         ctx.getSharedPreferences("roadassist", Context.MODE_PRIVATE)
-            .edit().putString(KEY, data.toString()).apply()
+            .edit { putString(KEY, data.toString()) }
 
         val plan = planTiles(data)
         var cached = 0
@@ -138,7 +140,7 @@ object TripGuardian {
     fun mosaic(ctx: Context): Bitmap? {
         val data = cached(ctx) ?: return null
         val tiles = data.optJSONArray("tiles") ?: return null
-        val out = Bitmap.createBitmap(768, 512, Bitmap.Config.ARGB_8888)
+        val out = createBitmap(768, 512, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
         var drawn = 0
         var i = 0

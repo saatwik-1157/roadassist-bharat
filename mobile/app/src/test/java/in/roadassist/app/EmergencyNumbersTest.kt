@@ -31,19 +31,24 @@ class EmergencyNumbersTest {
     }
 
     @Test
-    fun `ids and numbers are unique`() {
+    fun `ids, numbers and labels are unique`() {
         assertEquals(all.size, all.map { it.id }.toSet().size)
         assertEquals(all.size, all.map { it.number }.toSet().size)
         assertEquals(all.size, all.map { it.labelRes }.toSet().size)
     }
 
     @Test
-    fun `the list is the agreed six in the agreed order`() {
+    fun `the list is the agreed nine in the agreed order`() {
         assertEquals(
             listOf("112" to "all", "1033" to "highway", "108" to "ambulance",
-                "102" to "ambulance_alt", "100" to "police", "101" to "fire"),
+                "102" to "ambulance_alt", "100" to "police", "101" to "fire",
+                "181" to "women", "1098" to "child", "14567" to "elder"),
             all.map { it.number to it.id },
         )
+        // The card shows these under "Other national helplines"; they follow every emergency number.
+        assertEquals(setOf("women", "child", "elder"), EmergencyNumbers.HELPLINE_IDS)
+        assertEquals(listOf("women", "child", "elder"), all.takeLast(3).map { it.id })
+        assertTrue(all.filter { it.id in EmergencyNumbers.HELPLINE_IDS }.none { it.primary })
     }
 
     /** The web side parses this file line by line; keep one entry per line, number then id. */

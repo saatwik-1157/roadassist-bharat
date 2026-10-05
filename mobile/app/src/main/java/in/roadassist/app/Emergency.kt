@@ -11,9 +11,10 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.net.Uri
 import android.telephony.SmsManager
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.core.location.LocationManagerCompat
 import androidx.core.os.CancellationSignal
 import kotlin.coroutines.resume
@@ -152,7 +153,7 @@ object Emergency {
         // the local copy is the only record that exists: queue BEFORE the handoff,
         // because startActivity can throw and the queue is the last resort.
         queue(ctx, pos, ref)
-        val dial = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$NATIONAL_EMERGENCY"))
+        val dial = Intent(Intent.ACTION_DIAL, "tel:$NATIONAL_EMERGENCY".toUri())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val opened = try { ctx.startActivity(dial); true } catch (_: Exception) { false }
         return if (SosLadder.afterDialer(opened) == SosLadder.Rung.DIALER) {
@@ -291,7 +292,7 @@ object Emergency {
         synchronized(queueLock) {
             val prefs = prefs(ctx)
             val current = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
-            prefs.edit().putString(QUEUE_KEY, SosQueue.append(current, entry).toString()).apply()
+            prefs.edit { putString(QUEUE_KEY, SosQueue.append(current, entry).toString()) }
         }
     }
 
@@ -347,9 +348,7 @@ object Emergency {
                 // Re-read: the queue now may hold an SOS raised while the posts
                 // above were in flight, and that one has not been sent.
                 val current = JSONArray(prefs.getString(QUEUE_KEY, "[]"))
-                prefs.edit()
-                    .putString(QUEUE_KEY, SosQueue.remaining(current, sentKeys).toString())
-                    .apply()
+                prefs.edit { putString(QUEUE_KEY, SosQueue.remaining(current, sentKeys).toString()) }
             }
         }
         return sentKeys.size

@@ -780,14 +780,23 @@
     // The scene is the heaviest thing on the page - three.js, a Draco model,
     // a bloom pass - and it shares this page's main thread. Started at once it
     // held up the hero's first paint, so it starts only after this page has
-    // loaded and once the visitor is a screen or so away from it.
+    // loaded and once the section is within about 400 px of the viewport.
+    // On a 1440x900 desktop the figure's top sits under 300 px below the fold,
+    // so a margin alone still started it on the first view - 1,875,028 bytes
+    // (three.js, the 581 KiB model, the Draco decoder; headless Chrome, 5 Oct
+    // 2026) for a frame nobody had scrolled to.
+    // So a figure below the fold waits for the visitor's first scroll before
+    // it is watched at all; one already on screen starts at once. The Blender
+    // render stays in the frame until the scene has loaded.
     function start() { if (!fr.getAttribute("src")) fr.src = fr.dataset.src; }
     function whenNear() {
       if (!("IntersectionObserver" in window)) { start(); return; }
+      var r = fig.getBoundingClientRect();
+      if (r.top < innerHeight && r.bottom > 0) { start(); return; }
       var near = new IntersectionObserver(function (es) {
         if (es.some(function (e) { return e.isIntersecting; })) { near.disconnect(); start(); }
-      }, { rootMargin: "600px 0px" });
-      near.observe(fig);
+      }, { rootMargin: "400px 0px" });
+      addEventListener("scroll", function () { near.observe(fig); }, { once: true, passive: true });
     }
     if (document.readyState === "complete") whenNear(); else addEventListener("load", whenNear, { once: true });
     if ("IntersectionObserver" in window) {
