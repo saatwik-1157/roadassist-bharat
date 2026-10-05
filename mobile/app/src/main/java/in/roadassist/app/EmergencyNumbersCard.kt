@@ -136,15 +136,17 @@ private fun SecondaryRow(n: EmergencyNumber, onDial: () -> Unit) {
         Text(n.number, color = Gold, style = RaType.figures, fontSize = 17.sp,
             modifier = Modifier.width(76.dp))
         Text(stringResource(n.labelRes), color = Muted, style = RaType.label, modifier = Modifier.weight(1f))
-        DialBadge(fill = ra.goldFill.copy(alpha = 0.16f), ink = ra.gold)
+        // A round hairline button with the accent handset; filled lime is
+        // kept for the few places the eye should go first.
+        DialBadge(fill = ra.panel2, ink = ra.gold, edge = ra.line)
     }
 }
 
 /** The handset glyph at the end of each row: the row is a call, and says so. */
 @Composable
-private fun DialBadge(fill: Color, ink: Color) {
+private fun DialBadge(fill: Color, ink: Color, edge: Color = Color.Transparent) {
     Box(
-        Modifier.size(32.dp).clip(CircleShape).background(fill),
+        Modifier.size(36.dp).clip(CircleShape).background(fill).border(1.dp, edge, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(Icons.Rounded.Call, contentDescription = null, tint = ink, modifier = Modifier.size(17.dp))

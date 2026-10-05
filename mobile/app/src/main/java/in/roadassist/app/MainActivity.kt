@@ -45,9 +45,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.OutlinedTextField
@@ -118,6 +115,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.rounded.Edit
 
 // ── brand ──────────────────────────────────────────────────────────────────
 // These read the active palette (see Theme.kt) rather than naming a fixed
@@ -181,8 +182,10 @@ class MainActivity : ComponentActivity() {
                 // No-ops from API 35 (the app draws behind the bars there, and the
                 // top bar already pads for the status-bar inset) — but still the
                 // only way to colour the bars on API 26–34.
-                window.statusBarColor = palette.panel.toArgb()
-                window.navigationBarColor = palette.panel.toArgb()
+                // The page ground, not the card colour: the top bar and the
+                // floating tab bar both sit on the ground now.
+                window.statusBarColor = palette.bg.toArgb()
+                window.navigationBarColor = palette.bg.toArgb()
                 WindowCompat.getInsetsController(window, view).apply {
                     isAppearanceLightStatusBars = !dark
                     isAppearanceLightNavigationBars = !dark
@@ -341,18 +344,23 @@ private const val BEACON_CYCLES = 2
 /** Two and a half 60 Hz frames, so each update lands on every third vsync (~20 fps). */
 private const val BEACON_STEP_MS = 42L
 
-/** Mark + wordmark, used in the top bar. */
+/**
+ * The two-tone wordmark: "RoadAssist" in the text colour, "Bharat" in the
+ * accent, in the display face. One Text, so the two words share a baseline.
+ */
 @Composable
-private fun BrandLockup() {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        BrandMark(22)
-        Spacer(Modifier.width(8.dp))
-        // The wordmark in the display face at bar size, tracked in slightly.
-        Row {
-            Text("Road", color = Cream, style = RaType.display, fontSize = 19.sp, letterSpacing = (-0.4).sp)
-            Text("Assist", color = Gold, style = RaType.display, fontSize = 19.sp, letterSpacing = (-0.4).sp)
+private fun Wordmark(fontSize: androidx.compose.ui.unit.TextUnit = RaType.display.fontSize) {
+    val gold = Gold
+    val styled = remember(gold) {
+        androidx.compose.ui.text.buildAnnotatedString {
+            append("RoadAssist ")
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = gold))
+            append("Bharat")
+            pop()
         }
     }
+    Text(styled, color = Cream, style = RaType.display, fontSize = fontSize, maxLines = 1,
+        letterSpacing = (-0.4).sp)
 }
 
 /** Bottom-nav destinations — the persistent, app-like shell every effective
@@ -503,96 +511,107 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
             Scaffold(
                 containerColor = Bg,
                 topBar = {
-                    // The bar is the panel colour with a hairline under it, so
-                    // the content scrolls beneath an edge rather than a seam.
-                    val ra = LocalRa.current
+                    // On the page ground, title centred: the brand mark in a
+                    // round tile at the start, the two-tone wordmark with the
+                    // link state under it, and the theme switch as a round
+                    // button at the end.
                     Row(
                         Modifier.fillMaxWidth()
-                            .background(Panel)
-                            .drawWithContent {
-                                drawContent()
-                                drawLine(
-                                    ra.line, androidx.compose.ui.geometry.Offset(0f, size.height - 0.5f),
-                                    androidx.compose.ui.geometry.Offset(size.width, size.height - 0.5f), 1f,
-                                )
-                            }
+                            .background(Bg)
                             .padding(WindowInsets.statusBars.asPaddingValues())
-                            .padding(start = RaSpace.s4 + RaSpace.s1, end = RaSpace.s2, top = RaSpace.s1, bottom = RaSpace.s1),
+                            .padding(horizontal = RaSpace.s3, vertical = RaSpace.s1),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        BrandLockup()
-                        Spacer(Modifier.weight(1f))
-                        LinkChip(online)
-                        // A 48dp target. It used to be the glyph plus 3dp of
-                        // padding, about 26dp tall — half a thumb.
-                        // Named for what a tap does: a screen reader used to
-                        // announce the bare glyph ("black sun with rays").
+                        RoundIconButton { BrandMark(22) }
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Wordmark(19.sp)
+                            Box(Modifier.padding(top = 3.dp)) { LinkChip(online) }
+                        }
+                        // A 48dp target, named for what a tap does: a screen
+                        // reader used to announce the bare glyph ("black sun
+                        // with rays").
                         val themeLabel = stringResource(
                             if (isDark) R.string.cd_theme_to_light else R.string.cd_theme_to_dark,
                         )
-                        Box(
-                            Modifier
-                                .padding(start = RaSpace.s1)
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .clickable(role = androidx.compose.ui.semantics.Role.Button) { onToggleTheme() }
-                                .semantics { contentDescription = themeLabel },
-                            contentAlignment = Alignment.Center,
-                        ) {
+                        RoundIconButton(label = themeLabel, onClick = onToggleTheme) {
                             // U+FE0E asks for the text form of the symbol, so the
                             // sun is drawn in the theme's ink instead of as a
                             // yellow emoji.
                             Text(
                                 if (isDark) "☀︎" else "☾︎",
-                                color = Muted, fontSize = 19.sp,
+                                color = Cream, fontSize = 17.sp,
                                 modifier = Modifier.clearAndSetSemantics {},
                             )
                         }
                     }
                 },
                 bottomBar = {
+                    // A rounded bar floating on the page ground. The open tab is
+                    // a lime rounded square with the dark icon on it; the others
+                    // are the dim icon alone. Labels stay under every icon, in
+                    // the user's language. The items are a selectable group of
+                    // tabs, so a screen reader still hears "Home, tab, selected".
                     val ra = LocalRa.current
-                    NavigationBar(
-                        containerColor = Panel, tonalElevation = 0.dp,
-                        modifier = Modifier.drawWithContent {
-                            drawContent()
-                            drawLine(ra.line, androidx.compose.ui.geometry.Offset(0f, 0.5f),
-                                androidx.compose.ui.geometry.Offset(size.width, 0.5f), 1f)
-                        },
+                    val reduce = LocalReduceMotion.current
+                    val bar = RoundedCornerShape(RaRadius.xl)
+                    Box(
+                        Modifier.fillMaxWidth()
+                            .background(Bg)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(start = RaSpace.s4, end = RaSpace.s4, top = RaSpace.s1, bottom = RaSpace.s3),
                     ) {
-                        TABS.forEachIndexed { i, t ->
-                            val selected = tab == i
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick = { tab = i },
-                                icon = {
-                                    // The selected icon lifts a little as the
-                                    // indicator pill grows under it.
-                                    val lift by androidx.compose.animation.core.animateFloatAsState(
-                                        if (selected && !LocalReduceMotion.current) 1f else 0f,
-                                        RaMotion.sheet(), label = "nav-lift",
-                                    )
-                                    Icon(
-                                        t.icon, contentDescription = null,
-                                        modifier = Modifier.size(24.dp).graphicsLayer {
-                                            val s = 1f + 0.08f * lift
-                                            scaleX = s; scaleY = s
-                                            translationY = -1.5.dp.toPx() * lift
-                                        },
-                                    )
-                                },
-                                label = {
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clip(bar)
+                                .background(Panel)
+                                .border(1.dp, ra.line, bar)
+                                .padding(horizontal = RaSpace.s1, vertical = RaSpace.s2)
+                                .selectableGroup(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            TABS.forEachIndexed { i, t ->
+                                val selected = tab == i
+                                // The open tab's square settles in on a spring.
+                                val lift by androidx.compose.animation.core.animateFloatAsState(
+                                    if (selected && !reduce) 1f else 0f,
+                                    RaMotion.sheet(), label = "nav-lift",
+                                )
+                                Column(
+                                    Modifier.weight(1f)
+                                        .clip(RoundedCornerShape(RaRadius.md))
+                                        .selectable(
+                                            selected = selected,
+                                            role = androidx.compose.ui.semantics.Role.Tab,
+                                            onClick = { tab = i },
+                                        )
+                                        .padding(vertical = 2.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Box(
+                                        Modifier.size(40.dp)
+                                            .graphicsLayer {
+                                                val s = if (selected) 0.92f + 0.08f * (if (reduce) 1f else lift) else 1f
+                                                scaleX = s; scaleY = s
+                                            }
+                                            .clip(RoundedCornerShape(RaRadius.sm))
+                                            .background(if (selected) GoldFill else Color.Transparent),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Icon(
+                                            t.icon, contentDescription = null,
+                                            tint = if (selected) GoldInk else Muted,
+                                            modifier = Modifier.size(22.dp),
+                                        )
+                                    }
                                     Text(
                                         stringResource(t.label),
+                                        color = if (selected) Cream else Muted,
                                         style = RaType.meta.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp),
+                                        maxLines = 1,
+                                        modifier = Modifier.padding(top = 3.dp),
                                     )
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Gold, selectedTextColor = Gold,
-                                    indicatorColor = GoldFill.copy(alpha = if (isDark) 0.14f else 0.30f),
-                                    unselectedIconColor = Muted, unselectedTextColor = Muted,
-                                ),
-                            )
+                                }
+                            }
                         }
                     }
                 },
@@ -719,8 +738,10 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                 scaleIn(RaMotion.sheet(), initialScale = 0.96f),
             exit = if (reduceToast) ExitTransition.None
             else fadeOut(RaMotion.med()) + slideOutVertically(RaMotion.med()) { it / 3 },
+            // Above the floating tab bar, which sits above the system's own.
             modifier = Modifier.align(Alignment.BottomCenter)
-                .padding(bottom = 96.dp, start = RaSpace.s4 + RaSpace.s1, end = RaSpace.s4 + RaSpace.s1),
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(bottom = 100.dp, start = RaSpace.s4 + RaSpace.s1, end = RaSpace.s4 + RaSpace.s1),
         ) {
             val pill = RoundedCornerShape(RaRadius.full)
             Box(
@@ -900,7 +921,6 @@ private fun ReportHazardDialog(
     LaunchedEffect(Unit) { perms.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)) }
 
     var type by remember { mutableStateOf("pothole") }
-    var typeOpen by remember { mutableStateOf(false) }
     var severity by remember { mutableIntStateOf(3) }
     var note by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -920,15 +940,12 @@ private fun ReportHazardDialog(
             Column {
                 Text(stringResource(R.string.report_hazard_sub),
                     color = Muted, style = RaType.sub)
-                Box {
-                    OutlinedButton(
-                        onClick = { typeOpen = true }, shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
-                    ) { Text(stringResource(R.string.label_type_prefix) + (types.find { it.first == type }?.second ?: type), color = Cream, style = RaType.label) }
-                    DropdownMenu(expanded = typeOpen, onDismissRequest = { typeOpen = false }) {
-                        types.forEach { (code, label) ->
-                            DropdownMenuItem(text = { Text(label) }, onClick = { type = code; typeOpen = false })
-                        }
+                // The type as a row of pill chips, the chosen one in lime.
+                Text(stringResource(R.string.label_type_prefix) + (types.find { it.first == type }?.second ?: type),
+                    color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 14.dp))
+                RaChipRow(Modifier.padding(top = 2.dp)) {
+                    types.forEach { (code, label) ->
+                        RaChip(label, selected = code == type) { type = code }
                     }
                 }
                 Text(stringResource(R.string.label_severity, severity), color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 14.dp))
@@ -981,6 +998,7 @@ private fun ReportHazardDialog(
                         OutlinedButton(
                             onClick = onPickPhoto,
                             shape = RoundedCornerShape(RaRadius.full),
+                            border = BorderStroke(1.dp, LocalRa.current.line),
                         ) { Text(stringResource(R.string.action_attach_photo), color = Gold, style = RaType.caption) }
                     }
                 }
@@ -1494,23 +1512,18 @@ private fun ScreenColumn(
 
 @Composable
 private fun Heading(@StringRes plain: Int, @StringRes italic: Int) {
-    // One Text, not two in a Row, so a long heading in Tamil or Malayalam
-    // wraps as a sentence instead of pushing its second half off the screen.
-    val gold = Gold
-    val plainText = stringResource(plain)
-    val italicText = stringResource(italic)
-    val styled = remember(plainText, italicText, gold) {
-        androidx.compose.ui.text.buildAnnotatedString {
-            append(plainText)
-            append(" ")
-            // Gold, upright: the display face has no italic, and a slant
-            // synthesised by the platform is not one.
-            pushStyle(androidx.compose.ui.text.SpanStyle(color = gold))
-            append(italicText)
-            pop()
-        }
+    // The greeting: a light first line and a bold second one, stacked. Two
+    // lines in a Column, never two Texts in a Row, so a long heading in Tamil
+    // or Malayalam wraps inside its own line instead of pushing the second
+    // half off the screen. Upright throughout: the display face has no
+    // italic, and a slant synthesised by the platform is not one.
+    Column {
+        Text(stringResource(plain), color = Muted, style = RaType.body, fontSize = 22.sp, lineHeight = 28.sp)
+        Text(
+            stringResource(italic), color = Cream,
+            style = RaType.heading.copy(fontWeight = FontWeight.Bold), fontSize = 32.sp, lineHeight = 38.sp,
+        )
     }
-    Text(styled, style = RaType.heading, color = Cream)
 }
 
 @Composable
@@ -1531,15 +1544,59 @@ private fun Field(
         singleLine = true,
         textStyle = RaType.body,
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = keyboard),
-        shape = RoundedCornerShape(RaRadius.sm),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = Gold, unfocusedBorderColor = LocalRa.current.line,
-            focusedTextColor = Cream, unfocusedTextColor = Cream,
-            focusedLabelColor = Gold, unfocusedLabelColor = Muted,
-            cursorColor = Gold,
-        ),
+        shape = RoundedCornerShape(RaRadius.md),
+        colors = fieldColors(),
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
     )
+}
+
+/** Text-field colours: filled with the card colour, a hairline that turns accent on focus. */
+@Composable
+private fun fieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = Gold, unfocusedBorderColor = LocalRa.current.line,
+    focusedTextColor = Cream, unfocusedTextColor = Cream,
+    focusedLabelColor = Gold, unfocusedLabelColor = Muted,
+    focusedContainerColor = Panel, unfocusedContainerColor = Panel, disabledContainerColor = Panel,
+    focusedPlaceholderColor = Muted, unfocusedPlaceholderColor = Muted,
+    focusedLeadingIconColor = Muted, unfocusedLeadingIconColor = Muted,
+    cursorColor = Gold,
+)
+
+/**
+ * The rounded, search-style field: a pill-cornered box with a leading pencil
+ * and the hint inside it. Used for the one free-text question on Assist.
+ */
+@Composable
+private fun SearchField(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier) {
+    OutlinedTextField(
+        value = value, onValueChange = onChange,
+        placeholder = { Text(hint, style = RaType.body) },
+        leadingIcon = { Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) },
+        singleLine = true,
+        textStyle = RaType.body,
+        shape = RoundedCornerShape(RaRadius.lg),
+        colors = fieldColors(),
+        modifier = modifier.heightIn(min = 56.dp).semantics { contentDescription = hint },
+    )
+}
+
+/**
+ * The square button beside [SearchField]: the filter glyph on the card colour,
+ * the same height as the field. [label] is what it does, for a screen reader.
+ */
+@Composable
+private fun FilterButton(label: String, onClick: () -> Unit) {
+    val ra = LocalRa.current
+    val shape = RoundedCornerShape(RaRadius.md)
+    Box(
+        Modifier.size(56.dp)
+            .clip(shape)
+            .background(ra.panel)
+            .border(1.dp, ra.line, shape)
+            .clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onClick)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) { FilterGlyph(Gold, Modifier.size(22.dp)) }
 }
 
 @Composable
@@ -1637,10 +1694,7 @@ private fun SignInScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             SignInBeacon()
-            Row(Modifier.padding(top = 6.dp)) {
-                Text("Road", color = Cream, style = RaType.display)
-                Text("Assist", color = Gold, style = RaType.display)
-            }
+            Box(Modifier.padding(top = 6.dp)) { Wordmark() }
         }
         Text(stringResource(R.string.tagline),
             color = Muted, style = RaType.caption, letterSpacing = 1.sp,
@@ -1794,7 +1848,6 @@ private fun HomeScreen(
     val scope = rememberCoroutineScope()
     var reg by remember { mutableStateOf("") }
     var vClass by remember { mutableStateOf("car") }
-    var classOpen by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var sosResult by remember { mutableStateOf<String?>(null) }
     val classes = listOf("car", "motorcycle", "scooter", "auto_rickshaw", "truck", "bus", "tractor", "ev")
@@ -1894,11 +1947,10 @@ private fun HomeScreen(
                 onAction = { action -> pendingClose = incident to action },
             )
         }
-        // The greeting, in a hero panel that leans under a finger and tips
-        // back as the page scrolls (HomeHero). Decoration only: the SOS
-        // control below is a separate element and never moves.
+        // The greeting, straight on the page ground: a light first line, a
+        // bold second one, and who is signed in under it.
         Reveal(0) {
-            HomeHero(homeScroll) {
+            Column(Modifier.fillMaxWidth().padding(top = RaSpace.s2)) {
                 Heading(R.string.head_home_plain, R.string.head_home_italic)
                 Sub("$msisdn " + stringResource(R.string.signed_in_suffix))
                 vehicleLabel?.let {
@@ -2079,20 +2131,11 @@ private fun HomeScreen(
                 if (vehicleId == null) {
                     Text(stringResource(R.string.vehicle_add_title), color = Cream, style = RaType.title)
                     Field(reg, { reg = it.uppercase() }, stringResource(R.string.field_registration_number))
-                    Box {
-                        OutlinedButton(
-                            onClick = { classOpen = true },
-                            shape = RoundedCornerShape(RaRadius.sm),
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 52.dp),
-                        ) { Text(stringResource(R.string.label_vehicle_type, vClass), color = Cream, style = RaType.label) }
-                        DropdownMenu(expanded = classOpen, onDismissRequest = { classOpen = false }) {
-                            classes.forEach { c ->
-                                DropdownMenuItem(
-                                    text = { Text(c) },
-                                    onClick = { vClass = c; classOpen = false },
-                                )
-                            }
-                        }
+                    // The vehicle class as a sideways row of pill chips.
+                    Text(stringResource(R.string.label_vehicle_type, vehicleClassLabel(vClass)), color = Muted, style = RaType.caption,
+                        modifier = Modifier.padding(top = 14.dp))
+                    RaChipRow(Modifier.padding(top = 2.dp)) {
+                        classes.forEach { c -> RaChip(vehicleClassLabel(c), selected = c == vClass) { vClass = c } }
                     }
                     GoldButton(stringResource(R.string.action_add_vehicle), enabled = !busy && reg.length >= 4) {
                         busy = true
@@ -2118,34 +2161,27 @@ private fun HomeScreen(
         }
 
         // Crowdsourced road-safety: flag a hazard for the RAKSHA network.
+        // Both are one-tap cards ending in a round arrow. The hazard one keeps
+        // the alarm red it always had; the 3D one takes the accent.
         Reveal(3) {
-        RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4)) {
-            Column(Modifier.padding(CardPad)) {
-                Text(stringResource(R.string.hazard_prompt_title), color = Cream, style = RaType.title)
-                Text(stringResource(R.string.hazard_prompt_sub),
-                    color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
-                RaOutlineButton(
-                    stringResource(R.string.hazard_prompt_action), color = Alarm,
-                    modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3),
-                ) { onReport() }
-            }
-        }
+            ArrowCard(
+                title = stringResource(R.string.hazard_prompt_title),
+                sub = stringResource(R.string.hazard_prompt_sub),
+                actionLabel = stringResource(R.string.hazard_prompt_action),
+                fill = LocalRa.current.alarmFill, ink = LocalRa.current.onAlarm,
+                modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4),
+            ) { onReport() }
         }
 
         // The platform in live 3D: layers.html from the configured server,
         // shown in a WebView the way the Map tab shows map.html.
         Reveal(4) {
-        RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4)) {
-            Column(Modifier.padding(CardPad)) {
-                Text(stringResource(R.string.layers_title), color = Cream, style = RaType.title)
-                Text(stringResource(R.string.layers_sub),
-                    color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
-                RaOutlineButton(
-                    stringResource(R.string.layers_open),
-                    modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3),
-                ) { onLayers() }
-            }
-        }
+            ArrowCard(
+                title = stringResource(R.string.layers_title),
+                sub = stringResource(R.string.layers_sub),
+                actionLabel = stringResource(R.string.layers_open),
+                modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4),
+            ) { onLayers() }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -2370,29 +2406,51 @@ private fun BookScreen(
             }
         }
 
-        Box {
-            OutlinedButton(
-                onClick = { if (loadError) reloadKey++ else if (services.isNotEmpty()) svcOpen = true },
-                shape = RoundedCornerShape(RaRadius.sm),
-                modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4).heightIn(min = 52.dp),
-            ) {
-                Text(
-                    "Service: " + when {
-                        service != null -> service!!.second
-                        loadError -> "couldn't load — tap to retry"
-                        else -> "loading…"
-                    },
-                    color = if (loadError) Alarm else Cream, style = RaType.label,
-                )
-            }
-            DropdownMenu(expanded = svcOpen, onDismissRequest = { svcOpen = false }) {
-                services.forEach { s ->
-                    DropdownMenuItem(text = { Text(s.second) }, onClick = { service = s; svcOpen = false })
+        val serviceLine = "Service: " + when {
+            service != null -> service!!.second
+            loadError -> "couldn't load — tap to retry"
+            else -> "loading…"
+        }
+        val pickService: () -> Unit = { if (loadError) reloadKey++ else if (services.isNotEmpty()) svcOpen = true }
+        // What happened, in the rounded search-style field, and the square
+        // filter beside it that opens the full list of services.
+        Row(Modifier.fillMaxWidth().padding(top = RaSpace.s4), verticalAlignment = Alignment.CenterVertically) {
+            // POST /v1/bookings takes at most 500 characters of symptoms.
+            SearchField(symptoms, { symptoms = it.take(500) }, stringResource(R.string.field_what_happened),
+                Modifier.weight(1f))
+            Spacer(Modifier.width(RaSpace.s2))
+            Box {
+                FilterButton(serviceLine) { pickService() }
+                DropdownMenu(expanded = svcOpen, onDismissRequest = { svcOpen = false }) {
+                    services.forEach { s ->
+                        DropdownMenuItem(text = { Text(s.second) }, onClick = { service = s; svcOpen = false })
+                    }
                 }
             }
         }
-        // POST /v1/bookings takes at most 500 characters of symptoms.
-        Field(symptoms, { symptoms = it.take(500) }, stringResource(R.string.field_what_happened))
+        // The service types as a row of round icon tiles, the chosen one lime.
+        // Until they load (or if they cannot), the line that says so, which
+        // retries on a tap after a failure.
+        if (services.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().padding(top = RaSpace.s4)
+                    .horizontalScroll(rememberScrollState()).selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(RaSpace.s1),
+            ) {
+                services.forEach { s ->
+                    ServiceTile(s.first, s.second, selected = s == service) { service = s }
+                }
+            }
+        } else {
+            Text(
+                serviceLine, color = if (loadError) Alarm else Muted, style = RaType.label,
+                modifier = Modifier.padding(top = RaSpace.s3)
+                    .clip(RoundedCornerShape(RaRadius.xs))
+                    .clickable(enabled = loadError, role = androidx.compose.ui.semantics.Role.Button) { pickService() }
+                    .heightIn(min = 48.dp)
+                    .padding(vertical = RaSpace.s3),
+            )
+        }
 
         GoldButton(stringResource(R.string.action_book_dispatch), enabled = !busy && vehicleId != null && service != null) { bookAndDispatch(demoChosen = false) }
 
@@ -2634,3 +2692,8 @@ private fun Loading() {
         CircularProgressIndicator(color = Gold, modifier = Modifier.size(26.dp))
     }
 }
+
+// The API's vehicle class codes, shown as words: "auto_rickshaw" reads as
+// "auto-rickshaw" and "ev" as "EV". The code itself is still what is sent.
+private fun vehicleClassLabel(code: String): String =
+    if (code == "ev") "EV" else code.replace('_', '-')

@@ -23,26 +23,33 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 
 /**
- * The RoadAssist palette — the Kotlin twin of `app/apps/web/ds.css`.
+ * The RoadAssist palette: near-black surfaces and one chartreuse accent.
  *
  * Both themes ship. A phone used at 2 a.m. on a hard shoulder and a depot
  * office in daylight are different rooms, so the app follows the system by
  * default and lets the user pin either one.
  *
- * `gold` is the accent for text and icons — it darkens on paper to hold
- * contrast. `goldFill` is the decorative fill that stays bright in both themes
- * and is always paired with `goldInk`; keeping them separate is what stops a
- * light-theme button turning into dark-on-dark.
+ * The accent is used sparingly: the active chip, the active tab, the round
+ * arrow on a card and the primary button. The names (`gold`, `goldFill`,
+ * `goldInk`) are kept from the earlier gold palette so every call site reads
+ * the same slot; only the values changed.
+ *
+ * `gold` is the accent for text and icons. On the dark theme it is the lime
+ * itself (13.7:1 on a card); on paper it is an olive, #566B00, because lime
+ * text on white is about 1.3:1. The olive measures 6.0:1 on white, 5.5:1 on
+ * the paper background and 5.1:1 on panel2. `goldFill` is the decorative fill
+ * that stays lime in both themes and is always paired with `goldInk`, the
+ * near-black (14.9:1 on lime); keeping them separate is what stops a
+ * light-theme button turning into lime-on-white.
  *
  * `alarmFill` is the same split for red: `alarm` is the red for text and
  * borders, `alarmFill` the red a filled button is painted with, always under
  * `onAlarm`. White on the dark theme's bright #FF5A66 measures 3.0:1, below
  * the 4.5:1 a button label needs, so filled red is the deeper red in both.
+ * Emergency controls (SOS, 112) stay red in both themes and never take the
+ * accent.
  *
- * The paper theme's `gold`, `warn` and `textDim` are darker than ds.css's:
- * measured on white and on the paper background they were 3.5–4.4:1, and they
- * carry small text ("Request", "Call", footnotes). The values below are all
- * ≥ 4.7:1 on every surface they sit on.
+ * `textDim` is ≥ 5.1:1 on every surface it sits on in both themes.
  */
 @Immutable
 data class RaColors(
@@ -66,15 +73,15 @@ data class RaColors(
 )
 
 val RaDark = RaColors(
-    gold = Color(0xFFE3B96A),
-    goldFill = Color(0xFFE3B96A),
-    goldInk = Color(0xFF14110A),
-    bg = Color(0xFF08090C),
-    panel = Color(0xFF101218),
-    panel2 = Color(0xFF171A22),
-    text = Color(0xFFF2F0EA),
-    textDim = Color(0xFF8B8F9C),
-    line = Color(0xFF232833),
+    gold = Color(0xFFC8F031),
+    goldFill = Color(0xFFC8F031),
+    goldInk = Color(0xFF0B0C0A),
+    bg = Color(0xFF0B0C0A),
+    panel = Color(0xFF151713),
+    panel2 = Color(0xFF1C1F1A),
+    text = Color(0xFFF2F4EC),
+    textDim = Color(0xFF8E9387),
+    line = Color(0xFF22251F),
     alarm = Color(0xFFFF5A66),
     ok = Color(0xFF35D08A),
     warn = Color(0xFFFFB454),
@@ -85,15 +92,15 @@ val RaDark = RaColors(
 )
 
 val RaLight = RaColors(
-    gold = Color(0xFF8A6316),
-    goldFill = Color(0xFFE3B96A),
-    goldInk = Color(0xFF1A1408),
-    bg = Color(0xFFF6F5F2),
+    gold = Color(0xFF566B00),
+    goldFill = Color(0xFFC8F031),
+    goldInk = Color(0xFF0B0C0A),
+    bg = Color(0xFFF4F5EF),
     panel = Color(0xFFFFFFFF),
-    panel2 = Color(0xFFF2F0EA),
-    text = Color(0xFF14151A),
-    textDim = Color(0xFF646776),
-    line = Color(0xFFE3E1DA),
+    panel2 = Color(0xFFECEEE5),
+    text = Color(0xFF12140F),
+    textDim = Color(0xFF5D6256),
+    line = Color(0xFFDFE2D6),
     alarm = Color(0xFFD42233),
     ok = Color(0xFF0F7A52),
     warn = Color(0xFF8A5704),
@@ -123,7 +130,7 @@ private val DarkScheme = darkColorScheme(
     // Material's default outline is a lilac grey from its own palette; this
     // is the panel hairline lifted to 3:1 on every surface, so an outlined control's edge is
     // visible without shouting.
-    outline = Color(0xFF60667A), outlineVariant = RaDark.line,
+    outline = Color(0xFF646A5D), outlineVariant = RaDark.line,
 )
 
 private val LightScheme = lightColorScheme(
@@ -132,7 +139,7 @@ private val LightScheme = lightColorScheme(
     surface = RaLight.panel, onSurface = RaLight.text,
     surfaceContainer = RaLight.panel,
     secondary = RaLight.textDim, error = RaLight.alarm,
-    outline = Color(0xFF8A877E), outlineVariant = RaLight.line,
+    outline = Color(0xFF858A7D), outlineVariant = RaLight.line,
 )
 
 @Composable

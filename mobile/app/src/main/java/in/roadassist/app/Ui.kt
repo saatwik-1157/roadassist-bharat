@@ -13,11 +13,10 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -35,42 +34,57 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 /**
  * The app's small kit of depth, motion and status pieces.
@@ -121,11 +135,10 @@ fun rememberPressScale(source: InteractionSource, pressed: Float = 0.965f): Stat
 }
 
 /**
- * A panel with light falling on it from above: a soft drop shadow, a fill that
- * is a touch brighter at the top edge, and a hairline whose top is lit and
- * whose bottom falls into shade. It replaces Material's flat Card, which has
- * none of those in the dark theme (Material tints elevation instead of
- * shading it, and this palette has no tint to give).
+ * The card: a large 22dp-rounded panel on the near-black ground, edged with a
+ * 1dp hairline. Flat in the dark theme, where a shadow on #0B0C0A reads as
+ * nothing and the hairline is what separates the card from the page; a soft
+ * shadow under the white card on paper, where the hairline alone is faint.
  */
 @Composable
 fun RaCard(
@@ -138,27 +151,16 @@ fun RaCard(
     val ra = LocalRa.current
     val shape = RoundedCornerShape(RaRadius.lg)
     val fill = if (tint.isSpecified) tint else ra.panel
-    val lighting = remember(ra.isDark) {
-        Brush.verticalGradient(
-            if (ra.isDark) listOf(Color.White.copy(alpha = 0.045f), Color.Transparent)
-            else listOf(Color.White.copy(alpha = 0.9f), Color(0x00FFFFFF)),
-        )
-    }
-    val edge = border ?: remember(ra) {
-        BorderStroke(
-            1.dp,
-            if (ra.isDark) Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f), ra.line.copy(alpha = 0.55f)))
-            else Brush.verticalGradient(listOf(ra.line.copy(alpha = 0.7f), ra.line)),
-        )
-    }
-    val shade = if (ra.isDark) Color.Black.copy(alpha = 0.7f) else Color(0x403B2F1A)
+    val edge = border ?: BorderStroke(1.dp, ra.line)
+    val shade = Color(0x2E1E2410)
     Column(
         modifier
-            .shadow(if (ra.isDark) elevation else elevation * 0.6f, shape, clip = false,
-                ambientColor = shade, spotColor = shade)
+            .then(
+                if (ra.isDark) Modifier
+                else Modifier.shadow(elevation * 0.5f, shape, clip = false, ambientColor = shade, spotColor = shade),
+            )
             .clip(shape)
             .background(fill)
-            .background(lighting)
             .border(edge, shape),
         content = content,
     )
@@ -335,7 +337,7 @@ fun GlassPanel(
     )
 }
 
-/** The gold call to action: lit from above, presses in, 52dp tall. */
+/** The lime call to action: flat, dark label, presses in, 52dp tall. */
 @Composable
 fun RaPrimaryButton(
     text: String,
@@ -351,7 +353,6 @@ fun RaPrimaryButton(
     val source = remember { MutableInteractionSource() }
     val scale = rememberPressScale(source)
     val shape = RoundedCornerShape(RaRadius.full)
-    val sheen = remember { Brush.verticalGradient(0f to Color.White.copy(alpha = 0.20f), 0.55f to Color.Transparent) }
     Button(
         onClick = onClick, enabled = enabled, shape = shape,
         interactionSource = source,
@@ -364,14 +365,7 @@ fun RaPrimaryButton(
         modifier = modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
             .heightIn(min = height)
-            .graphicsLayer { val s = scale.value; scaleX = s; scaleY = s }
-            .shadow(if (enabled) 8.dp else 0.dp, shape, clip = false,
-                ambientColor = fill.copy(alpha = 0.6f), spotColor = fill.copy(alpha = 0.6f))
-            // A sheen over the top half of the fill: the light the cards get.
-            .drawWithContent {
-                drawContent()
-                if (enabled) drawRoundRect(sheen, cornerRadius = CornerRadius(size.height / 2f))
-            },
+            .graphicsLayer { val s = scale.value; scaleX = s; scaleY = s },
     ) { Text(text, style = RaType.button) }
 }
 
@@ -393,7 +387,7 @@ fun RaOutlineButton(
         onClick = onClick, enabled = enabled,
         shape = RoundedCornerShape(RaRadius.full),
         interactionSource = source,
-        border = BorderStroke(1.dp, if (enabled) color.copy(alpha = 0.45f) else ra.line),
+        border = BorderStroke(1.dp, if (enabled) color.copy(alpha = 0.40f) else ra.line),
         contentPadding = PaddingValues(horizontal = 18.dp),
         modifier = modifier
             .heightIn(min = height)
@@ -579,118 +573,265 @@ private val SosInk = Color(0xFFF2F0EA)
 private val SosHint = Color(0xFFB9A9A3)
 
 /**
- * Home's hero: a lit panel that leans toward a finger resting on it and tips
- * back, like a card on a table, as the page scrolls it away. A road drawn in
- * perspective runs through it and drifts at half the scroll speed — the
- * parallax is inside the panel's clip, so nothing below is ever overlapped.
- *
- * This is decoration on the greeting only. The SOS control is a separate
- * element below it and is never tilted.
+ * A pill chip in a horizontal row: the chosen one is the lime fill with the
+ * dark ink, the rest sit on the card colour behind a hairline. One of a set,
+ * so it is announced as a radio button ("selected, 2 of 8") inside
+ * [RaChipRow]'s selectable group.
  */
 @Composable
-fun HomeHero(scroll: ScrollState, content: @Composable ColumnScope.() -> Unit) {
+fun RaChip(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val ra = LocalRa.current
-    val reduce = LocalReduceMotion.current
-    val scope = rememberCoroutineScope()
-    val tiltX = remember { Animatable(0f) }
-    val tiltY = remember { Animatable(0f) }
-    val shape = RoundedCornerShape(RaRadius.xl)
-    val springBack = spring<Float>(dampingRatio = 0.6f, stiffness = Spring.StiffnessLow)
-    val gold = ra.goldFill
-    val wash = remember(ra) {
-        Brush.linearGradient(
-            if (ra.isDark) listOf(Color(0xFF1C1A16), ra.panel, Color(0xFF0D0F14))
-            else listOf(Color(0xFFFFFBF2), Color.White, ra.panel2),
-            start = Offset.Zero, end = Offset(900f, 700f),
+    val pill = RoundedCornerShape(RaRadius.full)
+    Box(
+        modifier
+            .minimumInteractiveComponentSize()
+            .clip(pill)
+            .background(if (selected) ra.goldFill else ra.panel)
+            .border(1.dp, if (selected) ra.goldFill else ra.line, pill)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .heightIn(min = 40.dp)
+            .padding(horizontal = 18.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text, color = if (selected) ra.goldInk else ra.text,
+            style = RaType.label.copy(fontWeight = FontWeight.SemiBold),
         )
     }
-    val shade = if (ra.isDark) Color.Black.copy(alpha = 0.7f) else Color(0x403B2F1A)
+}
+
+/** A row of [RaChip]s that scrolls sideways when it is wider than the screen. */
+@Composable
+fun RaChipRow(modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(RaSpace.s2),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+/** The small round lime arrow a card ends with: "this card goes somewhere". */
+@Composable
+fun ArrowBadge(
+    fill: Color = LocalRa.current.goldFill,
+    ink: Color = LocalRa.current.goldInk,
+    size: Dp = 40.dp,
+) {
+    Box(Modifier.size(size).clip(CircleShape).background(fill), contentAlignment = Alignment.Center) {
+        Icon(
+            Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = null, tint = ink,
+            modifier = Modifier.size(size * 0.5f).rotate(-45f),
+        )
+    }
+}
+
+/**
+ * A large card that is one tap: a title, a line under it and the round arrow
+ * at the end. The whole card is the target, and [actionLabel] (what the
+ * button on it used to say) is the action a screen reader offers.
+ */
+@Composable
+fun ArrowCard(
+    title: String,
+    sub: String,
+    actionLabel: String,
+    modifier: Modifier = Modifier,
+    fill: Color = LocalRa.current.goldFill,
+    ink: Color = LocalRa.current.goldInk,
+    onClick: () -> Unit,
+) {
+    val ra = LocalRa.current
+    val source = remember { MutableInteractionSource() }
+    val press = rememberPressScale(source, pressed = 0.98f)
+    RaCard(modifier.graphicsLayer { val s = press.value; scaleX = s; scaleY = s }) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = source, indication = ripple(), role = Role.Button,
+                    onClickLabel = actionLabel, onClick = onClick,
+                )
+                .padding(CardPad),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(title, color = ra.text, style = RaType.title)
+                Text(sub, color = ra.textDim, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
+            }
+            Spacer(Modifier.width(RaSpace.s3))
+            ArrowBadge(fill = fill, ink = ink)
+        }
+    }
+}
+
+/**
+ * A round 44dp button in the card colour behind a hairline, inside a 48dp
+ * target: the top bar's side controls. With no [onClick] it is a plain round
+ * tile, and says nothing to a screen reader beyond its content.
+ */
+@Composable
+fun RoundIconButton(
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    onClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    val ra = LocalRa.current
+    Box(
+        modifier
+            .size(48.dp)
+            .then(
+                if (onClick == null) Modifier
+                else Modifier
+                    .clip(CircleShape)
+                    .clickable(role = Role.Button, onClick = onClick)
+                    .semantics { if (label != null) contentDescription = label },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier.size(44.dp).clip(CircleShape).background(ra.panel).border(1.dp, ra.line, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) { content() }
+    }
+}
+
+/**
+ * One service type as a round icon tile with its name under it. The chosen
+ * one is the lime disc with the dark glyph. The glyph is picked from the
+ * server's code ([ServiceGlyph]); the name is the server's own label.
+ */
+@Composable
+fun ServiceTile(code: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    val ra = LocalRa.current
     Column(
         Modifier
-            .fillMaxWidth()
-            .pointerInput(reduce) {
-                if (reduce) return@pointerInput
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    fun aim(p: Offset) {
-                        val nx = (p.x / size.width - 0.5f).coerceIn(-0.5f, 0.5f) * 2f
-                        val ny = (p.y / size.height - 0.5f).coerceIn(-0.5f, 0.5f) * 2f
-                        scope.launch { tiltY.animateTo(nx * 5f, RaMotion.med()) }
-                        scope.launch { tiltX.animateTo(-ny * 5f, RaMotion.med()) }
-                    }
-                    aim(down.position)
-                    while (true) {
-                        val ev = awaitPointerEvent()
-                        val c = ev.changes.firstOrNull() ?: break
-                        if (!c.pressed) break
-                        aim(c.position)
-                    }
-                    scope.launch { tiltX.animateTo(0f, springBack) }
-                    scope.launch { tiltY.animateTo(0f, springBack) }
-                }
-            }
-            .graphicsLayer {
-                val s = scroll.value.toFloat()
-                rotationX = tiltX.value + (s / 28f).coerceIn(0f, 9f)
-                rotationY = tiltY.value
-                cameraDistance = 14f * density
-                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)
-            }
-            .shadow(if (ra.isDark) 12.dp else 8.dp, shape, clip = false, ambientColor = shade, spotColor = shade)
-            .clip(shape)
-            .background(wash)
-            .border(
-                1.dp,
-                Brush.verticalGradient(
-                    if (ra.isDark) listOf(gold.copy(alpha = 0.28f), Color.White.copy(alpha = 0.04f))
-                    else listOf(gold.copy(alpha = 0.55f), ra.line),
-                ),
-                shape,
-            )
-            .drawBehind {
-                // A highway running away to the upper right: the carriageway
-                // as a faint wedge, two kerbs and a dashed centre line, all
-                // shifted by half the scroll for the parallax.
-                val drift = (scroll.value * 0.5f).coerceAtMost(size.height)
-                val vx = size.width * 0.80f
-                val vy = -size.height * 0.10f + drift * 0.25f
-                val bottom = size.height + drift
-                val left = size.width * 0.44f
-                val right = size.width * 1.16f
-                val road = androidx.compose.ui.graphics.Path().apply {
-                    moveTo(vx - 2f, vy); lineTo(vx + 2f, vy)
-                    lineTo(right, bottom); lineTo(left, bottom); close()
-                }
-                drawPath(
-                    road,
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, gold.copy(alpha = if (ra.isDark) 0.07f else 0.10f)),
-                        startY = vy, endY = bottom,
-                    ),
-                )
-                val kerb = gold.copy(alpha = if (ra.isDark) 0.22f else 0.35f)
-                val w = 1.5.dp.toPx()
-                drawLine(kerb, Offset(vx, vy), Offset(left, bottom), w)
-                drawLine(kerb, Offset(vx, vy), Offset(right, bottom), w)
-                val dash = gold.copy(alpha = if (ra.isDark) 0.40f else 0.55f)
-                val bx = (left + right) / 2f
-                for (i in 0 until 8) {
-                    // Squared spacing: dashes grow and spread as they near the
-                    // viewer, which is what sells the perspective.
-                    val a = (i + 0.15f) / 8f
-                    val b = (i + 0.55f) / 8f
-                    val ea = a * a
-                    val eb = b * b
+            .width(80.dp)
+            .clip(RoundedCornerShape(RaRadius.sm))
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(vertical = RaSpace.s1),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(60.dp)
+                .clip(CircleShape)
+                .background(if (selected) ra.goldFill else ra.panel)
+                .border(1.dp, if (selected) ra.goldFill else ra.line, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            ServiceGlyph(code, tint = if (selected) ra.goldInk else ra.gold, modifier = Modifier.size(26.dp))
+        }
+        Text(
+            label, color = if (selected) ra.text else ra.textDim,
+            style = RaType.meta.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal),
+            lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 6.dp),
+        )
+    }
+}
+
+/**
+ * A line glyph for each service code the catalogue has (flat tyre, battery,
+ * fuel, key, repair, towing, EV charging, accident). Drawn rather than
+ * bundled: the app carries only Material's core icon set, and these are a
+ * few strokes each. An unknown code gets the wrench.
+ */
+@Composable
+fun ServiceGlyph(code: String, tint: Color, modifier: Modifier = Modifier) {
+    val drawn = code in setOf("flat_tyre", "battery_jumpstart", "fuel_delivery", "key_lockout", "towing", "ev_charge")
+    if (!drawn) {
+        Icon(
+            if (code == "accident_support") Icons.Rounded.Warning else Icons.Rounded.Build,
+            contentDescription = null, tint = tint, modifier = modifier,
+        )
+        return
+    }
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = Stroke(width = w * 0.09f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val thin = w * 0.07f
+        fun p(x: Float, y: Float) = Offset(w * x, h * y)
+        when (code) {
+            "flat_tyre" -> {
+                drawCircle(tint, radius = w * 0.40f, style = stroke)
+                drawCircle(tint, radius = w * 0.14f, style = stroke)
+                for (i in 0 until 3) {
+                    val a = Math.toRadians(90.0 + i * 120.0)
+                    val c = kotlin.math.cos(a).toFloat()
+                    val sn = kotlin.math.sin(a).toFloat()
                     drawLine(
-                        dash,
-                        Offset(vx + (bx - vx) * ea, vy + (bottom - vy) * ea),
-                        Offset(vx + (bx - vx) * eb, vy + (bottom - vy) * eb),
-                        strokeWidth = w * (0.5f + 2.2f * b),
-                        cap = StrokeCap.Round,
+                        tint, p(0.5f + 0.14f * c, 0.5f + 0.14f * sn), p(0.5f + 0.40f * c, 0.5f + 0.40f * sn),
+                        strokeWidth = thin, cap = StrokeCap.Round,
                     )
                 }
             }
-            .padding(horizontal = CardPad, vertical = CardPad + 2.dp),
-        content = content,
-    )
+            "battery_jumpstart" -> {
+                drawRoundRect(
+                    tint, topLeft = p(0.10f, 0.30f), size = Size(w * 0.80f, h * 0.52f),
+                    cornerRadius = CornerRadius(w * 0.08f), style = stroke,
+                )
+                drawLine(tint, p(0.26f, 0.18f), p(0.38f, 0.18f), strokeWidth = w * 0.09f, cap = StrokeCap.Round)
+                drawLine(tint, p(0.62f, 0.18f), p(0.74f, 0.18f), strokeWidth = w * 0.09f, cap = StrokeCap.Round)
+                drawLine(tint, p(0.24f, 0.56f), p(0.40f, 0.56f), strokeWidth = thin, cap = StrokeCap.Round)
+                drawLine(tint, p(0.32f, 0.48f), p(0.32f, 0.64f), strokeWidth = thin, cap = StrokeCap.Round)
+                drawLine(tint, p(0.60f, 0.56f), p(0.76f, 0.56f), strokeWidth = thin, cap = StrokeCap.Round)
+            }
+            "fuel_delivery" -> {
+                drawRoundRect(
+                    tint, topLeft = p(0.16f, 0.14f), size = Size(w * 0.44f, h * 0.72f),
+                    cornerRadius = CornerRadius(w * 0.06f), style = stroke,
+                )
+                drawLine(tint, p(0.16f, 0.40f), p(0.60f, 0.40f), strokeWidth = thin)
+                val hose = Path().apply {
+                    moveTo(w * 0.60f, h * 0.28f); lineTo(w * 0.78f, h * 0.40f)
+                    lineTo(w * 0.80f, h * 0.70f); lineTo(w * 0.70f, h * 0.70f); lineTo(w * 0.68f, h * 0.52f)
+                }
+                drawPath(hose, tint, style = stroke)
+            }
+            "key_lockout" -> {
+                drawCircle(tint, radius = w * 0.16f, center = p(0.28f, 0.5f), style = stroke)
+                drawLine(tint, p(0.44f, 0.5f), p(0.90f, 0.5f), strokeWidth = w * 0.09f, cap = StrokeCap.Round)
+                drawLine(tint, p(0.72f, 0.5f), p(0.72f, 0.66f), strokeWidth = w * 0.09f, cap = StrokeCap.Round)
+                drawLine(tint, p(0.86f, 0.5f), p(0.86f, 0.62f), strokeWidth = w * 0.09f, cap = StrokeCap.Round)
+            }
+            "towing" -> {
+                drawRoundRect(
+                    tint, topLeft = p(0.06f, 0.30f), size = Size(w * 0.52f, h * 0.38f),
+                    cornerRadius = CornerRadius(w * 0.04f), style = stroke,
+                )
+                val cab = Path().apply {
+                    moveTo(w * 0.58f, h * 0.40f); lineTo(w * 0.80f, h * 0.40f)
+                    lineTo(w * 0.94f, h * 0.54f); lineTo(w * 0.94f, h * 0.68f); lineTo(w * 0.58f, h * 0.68f)
+                }
+                drawPath(cab, tint, style = stroke)
+                drawCircle(tint, radius = w * 0.09f, center = p(0.26f, 0.78f))
+                drawCircle(tint, radius = w * 0.09f, center = p(0.76f, 0.78f))
+            }
+            else -> {
+                val bolt = Path().apply {
+                    moveTo(w * 0.58f, h * 0.08f); lineTo(w * 0.24f, h * 0.56f); lineTo(w * 0.48f, h * 0.56f)
+                    lineTo(w * 0.40f, h * 0.92f); lineTo(w * 0.76f, h * 0.42f); lineTo(w * 0.52f, h * 0.42f); close()
+                }
+                drawPath(bolt, tint, style = stroke)
+            }
+        }
+    }
+}
+
+/** The filter glyph: three sliders. Drawn, as the core icon set has none. */
+@Composable
+fun FilterGlyph(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val sw = w * 0.09f
+        listOf(0.26f to 0.66f, 0.50f to 0.34f, 0.74f to 0.58f).forEach { (y, knob) ->
+            drawLine(tint, Offset(w * 0.12f, h * y), Offset(w * 0.88f, h * y), strokeWidth = sw, cap = StrokeCap.Round)
+            drawCircle(tint, radius = w * 0.11f, center = Offset(w * knob, h * y))
+        }
+    }
 }

@@ -23,7 +23,8 @@
 // v18: the fonts change to Space Grotesk / Inter / JetBrains Mono (vendor/fonts).
 // v19: Call 112 contrast, low-power SOS halo, motion-sensor and focus-return fixes (app.css, depth.js, ui.js).
 // v20: three national helplines (181, 1098, 14567) under "Other national helplines" (emergency-numbers.js, app.css).
-const VERSION = "ra-v20";
+// v21: the Volt reskin of the citizen app (near-black ground, one chartreuse accent, round service tiles): app.html, app.css, ds.css, ui.js.
+const VERSION = "ra-v21";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.

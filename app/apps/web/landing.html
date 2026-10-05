@@ -57,6 +57,11 @@
   .nav-links a:hover { color: var(--text); }
   .nav .btn { width: auto; padding: 10px 18px; }
   @media (min-width: 880px) { .nav-links { display: flex; } }
+  /* At 375 px "Open the app" wrapped onto two lines in a 62 px bar. */
+  @media (max-width: 400px) {
+    .nav .wrap { gap: var(--s-2); }
+    .nav .btn { padding: 10px 14px; white-space: nowrap; }
+  }
 
   section { padding-block: var(--s-8); }
   @media (min-width: 880px) { section { padding-block: var(--s-9); } }
@@ -148,9 +153,9 @@
              margin: -196px 0 0 -280px; border-radius: 26px; transform-style: preserve-3d;
              transform: rotateX(56deg) rotateZ(-33deg); }
   .s-map { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 26px;
-           box-shadow: 0 0 0 1px rgba(240,180,41,.28), inset 0 0 40px rgba(0,0,0,.4); }
+           box-shadow: 0 0 0 1px var(--accent-glow), inset 0 0 40px rgba(0,0,0,.4); }
   .s-slab { position: absolute; inset: 0; border-radius: 26px; background: #070A10;
-            transform: translateZ(-10px); box-shadow: 0 0 0 1px rgba(240,180,41,.18); }
+            transform: translateZ(-10px); box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-fill) 18%, transparent); }
   .s-slab.two { transform: translateZ(-20px); background: #04060A; }
   .s-floor { position: absolute; inset: -12%; border-radius: 50%; transform: translateZ(-80px);
              background: radial-gradient(closest-side, rgba(0,0,0,.55), transparent); }
@@ -168,12 +173,13 @@
   .s-bld .w { top: 0; bottom: 0; left: 0; width: var(--h); transform-origin: left; transform: rotateY(-90deg);
               background: linear-gradient(270deg, #161D29, #273143); }
   .s-bld .s { background:
-      repeating-linear-gradient(90deg, transparent 0 5px, rgba(255,214,120,.18) 5px 7px),
+      repeating-linear-gradient(90deg, transparent 0 5px, color-mix(in srgb, var(--brand-fill) 18%, transparent) 5px 7px),
       linear-gradient(#253042, #111722); }
   .s-bld .e { background:
-      repeating-linear-gradient(transparent 0 5px, rgba(255,214,120,.14) 5px 7px),
+      repeating-linear-gradient(transparent 0 5px, color-mix(in srgb, var(--brand-fill) 14%, transparent) 5px 7px),
       linear-gradient(90deg, #1B2331, #2C3749); }
-  .s-bld.lit .t { background: linear-gradient(135deg, #F7D57A, #C9901E); box-shadow: 0 0 22px rgba(240,180,41,.45); }
+  .s-bld.lit .t { background: linear-gradient(135deg, color-mix(in srgb, var(--brand-fill) 72%, #fff), color-mix(in srgb, var(--brand-fill) 78%, #000));
+                  box-shadow: 0 0 22px color-mix(in srgb, var(--brand-fill) 45%, transparent); }
 
   /* Billboards stand on the plane and face the viewer, by undoing the plane's
      own rotation in reverse order. */
@@ -195,7 +201,7 @@
   .s-av { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
           font-weight: 800; font-size: 13px; color: #07140E; background: radial-gradient(circle at 35% 30%, #B7FFE0, #1FC77E); }
   .s-chip { padding: 7px 12px; border-radius: 999px; white-space: nowrap; font-size: 11.5px; font-weight: 650;
-            color: #1A1408; background: linear-gradient(#FFD978, #F0B429); box-shadow: 0 10px 24px rgba(0,0,0,.35); }
+            color: var(--brand-ink); background: linear-gradient(color-mix(in srgb, var(--brand-fill) 70%, #fff), var(--brand-fill)); box-shadow: 0 10px 24px rgba(0,0,0,.35); }
   /* A pill of page colour, so the caption stays readable wherever the tilted
      illustration's edge happens to fall behind it. */
   .scene3d figcaption { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto;
@@ -250,29 +256,21 @@
   }
 
   /* ── finish ─────────────────────────────────────────────────────────────
-     Page-local tokens. The light palette's quietest grey (--text-3) and the
-     gold (--brand) both sit near 3.5:1 on paper, under the 4.5:1 small text
-     needs, so this page darkens the grey in LIGHT mode only (a bare :root
-     loses to ds.css's dark selectors, which keep their own) and gives small
-     gold text its own deeper shade. */
+     Page-local tokens, every one derived from a ds.css token so a change of
+     palette there reaches this page with no edit here. The light palette's
+     quietest grey (--text-3) and its accent (--brand) both sit near 3.5:1 on
+     paper, under the 4.5:1 small text needs, so this page darkens the grey in
+     LIGHT mode only (a bare :root loses to ds.css's dark selectors, which
+     keep their own), and small accent text is the accent pulled 24% toward
+     the text colour: deeper on paper, lighter on night, readable on both. */
   :root {
     --text-3: #676a74;
-    --brand-strong: #8a6315;
-    --em-a: #a87a22; --em-b: #6f4c0e;
-    --hero-glow: rgba(227, 185, 106, .34);
-    --edge-a: rgba(168, 122, 34, .55); --edge-b: rgba(37, 96, 201, .30);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --brand-strong: #e3b96a; --em-a: #f4d999; --em-b: #e3a948;
-      --hero-glow: rgba(227, 185, 106, .20);
-      --edge-a: rgba(227, 185, 106, .55); --edge-b: rgba(91, 157, 255, .35);
-    }
-  }
-  :root[data-theme="dark"] {
-    --brand-strong: #e3b96a; --em-a: #f4d999; --em-b: #e3a948;
-    --hero-glow: rgba(227, 185, 106, .20);
-    --edge-a: rgba(227, 185, 106, .55); --edge-b: rgba(91, 157, 255, .35);
+    --brand-strong: color-mix(in srgb, var(--brand) 76%, var(--text));
+    --em-a: var(--brand); --em-b: var(--brand-strong);
+    --hero-glow: color-mix(in srgb, var(--brand-fill) 30%, transparent);
+    --edge-a: color-mix(in srgb, var(--brand) 55%, transparent);
+    --edge-b: color-mix(in srgb, var(--blue) 32%, transparent);
+    --accent-glow: color-mix(in srgb, var(--brand-fill) 28%, transparent);
   }
   .brand .wordmark i { color: var(--brand-strong); }
   .display { text-wrap: balance; font-weight: 600; letter-spacing: -0.032em; }
@@ -336,7 +334,7 @@
   .s-sheen { position: absolute; inset: 0; border-radius: 26px; overflow: hidden; pointer-events: none;
              transform: translateZ(1px); }
   .s-sheen i { position: absolute; top: -20%; bottom: -20%; left: 0; width: 34%;
-               background: linear-gradient(100deg, transparent, rgba(255, 236, 190, .10) 45%, rgba(255, 255, 255, .16) 50%, transparent 58%);
+               background: linear-gradient(100deg, transparent, color-mix(in srgb, var(--brand-fill) 10%, transparent) 45%, rgba(255, 255, 255, .16) 50%, transparent 58%);
                transform: translateX(-120%); animation: s-sweep 7.5s var(--ease) infinite; }
   @keyframes s-sweep { 0%, 35% { transform: translateX(-120%); } 85%, 100% { transform: translateX(400%); } }
 
@@ -409,6 +407,59 @@
   .foot nav a:hover { color: var(--text); }
   @media (prefers-reduced-motion: reduce) {
     .scene3d::before, .s-sheen i, .final::before { animation: none !important; }
+  }
+
+  /* How help arrives. The four steps scroll past a phone that stays on
+     screen, and its screen changes to the real app at each step (the script
+     at the end of the page picks the step nearest the middle of the view).
+     Native scroll throughout: the phone is position: sticky, nothing is
+     pinned by script. Beside the steps on a wide screen; above them on a
+     phone, where the steps pass under it. */
+  .how { position: relative; }
+  .how-steps { list-style: none; }
+  .how-step + .how-step { margin-top: var(--s-4); }
+  .how-step .card { margin-top: 0; transition: border-color var(--t-3) var(--ease), box-shadow var(--t-3) var(--ease); }
+  .how-step .shot { margin-top: var(--s-3); }
+  .how-step .n { transition: background var(--t-3) var(--ease), color var(--t-3) var(--ease); }
+  .how-step.is-on .card { border-color: var(--line-brand); box-shadow: var(--shadow-2); }
+  .how-step.is-on .n { background: var(--brand-fill); color: var(--brand-ink); }
+  .how-stage { display: flex; flex-direction: column; align-items: center; gap: var(--s-3); }
+  .phone { margin: 0; display: flex; flex-direction: column; align-items: center; gap: var(--s-3); }
+  /* A neutral bezel in both themes: the screenshots are of the app's dark
+     theme, and a device reads as a device on paper or on night. */
+  .phone-scr { position: relative; box-sizing: content-box; height: var(--ph, 560px); aspect-ratio: 520 / 1125;
+               border: 9px solid #15171d; border-radius: 34px; overflow: hidden; background: #0b0c10;
+               box-shadow: 0 0 0 1px var(--line-2), var(--shadow-3); }
+  .phone-scr img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top;
+                   opacity: 0; transform: translateY(12px) scale(.985);
+                   transition: opacity var(--t-3) var(--ease), transform var(--t-4) var(--ease); }
+  .phone-scr img.is-on { opacity: 1; transform: none; }
+  .phone figcaption { text-align: center; }
+  .how-dots { list-style: none; display: flex; gap: 6px; }
+  .how-dots li { width: 22px; height: 4px; border-radius: 4px; background: var(--line-2);
+                 transition: background var(--t-2) var(--ease); }
+  .how-dots li.is-on { background: var(--brand); }
+  @media (max-width: 879px) {
+    .how { --ph: min(390px, 44svh); }
+    .how-stage { position: sticky; top: 62px; z-index: 2; gap: var(--s-2);
+                 margin-inline: calc(-1 * var(--s-5)); padding: var(--s-2) var(--s-5) var(--s-5);
+                 background: var(--bg); }
+    /* the steps pass under it: a short fade below, so a card's edge does not
+       meet the phone's caption as a hard line */
+    .how-stage::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: var(--s-5);
+                        pointer-events: none; background: linear-gradient(var(--bg), transparent); }
+    .phone { gap: var(--s-2); }
+    .how-step { min-height: calc(100svh - 62px - var(--ph) - 110px); padding-block: var(--s-3); }
+    .how-step + .how-step { margin-top: 0; }
+  }
+  @media (min-width: 880px) {
+    .how { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-7);
+           align-items: start; --ph: min(620px, calc(100svh - 62px - 140px)); }
+    .how-stage { order: 2; position: sticky; top: 62px; height: calc(100svh - 62px); justify-content: center; }
+    .how-steps { order: 1; padding-block: 16svh; }
+    .how-step { min-height: 62svh; display: flex; align-items: center; }
+    .how-step + .how-step { margin-top: 0; }
+    .how-step > .card { width: 100%; }
   }
 </style>
 </head>
@@ -484,7 +535,7 @@
               <path d="M88 70C110 150 150 205 205 250"/>
             </g>
             <path d="M-10 330C90 300 150 270 205 250C260 238 330 222 382 196C420 177 448 160 470 150C520 126 560 100 610 70" fill="none" stroke="#2B3547" stroke-width="20" stroke-linecap="round"/>
-            <path d="M-10 330C90 300 150 270 205 250C260 238 330 222 382 196C420 177 448 160 470 150C520 126 560 100 610 70" fill="none" stroke="#F0B429" stroke-opacity=".75" stroke-width="1.6" stroke-dasharray="10 12"/>
+            <path d="M-10 330C90 300 150 270 205 250C260 238 330 222 382 196C420 177 448 160 470 150C520 126 560 100 610 70" fill="none" style="stroke: var(--brand-fill)" stroke-opacity=".75" stroke-width="1.6" stroke-dasharray="10 12"/>
             <path id="smRoute" d="M88 70C110 150 150 205 205 250C260 238 330 222 382 196C420 177 448 160 470 150" fill="none" stroke="#1FC77E" stroke-opacity=".35" stroke-width="12" stroke-linecap="round"/>
             <path class="s-route" d="M88 70C110 150 150 205 205 250C260 238 330 222 382 196C420 177 448 160 470 150" fill="none" stroke="#7CFFC4" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 9"/>
             <g><circle cx="470" cy="150" r="40" fill="url(#smHalo)"/>
@@ -584,23 +635,48 @@
         <span class="eyebrow">How help arrives</span>
         <h2 class="display">From stranded to assigned.</h2>
       </div>
-      <div class="grid two" data-rv-stagger>
-        <div class="card"><div class="step"><span class="n num">1</span><div>
-          <h3>Say what is wrong</h3>
-          <p class="sub">A rules engine names a likely cause, a severity, and whether the vehicle is safe to drive. It is advice, not a dispatch.</p>
-        </div></div></div>
-        <div class="card"><div class="step"><span class="n num">2</span><div>
-          <h3>Share where you are</h3>
-          <p class="sub">A GPS fix if the device has one, a typed landmark if it does not. A coordinate that cannot be trusted is refused, never guessed.</p>
-        </div></div></div>
-        <div class="card"><div class="step"><span class="n num">3</span><div>
-          <h3>A mechanic is offered the job</h3>
-          <p class="sub">Ranked by distance, ETA and rating. An offer expires, so a job never sits with someone who has stopped looking.</p>
-        </div></div></div>
-        <div class="card"><div class="step"><span class="n num">4</span><div>
-          <h3>Track, pay, rate</h3>
-          <p class="sub">Every state change is timestamped and attributed. Fares are held to the paisa — never a floating-point rupee.</p>
-        </div></div></div>
+      <!-- The steps scroll past a phone that stays on screen and shows the
+           real app at each one: screenshots of the citizen app, captured by
+           scripts/capture-screens.mjs against a seeded demo database. -->
+      <div class="how" id="howStory">
+        <div class="how-stage">
+          <figure class="phone">
+            <div class="phone-scr">
+              <img class="is-on" data-step="1" src="assets/how/how-1-diagnosis.webp" width="520" height="1125" loading="lazy" decoding="async"
+                   alt="The citizen app's diagnosis screen: a likely cause, a confidence, a severity and a do-not-drive warning, with a button to request assistance">
+              <img data-step="2" src="assets/how/how-2-location.webp" width="520" height="1125" loading="lazy" decoding="async"
+                   alt="The citizen app in off-grid mode: an SOS reference and the GPS fix held on the device, waiting for a connection">
+              <img data-step="3" src="assets/how/how-3-offers.webp" width="520" height="1125" loading="lazy" decoding="async"
+                   alt="The citizen app listing the mechanics offered, each with a rating, a distance and an ETA">
+              <img data-step="4" src="assets/how/how-4-tracking.webp" width="520" height="1125" loading="lazy" decoding="async"
+                   alt="The citizen app tracking a rescue: the assigned mechanic, the ETA and every state of the booking">
+            </div>
+            <figcaption class="hint">The citizen app, with a seeded demo account.</figcaption>
+          </figure>
+          <ol class="how-dots" aria-hidden="true"><li class="is-on"></li><li></li><li></li><li></li></ol>
+        </div>
+        <ol class="how-steps">
+          <li class="how-step is-on" data-step="1"><div class="card"><div class="step"><span class="n num">1</span><div>
+            <h3>Say what is wrong</h3>
+            <p class="sub">A rules engine names a likely cause, a severity, and whether the vehicle is safe to drive. It is advice, not a dispatch.</p>
+            <p class="hint shot">On screen: the diagnosis — cause, confidence, severity, safety action, engine version.</p>
+          </div></div></div></li>
+          <li class="how-step" data-step="2"><div class="card"><div class="step"><span class="n num">2</span><div>
+            <h3>Share where you are</h3>
+            <p class="sub">A GPS fix if the device has one, a typed landmark if it does not. A coordinate that cannot be trusted is refused, never guessed.</p>
+            <p class="hint shot">On screen: an off-grid SOS — the reference and the GPS fix held on the device until a connection returns.</p>
+          </div></div></div></li>
+          <li class="how-step" data-step="3"><div class="card"><div class="step"><span class="n num">3</span><div>
+            <h3>A mechanic is offered the job</h3>
+            <p class="sub">Ranked by distance, ETA and rating. An offer expires, so a job never sits with someone who has stopped looking.</p>
+            <p class="hint shot">On screen: the mechanics offered, with distance, ETA and rating.</p>
+          </div></div></div></li>
+          <li class="how-step" data-step="4"><div class="card"><div class="step"><span class="n num">4</span><div>
+            <h3>Track, pay, rate</h3>
+            <p class="sub">Every state change is timestamped and attributed. Fares are held to the paisa — never a floating-point rupee.</p>
+            <p class="hint shot">On screen: tracking — live status, provider, ETA and every state of the booking.</p>
+          </div></div></div></li>
+        </ol>
       </div>
     </div>
   </section>
@@ -899,6 +975,53 @@
       }, { passive: true });
       hero.addEventListener("pointerleave", function () { tx = 0; ty = 0; if (!raf) raf = requestAnimationFrame(glide); });
     }
+  })();
+</script>
+<script>
+  /* How help arrives: the phone shows the screen for the step nearest the
+     middle of the view - the middle of the page beside it on a wide screen,
+     the middle of the space under it on a phone. It only reads positions;
+     the page scrolls natively, and the scroll listener is attached only
+     while the section is on screen. Without this script the first step and
+     its screen simply stay lit. */
+  (function () {
+    "use strict";
+    var how = document.getElementById("howStory");
+    if (!how) return;
+    var steps = Array.prototype.slice.call(how.querySelectorAll(".how-step"));
+    var shots = Array.prototype.slice.call(how.querySelectorAll(".phone-scr img"));
+    var dots = Array.prototype.slice.call(how.querySelectorAll(".how-dots li"));
+    var stage = how.querySelector(".how-stage");
+    var wide = matchMedia("(min-width: 880px)");
+    var cur = 1, queued = false;
+    function show(n) {
+      if (n === cur) return;
+      cur = n;
+      var mark = function (el, i) { el.classList.toggle("is-on", i + 1 === n); };
+      steps.forEach(mark); shots.forEach(mark); dots.forEach(mark);
+    }
+    function pick() {
+      queued = false;
+      var line;
+      if (wide.matches) line = innerHeight / 2;
+      else { var b = stage.getBoundingClientRect().bottom; line = b + (innerHeight - b) / 2; }
+      var best = 1, gap = Infinity;
+      steps.forEach(function (s, i) {
+        var r = s.getBoundingClientRect(), d = Math.abs((r.top + r.bottom) / 2 - line);
+        if (d < gap) { gap = d; best = i + 1; }
+      });
+      show(best);
+    }
+    function queue() { if (!queued) { queued = true; requestAnimationFrame(pick); } }
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (es) {
+        es.forEach(function (e) {
+          if (e.isIntersecting) { addEventListener("scroll", queue, { passive: true }); queue(); }
+          else removeEventListener("scroll", queue);
+        });
+      }).observe(how);
+    } else addEventListener("scroll", queue, { passive: true });
+    addEventListener("resize", queue);
   })();
 </script>
 </body>

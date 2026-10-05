@@ -708,3 +708,191 @@ body {
   .sheet.show { opacity: 1; }
   .toast { bottom: calc(var(--frame-gap) + 84px); }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Volt layer (Oct 2026)
+   ───────────────────────────────────────────────────────────────────────────
+   The citizen app's look: a near-black (or off-white) ground, 22 px cards on
+   1 px hairlines, and one chartreuse accent, --brand-fill, kept for what is
+   ON: the active chip, the active tab, the chosen service, the arrow on a
+   card that goes somewhere. Lime is always a fill behind dark type
+   (--brand-ink); on a light surface the accent as text is the olive --brand.
+   Colours are tokens in ds.css (:root.volt); this layer only uses them.
+   Emergency elements keep their red: the SOS button above and the fixed
+   Call 112 gradient are untouched.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── gutters: 16 px everywhere ─────────────────────────────────────────── */
+.screen { padding: 20px 16px 40px; }
+.sheet  { padding-left: 16px; padding-right: 16px; }
+
+/* The road under the page stays, quieter: a near-black ground reads calm. */
+.aurora .road { opacity: 0.7; }
+
+/* ── app bar: round button left, two-tone wordmark centred, status right ─
+   Both sides are equal columns, so the wordmark sits on the bar's centre
+   line; a side that outgrows its half pushes it over rather than under. */
+.topbar {
+  display: grid; align-items: center; gap: 8px;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  padding-left: 16px; padding-right: 16px;
+}
+.topbar .bar-side { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.topbar .bar-side.end { justify-content: flex-end; }
+.topbar .brand { justify-self: center; overflow: visible; }
+/* The wordmark is the title; the shield stands in for it where it won't fit. */
+.topbar .brand .mark { display: none; }
+.topbar .wordmark { font-size: 19px; font-weight: 700; letter-spacing: -0.03em; }
+@media (max-width: 374px) { .topbar .brand .mark { display: block; } }
+.topbar .theme-btn, .topbar .lang-btn {
+  background: var(--surface); border: 1px solid var(--line); color: var(--text);
+}
+.topbar .lang-btn { border-radius: var(--r-full); font-size: 12.5px; }
+.topbar .theme-btn:hover, .topbar .lang-btn:hover { border-color: var(--line-2); color: var(--text); }
+.topbar .net { min-height: 36px; background: var(--surface); }
+
+/* ── display type: a light first line, a bold second ──────────────────── */
+.shell .display, .sheet .display { font-weight: 400; letter-spacing: -0.035em; }
+.shell .display em, .sheet .display em { font-weight: 700; color: var(--text); padding-right: 0; }
+/* On a screen title the bold word takes its own line, as the hero does. */
+.shell .screen > .stagger > h1.display em { display: block; }
+#scr-auth .display em { display: inline; }
+#home-title { font-weight: 400; }
+#home-sub { color: var(--text-3); font-size: 13px; }
+/* The task card under the greeting carries its bold line. */
+#home-task .title { font-size: 22px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.18; }
+
+/* ── surfaces: 22 px radius, a hairline, depth only where it means lift ─── */
+.shell .card, .sheet .card {
+  border-radius: var(--r-lg); border-color: var(--line); padding: 18px;
+  box-shadow: var(--hl), var(--shadow-1);
+}
+.shell .card.flush, .sheet .card.flush { padding: 0; }
+.shell .card.feature, .sheet .card.feature, #home-task > .card, #home-task > .card.feature {
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--brand-fill) 11%, transparent), transparent 58%),
+    var(--surface);
+  border-color: var(--line-brand);
+  box-shadow: var(--hl), var(--shadow-1);
+}
+.shell .card.lift:hover { border-color: var(--line-2); }
+
+/* ── buttons: pills; the primary is the accent in the dark, ink on paper ─ */
+.shell .btn.ghost, .sheet .btn.ghost { --btn-bd: var(--line-2); }
+.shell .btn.soft,  .sheet .btn.soft  { --btn-bg: var(--surface-2); --btn-bd: var(--line); }
+
+/* ── chips: outlined pills; the one that is on is lime ─────────────────── */
+.shell .chip {
+  background: transparent; border-color: var(--line-2); color: var(--text-2);
+  font-weight: 600; padding: 8px 16px;
+}
+.shell .chip:hover { background: var(--surface-2); border-color: var(--line-2); color: var(--text); }
+.shell .chip[aria-pressed="true"], .shell .chip.on,
+.shell button.pill[aria-pressed="true"], .sheet button.pill[aria-pressed="true"] {
+  background: var(--brand-fill); color: var(--brand-ink); border-color: var(--brand-edge);
+}
+/* Fault codes read as one swipeable row of filters, edge to edge. */
+#dtc-chips {
+  flex-wrap: nowrap; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 4px;
+  scrollbar-width: none; scroll-padding-inline: 16px;
+}
+#dtc-chips::-webkit-scrollbar { display: none; }
+#dtc-chips .chip { flex: none; white-space: nowrap; }
+
+/* Segmented choices (radius, activity, appearance): the same chip row. */
+.shell .seg, .sheet .seg { background: transparent; border: 0; padding: 0; gap: 8px; }
+.shell .seg button, .sheet .seg button {
+  border: 1px solid var(--line-2); color: var(--text-2); background: transparent;
+}
+.shell .seg button[aria-selected="true"], .sheet .seg button[aria-selected="true"] {
+  background: var(--brand-fill); color: var(--brand-ink); border-color: var(--brand-edge);
+  box-shadow: none;
+}
+
+/* ── the fault field: a full-width rounded search field ────────────────── */
+.shell .field input#b-symptoms {
+  border-radius: var(--r-full); padding-left: 46px; min-height: 52px; background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23858b7c' stroke-width='1.9' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m20 20-4.2-4.2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 17px 50%; background-size: 19px 19px;
+}
+
+/* ── step rail: done is a lime disc with a dark tick ───────────────────── */
+.steps li.done .n {
+  background: var(--brand-fill); border-color: var(--brand-edge); color: var(--brand-ink);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+/* Pure lime in the dark; on paper half olive, so the line still shows. */
+.steps li:not(:last-child)::after { background: color-mix(in srgb, var(--brand-fill) 55%, var(--brand)); }
+.step-h span { color: var(--brand-text); background: var(--brand-soft); }
+
+/* ── service tiles (ui.js): a row of round icons, the chosen one lime ──── */
+.svc-row {
+  display: flex; gap: 6px; overflow-x: auto; margin: 12px -16px 0; padding: 4px 16px 6px;
+  scrollbar-width: none;
+}
+.svc-row[hidden] { display: none; }
+.svc-row::-webkit-scrollbar { display: none; }
+.svc {
+  flex: none; width: 78px; display: grid; justify-items: center; align-content: start; gap: 7px;
+  padding: 2px 0; text-align: center; color: var(--text-2); -webkit-tap-highlight-color: transparent;
+}
+.svc i {
+  width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line-2); color: var(--text);
+  transition: background-color var(--dur-2) var(--ease-standard), transform var(--dur-2) var(--ease-press);
+}
+.svc svg { width: 24px; height: 24px; }
+.svc span {
+  font-size: 11px; font-weight: 600; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.svc:active i { transform: scale(0.92); }
+.svc[aria-pressed="true"] { color: var(--text); }
+.svc[aria-pressed="true"] i { background: var(--brand-fill); color: var(--brand-ink); border-color: var(--brand-edge); }
+.shell .svc:focus-visible { outline: none; }
+.svc:focus-visible i { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ── quick actions: big cards, an icon tile, a lime arrow in the corner ── */
+.quick { gap: 10px; }
+.quick button {
+  border-radius: var(--r-lg); min-height: 136px; padding: 14px 14px 16px; gap: 12px;
+  background: var(--surface); border-color: var(--line); box-shadow: var(--hl), var(--shadow-1);
+}
+.quick button:hover { border-color: var(--line-2); box-shadow: var(--hl), var(--shadow-2); }
+.quick svg {
+  width: 22px; height: 22px; padding: 11px; border-radius: 16px;
+  color: var(--text); background: var(--surface-2); box-shadow: inset 0 0 0 1px var(--line);
+}
+.quick button::after {
+  content: ""; position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--brand-fill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2310130a' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7M9 7h8v8'/%3E%3C/svg%3E") center / 16px 16px no-repeat;
+  box-shadow: inset 0 0 0 1px var(--brand-edge);
+  transition: transform var(--dur-3) var(--ease-press);
+}
+.quick button:hover::after { transform: rotate(45deg); }
+.quick b { font-size: 14.5px; font-weight: 700; }
+
+/* ── emergency readiness and diagnosis tiles: the new radius ───────────── */
+.ready li { border-radius: 16px; box-shadow: var(--hl); }
+.diag-grid > div { border-radius: 16px; }
+
+/* ── avatars: a dark disc, not the old gold ────────────────────────────── */
+.shell .avatar, .sheet .avatar {
+  background: var(--surface-3); color: var(--text); border: 1px solid var(--line-2);
+  box-shadow: none; font-weight: 700;
+}
+
+/* ── bottom navigation: the active tab is a lime square holding its icon ─ */
+.tabs { border-top-color: var(--line); padding: 4px 8px env(safe-area-inset-bottom); box-shadow: none; }
+.tab { color: var(--text-3); font-weight: 650; gap: 7px; padding: 12px 2px 9px; }
+.tab::before {
+  top: 6px; width: 50px; height: 34px; margin-left: -25px; border-radius: 13px;
+  background: var(--brand-fill); box-shadow: inset 0 0 0 1px var(--brand-edge);
+}
+.tab::after { display: none; }
+.tab svg { width: 22px; height: 22px; }
+.tab.active { color: var(--text); }
+.tab.active svg { color: var(--brand-ink); transform: none; }
+
+/* ── sheets: the plain surface, a hairline edge ────────────────────────── */
+.sheet { background: var(--surface); border-color: var(--line-2); }
