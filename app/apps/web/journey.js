@@ -84,8 +84,52 @@
   function sosExits(status) { return (SOS_EXITS[status] || []).slice(); }
   function sosActive(status) { return sosExits(status).length > 0; }
 
+  /** A count from the wire: a whole number of zero or more, anything else is zero. */
+  function count(v) {
+    var n = Number(v);
+    return isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  }
+
+  /**
+   * What an escalated SOS may say happened, from the server's answer to
+   * POST /v1/sos/:id/confirm (or its `sos.status` event) and nothing else.
+   *
+   * The sheet used to say "Help is on the way." after every confirm, including
+   * one that reached no contact and no responder. Locating the nearest unit is
+   * not contacting it: the server reports `respondersNotified` separately, and
+   * a missing field (an older server) counts as zero, never as "probably".
+   *
+   *   lines   — i18n keys, in reading order; {n} is `contacts`, {ref} the caller's
+   *   call112 — no responder was reached, so Call 112 leads the screen
+   *   reached — at least one person or unit was actually contacted
+   */
+  function sosOutcome(data) {
+    var d = data || {};
+    var contacts = count(d.contactsAlerted);
+    var responders = count(d.respondersNotified);
+    var repeat = d.alreadyEscalated === true;
+    var lines = ["sos.done.recorded"];
+    if (responders > 0) lines.push("sos.done.responders");
+    if (contacts > 0) lines.push(contacts === 1 ? "sos.done.contacts.one" : "sos.done.contacts");
+    // A repeat confirm texts nobody; whether the first one did is not in this answer.
+    if (repeat) lines.push("sos.done.repeat");
+    if (responders === 0) lines.push(contacts > 0 || repeat ? "sos.done.noResponder" : "sos.done.none");
+    return {
+      contacts: contacts, responders: responders, repeat: repeat,
+      reached: contacts > 0 || responders > 0, call112: responders === 0, lines: lines,
+    };
+  }
+
+  /** The outcome as one sentence, through the caller's `t` (I18N.t in the page). */
+  function sosHeadline(data, ref, t) {
+    var o = sosOutcome(data);
+    return o.lines.map(function (key) {
+      return String(t(key)).replace("{n}", String(o.contacts)).replace("{ref}", String(ref));
+    }).join(" ");
+  }
+
   global.RAJourney = {
     JOURNEY: JOURNEY, journeyMarks: journeyMarks, bookingChange: bookingChange,
-    sosExits: sosExits, sosActive: sosActive,
+    sosExits: sosExits, sosActive: sosActive, sosOutcome: sosOutcome, sosHeadline: sosHeadline,
   };
 })(globalThis);

@@ -14,22 +14,22 @@
   "measuredOn": "2026-10-05",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 1138,
+    "total": 1158,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 452,
-      "e2e": 246,
+      "unit": 460,
+      "e2e": 248,
       "concurrency": 92,
       "gatewaySecurity": 58,
       "securityAudit": 106,
-      "browser": 184
+      "browser": 194
     },
     "notExecuted": {
       "paymentSandbox": 22,
       "why": "scripts/razorpay-test.mjs needs NO Razorpay account: it starts its own local stub of the Orders API and signs webhooks with a stub secret. It refuses to run (exit 2) unless the API was started separately with PAYMENTS_PROVIDER=razorpay and PAYMENTS_BASE_URL pointed at that stub, so it is outside every npm test run and was not re-run for this measurement. Never counted in the total, never described as passing"
     },
     "otherRunners": {
-      "android": 188,
+      "android": 190,
       "sosLadder": 21,
       "ai": 39,
       "why": "separate toolchains with their own runners; not part of the six-suite total",
@@ -117,8 +117,8 @@
       "gu"
     ],
     "serverKeys": 18,
-    "androidKeys": 172,
-    "webKeys": 30,
+    "androidKeys": 173,
+    "webKeys": 41,
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."
   },

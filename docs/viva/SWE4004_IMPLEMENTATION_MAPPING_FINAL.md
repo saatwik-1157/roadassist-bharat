@@ -63,7 +63,7 @@ Four labels, used strictly:
 | Cloud bursting | **TARGET** | A modelled scenario on the deck, labelled as modelled. |
 | Elastic disk provisioning | **TARGET** | Not built. |
 | **Redundant storage** | **PARTIAL** | Backup and restore are **rehearsed and measured** — dump 1.2 s, restore 7.2 s, audit hash chain re-verified intact across 639 entries on the restored copy. What is still design is the *redundancy*: one node, no replica, no failover, and no backup schedule. |
-| **Migration** | **IMPLEMENTED (schema)** | Seven versioned migrations, run from an empty database during this verification, all additive so an older image runs against a newer schema. Show `npm run db:migrate` on a fresh database. Workload migration is TARGET. |
+| **Migration** | **IMPLEMENTED (schema)** | Nine versioned migrations, run from an empty database during this verification, all additive so an older image runs against a newer schema. Show `npm run db:migrate` on a fresh database. Workload migration is TARGET. |
 | **Static scheduling** | **IMPLEMENTED** | The offer sweeper on a fixed interval (`OFFER_SWEEP_SECONDS`), the client booking poll, the 25 s SSE heartbeat. |
 | **Dynamic scheduling** | **IMPLEMENTED** | The dispatch ladder: work assigned at run time from a pool, by a score computed from live state, with **timeout-driven re-scheduling** to the next wave when a provider does not answer. This is the textbook definition, and it is real. |
 

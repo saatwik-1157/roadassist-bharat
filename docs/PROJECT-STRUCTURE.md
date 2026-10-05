@@ -107,7 +107,7 @@ The data models and everything that shapes the schema.
 | `.github/workflows/ci.yml` | 3 CI jobs: verify (lint/typecheck/test/scan), integration (e2e + gateway vs real PostGIS), boundaries |
 | `app/docker-compose.yml` | Local PostGIS + Redis + Redpanda |
 | `app/scripts/check-boundaries.mjs` | Architecture fitness function |
-| `app/scripts/e2e-journey.mjs` | The end-to-end suite: 246 e2e checks |
+| `app/scripts/e2e-journey.mjs` | The end-to-end suite: 248 e2e checks |
 | `app/scripts/gateway-security-test.mjs` | Gateway/OTP security suite (39 checks) |
 | `app/scripts/raksha-simulator.mjs` | Edge simulator (SIMULATED / real-CV modes) |
 | `app/.env.example` | All config keys, documented, no secrets |

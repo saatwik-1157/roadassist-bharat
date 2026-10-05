@@ -27,11 +27,13 @@ class OpenIncidentsTest {
         raisedAt: String = "2026-09-27T07:10:00.000Z",
         canResolve: Boolean = true,
         canCancel: Boolean = true,
+        respondersNotified: Any? = null,
     ): JSONObject = JSONObject()
         .put("id", id).put("status", status).put("stage", stage)
         .put("reference", reference ?: JSONObject.NULL)
         .put("raisedAt", raisedAt).put("severity", "HIGH")
         .put("canResolve", canResolve).put("canCancel", canCancel)
+        .apply { if (respondersNotified != null) put("respondersNotified", respondersNotified) }
 
     private fun envelope(vararg items: Any): JSONObject =
         JSONObject().put("data", JSONArray().apply { items.forEach { put(it) } }).put("meta", JSONObject())
@@ -125,9 +127,32 @@ class OpenIncidentsTest {
         fun stageOf(s: String) = OpenIncidents.stage(OpenIncidents.parse(envelope(item(stage = s))).single())
         assertEquals(OpenIncidents.Stage.CREATED, stageOf("SOS_CREATED"))
         assertEquals(OpenIncidents.Stage.RECEIVED, stageOf("SOS_RECEIVED"))
-        assertEquals(OpenIncidents.Stage.RESPONDING, stageOf("RESPONDING"))
+        assertEquals(OpenIncidents.Stage.ESCALATED, stageOf("RESPONDING"))
         assertEquals(OpenIncidents.Stage.OTHER, stageOf("HELP_ARRIVED"))
         assertEquals("help arrived", OpenIncidents.readableStage("HELP_ARRIVED"))
+    }
+
+    @Test
+    fun `responders are said to be alerted only when the server says it notified them`() {
+        // RESPONDING means the ladder ran and LOCATED the nearest unit. The card
+        // said "Responders have been alerted" for every one, while the server
+        // contacted no unit at all.
+        fun stageOf(n: Any?) = OpenIncidents.stage(
+            OpenIncidents.parse(envelope(item(status = "RESPONDING", stage = "RESPONDING", respondersNotified = n))).single())
+        assertEquals(OpenIncidents.Stage.ESCALATED, stageOf(0))
+        assertEquals(OpenIncidents.Stage.ESCALATED, stageOf(null))   // an older server: no field
+        assertEquals(OpenIncidents.Stage.RESPONDING, stageOf(1))
+        assertEquals(OpenIncidents.Stage.RESPONDING, stageOf(3))
+    }
+
+    @Test
+    fun `a respondersNotified that is not a count of one or more reads as zero`() {
+        for (bad in listOf(-2, "abc", JSONObject.NULL, "")) {
+            val i = OpenIncidents.parse(envelope(item(stage = "RESPONDING", respondersNotified = bad))).single()
+            assertEquals("$bad", 0, i.respondersNotified)
+            assertEquals("$bad", OpenIncidents.Stage.ESCALATED, OpenIncidents.stage(i))
+        }
+        assertEquals(2, OpenIncidents.parse(envelope(item(respondersNotified = 2))).single().respondersNotified)
     }
 
     @Test

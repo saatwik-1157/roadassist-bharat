@@ -129,8 +129,12 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   en: {
     "otp.code": "{code} is your RoadAssist verification code. It expires in 5 minutes.",
 
-    "sos.received": "SOS received. Help is being arranged. Reply with a landmark or highway marker if you can.",
-    "sos.received.located": "SOS received with your location. Help is being arranged.",
+    // Only what happened: the SOS is recorded and any saved contacts texted, but
+    // no responder is contacted and the 112 handoff is stubbed. These said
+    // "Help is being arranged" (and in Tamil, "help is coming"). {ref} is the
+    // incident id's first 8 characters, the same short ref the web app shows.
+    "sos.received": "SOS received and recorded (ref {ref}). Nobody is dispatched automatically. Call 112 if you can. Reply with a landmark or highway marker.",
+    "sos.received.located": "SOS received with your location and recorded (ref {ref}). Nobody is dispatched automatically. Call 112 if you can.",
     "sos.contact.alert": "EMERGENCY: your contact may have been in a crash. Live location: {url}",
 
     "sms.stopped": "You will receive no further messages from RoadAssist, including emergency alerts when someone lists you as a contact. Send START to opt back in.",
@@ -156,8 +160,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   hi: {
     "otp.code": "{code} आपका RoadAssist कोड है। 5 मिनट में समाप्त।",
 
-    "sos.received": "SOS मिल गया। मदद भेजी जा रही है। हो सके तो पास की जगह बताएं।",
-    "sos.received.located": "SOS और आपकी लोकेशन मिल गई। मदद भेजी जा रही है।",
+    "sos.received": "SOS {ref} दर्ज। कोई अपने-आप नहीं आएगा। 112 पर कॉल कर जगह बताएं।",
+    "sos.received.located": "SOS {ref} लोकेशन सहित दर्ज। कोई अपने-आप नहीं आएगा। 112 पर कॉल करें।",
     "sos.contact.alert": "आपातकाल: आपके संपर्क की दुर्घटना हो सकती है। लोकेशन: {url}",
 
     "sms.stopped": "RoadAssist संदेश बंद, आपात अलर्ट भी। फिर चालू करने को START भेजें।",
@@ -182,8 +186,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   },
   ta: {
     "otp.code": "{code} உங்கள் RoadAssist குறியீடு. 5 நிமிடத்தில் முடியும்.",
-    "sos.received": "SOS கிடைத்தது. உதவி வருகிறது. அருகில் உள்ள இடத்தைச் சொல்லுங்கள்.",
-    "sos.received.located": "SOS-ம் உங்கள் இடமும் கிடைத்தது. உதவி வருகிறது.",
+    "sos.received": "SOS {ref} பதிவு. யாரும் தானாக வரார். 112-ஐ அழைத்து இடம் கூறுங்கள்.",
+    "sos.received.located": "SOS {ref} இடத்துடன் பதிவு. யாரும் தானாக வரார். 112-ஐ அழையுங்கள்.",
     "sos.contact.alert": "அவசரம்: உங்கள் தொடர்புக்கு விபத்து இருக்கலாம். இடம்: {url}",
     "sms.stopped": "RoadAssist செய்திகள் நிறுத்தம், அவசர எச்சரிக்கையும். மீண்டும் START.",
     "sms.started": "RoadAssist செய்திகள் மீண்டும், அவசர எச்சரிக்கையும். நிறுத்த STOP.",
@@ -205,8 +209,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   },
   te: {
     "otp.code": "{code} మీ RoadAssist కోడ్. 5 నిమిషాల్లో ముగుస్తుంది.",
-    "sos.received": "SOS అందింది. సహాయం పంపుతున్నాం. దగ్గరి ప్రదేశం చెప్పండి.",
-    "sos.received.located": "SOS, మీ లొకేషన్ అందాయి. సహాయం పంపుతున్నాం.",
+    "sos.received": "SOS {ref} నమోదు. ఎవరూ స్వయంగా రారు. 112కు కాల్ చేసి చోటు చెప్పండి.",
+    "sos.received.located": "SOS {ref} లొకేషన్‌తో నమోదు. ఎవరూ స్వయంగా రారు. 112కు కాల్ చేయండి.",
     "sos.contact.alert": "అత్యవసరం: మీ పరిచయస్థునికి ప్రమాదం కావచ్చు. లొకేషన్: {url}",
     "sms.stopped": "RoadAssist సందేశాలు ఆగాయి, అత్యవసర హెచ్చరికలు కూడా. మళ్లీ START.",
     "sms.started": "RoadAssist సందేశాలు మళ్లీ మొదలు, అత్యవసర హెచ్చరికలతో. ఆపడానికి STOP.",
@@ -228,8 +232,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   },
   bn: {
     "otp.code": "{code} আপনার RoadAssist কোড। ৫ মিনিটে শেষ হবে।",
-    "sos.received": "SOS পেয়েছি। সাহায্য পাঠানো হচ্ছে। কাছের জায়গা জানান।",
-    "sos.received.located": "SOS ও আপনার লোকেশন পেয়েছি। সাহায্য পাঠানো হচ্ছে।",
+    "sos.received": "SOS {ref} নথিভুক্ত। কেউ নিজে আসবে না। 112-এ কল করে জায়গা বলুন।",
+    "sos.received.located": "SOS {ref} লোকেশনসহ নথিভুক্ত। কেউ নিজে আসবে না। 112-এ কল করুন।",
     "sos.contact.alert": "জরুরি: আপনার পরিচিতের দুর্ঘটনা হতে পারে। লোকেশন: {url}",
     "sms.stopped": "RoadAssist বার্তা বন্ধ, জরুরি সতর্কতাও। আবার চালু করতে START পাঠান।",
     "sms.started": "RoadAssist বার্তা আবার চালু, জরুরি সতর্কতাও। বন্ধ করতে STOP পাঠান।",
@@ -251,8 +255,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   },
   mr: {
     "otp.code": "{code} हा तुमचा RoadAssist कोड. 5 मिनिटांत संपेल.",
-    "sos.received": "SOS मिळाला. मदत पाठवत आहोत. जवळची जागा सांगा.",
-    "sos.received.located": "SOS आणि तुमचे लोकेशन मिळाले. मदत पाठवत आहोत.",
+    "sos.received": "SOS {ref} नोंदवला. आपोआप कोणी येत नाही. 112 वर कॉल करून जागा सांगा.",
+    "sos.received.located": "SOS {ref} लोकेशनसह नोंदवला. आपोआप कोणी येत नाही. 112 वर कॉल करा.",
     "sos.contact.alert": "आणीबाणी: तुमच्या संपर्काचा अपघात असू शकतो. लोकेशन: {url}",
     "sms.stopped": "RoadAssist संदेश बंद, आणीबाणी सूचनाही. पुन्हा सुरूसाठी START पाठवा.",
     "sms.started": "RoadAssist संदेश पुन्हा सुरू, आणीबाणी सूचनाही. बंदसाठी STOP पाठवा.",
@@ -274,8 +278,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   },
   kn: {
     "otp.code": "{code} ನಿಮ್ಮ RoadAssist ಕೋಡ್. 5 ನಿಮಿಷದಲ್ಲಿ ಮುಗಿಯುತ್ತದೆ.",
-    "sos.received": "SOS ಸಿಕ್ಕಿದೆ. ಸಹಾಯ ಕಳಿಸುತ್ತಿದ್ದೇವೆ. ಹತ್ತಿರದ ಸ್ಥಳ ತಿಳಿಸಿ.",
-    "sos.received.located": "SOS ಮತ್ತು ನಿಮ್ಮ ಸ್ಥಳ ಸಿಕ್ಕಿದೆ. ಸಹಾಯ ಬರುತ್ತಿದೆ.",
+    "sos.received": "SOS {ref} ದಾಖಲಾಗಿದೆ. ಯಾರೂ ತಾನಾಗಿ ಬರರು. 112ಕ್ಕೆ ಕರೆಮಾಡಿ ಸ್ಥಳ ತಿಳಿಸಿ.",
+    "sos.received.located": "SOS {ref} ಸ್ಥಳಸಹಿತ ದಾಖಲಾಗಿದೆ. ಯಾರೂ ತಾನಾಗಿ ಬರರು. 112ಕ್ಕೆ ಕರೆಮಾಡಿ.",
     "sos.contact.alert": "ತುರ್ತು: ನಿಮ್ಮ ಸಂಪರ್ಕಕ್ಕೆ ಅಪಘಾತ ಆಗಿರಬಹುದು. ಸ್ಥಳ: {url}",
     "sms.stopped": "RoadAssist ಸಂದೇಶ ನಿಂತಿದೆ, ತುರ್ತು ಎಚ್ಚರಿಕೆಯೂ. ಮತ್ತೆ ಶುರುಮಾಡಲು START.",
     "sms.started": "RoadAssist ಸಂದೇಶ ಮತ್ತೆ ಶುರು, ತುರ್ತು ಎಚ್ಚರಿಕೆಯೂ. ನಿಲ್ಲಿಸಲು STOP.",
@@ -297,8 +301,8 @@ const MESSAGES: Record<Locale, Record<string, string>> = {
   },
   gu: {
     "otp.code": "{code} તમારો RoadAssist કોડ છે. 5 મિનિટમાં પૂરો થશે.",
-    "sos.received": "SOS મળ્યો. મદદ મોકલી રહ્યા છીએ. નજીકની જગ્યા જણાવો.",
-    "sos.received.located": "SOS અને તમારું લોકેશન મળ્યું. મદદ મોકલી રહ્યા છીએ.",
+    "sos.received": "SOS {ref} નોંધાયો. આપમેળે કોઈ નહીં આવે. 112 પર કૉલ કરી જગ્યા કહો.",
+    "sos.received.located": "SOS {ref} લોકેશન સાથે નોંધાયો. આપમેળે કોઈ નહીં આવે. 112 પર કૉલ કરો.",
     "sos.contact.alert": "કટોકટી: તમારા સંપર્કનો અકસ્માત થયો હોઈ શકે. લોકેશન: {url}",
     "sms.stopped": "RoadAssist સંદેશા બંધ, કટોકટી ચેતવણી પણ. ફરી ચાલુ કરવા START મોકલો.",
     "sms.started": "RoadAssist સંદેશા ફરી ચાલુ, કટોકટી ચેતવણી પણ. બંધ કરવા STOP મોકલો.",

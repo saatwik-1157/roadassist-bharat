@@ -35,7 +35,7 @@ repository; nothing is aspirational.
 > storage, and it says plainly that nothing has been transmitted. On reconnect
 > it forwards itself, and a unique key makes a duplicate impossible.
 >
-> **Result.** 1138 assertions executed across six suites, no failures, including 87
+> **Result.** 1158 assertions executed across six suites, no failures, including 106
 > attacks that must fail. Outside that total sit 22 Razorpay checks that run
 > against their own local stub of the Orders API — no account needed — but only
 > when the API is started with `PAYMENTS_PROVIDER=razorpay`, so they are not in
@@ -115,7 +115,7 @@ repository; nothing is aspirational.
 | **Security** | "Have you had a pentest?" | LOW | No. 106 self-written attacks is not the same thing, and I say so. |
 | **Testing** | "What is your coverage?" | LOW | 95.68% lines on the pure domain modules; the HTTP layer is tested out-of-process so instrumentation cannot see it. Precise beats impressive. |
 | **UI/UX** | Screens look sparse on a projector. | LOW | Demo on a phone-width window; the app is designed for 390px. |
-| **Presentation** | PowerPoint reflows text on an unfamiliar machine. | LOW | Closed. `ppt/RoadAssist-Bharat-FINAL.pdf` is exported from the final deck — 32 pages, fonts embedded. Present from the PDF; the .pptx is the backup, not the other way round. |
+| **Presentation** | PowerPoint reflows text on an unfamiliar machine. | LOW | Closed. `ppt/RoadAssist-Bharat-FINAL.pdf` is exported from the final deck — 38 pages, fonts embedded. Present from the PDF; the .pptx is the backup, not the other way round. |
 | **Viva** | An answer contradicts a document. | **HIGH → now LOW** | Every numeric claim was cross-checked this phase; seven stale figures and four cross-document contradictions were found and fixed. |
 
 ---

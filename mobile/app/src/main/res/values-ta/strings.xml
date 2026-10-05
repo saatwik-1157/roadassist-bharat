@@ -131,13 +131,14 @@
     <string name="incident_open_title">அவசரநிலை திறந்துள்ளது</string>
     <string name="incident_raised">எழுப்பப்பட்டது %1$s · %2$s</string>
     <string name="incident_stage_created">எழுப்பப்பட்டது — உறுதிப்படுத்தலுக்குக் காத்திருக்கிறது</string>
-    <string name="incident_stage_received">SOS பெறப்பட்டது — உங்கள் தொடர்புகளுக்கும் மீட்பாளர்களுக்கும் தெரிவிக்கப்படுகிறது</string>
+    <string name="incident_stage_received">SOS பெறப்பட்டது — இன்னும் அனுப்பப்படவில்லை. உதவி தேவைப்பட்டால் இப்போதே 112-ஐ அழையுங்கள்.</string>
     <string name="incident_stage_responding">மீட்பாளர்களுக்குத் தெரிவிக்கப்பட்டது</string>
+    <string name="incident_stage_escalated">அனுப்பப்பட்டது — எந்த மீட்பாளரும் தொடர்பு கொள்ளப்படவில்லை. உதவி தேவைப்பட்டால் இப்போதே 112-ஐ அழையுங்கள்.</string>
     <string name="incident_stage_other">நிலை: %1$s</string>
     <string name="incident_action_resolve">நான் பாதுகாப்பாக உள்ளேன் — இதை மூடு</string>
     <string name="incident_action_cancel">தவறான எச்சரிக்கை</string>
     <string name="incident_confirm_resolve_title">இந்த அவசரநிலையை மூடவா?</string>
-    <string name="incident_confirm_resolve_body">நீங்கள் பாதுகாப்பாக இருந்து, இனி உதவி தேவையில்லை என்றால் மட்டுமே இதைச் செய்யுங்கள். மீட்பாளர்கள் இதில் பணியாற்றுவதை நிறுத்துவார்கள்.</string>
+    <string name="incident_confirm_resolve_body">நீங்கள் பாதுகாப்பாக இருந்து, இனி உதவி தேவையில்லை என்றால் மட்டுமே இதைச் செய்யுங்கள். இது சர்வரில் இந்த அவசரநிலையை மூடும்.</string>
     <string name="incident_confirm_cancel_title">தவறான எச்சரிக்கையாகப் பதிவு செய்யவா?</string>
     <string name="incident_confirm_cancel_body">இந்த அவசரநிலை தவறான எச்சரிக்கையாக ரத்து செய்யப்படும், யாரும் இதற்குப் பதிலளிக்க மாட்டார்கள்.</string>
     <string name="incident_keep_open">திறந்தே வைத்திரு</string>

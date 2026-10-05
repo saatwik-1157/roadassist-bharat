@@ -253,7 +253,7 @@ concrete example) · *Code* (where to open it).
 
 **44. Module 4 — migration?**
 *Short:* Schema migration is implemented and rehearsed; workload migration is future.
-*Detail:* Seven versioned migrations, run from an empty database during verification, all additive.
+*Detail:* Nine versioned migrations, run from an empty database during verification, all additive.
 *Code:* `packages/db/drizzle/`
 
 **45. Module 4 — redundant storage?**
@@ -451,7 +451,7 @@ concrete example) · *Code* (where to open it).
 *Code:* `apps/api/src/env.ts`, GHSA-3m5p-2c4r-xxw2
 
 **84. Have you had a penetration test?**
-*Short:* No. 106 self-written attacks (87 security + 58 gateway-security) is not the same thing, and I will not claim it is.
+*Short:* No. 164 self-written attacks (106 security + 58 gateway-security) is not the same thing, and I will not claim it is.
 *Code:* `SECURITY_FINAL_VERIFICATION.md`
 
 **85. Are any secrets in the repository?**
@@ -594,7 +594,7 @@ concrete example) · *Code* (where to open it).
 > assumed. Off-grid, an SOS becomes a real incident on the device, and a unique
 > key makes a duplicate impossible on sync.
 >
-> **Result.** 1138 assertions across six suites, zero failures, including 87
+> **Result.** 1158 assertions across six suites, zero failures, including 106
 > attacks that must fail. Every claim on our slides is something I can show you.
 
 ## 3 minutes — architecture
@@ -620,7 +620,7 @@ concrete example) · *Code* (where to open it).
 > already-committed providers in SQL, ranks the rest, and offers in waves of
 > five with a ninety-second timeout that escalates on its own.
 >
-> **Database.** PostgreSQL 16 with PostGIS — 58 tables, 63 foreign keys, 138
+> **Database.** PostgreSQL 16 with PostGIS — 58 tables, 63 foreign keys, 142
 > indexes, and an append-only hash-chained audit log that the database itself
 > refuses to let you edit.
 >

@@ -334,6 +334,10 @@ ok("emergency contact was alerted", confirmed.data?.contactsAlerted >= 1,
    `${confirmed.data?.contactsAlerted} contact(s)`);
 ok("nearest responder found by geospatial query", Boolean(confirmed.data?.nearestResponder?.name),
    confirmed.data?.nearestResponder?.name);
+// Found is not told: nothing is sent to that unit, and the answer says so, so
+// no screen can turn "a unit was located" into "help is on the way".
+ok("the answer says no responder was notified (located, not contacted)",
+   confirmed.data?.respondersNotified === 0, `respondersNotified=${confirmed.data?.respondersNotified}`);
 ok("escalation measured under 10s", confirmed.data?.elapsedMs < 10000,
    `${confirmed.data?.elapsedMs}ms`);
 
@@ -463,7 +467,12 @@ ok("CANCEL works over SMS", /cancelled/i.test(cancelled.data?.reply ?? ""));
 const afterCancel = await sms("STATUS");
 ok("STATUS after cancelling is honest", /no active request/i.test(afterCancel.data?.reply ?? ""));
 const smsSos = await sms("SOS");
-ok("SOS works over SMS on the degraded path", /SOS received/i.test(smsSos.data?.reply ?? ""));
+// The reply says what happened (recorded, its ref, nobody dispatched, call 112)
+// and never that help is being arranged: nothing contacts a responder from here.
+ok("SOS works over SMS on the degraded path, and the reply promises nothing",
+   /SOS received.*recorded \(ref [0-9a-f]{8}\)\. Nobody is dispatched automatically\. Call 112/i
+     .test(smsSos.data?.reply ?? "") && !/being arranged|on the way/i.test(smsSos.data?.reply ?? ""),
+   smsSos.data?.reply);
 const stop = await sms("STOP");
 ok("STOP opt-out is honoured (TRAI)", /no further messages/i.test(stop.data?.reply ?? ""));
 
@@ -810,6 +819,9 @@ const openMine = await call("GET", "/v1/me/incidents", { token });
 ok("the caller's open emergency is listed, with what may be done to it",
    openMine.status === 200 && openMine.data?.some((i) => i.id === incidentId && typeof i.canCancel === "boolean"),
    `got ${openMine.status} ${openMine.data?.length ?? ""}`);
+ok("each listed emergency says how many responders were notified, so a card never assumes",
+   openMine.data?.length > 0 && openMine.data.every((i) => i.respondersNotified === 0),
+   openMine.data?.map((i) => i.respondersNotified).join(","));
 const openTheirs = await call("GET", "/v1/me/incidents", { token: otherToken });
 ok("nobody else's emergencies are in that list",
    openTheirs.status === 200 && !openTheirs.data?.some((i) => i.id === incidentId), `got ${openTheirs.status}`);

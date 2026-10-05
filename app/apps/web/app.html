@@ -555,13 +555,14 @@
 
 <!-- ══ SOS countdown ═════════════════════════════════════════════════════
      The incident is raised on the server immediately, then held for a few
-     seconds before contacts and responders are alerted. A false alarm is a
+     seconds before contacts are texted and a responder unit is looked for
+     (located, not contacted: see sosOutcome in journey.js). A false alarm is a
      real cost to a responder, so there is always a way back — and the cancel
      is recorded, which is what feeds the false-positive dataset. -->
 <div class="sheet" id="sheet-sos" role="alertdialog" aria-modal="true" aria-labelledby="sos-h">
   <h2 class="display" id="sos-h" style="font-size:26px">Emergency <em>raised.</em></h2>
-  <p class="sub" style="margin-top:6px" id="sos-copy">Alerting your contacts and the nearest
-    responder when this reaches zero.</p>
+  <p class="sub" style="margin-top:6px" id="sos-copy">At zero, RoadAssist texts your
+    saved emergency contacts and looks for the nearest responder unit.</p>
 
   <div style="display:grid;place-items:center;padding:18px 0 6px">
     <span class="num" id="sos-n" style="font-size:66px;font-weight:700;color:var(--red);line-height:1">5</span>
@@ -719,6 +720,8 @@
   }
   var ESC_MAP = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
   var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; }); };
+  /** A catalogue string (i18n.js loads after this script, so it is looked up at call time). */
+  var tr = function (key, fallback) { return window.I18N ? I18N.t(key, fallback) : fallback; };
 
   /** A short tap of haptic feedback where the device supports it. */
   // Only once the page has had a real tap: before that Chrome refuses vibrate() and logs an error for it.
@@ -1320,7 +1323,16 @@
       return;
     }
     if (ev.type === "sos.status") {
-      if (ev.status === "RESPONDING") toast("Responders alerted for your emergency", "ok");
+      // The event carries the same counts as the confirm answer, so the toast
+      // says the same thing the sheet does — never "responders alerted" when
+      // the server located a unit and contacted nobody.
+      // When this tab's own sheet is already showing that incident, the sheet
+      // says it; a toast repeating it would only cover the escalation card.
+      var shown = ev.incidentId === sosId && $("sheet-sos").classList.contains("show");
+      if (ev.status === "RESPONDING" && !shown) {
+        toast(RAJourney.sosHeadline(ev, String(ev.incidentId || "").slice(0, 8), function (k) { return tr(k, ""); }),
+          RAJourney.sosOutcome(ev).reached ? "ok" : "warn");
+      }
       trackIncident(ev.incidentId, ev.status);   // redraws Home and off-grid; closed = controls go
       refreshReadiness();
       return;
@@ -3132,8 +3144,8 @@
     $("sos-n").style.fontSize = "";
     $("sos-bar").style.background = "";
     $("sos-abort").textContent = "Cancel — false alarm";
-    $("sos-copy").textContent = "Incident " + status +
-      ". Alerting your contacts and the nearest responder when this reaches zero.";
+    $("sos-copy").textContent = "Incident " + status + ". " +
+      tr("sos.grace", "At zero, RoadAssist texts your saved emergency contacts and looks for the nearest responder unit.");
     $("sos-n").textContent = left;
     $("sos-bar").style.transition = "none";
     $("sos-bar").style.transform = "scaleX(1)";
@@ -3178,21 +3190,43 @@
     $("sos-out").innerHTML = "<div class='card'><div class='sk line w45'></div><div class='sk line'></div></div>";
     try {
       var c = await api("POST", "/v1/sos/" + sosId + "/confirm", {}, { force: true });
-      $("sos-n").textContent = "✓";
-      $("sos-copy").textContent = "Help is on the way.";
+      // The headline says only what the server's answer reports it did
+      // (journey.js sosOutcome). It used to read "Help is on the way." after
+      // every confirm, including one that reached no contact and no responder:
+      // finding the nearest unit is not contacting it.
+      var ref = String(sosId).slice(0, 8);
+      var outcome = RAJourney.sosOutcome(c.data);
+      var located = Boolean(sosPos && !sosPos.demo);
+      $("sos-n").textContent = outcome.reached ? "✓" : "!";
+      $("sos-copy").textContent = RAJourney.sosHeadline(c.data, ref, function (k) { return tr(k, ""); });
 
       // Every rung of the escalation ladder, stated as a fact that either
       // happened or did not — no step is claimed on faith.
       var resp = c.data.nearestResponder;
       var steps = [
-        ["Incident created", true, "ID " + String(sosId).slice(0, 8)],
-        ["Location shared", Boolean(sosPos && !sosPos.demo), sosPos && !sosPos.demo ? "precise GPS" : "unknown — call 112"],
-        ["Contacts notified", c.data.contactsAlerted > 0,
-          c.data.contactsAlerted ? c.data.contactsAlerted + " alerted" : "none on file"],
-        ["Responder search", Boolean(resp), resp ? "unit found" : "no unit in range"],
+        ["Incident created", true, "ID " + ref],
+        ["Location shared", located, located ? "precise GPS" : "unknown — call 112"],
+        // "none on file" only when that is why: a withheld, opted-out, failed
+        // or repeated send also alerts nobody, and is not an empty list.
+        ["Contacts notified", outcome.contacts > 0,
+          outcome.contacts ? outcome.contacts + " alerted"
+            : c.data.alreadyEscalated || c.data.contactsWithheld || c.data.contactsOptedOut || c.data.contactsFailed
+              ? "0 alerted" : "none on file"],
+        ["Responder search", Boolean(resp), !resp ? "no unit in range"
+          : outcome.responders ? outcome.responders + " alerted"
+          : tr("sos.unit.found", "unit located, not contacted")],
       ];
 
-      $("sos-out").innerHTML =
+      // With nobody summoned, the dialler leads the screen rather than trailing
+      // the card. With no fix the no-location panel (which holds Call 112) leads.
+      var lead = !located ? sosNoFix()
+        : outcome.call112
+          ? "<div class='em-panel' style='margin:0 0 12px'><a class='btn danger em-call' id='sos-call' " +
+              "href='tel:112' data-em='112'>" + esc(tr("sos.call112", "Call 112 now")) + "</a></div>"
+          : "";
+      var notes = [c.meta.note, c.meta.warning, c.meta.optedOut].filter(Boolean);
+
+      $("sos-out").innerHTML = lead +
         "<div class='card feature'>" +
           "<div style='display:flex;align-items:center;gap:9px'>" +
             "<h2 class='title grow'>Emergency active</h2>" +
@@ -3211,12 +3245,16 @@
           (resp
             ? "<div class='row' style='margin-top:11px;padding-top:11px;border-top:1px solid var(--line)'>" +
                 "<span class='grow'><b>" + esc(resp.name) + "</b>" +
-                "<small>nearest responder · " + esc(Number(resp.km).toFixed(1)) + " km · ETA ~" +
-                  Math.max(2, Math.round((Number(resp.km) / 40) * 60)) + " min</small></span></div>"
+                "<small>nearest responder · " + esc(Number(resp.km).toFixed(1)) + " km · " +
+                  // An ETA is a claim that someone is coming: only for a unit that was told.
+                  (outcome.responders
+                    ? "ETA ~" + Math.max(2, Math.round((Number(resp.km) / 40) * 60)) + " min"
+                    : esc(tr("sos.unit.notContacted", "not contacted"))) +
+                "</small></span></div>"
             : "") +
           "<p class='hint' style='margin-top:9px'>Incident " + esc(sosId) + "</p>" +
-          (c.meta.note ? "<p class='hint' style='margin-top:6px'>" + esc(c.meta.note) + "</p>" : "") +
-        "</div>" + (sosPos && !sosPos.demo ? "" : sosNoFix()) +
+          notes.map(function (n) { return "<p class='hint' style='margin-top:6px'>" + esc(n) + "</p>"; }).join("") +
+        "</div>" +
         "<div class='btn-row' style='margin-top:13px'>" +
           "<button class='btn ghost' id='sos-map'>View live map</button>" +
           "<button class='btn ghost' id='sos-done'>Close</button></div>";

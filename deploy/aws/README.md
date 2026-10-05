@@ -3,8 +3,22 @@
 An alternative to Render, for when the free Render service's sleep or limits
 get in the way. The app is the **same Docker image** Render runs
 (`ghcr.io/saatwik-1157/roadassist-bharat:latest`, public), on one EC2
-instance, behind the same Cloudflare proxy, against the **same Neon
-database**. Nothing about the application changes; only where it runs.
+instance, behind a Cloudflare proxy, against the **same Neon database**.
+Nothing about the application changes; only where it runs.
+
+**Before you start: that Cloudflare proxy does not exist yet.** The domain's
+DNS is at **Hostinger**: its nameservers are Hostinger's, and DEPLOYMENT.md §3
+adds the `app` CNAME there. The Cloudflare edge in front of the live site is
+**Render's own** (`app` is a CNAME to Render, and Render serves custom domains
+through Cloudflare), so it does not follow the record to EC2. This kit needs
+one in front: Caddy has only its internal certificate (`tls internal` in
+`user-data.sh`), which a browser will not accept, and `env.example` takes the
+caller's address from `CF-Connecting-IP`, which a caller can write when nothing
+in front overwrites it. So either add the domain to a Cloudflare account of
+your own first (free plan; it means moving the nameservers from Hostinger to
+Cloudflare and recreating every record there, including the GitHub Pages `A`
+and `www` records and the Resend DKIM/SPF records), or give Caddy a public
+certificate and stop trusting `CF-Connecting-IP` before switching.
 
 Keep Render configured while you try this: switching back is one DNS edit
 (step 7).
@@ -24,7 +38,8 @@ calendar for month 5.
 | 8 GB gp3 disk | ~US$0.80 |
 | **Total** | **~US$14 → about 7 months of US$100 credits** |
 
-Neon and Cloudflare stay on their free plans.
+Neon stays on its free plan, and a Cloudflare zone of your own (see above)
+would be on the free plan too.
 
 ## Steps (in the AWS console)
 
@@ -63,10 +78,13 @@ Neon and Cloudflare stay on their free plans.
    curl -k --resolve app.roadassistbharat.online:443:<ELASTIC_IP> https://app.roadassistbharat.online/health
    ```
    It must print `"database":"ok"`.
-7. **Switch the domain** (Cloudflare → roadassistbharat.online → DNS):
-   change the `app` record from the Render CNAME to an **A record → your
-   Elastic IP**, keep it **Proxied** (orange cloud), and make sure SSL/TLS
-   mode is **Full** (not Flexible, not Strict — the origin uses Caddy's own
+7. **Switch the domain** where its DNS is managed. Today that is Hostinger
+   (**Domains → roadassistbharat.online → DNS / Nameservers → DNS records**);
+   after moving the domain to your own Cloudflare account as described at the
+   top, it is Cloudflare → roadassistbharat.online → DNS. Change the `app`
+   record from the Render CNAME to an **A record → your Elastic IP**. On
+   Cloudflare, keep it **Proxied** (orange cloud) and make sure SSL/TLS mode
+   is **Full** (not Flexible, not Strict — the origin uses Caddy's own
    certificate). To go back to Render, put the old CNAME back.
 8. **Check**: `node app/scripts/verify-deployment.mjs https://app.roadassistbharat.online`
    from `app/` must pass, as it does for Render.

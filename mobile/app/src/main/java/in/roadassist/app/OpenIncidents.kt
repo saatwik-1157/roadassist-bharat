@@ -26,6 +26,8 @@ data class OpenIncident(
     val severity: String,
     val canResolve: Boolean,
     val canCancel: Boolean,
+    /** Responder units the server says it contacted. Absent (an older server) is zero. */
+    val respondersNotified: Int = 0,
 )
 
 /**
@@ -37,8 +39,16 @@ object OpenIncidents {
     /** What a card may offer. The server says which are legal; the app never guesses. */
     enum class Action { RESOLVE, CANCEL }
 
-    /** The product's stage vocabulary (the API's PUBLIC_STAGE), plus anything newer. */
-    enum class Stage { CREATED, RECEIVED, RESPONDING, OTHER }
+    /**
+     * The product's stage vocabulary (the API's PUBLIC_STAGE), plus anything newer.
+     *
+     * RESPONDING on the wire means the escalation ladder ran: contacts texted
+     * and the nearest unit LOCATED. It does not mean a responder was told, and
+     * the card used to say "Responders have been alerted" for every one. Now
+     * that sentence is [Stage.RESPONDING] only when the server reports
+     * `respondersNotified` > 0; otherwise it is [Stage.ESCALATED].
+     */
+    enum class Stage { CREATED, RECEIVED, ESCALATED, RESPONDING, OTHER }
 
     /** The resolve outcome for a person closing their own emergency from the phone. */
     const val RESOLVE_OUTCOME = "self_resolved"
@@ -72,6 +82,7 @@ object OpenIncidents {
                 severity = o.str("severity") ?: "",
                 canResolve = o.optBoolean("canResolve", false),
                 canCancel = o.optBoolean("canCancel", false),
+                respondersNotified = o.optInt("respondersNotified", 0).coerceAtLeast(0),
             )
         }
         return out
@@ -93,7 +104,7 @@ object OpenIncidents {
     fun stage(incident: OpenIncident): Stage = when (incident.stage.uppercase(Locale.ROOT)) {
         "SOS_CREATED" -> Stage.CREATED
         "SOS_RECEIVED" -> Stage.RECEIVED
-        "RESPONDING" -> Stage.RESPONDING
+        "RESPONDING" -> if (incident.respondersNotified > 0) Stage.RESPONDING else Stage.ESCALATED
         else -> Stage.OTHER
     }
 

@@ -13,7 +13,7 @@ built for the roads where coverage is worst.
 [![CI](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/ci.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/ci.yml)
 [![Image](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/publish-image.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/publish-image.yml)
 [![Pages](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/pages.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/pages.yml)
-![Assertions](https://img.shields.io/badge/assertions-920%20passing-2ea44f)
+![Assertions](https://img.shields.io/badge/assertions-1138%20passing-2ea44f)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)
 ![PostGIS](https://img.shields.io/badge/PostgreSQL%2016-PostGIS-336791?logo=postgresql&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-Kotlin%20%2B%20Compose-3DDC84?logo=android&logoColor=white)
@@ -258,8 +258,8 @@ with it.
 
 | | |
 |---|---|
-| **1138 assertions**, six suites, zero failures | 452 unit · 246 e2e · 92 concurrency · 106 attacks · 58 gateway security · 184 browser |
-| Android | 188 tests, zero lint errors, release APK under R8 |
+| **1158 assertions**, six suites, zero failures | 460 unit · 248 e2e · 92 concurrency · 106 attacks · 58 gateway security · 194 browser |
+| Android | 190 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`), run against a local stub of Razorpay's Orders API. They need an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so they sit outside the six suites and are never described as passing |
 | Schema | 58 tables · 142 indexes · 9 migrations |
@@ -338,7 +338,7 @@ npm run verify               # typecheck · lint · boundaries · claims · cita
 ```
 
 **Android:** `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease`
-(188 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
+(190 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
 install talks to the live platform. To use a local API instead, install a debug
 build (a release build is HTTPS only), long-press the wordmark on the sign-in
 screen and enter its address, for example `10.0.2.2:4000` from the emulator.

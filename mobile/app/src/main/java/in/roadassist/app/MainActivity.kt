@@ -2246,6 +2246,7 @@ private fun OpenIncidentCard(
     val stage = when (OpenIncidents.stage(incident)) {
         OpenIncidents.Stage.CREATED -> stringResource(R.string.incident_stage_created)
         OpenIncidents.Stage.RECEIVED -> stringResource(R.string.incident_stage_received)
+        OpenIncidents.Stage.ESCALATED -> stringResource(R.string.incident_stage_escalated)
         OpenIncidents.Stage.RESPONDING -> stringResource(R.string.incident_stage_responding)
         OpenIncidents.Stage.OTHER -> stringResource(R.string.incident_stage_other, OpenIncidents.readableStage(incident.stage))
     }

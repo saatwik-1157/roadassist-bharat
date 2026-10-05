@@ -67,9 +67,27 @@ describe("the catalogue", () => {
   });
 });
 
+describe("the SMS SOS reply", () => {
+  it("states what happened in every language — the ref and 112 — and never promises help", () => {
+    // It said "Help is being arranged" (Tamil: "help is coming") while no
+    // responder is contacted from this path and the 112 handoff is stubbed.
+    for (const locale of LOCALES) {
+      for (const key of ["sos.received", "sos.received.located"]) {
+        const body = t(locale, key, { ref: "1266c6bd" });
+        assert.ok(body.includes("1266c6bd") && body.includes("112"), `${locale}/${key}: ${body}`);
+      }
+    }
+    for (const key of ["sos.received", "sos.received.located"]) {
+      const en = t("en", key, { ref: "1266c6bd" });
+      assert.match(en, /recorded \(ref 1266c6bd\)\. Nobody is dispatched automatically\. Call 112/);
+      assert.doesNotMatch(en, /being arranged|on the way|help is coming/i);
+    }
+  });
+});
+
 describe("SMS segment cost", () => {
   it("knows plain English is GSM and fits 160", () => {
-    const r = smsSegments("SOS received. Help is being arranged.");
+    const r = smsSegments("SOS received and recorded (ref 1266c6bd). Nobody is dispatched automatically.");
     assert.equal(r.encoding, "GSM");
     assert.equal(r.segments, 1);
   });
@@ -119,6 +137,7 @@ describe("SMS segment cost", () => {
       reference: "RA-ABC123",
       status: "MECHANIC_EN_ROUTE",
       mechanic: "Ramesh Kumar",
+      ref: "1266c6bd",   // an incident id's first 8 characters, as telecom.ts sends it
     };
     for (const locale of LOCALES) {
       for (const key of MESSAGE_KEYS) {

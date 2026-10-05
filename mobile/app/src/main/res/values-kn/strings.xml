@@ -131,13 +131,14 @@
     <string name="incident_open_title">ತುರ್ತು ಪರಿಸ್ಥಿತಿ ತೆರೆದಿದೆ</string>
     <string name="incident_raised">ದಾಖಲಾಗಿದೆ %1$s · %2$s</string>
     <string name="incident_stage_created">ದಾಖಲಾಗಿದೆ — ದೃಢೀಕರಣಕ್ಕಾಗಿ ಕಾಯುತ್ತಿದೆ</string>
-    <string name="incident_stage_received">SOS ತಲುಪಿದೆ — ನಿಮ್ಮ ಸಂಪರ್ಕಗಳು ಮತ್ತು ರಕ್ಷಕರಿಗೆ ತಿಳಿಸಲಾಗುತ್ತಿದೆ</string>
+    <string name="incident_stage_received">SOS ತಲುಪಿದೆ — ಇನ್ನೂ ಮುಂದೆ ಕಳಿಸಿಲ್ಲ. ಸಹಾಯ ಬೇಕಿದ್ದರೆ ಈಗಲೇ 112ಕ್ಕೆ ಕರೆ ಮಾಡಿ.</string>
     <string name="incident_stage_responding">ರಕ್ಷಕರಿಗೆ ತಿಳಿಸಲಾಗಿದೆ</string>
+    <string name="incident_stage_escalated">ಮುಂದೆ ಕಳಿಸಲಾಗಿದೆ — ಯಾವುದೇ ರಕ್ಷಕರನ್ನು ಸಂಪರ್ಕಿಸಲಾಗಿಲ್ಲ. ಸಹಾಯ ಬೇಕಿದ್ದರೆ ಈಗಲೇ 112ಕ್ಕೆ ಕರೆ ಮಾಡಿ.</string>
     <string name="incident_stage_other">ಹಂತ: %1$s</string>
     <string name="incident_action_resolve">ನಾನು ಸುರಕ್ಷಿತವಾಗಿದ್ದೇನೆ — ಇದನ್ನು ಮುಚ್ಚಿ</string>
     <string name="incident_action_cancel">ತಪ್ಪು ಎಚ್ಚರಿಕೆ</string>
     <string name="incident_confirm_resolve_title">ಈ ತುರ್ತು ಪರಿಸ್ಥಿತಿಯನ್ನು ಮುಚ್ಚಬೇಕೆ?</string>
-    <string name="incident_confirm_resolve_body">ನೀವು ಸುರಕ್ಷಿತವಾಗಿದ್ದು, ಇನ್ನು ಸಹಾಯ ಬೇಕಿಲ್ಲದಿದ್ದರೆ ಮಾತ್ರ ಇದನ್ನು ಮಾಡಿ. ರಕ್ಷಕರು ಇದರ ಮೇಲಿನ ಕೆಲಸ ನಿಲ್ಲಿಸುತ್ತಾರೆ.</string>
+    <string name="incident_confirm_resolve_body">ನೀವು ಸುರಕ್ಷಿತವಾಗಿದ್ದು, ಇನ್ನು ಸಹಾಯ ಬೇಕಿಲ್ಲದಿದ್ದರೆ ಮಾತ್ರ ಇದನ್ನು ಮಾಡಿ. ಇದು ಸರ್ವರ್‌ನಲ್ಲಿ ಈ ತುರ್ತು ಸ್ಥಿತಿಯನ್ನು ಮುಚ್ಚುತ್ತದೆ.</string>
     <string name="incident_confirm_cancel_title">ತಪ್ಪು ಎಚ್ಚರಿಕೆ ಎಂದು ದಾಖಲಿಸಬೇಕೆ?</string>
     <string name="incident_confirm_cancel_body">ಈ ತುರ್ತು ಪರಿಸ್ಥಿತಿ ತಪ್ಪು ಎಚ್ಚರಿಕೆಯಾಗಿ ರದ್ದಾಗುತ್ತದೆ ಮತ್ತು ಯಾರೂ ಇದಕ್ಕೆ ಸ್ಪಂದಿಸುವುದಿಲ್ಲ.</string>
     <string name="incident_keep_open">ತೆರೆದೇ ಇರಿಸಿ</string>

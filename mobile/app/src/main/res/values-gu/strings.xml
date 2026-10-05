@@ -131,13 +131,14 @@
     <string name="incident_open_title">કટોકટી ખુલ્લી છે</string>
     <string name="incident_raised">નોંધાઈ %1$s · %2$s</string>
     <string name="incident_stage_created">નોંધાઈ — પુષ્ટિની રાહ</string>
-    <string name="incident_stage_received">SOS મળ્યો — તમારા સંપર્કો અને બચાવકર્તાઓને જાણ કરાઈ રહી છે</string>
+    <string name="incident_stage_received">SOS મળ્યો — હજી આગળ મોકલાયો નથી. મદદ જોઈએ તો હમણાં જ 112 પર કૉલ કરો.</string>
     <string name="incident_stage_responding">બચાવકર્તાઓને જાણ કરાઈ છે</string>
+    <string name="incident_stage_escalated">આગળ મોકલાયો — કોઈ બચાવકર્તાનો સંપર્ક થયો નથી. મદદ જોઈએ તો હમણાં જ 112 પર કૉલ કરો.</string>
     <string name="incident_stage_other">તબક્કો: %1$s</string>
     <string name="incident_action_resolve">હું સુરક્ષિત છું — આ બંધ કરો</string>
     <string name="incident_action_cancel">ખોટી ચેતવણી</string>
     <string name="incident_confirm_resolve_title">આ કટોકટી બંધ કરવી છે?</string>
-    <string name="incident_confirm_resolve_body">તમે સુરક્ષિત હો અને હવે મદદની જરૂર ન હોય ત્યારે જ આ કરો. બચાવકર્તાઓ તેના પર કામ બંધ કરશે.</string>
+    <string name="incident_confirm_resolve_body">તમે સુરક્ષિત હો અને હવે મદદની જરૂર ન હોય ત્યારે જ આ કરો. આનાથી સર્વર પર આ કટોકટી બંધ થશે.</string>
     <string name="incident_confirm_cancel_title">ખોટી ચેતવણી તરીકે નોંધવી છે?</string>
     <string name="incident_confirm_cancel_body">આ કટોકટી ખોટી ચેતવણી તરીકે રદ થશે અને કોઈ પ્રતિસાદ નહીં આપે.</string>
     <string name="incident_keep_open">ખુલ્લી રાખો</string>

@@ -131,13 +131,14 @@
     <string name="incident_open_title">आणीबाणी सुरू आहे</string>
     <string name="incident_raised">नोंद: %1$s · %2$s</string>
     <string name="incident_stage_created">नोंदवली — पुष्टीची प्रतीक्षा</string>
-    <string name="incident_stage_received">SOS मिळाला — तुमच्या संपर्कांना आणि बचाव पथकाला कळवले जात आहे</string>
+    <string name="incident_stage_received">SOS मिळाला — अजून पुढे पाठवलेला नाही. मदत हवी असल्यास आत्ताच 112 वर कॉल करा.</string>
     <string name="incident_stage_responding">बचाव पथकाला कळवले आहे</string>
+    <string name="incident_stage_escalated">पुढे पाठवला — कोणत्याही बचाव पथकाशी संपर्क झाला नाही. मदत हवी असल्यास आत्ताच 112 वर कॉल करा.</string>
     <string name="incident_stage_other">टप्पा: %1$s</string>
     <string name="incident_action_resolve">मी सुरक्षित आहे — हे बंद करा</string>
     <string name="incident_action_cancel">खोटा इशारा</string>
     <string name="incident_confirm_resolve_title">ही आणीबाणी बंद करायची?</string>
-    <string name="incident_confirm_resolve_body">तुम्ही सुरक्षित असाल आणि आता मदतीची गरज नसेल तरच हे करा. बचाव पथक यावर काम थांबवेल.</string>
+    <string name="incident_confirm_resolve_body">तुम्ही सुरक्षित असाल आणि आता मदतीची गरज नसेल तरच हे करा. यामुळे सर्व्हरवर ही आणीबाणी बंद होईल.</string>
     <string name="incident_confirm_cancel_title">खोटा इशारा म्हणून नोंदवायचे?</string>
     <string name="incident_confirm_cancel_body">ही आणीबाणी खोटा इशारा म्हणून रद्द होईल आणि कोणीही प्रतिसाद देणार नाही.</string>
     <string name="incident_keep_open">सुरू ठेवा</string>

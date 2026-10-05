@@ -131,13 +131,14 @@
     <string name="incident_open_title">అత్యవసర పరిస్థితి తెరిచి ఉంది</string>
     <string name="incident_raised">నమోదు %1$s · %2$s</string>
     <string name="incident_stage_created">నమోదైంది — నిర్ధారణ కోసం వేచి ఉంది</string>
-    <string name="incident_stage_received">SOS అందింది — మీ పరిచయాలకు, సహాయకులకు తెలియజేస్తున్నాం</string>
+    <string name="incident_stage_received">SOS అందింది — ఇంకా ముందుకు పంపలేదు. సహాయం కావాలంటే ఇప్పుడే 112కు కాల్ చేయండి.</string>
     <string name="incident_stage_responding">సహాయకులకు తెలియజేశాం</string>
+    <string name="incident_stage_escalated">ముందుకు పంపాం — ఏ సహాయకుడినీ సంప్రదించలేదు. సహాయం కావాలంటే ఇప్పుడే 112కు కాల్ చేయండి.</string>
     <string name="incident_stage_other">దశ: %1$s</string>
     <string name="incident_action_resolve">నేను సురక్షితంగా ఉన్నాను — దీన్ని మూసివేయండి</string>
     <string name="incident_action_cancel">తప్పుడు హెచ్చరిక</string>
     <string name="incident_confirm_resolve_title">ఈ అత్యవసర పరిస్థితిని మూసివేయాలా?</string>
-    <string name="incident_confirm_resolve_body">మీరు సురక్షితంగా ఉండి, ఇక సహాయం అవసరం లేకపోతేనే ఇలా చేయండి. సహాయకులు దీనిపై పని ఆపేస్తారు.</string>
+    <string name="incident_confirm_resolve_body">మీరు సురక్షితంగా ఉండి, ఇక సహాయం అవసరం లేకపోతేనే ఇలా చేయండి. ఇది సర్వర్‌లో ఈ అత్యవసర పరిస్థితిని మూసివేస్తుంది.</string>
     <string name="incident_confirm_cancel_title">తప్పుడు హెచ్చరికగా నమోదు చేయాలా?</string>
     <string name="incident_confirm_cancel_body">ఈ అత్యవసర పరిస్థితి తప్పుడు హెచ్చరికగా రద్దవుతుంది, దీనికి ఎవరూ స్పందించరు.</string>
     <string name="incident_keep_open">తెరిచే ఉంచండి</string>

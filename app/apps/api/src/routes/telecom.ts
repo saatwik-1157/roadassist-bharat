@@ -394,7 +394,10 @@ export async function telecomRoutes(app: FastifyInstance) {
         req.log.error({ err: err instanceof Error ? err.message.slice(0, 200) : String(err), incidentId: incident.id },
           "sms sos escalation failed; the incident stands CONFIRMED for an operator");
       }
-      const sent = await reply(fix ? "sos.received.located" : "sos.received");
+      // The reply states only what happened — recorded, under this ref — and
+      // never that help is on the way: no responder is contacted from here.
+      const sent = await reply(fix ? "sos.received.located" : "sos.received",
+        { ref: String(incident.id).slice(0, 8) });
       return { ...sent, meta: { ...sent.meta, incidentId: incident.id, escalated: escalation?.escalated ?? false,
         contactsAlerted: escalation?.contactsAlerted ?? 0,
         ...(escalation?.contactsFailed ? { contactsFailed: escalation.contactsFailed } : {}),

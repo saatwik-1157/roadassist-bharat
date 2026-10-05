@@ -241,9 +241,9 @@ What is still `DESIGN` is the *redundancy*: one node, no replica, no failover. A
 
 ### 18. What is migration?
 
-**Schema migration is real and rehearsed.** Seven versioned migrations; this
+**Schema migration is real and rehearsed.** Nine versioned migrations; this
 audit ran `db:reset → db:migrate → db:seed` from empty and then the whole test
-suite, and the deployment migrates on every boot. All seven are additive — new
+suite, and the deployment migrates on every boot. All nine are additive — new
 columns and indexes, no column dropped or retyped (0002 rebuilds one unique
 index to key it per device) — so an older image runs against a newer schema,
 which is what makes a rollback safe. Workload/live migration is DESIGN.
@@ -366,7 +366,7 @@ idempotent. Production refuses to boot on a real gateway with no webhook secret.
 wrong order, unconfigured secret — each is written to fail closed. They need no
 account (the script starts its own stub and signs with a stub secret), but they
 refuse to run unless the API was started with `PAYMENTS_PROVIDER=razorpay`, so
-they sit outside the 920 and were not re-run for that measurement. Never run
+they sit outside the 1158 and were not re-run for that measurement. Never run
 against a real account; the deployment itself uses the mock provider.
 
 ### 29. Why PostgreSQL/PostGIS?
@@ -502,7 +502,7 @@ labels it as such. The road-damage models are genuinely trained YOLO11
 detectors with measured metrics — best run YOLO11s mAP50 0.472; the YOLO11n
 India model RAKSHA shows scored 0.443. I will not call the first one AI.
 
-**"Did you actually test it, or does it just look right?"** — 1138 assertions
+**"Did you actually test it, or does it just look right?"** — 1158 assertions
 across six suites, all executed with no failures, including 106 attacks that must
 fail and a concurrency suite that fires ten simultaneous accepts. The 22 Razorpay
 checks need no account — they run against their own local stub — but only when
@@ -582,7 +582,7 @@ dependency and reconnects itself. On a platform whose thesis is bad networks,
 
 ### 46. What stops the database ending up in an impossible state?
 
-Four things, in order of strength: foreign keys (62), unique constraints — most
+Four things, in order of strength: foreign keys (63), unique constraints — most
 importantly `client_incident_id`, which is the whole duplicate-emergency
 defence — CHECK constraints (money non-negative, ratings 1 to 5, severity 1 to
 5), and guarded UPDATEs that only apply when the row is still in the state the
@@ -595,8 +595,8 @@ fixed. A fresh seed now yields zero.
 
 ### 47. How do you handle schema migrations safely?
 
-Seven versioned migrations, applied by a runner that also creates the extensions
-and the constraints drizzle-kit cannot express. All seven are **additive** — new
+Nine versioned migrations, applied by a runner that also creates the extensions
+and the constraints drizzle-kit cannot express. All nine are **additive** — new
 columns and indexes, no column dropped or retyped (0002 rebuilds one unique
 index to key it per device) — so an older image runs against a
 newer schema, which is what makes an application rollback safe. The rule that

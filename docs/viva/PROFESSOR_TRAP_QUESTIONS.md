@@ -16,7 +16,7 @@ Ranked by how much they cost if answered badly.
 | 10 | **HIGH** | "Does it really work offline?" | "The emergency half does. Let me close the tab and reopen it." Then the three-way split. | demo beat 12 | That everything works |
 | 11 | **HIGH** | "What is your uptime / availability?" | "Not measured. The demo is one free-plan instance that sleeps after 15 minutes idle — there is no availability figure to quote." | — | 99.9% — those tables are planning targets |
 | 12 | **HIGH** | "Have you load-tested it?" | "No. What I have is single-user measured latency — no operation above 400 ms at p95." | `PERFORMANCE_FINAL_REPORT.md` | Any throughput or concurrent-user figure |
-| 13 | **HIGH** | "Have you had a penetration test?" | "No. 106 self-written attacks (87 security + 58 gateway-security) is not the same thing." | — | That it is independently audited |
+| 13 | **HIGH** | "Have you had a penetration test?" | "No. 164 self-written attacks (106 security + 58 gateway-security) is not the same thing." | — | That it is independently audited |
 | 14 | **MEDIUM** | "How is the mechanic selected?" | "PostGIS KNN, off-duty and busy excluded in SQL, then proximity 60% / rating 34% / newcomer bonus." | `apps/api/src/dispatch.ts:77` | That severity is in the ranking score |
 | 15 | **MEDIUM** | "Why is that dynamic scheduling?" | "Run time, from a pool, by live state, with timeout-driven re-scheduling. Four properties, four matches." | `dispatch.ts` | — |
 | 16 | **MEDIUM** | "How do you prevent duplicate payments?" | "Settlement is recorded, never asserted; replaying the confirmation does not charge twice." | `apps/api/src/server.ts:1139` | Live gateway experience |

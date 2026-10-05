@@ -1381,6 +1381,148 @@ const run = async () => {
     check(again === 1, "the choice was for that booking only: the next request with no fix is not sent",
       `${again} POST(s) in all`);
 
+    // ══ 17. Online SOS: only what the server did ════════════════════════════
+    // The sheet said "Help is on the way." after every confirm, including one
+    // that reached no contact and no responder, because a unit had been
+    // LOCATED. Driven here end to end against the real API: an account with no
+    // emergency contacts, then the same account with one. Nothing is mocked —
+    // the server's own answer decides the words, and both are checked.
+    section("17. Online SOS says only what the server did");
+    await page.send("Browser.grantPermissions", { origin: BASE, permissions: ["geolocation"] });
+    await page.send("Emulation.setGeolocationOverride", { latitude: 28.4601, longitude: 77.0301, accuracy: 12 });
+    // A number outside the seeded block (seeds own +917000000000–3999), so the
+    // account has no contacts unless a previous run left one — removed below.
+    const SOS_USER = "+917000009871";
+    await page.goto(`${BASE}/app.html`);
+    await page.waitFor(`document.getElementById("scr-home").classList.contains("active")`, 20000);
+    await page.eval(`document.getElementById("s-out").click(); return true;`);
+    await page.waitFor(`document.getElementById("a-send") && document.getElementById("tabs").hidden === true`, 10000);
+    await page.setValue("#a-msisdn", SOS_USER);
+    await page.click("#a-send");
+    await page.waitFor(`document.getElementById("a-step2").hidden === false`, 15000);
+    await page.click("#a-verify");
+    await page.waitFor(`document.getElementById("scr-home").classList.contains("active")`, 15000);
+    const sosApi = (body) => page.eval(`
+      const tok = JSON.parse(sessionStorage.getItem("ra.app.session")).token;
+      const call = async (method, path, payload) => {
+        const res = await fetch(path, { method, headers: { authorization: "Bearer " + tok,
+          ...(payload ? { "content-type": "application/json" } : {}) }, body: payload ? JSON.stringify(payload) : undefined });
+        return res.status === 204 ? null : res.json();
+      };
+      ${body}
+    `);
+    await sosApi(`
+      // A clean slate from any earlier run: no contacts, no emergency left open.
+      for (const c of (await call("GET", "/v1/me/emergency-contacts")).data || []) {
+        await call("DELETE", "/v1/me/emergency-contacts/" + c.id);
+      }
+      for (const i of (await call("GET", "/v1/me/incidents")).data || []) {
+        await call("POST", "/v1/sos/" + i.id + "/cancel", {});
+      }
+      return true;
+    `);
+
+    // Raise from the SOS control, press "Alert now", and read what the sheet says.
+    const raiseAndConfirm = () => page.eval(`
+      window.__sosAns = null;
+      const realFetch = window.fetch;
+      window.fetch = async function (url) {
+        const res = await realFetch.apply(this, arguments);
+        if (/\\/v1\\/sos\\/[^/]+\\/confirm$/.test(String(url))) res.clone().json().then((j) => { window.__sosAns = j.data || null; });
+        return res;
+      };
+      try {
+        document.querySelector('.tab[data-nav="home"]').click();
+        document.getElementById("sos").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        const t0 = Date.now(), sheet = document.getElementById("sheet-sos");
+        while (Date.now() - t0 < 10000 && !(sheet.classList.contains("show") && !document.getElementById("sos-now").hidden)) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+        document.getElementById("sos-now").click();
+        while (Date.now() - t0 < 20000 && !(window.__sosAns && document.querySelector("#sos-out .card.feature"))) {
+          await new Promise(r => setTimeout(r, 100));
+        }
+        await new Promise(r => setTimeout(r, 300));
+        const out = document.getElementById("sos-out");
+        const call = document.getElementById("sos-call");
+        const card = out.querySelector(".card.feature");
+        return {
+          ans: window.__sosAns,
+          dial: document.getElementById("sos-n").textContent,
+          copy: document.getElementById("sos-copy").textContent,
+          sheet: sheet.innerText,
+          call: call ? { href: call.getAttribute("href"), text: call.textContent.trim(),
+            leads: Boolean(card) && Boolean(call.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING) } : null,
+        };
+      } finally { window.fetch = realFetch; }
+    `);
+    const shoot = async (name) => {
+      if (!process.env.UI_SHOT_DIR) return;
+      const { writeFileSync, mkdirSync } = await import("node:fs");
+      mkdirSync(process.env.UI_SHOT_DIR, { recursive: true });
+      await page.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+      await page.eval(`document.getElementById("sheet-sos").scrollTop = 0; return true;`);
+      await sleep(600);
+      const { data } = await page.send("Page.captureScreenshot", { format: "png" });
+      writeFileSync(join(process.env.UI_SHOT_DIR, name), Buffer.from(data, "base64"));
+      await page.send("Emulation.clearDeviceMetricsOverride");
+      await sleep(300);
+    };
+    // "I'm safe now" on the sheet: the real way out, so nothing is left open.
+    const standDown = () => page.eval(`
+      const safe = Array.from(document.querySelectorAll("#sos-out button")).find((b) => /safe now/i.test(b.textContent));
+      if (safe) safe.click();
+      const t0 = Date.now();
+      while (Date.now() - t0 < 8000 && document.getElementById("sheet-sos").classList.contains("show")) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      return { pressed: Boolean(safe), closed: !document.getElementById("sheet-sos").classList.contains("show") };
+    `);
+    const NOT_ON_FAITH = /on the way|help is coming|responders have been alerted/i;
+
+    const none = await raiseAndConfirm();
+    const ref0 = String(none.ans?.id ?? "").slice(0, 8);
+    check(none.ans && none.ans.contactsAlerted === 0 && none.ans.respondersNotified === 0,
+      "no contacts on file: the server reports 0 contacts alerted and 0 responders notified",
+      JSON.stringify({ contacts: none.ans?.contactsAlerted, responders: none.ans?.respondersNotified,
+        located: none.ans?.nearestResponder?.name ?? null }));
+    check(none.copy === `Emergency recorded (ref ${ref0}). No responder or contact was reached. Call 112 now.`,
+      "…and the sheet says exactly that: recorded, nobody reached, call 112", none.copy);
+    check(!NOT_ON_FAITH.test(none.sheet), "…and nowhere claims help is on the way or responders were alerted");
+    check(none.dial !== "✓", "…and shows no success tick when nobody was reached", none.dial);
+    check(none.call && none.call.href === "tel:112" && none.call.text === "Call 112 now" && none.call.leads,
+      "a 'Call 112 now' button (tel:112) leads the sheet, above the escalation card", JSON.stringify(none.call));
+    check(none.ans?.nearestResponder
+      ? /unit located, not contacted/.test(none.sheet) && !/ETA/.test(none.sheet)
+      : /no unit in range/.test(none.sheet),
+      "a located responder unit is shown as not contacted, with no ETA");
+    await shoot("sos-no-contacts.png");
+    const closed0 = await standDown();
+    check(closed0.pressed && closed0.closed, "'I'm safe now' closes it, so the test leaves nothing open");
+
+    await sosApi(`
+      await call("POST", "/v1/me/emergency-contacts", { name: "Test Contact", msisdn: "+919812345601", relation: "friend" });
+      return true;
+    `);
+    const one = await raiseAndConfirm();
+    const ref1 = String(one.ans?.id ?? "").slice(0, 8);
+    check(one.ans && one.ans.contactsAlerted === 1 && one.ans.respondersNotified === 0,
+      "with one contact on file: the server reports 1 contact alerted and 0 responders notified",
+      JSON.stringify({ contacts: one.ans?.contactsAlerted, responders: one.ans?.respondersNotified }));
+    check(one.copy === `Emergency recorded (ref ${ref1}). Your 1 emergency contact was alerted. ` +
+      "No responder was contacted. Call 112 now.",
+      "…and the sheet names that one contact and still says no responder was contacted", one.copy);
+    check(!NOT_ON_FAITH.test(one.sheet) && one.call?.leads === true,
+      "…with no 'on the way', and Call 112 still leading the sheet");
+    await shoot("sos-with-contacts.png");
+    await standDown();
+    await sosApi(`
+      for (const c of (await call("GET", "/v1/me/emergency-contacts")).data || []) {
+        await call("DELETE", "/v1/me/emergency-contacts/" + c.id);
+      }
+      return true;
+    `);
+
   } catch (e) {
     bad("journey aborted", e.message);
     console.error(e.stack?.split("\n").slice(0, 4).join("\n"));

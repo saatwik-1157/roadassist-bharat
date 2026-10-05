@@ -26,7 +26,8 @@
 // v21: the Volt reskin of the citizen app (near-black ground, one chartreuse accent, round service tiles): app.html, app.css, ds.css, ui.js.
 // v22: the pre-filled sign-in number moves into the demo block (+917000009876): app.html.
 // v23: lime map markers and the edge-pin popup fix (map.html); a missing space in app.html's sign-in field.
-const VERSION = "ra-v23";
+// v24: the online SOS sheet says only what the server did — no "Help is on the way." when no contact or responder was reached (app.html, journey.js, i18n.js).
+const VERSION = "ra-v24";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.

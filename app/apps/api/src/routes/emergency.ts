@@ -41,6 +41,19 @@ import {
   allowedIncidentCommands, applyIncident, PUBLIC_STAGE, type IncidentStatus,
 } from "../domain/incident-machine.js";
 
+/**
+ * Responder units RoadAssist itself contacted for an incident: none, in this
+ * build, on every path.
+ *
+ * The escalation ladder LOCATES the nearest active unit (`nearestResponder`)
+ * and records it on an `incident_responses` row; nothing is sent to that unit,
+ * and the ERSS 112 handoff is stubbed. Clients used to read "a unit was found"
+ * as "help is on the way". Every answer that describes an escalation therefore
+ * carries this count, so a screen may say "responders have been alerted" only
+ * when the server says it did that. Raise it only alongside a real send.
+ */
+const RESPONDERS_NOTIFIED = 0;
+
 export async function emergencyRoutes(app: FastifyInstance) {
   /**
    * A crash signal raises an incident; it never dispatches one. The incident sits
@@ -335,6 +348,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
       return {
         id: r.id, status, stage: PUBLIC_STAGE[status], reference: r.reference ?? null,
         raisedAt: r.raisedAt.toISOString(), severity: r.severity,
+        respondersNotified: RESPONDERS_NOTIFIED,
         canResolve: allowedIncidentCommands(status).includes("resolve"),
         canCancel: allowedIncidentCommands(status).includes("cancel"),
       };
@@ -458,6 +472,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
       return ok({
         id, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
         contactsAlerted: 0, alreadyEscalated: true,
+        respondersNotified: RESPONDERS_NOTIFIED,
         nearestResponder: again[0] ?? null,
         elapsedMs: Date.now() - t0,
       }, { note: "Already escalated — emergency contacts are alerted once per incident and were not texted again." });
@@ -543,6 +558,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
       type: "sos.status", incidentId: id, status: respondingTo,
       stage: PUBLIC_STAGE[respondingTo],
       contactsAlerted, responderFound: Boolean(responders[0]),
+      respondersNotified: RESPONDERS_NOTIFIED,
     });
     logOp(req, {
       op: "sos.escalate", result: "ok", durationMs: Date.now() - t0, incidentId: id,
@@ -557,6 +573,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
       ...(contactsFailed ? { contactsFailed } : {}),
       ...(withheld ? { contactsWithheld: contacts.length } : {}),
       ...(optedOut.length ? { contactsOptedOut: optedOut.length } : {}),
+      respondersNotified: RESPONDERS_NOTIFIED,
       nearestResponder: responders[0] ?? null,
       elapsedMs: Date.now() - t0,
     }, {

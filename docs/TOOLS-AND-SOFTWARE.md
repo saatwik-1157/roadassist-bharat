@@ -159,7 +159,7 @@ the one before it.
 | Tool | Version | What it does here | Where |
 |---|---|---|---|
 | Plain HTML, CSS, JavaScript | n/a | Every page. No framework and no bundler | `app/apps/web/` |
-| Service worker | cache `ra-v23` | Keeps the app shell and map tiles available offline. API answers are never cached, because a stale booking status is worse than an honest failure ([ADR-0004](../app/docs/adr/0004-offline-conflict-rules.md)) | `app/apps/web/sw.js` |
+| Service worker | cache `ra-v24` | Keeps the app shell and map tiles available offline. API answers are never cached, because a stale booking status is worse than an honest failure ([ADR-0004](../app/docs/adr/0004-offline-conflict-rules.md)) | `app/apps/web/sw.js` |
 | IndexedDB + Web Crypto (AES-GCM-256) | Browser built-ins | The offline SOS and sync journal. Payloads are encrypted under a **non-extractable** key generated on the device | `app/apps/web/offline-store.js`, `offline-engine.js` |
 | Web app manifest | n/a | Lets the citizen app install to the home screen (`start_url` `/app.html`, standalone) | `app/apps/web/manifest.webmanifest` |
 | Leaflet | 1.9.4 (vendored) | The maps on the live map and the RAKSHA dashboard | `vendor/leaflet.js`, used by `map.html` and `raksha.html` |
@@ -180,7 +180,8 @@ page makes a visitor's browser contact a third party (enforced by
 | Android Gradle Plugin | 8.13.2 | Builds the app |
 | Gradle (wrapper) | 8.13 | The build tool. Must run on **JDK 21**: Gradle 8.13 rejects JDK 25 (ENGINEERING-NOTES.md) |
 | Java target | 17 (`sourceCompatibility`, `jvmTarget`) | Bytecode level of the app |
-| Android SDK | `compileSdk` 35, `targetSdk` 35, `minSdk` 26 | Runs on Android 8.0 and newer |
+| Android SDK | `compileSdk` 36, `targetSdk` 36, `minSdk` 26 | Runs on Android 8.0 and newer; built and targeted for Android 16 |
+| App version | `versionName` 1.0.4, `versionCode` 6 | The release published as `android-v1.0.4` on GitHub Releases |
 | Jetpack Compose | BOM 2024.09.03; `ui`, `foundation`, `material3` | The user interface |
 | androidx.activity:activity-compose | 1.9.2 | Hosts Compose in the activity |
 | androidx.lifecycle:lifecycle-runtime-ktx | 2.8.6 | Lifecycle-aware coroutines |
@@ -194,9 +195,17 @@ page makes a visitor's browser contact a third party (enforced by
 **Why so few libraries:** networking uses the platform's own
 `HttpURLConnection` and `org.json`, so the app has no third-party runtime
 library at all ("zero third-party libraries, so the first build has the fewest
-possible failure modes", `mobile/app/build.gradle.kts`). The release APK is
-signed with the debug key so it installs on a demo device; it is **not** a
-store distribution build.
+possible failure modes", `mobile/app/build.gradle.kts`). Release builds are
+signed with the RoadAssist Bharat release key, which is held outside the
+repository (`RA_SIGNING_PROPS`, or a folder beside the repository; neither the
+keystore nor its properties file is committed). Its certificate SHA-256 is
+`f602bb634f6e5dfc76752aec42ac36bf1a35c081a1f04b545e3ab107dcf84359`, and the
+signed APKs are published as GitHub Releases tagged `android-vX.Y.Z` (latest
+`android-v1.0.4`; install and verification steps in `release/INSTALL.md`). A
+machine without the key, such as CI, still builds a release APK but signs it
+with the debug key and prints a warning: that APK installs for a demo and can
+never update, or stand in for, the published release. The app is not on a
+store.
 
 The SOS ladder's decisions (data, then SMS, then 112, then the on-device queue)
 live in `SosLadder.kt` as pure functions so they can be tested off-device.
@@ -264,7 +273,8 @@ The platform lives on **Render**, a hosting company that runs our program in a
 **Docker container** (a sealed box holding the program and everything it needs).
 The data lives on **Neon**, a hosted PostgreSQL database. Both are in
 **Singapore**, the closest region to India that their free plans offer.
-**Cloudflare** sits in front and handles secure (HTTPS) connections. A separate
+Render serves the platform through **Cloudflare**, which sits in front and
+handles secure (HTTPS) connections. A separate
 public showcase page is hosted free on **GitHub Pages**. **GitHub Actions**
 tests every change automatically.
 
@@ -282,8 +292,8 @@ tests every change automatically.
 | **Render** | Runs the Docker image as one web service. Rebuilds and redeploys on every commit (`autoDeployTrigger: commit`). Health check `/health`, which answers 503 when the database is unreachable | `render.yaml`: `runtime: docker`, `plan: free`, `region: singapore`, `NODE_ENV=demo` | `IMPLEMENTED` (live) |
 | **Neon** | Managed PostgreSQL 16 + PostGIS, Singapore (`ap-southeast-1`), TLS required. The direct (not pooled) connection string is used, because migrations and live streams need a real session | Set by hand as `DATABASE_URL` in Render; never committed | `IMPLEMENTED` (live) |
 | **Least-privilege database role** | `roadassist_app` can read and write rows only: no `CREATE`, `TRUNCATE` or ownership, and only `SELECT`/`INSERT` on `audit_log`. Migrations run as the owner through `MIGRATION_DATABASE_URL`, which `docker-start.sh` uses for the migrate step and then removes | `app/packages/db/sql/least-privilege-role.sql`, DEPLOYMENT.md | `IMPLEMENTED` (live since 5 Oct 2026): Render's `DATABASE_URL` is the `roadassist_app` string, and the live database's `pg_stat_activity` shows the service connected as `roadassist_app` |
-| **Cloudflare** | Proxy in front of Render. Visitors' HTTPS ends here, and the API takes the caller's address from `CF-Connecting-IP`, which a caller cannot forge | `CLIENT_IP_HEADER=cf-connecting-ip`, `TRUST_PROXY=true` (`render.yaml`) | `IMPLEMENTED` (live) |
-| **Hostinger** | Where the domain is managed. DEPLOYMENT.md §3 adds the `app` CNAME and the Resend DKIM/SPF records there; the newer AWS kit edits the `app` record in Cloudflare's DNS | DNS records | `IMPLEMENTED` |
+| **Cloudflare** | The edge in front of Render. It is Render's, not a separate account: `app` is a CNAME to Render, and Render serves custom domains through Cloudflare. Visitors' HTTPS ends here, and the API takes the caller's address from `CF-Connecting-IP`, which a caller cannot forge | `CLIENT_IP_HEADER=cf-connecting-ip`, `TRUST_PROXY=true` (`render.yaml`) | `IMPLEMENTED` (live) |
+| **Hostinger** | Where the domain and its DNS are managed (Hostinger's nameservers). DEPLOYMENT.md §3 adds the `app` CNAME and the Resend DKIM/SPF records there, and switching to the AWS kit is an edit to that same `app` record | DNS records | `IMPLEMENTED` |
 | **GitHub Pages** | Hosts the static showcase. Built and checked by `pages.yml`, which fails if the page loads anything from another origin | `.github/workflows/pages.yml`, `pages/` | `IMPLEMENTED` (live) |
 | **GitHub Container Registry (GHCR)** | Stores the published image `ghcr.io/saatwik-1157/roadassist-bharat`, tagged by branch, version and commit SHA so a bad deploy can roll back to a known image | `.github/workflows/publish-image.yml` | `IMPLEMENTED` |
 | **GitHub Actions** | Runs the checks and publishing (table below) | `.github/workflows/*.yml` | `IMPLEMENTED` |
@@ -291,7 +301,7 @@ tests every change automatically.
 | **Resend** | Sends operator alert emails and email sign-in codes from the verified domain `send.roadassistbharat.online` | `EMAIL_PROVIDER=http`, `EMAIL_BASE_URL=https://api.resend.com/emails` | `IMPLEMENTED` (live) |
 | **Google Search Console** | Both sites are verified URL-prefix properties and both sitemaps are submitted (done 2026-09-30). The verification files `googlee923ee0decf8e5e0.html` must not be deleted | DEPLOYMENT.md, "Search engines" | `IMPLEMENTED` |
 | **Fly.io** | A ready alternative to Render that runs the same image, region Mumbai (`bom`) | `fly.toml` | `PREPARED`, not live |
-| **AWS (free plan)** | One EC2 `t3.micro` (Amazon Linux 2023, Singapore) running the same GHCR image with **Caddy 2** as the HTTPS origin behind Cloudflare (SSL mode "Full"), against the same Neon database. Switching is one DNS edit | `deploy/aws/README.md`, `user-data.sh`, `env.example` | `PREPARED`, not live |
+| **AWS (free plan)** | One EC2 `t3.micro` (Amazon Linux 2023, Singapore) running the same GHCR image with **Caddy 2** as the HTTPS origin, against the same Neon database. Switching is one DNS edit at Hostinger. The kit's Caddy uses its internal certificate and expects a Cloudflare proxy in SSL mode "Full" in front; the Cloudflare edge the live site has is Render's and does not follow the record to EC2, so that has to be provided first (see `deploy/aws/README.md`) | `deploy/aws/README.md`, `user-data.sh`, `env.example` | `PREPARED`, not live |
 
 ### GitHub Actions workflows
 
@@ -482,15 +492,15 @@ database migrated from empty, then seeded).
 
 | Suite | Count | What it proves | Runs |
 |---|---|---|---|
-| Unit (`npm test`) | 452 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
-| End-to-end (`npm run test:e2e`) | 246 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
+| Unit (`npm test`) | 460 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
+| End-to-end (`npm run test:e2e`) | 248 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
 | Concurrency (`npm run test:concurrency`) | 92 | Races: two mechanics accepting one job, three SOS taps at once, live event delivery | CI |
 | Gateway security (`npm run test:gateway`) | 58 | Webhook signatures, append-only audit rules, sign-in code limits per number and per IP | CI |
 | Security audit (`npm run test:security`) | 106 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
-| Browser (`npm run test:ui`) | 184 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
-| **Total** | **1138** | Six suites, zero failures | |
-| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1138, and never described as passing | By hand only |
-| Android (Gradle) | 188 | Android unit tests, run with lint and both APK builds | CI `android` job |
+| Browser (`npm run test:ui`) | 194 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
+| **Total** | **1158** | Six suites, zero failures | |
+| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1158, and never described as passing | By hand only |
+| Android (Gradle) | 190 | Android unit tests, run with lint and both APK builds | CI `android` job |
 | SOS ladder | 21 | The subset of the Android tests over `SosLadder.kt`, the emergency fallback decisions | CI `android` job |
 | CV pipeline | 39 | The Python pipeline tests (standard library only) | CI `ai` job |
 
@@ -586,7 +596,7 @@ which is fine for a demo but not for real emergencies.
 |---|---|---|
 | Render | Free web service | Sleeps after **15 minutes** idle and takes about a minute to wake. 750 instance hours a month per workspace; one service awake all month is about 720 to 744, so `keep-awake.yml` fits only while it is the only free service. The disk is ephemeral (persistent disks need a paid instance), so hazard photos are kept in the database instead ([ADR-0013](../app/docs/adr/0013-hazard-photos-in-the-database.md)) |
 | Neon | Free | 0.5 GB storage, roughly 750 hazard photos at the 600 KiB cap |
-| Cloudflare | Free | "Neon and Cloudflare stay on their free plans" (`deploy/aws/README.md`) |
+| Cloudflare | No account of the project's own | The edge in front of the live site comes with Render. The AWS kit would need a Cloudflare zone of its own, on the free plan (`deploy/aws/README.md`) |
 | GitHub (repository, Actions, Pages, GHCR) | No paid plan is referenced anywhere in the repository; the repository and the image are public | Scheduled runs may be delayed under load, so keep-awake means "usually awake" |
 | Resend | Free | The free sender delivers only to the account's own address; a verified domain (`send.roadassistbharat.online`) lifts that |
 | UptimeRobot | Not recorded in the repository | |

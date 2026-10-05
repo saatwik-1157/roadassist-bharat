@@ -6,7 +6,9 @@
  * on globalThis — the same way app.html reaches it.
  */
 import { strict as assert } from "node:assert";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import vm from "node:vm";
 
 import "../../web/journey.js";
 import { STATUSES } from "../src/domain/booking-machine.js";
@@ -21,8 +23,34 @@ interface Journey {
   bookingChange(prev: string | null, next: string): { announce: boolean; accepted: boolean; offersLive: boolean };
   sosExits(status: string | null): Array<{ command: string; path: string; label: string; body: Record<string, unknown> }>;
   sosActive(status: string | null): boolean;
+  sosOutcome(data: Record<string, unknown> | null): {
+    contacts: number; responders: number; repeat: boolean; reached: boolean; call112: boolean; lines: string[];
+  };
+  sosHeadline(data: Record<string, unknown> | null, ref: string, t: (key: string) => string): string;
 }
 const J = (globalThis as unknown as { RAJourney: Journey }).RAJourney;
+
+/**
+ * The web catalogue (apps/web/i18n.js), loaded as the browser loads it: a
+ * classic script run against a window. Only what it touches is provided.
+ */
+interface WebI18n { locales: string[]; set(l: string): string; t(k: string, f?: string): string }
+function loadWebI18n(): WebI18n {
+  const ctx: Record<string, unknown> = {
+    navigator: { languages: [] },
+    localStorage: { getItem: () => null, setItem: () => undefined },
+    document: {
+      readyState: "complete", querySelectorAll: () => [],
+      documentElement: { setAttribute: () => undefined },
+    },
+    CustomEvent: class {},
+    dispatchEvent: () => true,
+  };
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(readFileSync(new URL("../../web/i18n.js", import.meta.url), "utf8"), ctx);
+  return ctx.I18N as WebI18n;
+}
 
 describe("the tracking timeline", () => {
   it("names only statuses the booking machine actually has", () => {
@@ -138,5 +166,94 @@ describe("standing down an emergency", () => {
   it("hands out copies, so a caller cannot rewrite the table", () => {
     J.sosExits("RESPONDING").pop();
     assert.equal(J.sosExits("RESPONDING").length, 2);
+  });
+});
+
+describe("what an escalated SOS says happened", () => {
+  // The shape POST /v1/sos/:id/confirm answers with (routes/emergency.ts).
+  const UNIT = { id: "u1", name: "Gurugram PCR 4", km: 2.1 };
+  const answer = (over: Record<string, unknown> = {}) =>
+    ({ status: "RESPONDING", contactsAlerted: 0, respondersNotified: 0, nearestResponder: UNIT, ...over });
+
+  it("an escalation that reached nobody says so and puts Call 112 first", () => {
+    // The bug: "Help is on the way." after a confirm that reached no contact
+    // and no responder, because a unit had been located.
+    const o = J.sosOutcome(answer());
+    assert.deepEqual(o.lines, ["sos.done.recorded", "sos.done.none"]);
+    assert.equal(o.reached, false);
+    assert.equal(o.call112, true);
+  });
+
+  it("a located responder is not a contacted one, and a missing count is zero", () => {
+    // An older server sends no respondersNotified at all: that is not "probably".
+    const o = J.sosOutcome({ status: "RESPONDING", contactsAlerted: 0, nearestResponder: UNIT });
+    assert.equal(o.responders, 0);
+    assert.ok(!o.lines.includes("sos.done.responders"), o.lines.join());
+    assert.equal(o.call112, true);
+  });
+
+  it("contacts are claimed only as counted, in the singular for one", () => {
+    assert.deepEqual(J.sosOutcome(answer({ contactsAlerted: 1 })).lines,
+      ["sos.done.recorded", "sos.done.contacts.one", "sos.done.noResponder"]);
+    const three = J.sosOutcome(answer({ contactsAlerted: 3 }));
+    assert.deepEqual(three.lines, ["sos.done.recorded", "sos.done.contacts", "sos.done.noResponder"]);
+    assert.equal(three.contacts, 3);
+    assert.equal(three.reached, true);
+    assert.equal(three.call112, true, "contacts are not a responder: 112 still leads");
+  });
+
+  it("'Responders have been alerted' only when the server says it notified them", () => {
+    const o = J.sosOutcome(answer({ respondersNotified: 2, contactsAlerted: 2 }));
+    assert.deepEqual(o.lines, ["sos.done.recorded", "sos.done.responders", "sos.done.contacts"]);
+    assert.equal(o.call112, false);
+  });
+
+  it("a repeated confirm claims nothing new, and does not say nobody was ever reached", () => {
+    // The repeat answer carries contactsAlerted: 0 for THIS call; the first
+    // call may well have texted them, so "no contact was reached" would be false.
+    const o = J.sosOutcome(answer({ alreadyEscalated: true }));
+    assert.deepEqual(o.lines, ["sos.done.recorded", "sos.done.repeat", "sos.done.noResponder"]);
+  });
+
+  it("anything that is not a count of one or more counts as zero", () => {
+    for (const v of [null, undefined, "abc", -1, 0, NaN, "", {}]) {
+      const o = J.sosOutcome(answer({ contactsAlerted: v, respondersNotified: v }));
+      assert.equal(o.contacts, 0, String(v));
+      assert.equal(o.responders, 0, String(v));
+    }
+    assert.deepEqual(J.sosOutcome(null).lines, ["sos.done.recorded", "sos.done.none"]);
+  });
+
+  it("reads as specified in English, every key exists in all 8 languages, and none says help is coming", () => {
+    const web = loadWebI18n();
+    assert.equal(web.locales.length, 8);
+    const t = (k: string) => web.t(k, "");
+    web.set("en");
+    assert.equal(J.sosHeadline(answer(), "ab12cd34", t),
+      "Emergency recorded (ref ab12cd34). No responder or contact was reached. Call 112 now.");
+    assert.equal(J.sosHeadline(answer({ contactsAlerted: 2 }), "ab12cd34", t),
+      "Emergency recorded (ref ab12cd34). Your 2 emergency contacts were alerted. No responder was contacted. Call 112 now.");
+
+    const cases = [answer(), answer({ contactsAlerted: 1 }), answer({ contactsAlerted: 4 }),
+      answer({ respondersNotified: 1 }), answer({ alreadyEscalated: true })];
+    const keys = new Set(cases.flatMap((c) => J.sosOutcome(c).lines));
+    keys.add("sos.grace"); keys.add("sos.call112"); keys.add("sos.unit.found"); keys.add("sos.unit.notContacted");
+    for (const locale of web.locales) {
+      web.set(locale);
+      for (const k of keys) {
+        // t() falls back to English, so a missing key would pass silently: compare.
+        const s = t(k);
+        assert.ok(s, `${locale}/${k}`);
+        if (locale !== "en") {
+          web.set("en"); const en = t(k); web.set(locale);
+          assert.notEqual(s, en, `${locale}/${k} is still English`);
+        }
+      }
+      for (const c of cases) {
+        const line = J.sosHeadline(c, "ab12cd34", t);
+        assert.ok(line.includes("ab12cd34") && !/[{}]/.test(line), `${locale}: ${line}`);
+        assert.doesNotMatch(line, /on the way|help is coming/i, `${locale}: ${line}`);
+      }
+    }
   });
 });

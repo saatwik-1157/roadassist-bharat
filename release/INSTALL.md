@@ -1,15 +1,24 @@
-# RoadAssist Bharat 1.0.4 — installing the Android app
+# RoadAssist Bharat 1.0.5 — installing the Android app
 
 | File | What it is |
 |---|---|
-| `RoadAssist-Bharat-1.0.4.apk` | The app, ready to install on a phone (Android 8.0 / API 26 or newer). |
-| `RoadAssist-Bharat-1.0.4.aab` | The same build as an Android App Bundle, the format Google Play takes. It cannot be installed on a phone directly. |
+| `RoadAssist-Bharat-1.0.5.apk` | The app, ready to install on a phone (Android 8.0 / API 26 or newer). |
+| `RoadAssist-Bharat-1.0.5.aab` | The same build as an Android App Bundle, the format Google Play takes. It cannot be installed on a phone directly. |
 
 Both are built from `mobile/` with `gradlew.bat :app:assembleRelease :app:bundleRelease`,
-version 1.0.4 (versionCode 6), package `in.roadassist.app`, and signed with the
+version 1.0.5 (versionCode 7), package `in.roadassist.app`, and signed with the
 RoadAssist Bharat release key (certificate `CN=RoadAssist Bharat, OU=SWE4004,
 O=VIT-AP University, C=IN`, APK Signature Scheme v2 + v3). The binaries are not
 in git; rebuild them from source or take them from whoever holds this folder.
+
+**What changed in 1.0.5.** The "Emergency open" card on Home said "Responders
+have been alerted" for every escalated SOS, although the server only locates
+the nearest unit and contacts none. It now says so only when the server reports
+a responder was notified; otherwise it reads "Escalated — no responder has been
+contacted. Call 112 if you need help now." A confirmed but not yet escalated
+SOS no longer says contacts and responders are being alerted, and closing one
+("I'm safe") no longer says responders will stop working on it: it says it
+closes the emergency on the server.
 
 This release build talks HTTPS only: it refuses plain `http://` server addresses
 (the More → Server field says so). Pointing the app at a local development API
@@ -24,7 +33,7 @@ needs a debug build; see ENGINEERING-NOTES.md, "Reaching the API from the Androi
 
 ## 1. Install the APK on a phone
 
-1. Copy `RoadAssist-Bharat-1.0.4.apk` to the phone (USB cable, Google Drive,
+1. Copy `RoadAssist-Bharat-1.0.5.apk` to the phone (USB cable, Google Drive,
    a messaging app sent to yourself, or a download link).
 2. Allow the app you will open it with to install apps. Android asks the first
    time: tap **Settings** on the prompt, then turn on **Allow from this source**
@@ -84,7 +93,7 @@ Play takes the `.aab`, not the `.apk`.
    current "SMS and Call Log permissions" policy before submitting; if the
    declaration is not accepted, the SMS fallback has to be removed from the
    Play build.
-6. Upload `RoadAssist-Bharat-1.0.4.aab` to an **Internal testing** track first,
+6. Upload `RoadAssist-Bharat-1.0.5.aab` to an **Internal testing** track first,
    add testers by email, and install from the opt-in link. New personal
    developer accounts must also run a closed test with testers for a period
    before production access is granted; follow what Play Console asks for.
@@ -93,10 +102,10 @@ Play takes the `.aab`, not the `.apk`.
 ## 4. Checking a file before you share it
 
 ```
-apksigner verify --print-certs RoadAssist-Bharat-1.0.4.apk
+apksigner verify --print-certs RoadAssist-Bharat-1.0.5.apk
 ```
 
 (`apksigner` is in the Android SDK under `build-tools\<version>\`.) It must say
 `Verifies` and show the `CN=RoadAssist Bharat, OU=SWE4004, O=VIT-AP University, C=IN`
 certificate. Compare the SHA-256 of the file with the one published alongside it
-(`certutil -hashfile RoadAssist-Bharat-1.0.4.apk SHA256` on Windows).
+(`certutil -hashfile RoadAssist-Bharat-1.0.5.apk SHA256` on Windows).

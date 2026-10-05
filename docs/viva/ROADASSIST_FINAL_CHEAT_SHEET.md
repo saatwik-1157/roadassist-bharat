@@ -69,8 +69,8 @@ request. Signature recomputed server-side. Forged → settles nothing. Replay �
 no double charge. **`mock` on the deployment, stub in tests — no live gateway.**
 
 ### Testing
-Unit **302** · E2E **203** · Gateway **35** · Concurrency **77** · Security **84**
-· Browser **163** = **920 executed, 0 failures**. Plus a 15-beat
+Unit **460** · E2E **248** · Gateway **58** · Concurrency **92** · Security **106**
+· Browser **194** = **1158 executed, 0 failures**. Plus a 15-beat
 timed demo rehearsal. **Outside the total, not executed:** 22 payment checks —
 no account needed (local stub), but they need the API started separately in
 Razorpay mode. **Say so.**

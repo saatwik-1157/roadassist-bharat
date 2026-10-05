@@ -405,10 +405,15 @@ screens.tracking = () => {
 
 screens.sos = () => {
   const responding = state.incident.status === "RESPONDING";
+  // Only what the confirm answer reports: a located responder is not a contacted one.
+  const contacts = Number(state.incident.contactsAlerted) || 0;
+  const told = Number(state.incident.respondersNotified) || 0;
   return `
-  <h2 style="color:var(--red-t)">${responding ? "Help is coming" : "Crash detected"}</h2>
+  <h2 style="color:var(--red-t)">${responding ? "Emergency escalated" : "Crash detected"}</h2>
   <p class="sub">${responding
-    ? "Your contacts have been alerted and the nearest responder is on the way."
+    ? `${told ? "Responders have been alerted. " : ""}${contacts
+        ? `${contacts} emergency contact${contacts === 1 ? " was" : "s were"} alerted. `
+        : ""}${told ? "" : contacts ? "No responder was contacted. Call 112 now." : "No responder or contact was reached. Call 112 now."}`
     : "Nothing has been dispatched. Confirm or cancel."}</p>
   <div class="card" style="border-color:var(--red)">
     <div class="row"><span>Status</span><span class="k ${responding ? "warn" : "bad"}">${esc(state.incident.status)}</span></div>

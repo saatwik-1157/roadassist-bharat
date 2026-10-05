@@ -18,7 +18,7 @@ document itself — never left to be inferred.
 |---|---|
 | [`../README.md`](../README.md) | Quick start, scope, feature status |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Deploy, configure, back up, roll back — the live Render + Neon deployment (Singapore), and exactly what external accounts are still needed |
-| [`TESTING.md`](TESTING.md) | Six executed suites (1138 assertions), the 22 Razorpay checks kept outside that total, what each proves, and what is deliberately not covered |
+| [`TESTING.md`](TESTING.md) | Six executed suites (1158 assertions), the 22 Razorpay checks kept outside that total, what each proves, and what is deliberately not covered |
 
 ## The two things this project is actually about
 
@@ -52,7 +52,8 @@ Thirteen ADRs in [`adr/`](adr/). The four that matter most:
 
 ## Screenshots
 
-[`screenshots/`](screenshots/) — 15 PNGs captured from the **running**
-application by `node scripts/capture-screens.mjs`. They are regenerable in
-ninety seconds, and the capture script asserts what is on screen before it
-presses the shutter, so it cannot silently photograph an error state.
+[`screenshots/`](screenshots/) — 24 PNGs captured from the **running**
+application. Eighteen of them (listed in `screenshots/manifest.json`) are taken
+by `node scripts/capture-screens.mjs`; they are regenerable in ninety seconds,
+and the capture script asserts what is on screen before it presses the shutter,
+so it cannot silently photograph an error state.
