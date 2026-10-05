@@ -1,6 +1,6 @@
 {
-  "capturedAt": "2026-10-04T18:20:32.726Z",
-  "base": "http://localhost:4498",
+  "capturedAt": "2026-10-05T09:36:02.948Z",
+  "base": "http://localhost:4466",
   "shots": [
     {
       "name": "01-login",
@@ -52,19 +52,27 @@
     },
     {
       "name": "13-mechanic-login",
-      "caption": "Mechanic console sign-in"
+      "caption": "Mechanic console sign-in",
+      "capturedAt": "2026-10-04T18:20:32.726Z",
+      "note": "kept from the earlier run; theme unchanged"
     },
     {
       "name": "24-mechanic-console",
-      "caption": "Mechanic console — availability, stats, the active job"
+      "caption": "Mechanic console — availability, stats, the active job",
+      "capturedAt": "2026-10-04T18:20:32.726Z",
+      "note": "kept from the earlier run; theme unchanged"
     },
     {
       "name": "14-authority",
-      "caption": "RAKSHA authority dashboard — live map, road health, detections"
+      "caption": "RAKSHA authority dashboard — live map, road health, detections",
+      "capturedAt": "2026-10-04T18:20:32.726Z",
+      "note": "kept from the earlier run; theme unchanged"
     },
     {
       "name": "18-live-map",
-      "caption": "RAKSHA live map — clustered mechanics, responders and detections"
+      "caption": "RAKSHA live map — clustered mechanics, responders and detections",
+      "capturedAt": "2026-10-04T18:20:32.726Z",
+      "note": "kept from the earlier run; theme unchanged"
     },
     {
       "name": "15-landing",

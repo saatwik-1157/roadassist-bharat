@@ -95,6 +95,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -903,6 +904,7 @@ private fun processReportImage(ctx: android.content.Context, uri: android.net.Ur
  *  fix requested at submit time; with none the report is NOT sent and the draft
  *  stays open for a retry (HazardLocation). An optional photo (picked at app
  *  scope) is downscaled on-device. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReportHazardDialog(
     photoB64: String?,
@@ -940,10 +942,15 @@ private fun ReportHazardDialog(
             Column {
                 Text(stringResource(R.string.report_hazard_sub),
                     color = Muted, style = RaType.sub)
-                // The type as a row of pill chips, the chosen one in lime.
+                // The type as pill chips, the chosen one in lime. They wrap
+                // rather than scroll: the dialog is narrower than a screen, and
+                // a sideways row cut "Obstruction" off mid-word at its edge.
                 Text(stringResource(R.string.label_type_prefix) + (types.find { it.first == type }?.second ?: type),
                     color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 14.dp))
-                RaChipRow(Modifier.padding(top = 2.dp)) {
+                FlowRow(
+                    Modifier.fillMaxWidth().padding(top = 2.dp).selectableGroup(),
+                    horizontalArrangement = Arrangement.spacedBy(RaSpace.s2),
+                ) {
                     types.forEach { (code, label) ->
                         RaChip(label, selected = code == type) { type = code }
                     }
@@ -1144,7 +1151,7 @@ private fun EmptyTrack(onBook: () -> Unit) {
                                     Text(it, color = Muted, style = RaType.caption, modifier = Modifier.padding(top = 2.dp))
                                 }
                             }
-                            StatusChip(status, statusColor(status))
+                            StatusChip(statusLabel(status), statusColor(status))
                         }
                     }
                 }
@@ -1282,7 +1289,7 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                                         modifier = Modifier.padding(top = 2.dp))
                                 }
                             }
-                            StatusChip(st, statusColor(st))
+                            StatusChip(statusLabel(st), statusColor(st))
                         }
                     }
                 }
@@ -1505,10 +1512,31 @@ private fun ScreenColumn(
     // 20dp sides (the card padding) and 24dp top/bottom, on the 4dp ladder.
     Column(
         Modifier.fillMaxSize().verticalScroll(scroll)
-            .padding(horizontal = RaSpace.s4 + RaSpace.s1, vertical = RaSpace.s5),
+            .padding(horizontal = ScreenSide, vertical = RaSpace.s5),
         content = content,
     )
 }
+
+/** The side padding of [ScreenColumn]. */
+private val ScreenSide = RaSpace.s4 + RaSpace.s1
+
+/**
+ * Widens a row inside [ScreenColumn] by its side padding on both sides, so a
+ * sideways-scrolling row runs to the screen edges. Pair it with
+ * `.padding(horizontal = ScreenSide)` after the scroll so the first item still
+ * lines up with the page.
+ */
+private fun Modifier.bleedToScreenEdges(): Modifier =
+    this.then(Modifier.layout { measurable, constraints ->
+        val side = ScreenSide.roundToPx()
+        if (!constraints.hasBoundedWidth) {
+            val p = measurable.measure(constraints)
+            return@layout layout(p.width, p.height) { p.place(0, 0) }
+        }
+        val wide = constraints.maxWidth + 2 * side
+        val p = measurable.measure(constraints.copy(minWidth = wide, maxWidth = wide))
+        layout(constraints.maxWidth, p.height) { p.place(-side, 0) }
+    })
 
 @Composable
 private fun Heading(@StringRes plain: Int, @StringRes italic: Int) {
@@ -2432,9 +2460,12 @@ private fun BookScreen(
         // Until they load (or if they cannot), the line that says so, which
         // retries on a tap after a failure.
         if (services.isNotEmpty()) {
+            // Edge to edge: the row scrolls under the screen's edge, not under
+            // the page padding, which cut the last tile and its label in half.
             Row(
-                Modifier.fillMaxWidth().padding(top = RaSpace.s4)
-                    .horizontalScroll(rememberScrollState()).selectableGroup(),
+                Modifier.padding(top = RaSpace.s4).bleedToScreenEdges()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = ScreenSide).selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(RaSpace.s1),
             ) {
                 services.forEach { s ->
@@ -2626,7 +2657,7 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
                         targetState = status, label = "status",
                         animationSpec = if (LocalReduceMotion.current) androidx.compose.animation.core.snap() else RaMotion.med(),
                     ) { st ->
-                        Text(st, color = statusColor(st), style = RaType.heading, fontSize = 26.sp,
+                        Text(statusLabel(st), color = statusColor(st), style = RaType.heading, fontSize = 26.sp,
                             modifier = Modifier.padding(top = RaSpace.s1))
                     }
                 }
@@ -2666,7 +2697,7 @@ private fun TrackScreen(bookingId: String, onToast: (String) -> Unit) {
                                             invoice = "Invoice ${inv.getString("number")} · " +
                                                 "₹${"%.2f".format(inv.getInt("totalPaise") / 100.0)} (incl. GST)"
                                         }
-                                        onToast("→ $status")
+                                        onToast("→ " + statusLabel(status))
                                     } catch (e: Exception) { onToast(e.message ?: "Failed") }
                                     busy = false
                                 }
@@ -2697,3 +2728,10 @@ private fun Loading() {
 // "auto-rickshaw" and "ev" as "EV". The code itself is still what is sent.
 private fun vehicleClassLabel(code: String): String =
     if (code == "ev") "EV" else code.replace('_', '-')
+
+// A booking or report status code, shown as words: "EN_ROUTE" reads as
+// "En route" and "PAID" as "Paid". The code itself still picks the colour
+// (see statusColor) and is what every request sends.
+private fun statusLabel(code: String): String =
+    code.replace('_', ' ').lowercase(java.util.Locale.ROOT)
+        .replaceFirstChar { it.titlecase(java.util.Locale.ROOT) }

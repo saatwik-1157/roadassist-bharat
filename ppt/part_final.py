@@ -590,7 +590,7 @@ an authority with a reason, audited; it can close an incident, never dispatch on
 s = new_slide()
 title_block(s, "The Android app, on the emulator",
             eyebrow=f"KOTLIN + JETPACK COMPOSE · {MEASURED['assertions']['otherRunners']['android']} TESTS · CAPTURED FROM ANDROID STUDIO'S EMULATOR")
-for i, (name, cap) in enumerate([("src_android_home.png", "Home · the new Layers in 3D card"),
+for i, (name, cap) in enumerate([("src_android_home.png", "Home · help near you, your vehicle, report a hazard"),
                                  ("src_android_layers.png", "Layers in 3D · live, in a WebView"),
                                  ("src_android_journey.png", "A journey playing · step 5 of 8"),
                                  ("src_android_emergency.png", "An open emergency, found after a restart")]):

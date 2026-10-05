@@ -230,14 +230,18 @@ const run = async () => {
     await page.viewport(390, 844);
     await page.goto(`${BASE}/app.html`);
     await page.waitFor(`document.getElementById("a-send")`);
-    await page.shot("01-login", "OTP sign-in — real API, dev OTP returned in the response");
 
     // These screenshots are published. A random 9xxxxxxxxx number could be
     // somebody's real phone, so the account lives in the seed's own demo block
     // (+917000…), fresh per run so the screens still show a new account.
+    // The field is filled BEFORE the sign-in shot: app.html pre-fills it with
+    // +919876543210, a real-looking number that every earlier 01-login.png
+    // published. The shot now shows the number this run actually signs in with.
     const msisdn = "+9170000" + (10000 + Math.floor(Math.random() * 89999));
     await page.eval(`
-      document.getElementById("a-msisdn").value = ${JSON.stringify(msisdn)};
+      document.getElementById("a-msisdn").value = ${JSON.stringify(msisdn)}; return true;`);
+    await page.shot("01-login", "OTP sign-in — real API, dev OTP returned in the response");
+    await page.eval(`
       document.getElementById("a-send").click(); return true;`);
     await page.waitFor(`document.getElementById("a-step2").hidden === false`);
     await page.eval(`
@@ -469,6 +473,11 @@ const run = async () => {
     // The console gets its own shot, captioned as what it actually is.
     await page.goto(`${BASE}/index.html`);
     await sleep(2200);
+    // The console pre-fills the same +919876543210 as app.html; show this
+    // run's demo-block number instead (see the 01-login step).
+    await page.eval(`
+      const f = document.getElementById("msisdn");
+      if (f) f.value = ${JSON.stringify(msisdn)}; return true;`);
     await page.shot("23-console", "Request console — every API call the client makes, with the server's reply");
 
     // A manifest so the deck and the docs reference captured files, never
