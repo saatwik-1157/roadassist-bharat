@@ -78,7 +78,7 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 451 unit — no I/O, the only ones that run standalone
+npm test                 # 452 unit — no I/O, the only ones that run standalone
 npm run test:e2e         # 246
 npm run test:concurrency # 92
 npm run test:gateway     # 58
@@ -113,7 +113,7 @@ refuses to run (exit 2) unless the API was started with the variables in the
 script's header (`PAYMENTS_PROVIDER=razorpay`, `PAYMENTS_BASE_URL` at the stub).
 It is **not** part of the 920 and must never be described as passing.
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (182
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (188
 tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
 
 ## Toolchain traps

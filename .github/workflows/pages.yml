@@ -67,6 +67,12 @@ jobs:
           mkdir -p _site/hero _site/feed
           cp pages/hero/*.webp _site/hero/
           cp pages/feed/*.webp _site/feed/
+          # The dot globe's land and sea dots (about 21 KB), baked by
+          # pages/globe/bake_land.py from Natural Earth's public-domain 1:110m
+          # land polygons. Only the baked file ships; the page fetches it from
+          # this origin when the globe nears view, never from Natural Earth.
+          mkdir -p _site/globe
+          cp pages/globe/land.bin _site/globe/
           # Space Grotesk, Inter and JetBrains Mono, self-hosted with their SIL OFL licences.
           mkdir -p _site/fonts
           cp pages/fonts/*.woff2 pages/fonts/OFL-*.txt _site/fonts/
@@ -159,6 +165,14 @@ jobs:
             # ...and the full-size PNG the lightbox opens.
             ref="shots/$name.png"
             if [ -f "_site/$ref" ]; then echo "  ok   $ref (lightbox)"; else echo "  MISS $ref (lightbox)"; fail=1; fi
+          done
+          # The globe fetches its dots from the figure's data-land in script, so
+          # the src greps never see that path either. A missing file would only
+          # fall back to a plain sphere, under a caption that says it is land.
+          refs=$(grep -oE 'data-land="[^"]+"' _site/index.html | cut -d'"' -f2 | sort -u)
+          if [ -z "$refs" ] && grep -q 'id="globe"' _site/index.html; then echo "  MISS data-land (the globe names no dots file)"; fail=1; fi
+          for ref in $refs; do
+            if [ -s "_site/$ref" ]; then echo "  ok   $ref (globe)"; else echo "  MISS $ref (globe)"; fail=1; fi
           done
           exit $fail
 

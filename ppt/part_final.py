@@ -645,7 +645,7 @@ rows = [("Amount", "Never taken from the request — it is the invoice total, an
         ("Two paths", "Browser callback AND webhook. The webhook is the one that matters: a customer can pay and close the tab"),
         ("Idempotent", "Delivery is at-least-once, so a replayed webhook settles nothing twice"),
         ("Refuses to boot", "Production will not start on a real gateway with no webhook secret"),
-        ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 1137")]
+        ("Checked, not counted", "22 checks against a local stub of Razorpay's API, no account: forged signature, replay, wrong amount — outside the 1138")]
 bullet_rows(s, 0.9, 4.15, rows, w=11.5, gap=0.5, size=10.5)
 footer(s); page_no(s, 18)
 
@@ -887,9 +887,9 @@ footer(s); page_no(s, 26)
 
 # ── 27 · TESTING ───────────────────────────────────────────────────────────
 s = new_slide()
-title_block(s, "1137 assertions, all executed", eyebrow="TESTING",
+title_block(s, "1138 assertions, all executed", eyebrow="TESTING",
             sub="Against a real PostgreSQL + PostGIS and a real Chrome. 22 Razorpay stub checks sit outside this total.")
-suites = [("Unit", "451", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
+suites = [("Unit", "452", "state machines, rules, redaction, SMS coordinates, i18n segment budget"),
           ("End-to-end", "246", "the whole API journey against real Postgres"),
           ("Concurrency + real-time", "92", "races a sequential suite structurally cannot make"),
           ("Security", "106", "attacks that must FAIL"),
@@ -904,7 +904,7 @@ for i, (name, n, what) in enumerate(suites):
     txt(s, 5.35, y + 0.11, 6.9, 0.3, what, size=9.5, color=GREY)
 panel(s, 0.85, 6.5, 11.6, 0.0, fill=INK_2, line_col=None)
 txt(s, 0.85, 6.5, 11.6, 0.4,
-    "1137 passed · 0 failed   •   0 server errors across the sweep",
+    "1138 passed · 0 failed   •   0 server errors across the sweep",
     size=12, color=GREEN, bold=True, align=PP_ALIGN.CENTER)
 footer(s); page_no(s, 27)
 
@@ -973,7 +973,7 @@ lims = ["The demo is one free-tier Render + Neon instance in Singapore, no India
         "Single instance only: SSE registry, rate limiter and offer sweeper are in-process.",
         "Location lookups send positions, coarsened to about 110 m, to OpenStreetMap and OSRM servers in Germany/EU. Declared (ADR-0012).",
         "The ERSS 112 handoff is a stub, and the API response says so. Emergency isolation (ADR-0005) is a design, not a deployment.",
-        "Payment checks run only against a local stub of Razorpay's API, outside the 1137 — never a real account.",
+        "Payment checks run only against a local stub of Razorpay's API, outside the 1138 — never a real account.",
         "The diagnosis “AI” is a deterministic rules engine. Labelled as such everywhere.",
         "No load test, no external penetration test, no coverage on the HTTP layer (suites run out-of-process).",
         "Device encryption protects a storage dump, not script on the same origin — and the UI says exactly that.",
@@ -1115,7 +1115,7 @@ panel(s, 0.85, 5.05, 11.6, 1.0, fill=INK_2, line_col=RED, line_w=1.75)
 txt(s, 1.1, 5.28, 11.1, 0.55, "“RoadAssist doesn't stop when the network stops.”",
     size=22, color=WHITE, bold=True, font=SANS_SEMI, align=PP_ALIGN.CENTER)
 txt(s, 0.85, 6.3, 11.6, 0.35,
-    f"1137 assertions · 6 suites · 0 failures  •  {SCHEMA['tables']} tables · 74 routes · 13 ADRs  •  every claim on these slides is testable",
+    f"1138 assertions · 6 suites · 0 failures  •  {SCHEMA['tables']} tables · 74 routes · 13 ADRs  •  every claim on these slides is testable",
     size=10.5, color=GREY_DIM, align=PP_ALIGN.CENTER)
 footer(s)
 notes(s, """Close on the promise, then stop talking. If there is time, offer to run

@@ -21,12 +21,12 @@ npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Deskt
 npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run share                                               # → public HTTPS url, for real phones
-npm run verify && npm run test:e2e                          # 451 unit + 246 end-to-end
+npm run verify && npm run test:e2e                          # 452 unit + 246 end-to-end
 npm run test:gateway                                        # 58 gateway-security checks
 npm run test:concurrency                                    # 92 race / idempotency / real-time
 npm run test:security                                       # 106 attacks, all must be refused
 npm run test:ui                                             # 184 browser-journey checks
-npm run test:razorpay                                       # 22 payment-gateway checks: not in the 1137, see below
+npm run test:razorpay                                       # 22 payment-gateway checks: not in the 1138, see below
 ```
 
 > `db:seed` is not idempotent — against an already-seeded database run

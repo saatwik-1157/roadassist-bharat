@@ -25,7 +25,8 @@
 // v20: three national helplines (181, 1098, 14567) under "Other national helplines" (emergency-numbers.js, app.css).
 // v21: the Volt reskin of the citizen app (near-black ground, one chartreuse accent, round service tiles): app.html, app.css, ds.css, ui.js.
 // v22: the pre-filled sign-in number moves into the demo block (+917000009876): app.html.
-const VERSION = "ra-v22";
+// v23: lime map markers and the edge-pin popup fix (map.html); a missing space in app.html's sign-in field.
+const VERSION = "ra-v23";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.

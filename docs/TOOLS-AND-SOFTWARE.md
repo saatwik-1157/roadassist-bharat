@@ -159,7 +159,7 @@ the one before it.
 | Tool | Version | What it does here | Where |
 |---|---|---|---|
 | Plain HTML, CSS, JavaScript | n/a | Every page. No framework and no bundler | `app/apps/web/` |
-| Service worker | cache `ra-v22` | Keeps the app shell and map tiles available offline. API answers are never cached, because a stale booking status is worse than an honest failure ([ADR-0004](../app/docs/adr/0004-offline-conflict-rules.md)) | `app/apps/web/sw.js` |
+| Service worker | cache `ra-v23` | Keeps the app shell and map tiles available offline. API answers are never cached, because a stale booking status is worse than an honest failure ([ADR-0004](../app/docs/adr/0004-offline-conflict-rules.md)) | `app/apps/web/sw.js` |
 | IndexedDB + Web Crypto (AES-GCM-256) | Browser built-ins | The offline SOS and sync journal. Payloads are encrypted under a **non-extractable** key generated on the device | `app/apps/web/offline-store.js`, `offline-engine.js` |
 | Web app manifest | n/a | Lets the citizen app install to the home screen (`start_url` `/app.html`, standalone) | `app/apps/web/manifest.webmanifest` |
 | Leaflet | 1.9.4 (vendored) | The maps on the live map and the RAKSHA dashboard | `vendor/leaflet.js`, used by `map.html` and `raksha.html` |
@@ -482,15 +482,15 @@ database migrated from empty, then seeded).
 
 | Suite | Count | What it proves | Runs |
 |---|---|---|---|
-| Unit (`npm test`) | 451 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
+| Unit (`npm test`) | 452 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
 | End-to-end (`npm run test:e2e`) | 246 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
 | Concurrency (`npm run test:concurrency`) | 92 | Races: two mechanics accepting one job, three SOS taps at once, live event delivery | CI |
 | Gateway security (`npm run test:gateway`) | 58 | Webhook signatures, append-only audit rules, sign-in code limits per number and per IP | CI |
 | Security audit (`npm run test:security`) | 106 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
 | Browser (`npm run test:ui`) | 184 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
-| **Total** | **1137** | Six suites, zero failures | |
-| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1137, and never described as passing | By hand only |
-| Android (Gradle) | 182 | Android unit tests, run with lint and both APK builds | CI `android` job |
+| **Total** | **1138** | Six suites, zero failures | |
+| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1138, and never described as passing | By hand only |
+| Android (Gradle) | 188 | Android unit tests, run with lint and both APK builds | CI `android` job |
 | SOS ladder | 21 | The subset of the Android tests over `SosLadder.kt`, the emergency fallback decisions | CI `android` job |
 | CV pipeline | 39 | The Python pipeline tests (standard library only) | CI `ai` job |
 

@@ -31,7 +31,7 @@
 | Production refuses unsafe config | Boots refused on 8 settings | `apps/api/src/env.ts:378` `assertProductionSafe()` | Terminal | M1 boundaries |
 | Module boundaries are enforced, not agreed | Cross-module import fails CI | `app/scripts/check-boundaries.mjs` | Terminal | M1 roles/boundaries |
 | Virtualization is real | Suite passes **against the image** | `app/Dockerfile` | Terminal | **M2 virtualization** |
-| 1137 assertions, 0 failures | Six suites: unit 317 · e2e 213 · concurrency 84 · security 87 · gateway security 39 · browser 163. The 22 payment checks are outside the total and were not executed | `app/docs/measured.json` | Terminal | — |
+| 1138 assertions, 0 failures | Six suites: unit 317 · e2e 213 · concurrency 84 · security 87 · gateway security 39 · browser 163. The 22 payment checks are outside the total and were not executed | `app/docs/measured.json` | Terminal | — |
 
 ## The three files to have open before you walk in
 

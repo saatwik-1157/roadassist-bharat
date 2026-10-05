@@ -13,7 +13,7 @@
 <meta property="og:locale" content="en_IN">
 <meta property="og:url" content="https://roadassistbharat.online/">
 <meta property="og:title" content="RoadAssist Bharat — Offline Roadside Assistance &amp; SOS for India">
-<meta property="og:description" content="Roadside assistance for the roads where coverage is worst. 1137 assertions, 106 refused attacks, and a trained YOLO11 detector — every number measured, not estimated.">
+<meta property="og:description" content="Roadside assistance for the roads where coverage is worst. 1138 assertions, 106 refused attacks, and a trained YOLO11 detector — every number measured, not estimated.">
 <meta property="og:image" content="https://roadassistbharat.online/visuals/vis_products.png">
 <meta property="og:image:width" content="1900">
 <meta property="og:image:height" content="900">
@@ -833,6 +833,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 .globe-vp.drag{cursor:grabbing}
 .globe-vp canvas{position:absolute;inset:0;width:100%;height:100%}
 .globe figcaption{font-size:.84rem;line-height:1.6;color:var(--ink-3);margin-top:8px}
+.globe-credit{display:block;margin-top:4px;font-size:.76rem;color:var(--ink-3)}
 .globe-key{display:flex;align-items:baseline;gap:8px;color:var(--ink-2);margin:4px 0}
 .globe-key i{flex:0 0 auto;width:9px;height:9px;border-radius:50%;transform:translateY(1px)}
 .k-gold{background:var(--accent);box-shadow:0 0 8px var(--accent)}
@@ -1179,7 +1180,7 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
 <section id="product" style="padding-top:0;border-top:0">
   <div class="wrap">
     <div class="metrics rv" id="metrics">
-      <div class="metric"><div class="v" data-count="1137">1137</div><div class="l">Assertions</div></div>
+      <div class="metric"><div class="v" data-count="1138">1138</div><div class="l">Assertions</div></div>
       <div class="metric"><div class="v" data-count="58">58</div><div class="l">Tables</div></div>
       <div class="metric"><div class="v" data-count="142">142</div><div class="l">Indexes</div></div>
       <div class="metric"><div class="v" data-count="74">74</div><div class="l">API routes</div></div>
@@ -1295,19 +1296,21 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
         <p class="lead">Most apps fail at the exact moment a breakdown happens: on a highway stretch with no coverage.
           Here is the path an SOS takes instead, one step at a time.</p>
       </div>
-      <!-- The two places this project names, on a dot sphere centred on
-           India. A plain sphere, not a map: the repository has no coastline
-           data, so no land is drawn. The faint frame is map.html's own India
-           bounds. The canvas is decoration; the caption says all of it. -->
-      <figure class="globe" id="globe">
+      <!-- The two places this project names, on a dot globe centred on
+           India. The land is Natural Earth's 1:110m coastline (public domain),
+           baked into globe/land.bin by pages/globe/bake_land.py and served from
+           here. The faint frame is map.html's own India bounds. The canvas is
+           decoration; the caption says all of it. -->
+      <figure class="globe" id="globe" data-land="globe/land.bin">
         <div class="globe-vp" tabindex="0" role="group" aria-label="A dot globe centred on India. Drag, or use the arrow keys, to turn it.">
           <canvas width="440" height="440" aria-hidden="true"></canvas>
         </div>
         <figcaption><span class="ill-tag">Illustration</span>
           <span class="globe-key"><i class="k-gold"></i>Demo service area: Gurugram and the NH-48 corridor, where the seed places a simulated fleet</span>
           <span class="globe-key"><i class="k-cyan"></i>VIT-AP University, Amaravati, where the project is built (position approximate)</span>
-          The dots are a plain sphere, not land: no coastline data is in the repository. The faint frame
-          is the India bounds the live map opens on.</figcaption>
+          Bright dots are land, faint ones sea. The dotted gold frame is the India bounds the live map
+          opens on.
+          <span class="globe-credit">Land: Natural Earth, public domain</span></figcaption>
       </figure>
     </div>
 
@@ -2415,21 +2418,21 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
     <h2>Every suite, and the one that never ran</h2>
     <div class="tbl-scroll" style="margin-top:18px"><table class="tbl tbl-suites">
       <tr><th>Suite</th><th>What it covers</th><th class="num">Assertions</th><th>Status</th></tr>
-      <tr><td>Unit</td><td>No I/O; the only suite that runs standalone</td><td class="num">451</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr><td>Unit</td><td>No I/O; the only suite that runs standalone</td><td class="num">452</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>End-to-end</td><td>Full citizen and mechanic journeys against a live API</td><td class="num">246</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Concurrency</td><td>Races settled by Postgres rather than by timing</td><td class="num">92</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Security</td><td>Attacks that must every one be refused</td><td class="num">106</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Gateway security</td><td>Telecom path, audit hash chain, OTP limits</td><td class="num">58</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Browser</td><td>Real Chrome driven over CDP</td><td class="num">184</td><td><span class="badge badge-ok">PASS</span></td></tr>
-      <tr class="total"><td><strong>Total</strong></td><td>Six suites, zero failures</td><td class="num"><strong>1137</strong></td><td><span class="badge badge-ok">PASS</span></td></tr>
-      <tr class="sub"><th colspan="4">Run separately &mdash; not part of the 1137</th></tr>
-      <tr><td>Android</td><td>Kotlin unit tests; 21 cover the SOS ladder alone</td><td class="num">182</td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr class="total"><td><strong>Total</strong></td><td>Six suites, zero failures</td><td class="num"><strong>1138</strong></td><td><span class="badge badge-ok">PASS</span></td></tr>
+      <tr class="sub"><th colspan="4">Run separately &mdash; not part of the 1138</th></tr>
+      <tr><td>Android</td><td>Kotlin unit tests; 21 cover the SOS ladder alone</td><td class="num">188</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>CV pipeline</td><td>Standard library only, no model download needed</td><td class="num">39</td><td><span class="badge badge-ok">PASS</span></td></tr>
       <tr><td>Razorpay sandbox</td><td>Needs a payment account; has never been executed</td><td class="num">22</td><td><span class="badge badge-no">NOT RUN</span></td></tr>
     </table></div>
     <div class="note">
       <p><strong>Tested is not the same as claimed.</strong> The 22 Razorpay sandbox checks need a
-      KYC-verified account. They have never run, they are not part of the 1137, and they are never
+      KYC-verified account. They have never run, they are not part of the 1138, and they are never
       described as passing. Android lint reports zero errors and the release APK builds under R8.</p>
     </div>
   </div>
@@ -2564,8 +2567,8 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       managed PostGIS database. There, the accounts the team uses (the authority account among
       them) sign in with <em>Sign in with email</em>: the code goes to that person's inbox and is
       never shown on screen, so typing the number above gets you nowhere. The on-screen demo code
-      signs in only the demo numbers: <code>+917000000000</code> to <code>+917000009999</code>,
-      <code>+919876543210</code>, and the mechanics <code>+919600000000</code> to
+      signs in only the demo numbers: <code>+917000000000</code> to <code>+917000009999</code>
+      (the demo citizen is <code>+917000009876</code>), and the mechanics <code>+919600000000</code> to
       <code>+919600000099</code>. Every other number is refused.</p>
     </div>
   </div>
@@ -3247,7 +3250,7 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     {id:"llm",q:"Does it use an LLM or ChatGPT?",k:"no llm gpt chatgpt language model ai generated openai anthropic claude gemini wrapper bot",a:"<p><strong>No.</strong> There is no LLM or GPT dependency in any manifest and no chat endpoint called from any source file &mdash; not in the API, the Android client, the web surfaces or the CV pipeline.</p><p>That is enforced rather than promised: <code>npm run no-llm</code> fails the build on an LLM package in any manifest or a chat endpoint in any source file, and it runs in CI on every push. Even this answer panel is a lookup over a fixed index, not a model.</p>",src:"app/scripts/check-no-llm.mjs"},
     {id:"ai-what",q:"What is the AI in this project, then?",k:"ai artificial intelligence model yolo raksha detection kind machine learning vision",a:"<p>Two things, and neither is a language model. <strong>RAKSHA road-damage detection is a YOLO11 model trained in this repository</strong> on RDD2022 across four countries. <strong>The roadside diagnosis is a deterministic rule table</strong> (ADR-0006) returning <code>rules-1.0.0</code>, and every screen showing it says it is a rules engine.</p>",src:"app/docs/adr/0006-ai-rules-first.md"},
     {id:"map",q:"How accurate is the model?",k:"accuracy accurate map map50 metrics precision recall performance good benchmark",a:"<p><strong>mAP50 0.472 and mAP50-95 0.226</strong> on held-out validation, for <code>yolo11s-multi-rich</code> &mdash; four classes, 3.2k images across four countries, 13 epochs. Per-class mAP50: pothole 0.242, road damage 0.431.</p><p>The 34 detections on the live RAKSHA map come from an earlier YOLO11n trained on the India set (mAP50 0.443), placed at simulated NH-48 positions because the images carry no GPS.</p><p>Those are validation figures from the training run, not production accuracy. The model has never run against live Indian road imagery at scale, and the project does not claim it has.</p>",src:"ai/README.md"},
-    {id:"tests",q:"How many tests are there?",k:"tests test testing assertions suites coverage many proof evidence verified",a:"<p><strong>1137 assertions across six suites, zero failures:</strong> 334 unit, 246 end-to-end, 92 concurrency, 87 security, 58 gateway security, 184 browser. Android adds 135 tests with zero lint errors; the CV pipeline adds 39.</p><p>22 Razorpay checks run separately against a local stub of the gateway, not a real account, and are not counted in that total.</p>",src:"app/docs/measured.json"},
+    {id:"tests",q:"How many tests are there?",k:"tests test testing assertions suites coverage many proof evidence verified",a:"<p><strong>1138 assertions across six suites, zero failures:</strong> 452 unit, 246 end-to-end, 92 concurrency, 106 security, 58 gateway security, 184 browser. Android adds 188 tests with zero lint errors; the CV pipeline adds 39.</p><p>22 Razorpay checks run separately against a local stub of the gateway, not a real account, and are not counted in that total.</p>",src:"app/docs/measured.json"},
     {id:"security",q:"What does the security testing actually do?",k:"security attacks penetration vulnerabilities auth injection jwt refused hacking safe",a:"<p>106 attacks that must every one be refused: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and <code>alg:none</code> tokens, unsigned webhooks, oversized input and error-body leakage.</p><p>A green run means the attack was attempted and failed, which is a stronger statement than &ldquo;the code looks right&rdquo;.</p>",src:"app/scripts/security-audit.mjs"},
     {id:"offline",q:"What happens with no network?",k:"offline off-grid network signal connectivity sos emergency disconnected airplane coverage",a:"<p>Off-Grid Mode is the architecture, not a fallback (ADR-0009). An SOS raised with no signal becomes a real incident stored on the device with its own reference and GPS fix &mdash; and the screen says <em>stored on this device</em> rather than pretending it was sent.</p><p>Diagnosis runs on-device against the same rule table the server uses. When connectivity returns the journal replays idempotently, so a retry never becomes a second ambulance.</p>",src:"app/docs/adr/0009-offgrid-mode.md"},
     {id:"dispatch",q:"How does dispatch choose a mechanic?",k:"dispatch mechanic offers ranking nearest matching assign scheduling allocate choose",a:"<p>Dynamic scheduling: work is assigned at run time from a live pool by a score computed from distance, ETA and rating, using PostGIS <code>ST_DWithin</code> over a GiST index.</p><p>Two mechanics accepting one job is settled by <code>SELECT &hellip; FOR UPDATE</code> on the booking row, with offer expiry re-checked under the lock &mdash; not by timing.</p>",src:"app/apps/api/src/dispatch.ts"},
@@ -3694,15 +3697,19 @@ docker compose -f docker-compose.demo.yml up</code></pre>
 })();
 </script>
 <script>
-/* Dot globe, centred on India. Canvas 2D, no library: a Fibonacci lattice of
-   dots on a sphere, turned and projected each frame, drawn in a handful of
-   batched paths. It is a plain sphere, not land (the repository holds no
-   coastline). Gold dots fall inside map.html's own India bounds, and the two
-   markers are the only places the project names: the centre of the demo
-   fleet's bounds in seed-demo-fleet.ts, and VIT-AP University. Drag turns it
-   with momentum and it drifts home to India when left alone; it draws only
-   while on screen and the tab is visible, and never moves on its own under
-   reduced motion. */
+/* Dot globe, centred on India. Canvas 2D, no library: land and sea dots,
+   turned and projected each frame, drawn in a handful of batched paths. The
+   dots come from globe/land.bin, baked by pages/globe/bake_land.py from
+   Natural Earth's 1:110m land polygons (public domain): a dense Fibonacci
+   lattice kept where it is on land, and a sparse one, drawn faint, where it is
+   on sea. The file is ours, served from this origin, and fetched only when the
+   globe nears the viewport. The faint gold frame is map.html's own India
+   bounds, and the two markers are the only places the project names: the
+   centre of the demo fleet's bounds in seed-demo-fleet.ts, and VIT-AP
+   University. Drag turns it with momentum and it drifts home to India when
+   left alone; it draws only while on screen and the tab is visible, and never
+   moves on its own under reduced motion. If the file cannot be read it falls
+   back to the plain dot sphere it used to be. */
 (function () {
   "use strict";
   var fig = document.getElementById("globe");
@@ -3718,22 +3725,46 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     { lat: 28.42, lon: 76.99, col: "240,180,41", label: "Demo service area · Gurugram, NH-48", dx: -1 },
     { lat: 16.50, lon: 80.50, col: "95,208,216", label: "VIT-AP University", dx: 1 }
   ];
-  var N = 0, cl, sl, ln, ind, gx, gz, bk, bn = new Int32Array(9), frame = [];
+  // Bins: 0 the far side's land (just past the limb), 1 the near side's sea,
+  // 2-5 near land by depth.
+  var NB = 6, N = 0, sl, sea, gx, gz, bk, bn = new Int32Array(NB), frame = [], pts = null;
   var W = 0, R = 0, cx = 0, cy = 0, dpr = 1;
   var yaw = HOME_YAW, pitch = HOME_PITCH, vy = 0, vp_ = 0;
   var dragging = false, idleSince = 0, visible = false, raf = 0, last = 0, ready = false;
+  // Its own clock, which stops while it holds still for a fast page scroll,
+  // so the drift and the pulses resume where they were instead of jumping.
+  var clk = 0, sy = scrollY, st = 0, sv = 0, odd = false;
+  addEventListener("scroll", function () {
+    var now = performance.now(), y = scrollY, dt = Math.max(1, now - st);
+    sv = st && now - st < 200 ? sv * 0.6 + Math.abs(y - sy) / dt * 0.4 : 0;
+    sy = y; st = now;
+  }, { passive: true });
+
+  // land.bin: uint16 nLand, uint16 nSea, then (int16 lat, int16 lon) pairs in
+  // hundredths of a degree, land first. Without it: the old plain lattice.
+  function unpack(buf) {
+    var h = new DataView(buf), nl = h.getUint16(0, true), ns = h.getUint16(2, true);
+    if (buf.byteLength !== 4 + (nl + ns) * 4) throw new Error("globe/land.bin: bad length");
+    var a = new Int16Array(buf, 4), out = { n: nl + ns, nl: nl, la: new Float32Array(nl + ns), lo: new Float32Array(nl + ns) };
+    for (var i = 0; i < out.n; i++) { out.la[i] = a[2 * i] / 100 * D; out.lo[i] = a[2 * i + 1] / 100 * D; }
+    return out;
+  }
+  function lattice() {
+    var n = innerWidth < 720 ? 2400 : 3600, ga = Math.PI * (3 - Math.sqrt(5));
+    var out = { n: n, nl: n, la: new Float32Array(n), lo: new Float32Array(n) };
+    for (var i = 0; i < n; i++) { out.la[i] = Math.asin(1 - (i + 0.5) * 2 / n); out.lo[i] = (i * ga) % TAU - Math.PI; }
+    return out;
+  }
 
   function build() {
-    N = innerWidth < 720 ? 2400 : 3600;
-    cl = new Float32Array(N); sl = new Float32Array(N); ln = new Float32Array(N); ind = new Uint8Array(N);
-    gx = new Float32Array(N); gz = new Float32Array(N); bk = new Float32Array(9 * N * 2);
-    var ga = Math.PI * (3 - Math.sqrt(5));
+    var p = pts || lattice();
+    N = p.n;
+    sl = new Float32Array(N); sea = new Uint8Array(N);
+    gx = new Float32Array(N); gz = new Float32Array(N); bk = new Float32Array(NB * N * 2);
     for (var i = 0; i < N; i++) {
-      var y = 1 - (i + 0.5) * 2 / N, la = Math.asin(y), lo = (i * ga) % TAU - Math.PI;
-      cl[i] = Math.cos(la); sl[i] = y; ln[i] = lo;
-      gx[i] = cl[i] * Math.sin(lo); gz[i] = cl[i] * Math.cos(lo);
-      var dla = la / D, dlo = lo / D;
-      ind[i] = dla >= B.s && dla <= B.n && dlo >= B.w && dlo <= B.e ? 1 : 0;
+      var c = Math.cos(p.la[i]);
+      sl[i] = Math.sin(p.la[i]); sea[i] = i >= p.nl ? 1 : 0;
+      gx[i] = c * Math.sin(p.lo[i]); gz[i] = c * Math.cos(p.lo[i]);
     }
     var k;
     for (k = 0; k <= 40; k++) {
@@ -3752,7 +3783,13 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     cv.width = Math.round(w * dpr); cv.height = Math.round(w * dpr);
     W = w; R = w * 0.4; cx = w / 2; cy = w / 2;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // the body's shading and the highlight depend only on the size
+    body = g.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
+    body.addColorStop(0, "#121a28"); body.addColorStop(1, "#070a10");
+    hl = g.createRadialGradient(cx - R * 0.45, cy - R * 0.5, 0, cx - R * 0.45, cy - R * 0.5, R * 0.9);
+    hl.addColorStop(0, "rgba(255,255,255,.07)"); hl.addColorStop(1, "rgba(255,255,255,0)");
   }
+  var body, hl;
 
   var o = { x: 0, y: 0, z: 0 }, cp = 1, sp = 0;
   function P(c, s, l) {
@@ -3765,27 +3802,25 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   function draw(now) {
     cp = Math.cos(pitch); sp = Math.sin(pitch);
     g.clearRect(0, 0, W, W);
-    var body = g.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
-    body.addColorStop(0, "#121a28"); body.addColorStop(1, "#070a10");
     g.fillStyle = body; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
-    // Dots in nine batches: the far side, then four depths each of plain and India.
-    // Turned with one multiply-add per axis (no trig per dot), and binned
-    // into preallocated arrays, so a frame allocates nothing.
+    // Dots in six batches: land just past the limb, the near sea, then four
+    // depths of land. Turned with one multiply-add per axis (no trig per dot),
+    // and binned into preallocated arrays, so a frame allocates nothing.
     var i, b, cyw = Math.cos(yaw), syw = Math.sin(yaw);
     bn.fill(0);
     for (i = 0; i < N; i++) {
       var x = gx[i] * cyw - gz[i] * syw, z = gz[i] * cyw + gx[i] * syw, y = sl[i];
       var zz = y * sp + z * cp;
-      if (zz < -0.25) continue;
-      b = zz < 0 ? 0 : 1 + Math.min(3, (zz * 4) | 0) + (ind[i] ? 4 : 0);
+      if (sea[i] ? zz < 0 : zz < -0.25) continue;
+      b = sea[i] ? 1 : zz < 0 ? 0 : 2 + Math.min(3, (zz * 4) | 0);
       var at = (b * N + bn[b]++) * 2;
       bk[at] = cx + x * R; bk[at + 1] = cy - (y * cp - z * sp) * R;
     }
-    var cols = ["150,175,210", "150,175,210", "150,175,210", "150,175,210", "150,175,210", "240,180,41", "240,180,41", "240,180,41", "240,180,41"];
-    var alph = [0.08, 0.22, 0.34, 0.48, 0.62, 0.45, 0.62, 0.8, 0.95];
-    for (b = 0; b < 9; b++) {
+    var cols = ["150,175,210", "120,145,185", "170,192,222", "170,192,222", "170,192,222", "170,192,222"];
+    var alph = [0.08, 0.13, 0.42, 0.58, 0.74, 0.9];
+    for (b = 0; b < NB; b++) {
       if (!bn[b]) continue;
-      var r = b === 0 ? 0.9 : (b > 4 ? 1.9 : 1.4) * (0.75 + 0.1 * ((b - 1) % 4));
+      var r = b === 0 ? 0.9 : b === 1 ? 1 : 1.75 * (0.78 + 0.1 * (b - 2));
       g.fillStyle = "rgba(" + cols[b] + "," + alph[b] + ")";
       g.beginPath();
       for (i = 0; i < bn[b]; i++) { var j = (b * N + i) * 2; g.rect(bk[j] - r / 2, bk[j + 1] - r / 2, r, r); }
@@ -3799,8 +3834,6 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     // rim and a soft highlight
     g.strokeStyle = "rgba(95,208,216,.22)"; g.lineWidth = 1;
     g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.stroke();
-    var hl = g.createRadialGradient(cx - R * 0.45, cy - R * 0.5, 0, cx - R * 0.45, cy - R * 0.5, R * 0.9);
-    hl.addColorStop(0, "rgba(255,255,255,.07)"); hl.addColorStop(1, "rgba(255,255,255,0)");
     g.fillStyle = hl; g.beginPath(); g.arc(cx, cy, R, 0, TAU); g.fill();
     // the two places
     var fs = Math.max(11, Math.min(13, W / 34));
@@ -3833,20 +3866,27 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   function wrap(a) { return Math.atan2(Math.sin(a), Math.cos(a)); }
   function step(now) {
     raf = 0;
+    // While the page scrolls past: fast, hold still; slower, every other frame.
+    if (!dragging && now - st < 120) {
+      if (sv > 0.9) { last = now; again(); return; }
+      if ((odd = !odd)) { again(); return; }
+    }
+    if (last && now - last < 10.5) { again(); return; }   // half rate above 90 Hz, as the wave
     var dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
-    last = now;
+    last = now; clk += dt * 1000;
     if (!dragging) {
       yaw += vy * dt; pitch += vp_ * dt;
       var k = Math.exp(-dt * 2.4); vy *= k; vp_ *= k;
       if (now - idleSince > 2500 && Math.abs(vy) < 0.05) {
-        var ty = HOME_YAW + 0.38 * Math.sin(now / 4200), e = 1 - Math.exp(-dt * 0.9);
+        var ty = HOME_YAW + 0.38 * Math.sin(clk / 4200), e = 1 - Math.exp(-dt * 0.9);
         yaw += wrap(ty - yaw) * e; pitch += (HOME_PITCH - pitch) * e;
       }
     }
     pitch = Math.max(-1.2, Math.min(1.2, pitch));
-    draw(now);
-    if (visible && !document.hidden) raf = requestAnimationFrame(step);
+    draw(clk);
+    again();
   }
+  function again() { if (visible && !document.hidden) raf = requestAnimationFrame(step); }
   function kick() {
     if (!ready) return;
     if (reduce) { draw(0); return; }
@@ -3886,19 +3926,34 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     if (reduce) draw(0); else kick();
   });
 
+  // The dots are fetched once, when the globe is within a screen or so of the
+  // viewport; it starts when they have arrived and it is close enough to draw.
+  var loaded = false, asked = false;
+  function load() {
+    if (asked) return;
+    asked = true;
+    var done = function () { loaded = true; if (visible) { start(); kick(); } };
+    fetch(fig.dataset.land).then(function (r) {
+      if (!r.ok) throw new Error("globe/land.bin: HTTP " + r.status);
+      return r.arrayBuffer();
+    }).then(function (b) { pts = unpack(b); }).catch(function () { pts = null; }).then(done);
+  }
   function start() {
-    if (ready) return;
+    if (ready || !loaded) return;
     ready = true; build(); size(); idleSince = performance.now();
-    if ("ResizeObserver" in window) new ResizeObserver(function () { size(); if (reduce || !raf) draw(performance.now()); }).observe(vp);
-    draw(performance.now()); kick();
+    if ("ResizeObserver" in window) new ResizeObserver(function () { size(); if (reduce || !raf) draw(clk); }).observe(vp);
+    draw(clk); kick();
   }
   document.addEventListener("visibilitychange", kick);
   if ("IntersectionObserver" in window) {
+    new IntersectionObserver(function (es, ob) {
+      if (es[0].isIntersecting) { ob.disconnect(); load(); }
+    }, { rootMargin: "900px 0px" }).observe(vp);
     new IntersectionObserver(function (es) {
       visible = es[0].isIntersecting;
-      if (visible) { start(); kick(); }
+      if (visible) { load(); start(); kick(); }
     }, { rootMargin: "120px 0px" }).observe(vp);
-  } else { visible = true; start(); }
+  } else { visible = true; load(); }
 })();
 </script>
 <script>
@@ -3910,7 +3965,14 @@ docker compose -f docker-compose.demo.yml up</code></pre>
    controls: hover or focus one and its card glides to the crest, select it
    (or the card) to enlarge. Starts only when the gallery is near the
    viewport, draws only while it is on screen and the tab is visible, and is
-   never started under reduced motion (the head script decides). */
+   never started under reduced motion (the head script decides).
+   Kept cheap for integrated GPUs, where it once made scrolling past it
+   visibly rougher: no MSAA (the card shader already feathers every edge, so the
+   silhouette pixels MSAA would smooth are transparent), at most 1.5 device
+   pixels per CSS pixel, 20 columns per card, and while the page itself is
+   scrolling it draws every other frame, or holds still when the scroll is
+   fast, picking up exactly where it stopped. A screen above 90 Hz draws it
+   at half its refresh rate. */
 (function () {
   "use strict";
   var html = document.documentElement;
@@ -3930,6 +3992,13 @@ docker compose -f docker-compose.demo.yml up</code></pre>
 
   var gl, prog, loc = {}, buf, ibuf, nIdx, started = false, visible = false, raf = 0;
   var off = 0, vel = 0, target = null, hold = false, t = 0, last = 0, fx = 1, W = 0, Hh = 0;
+  // The page's own scroll: when it last moved and how fast (px per ms, smoothed).
+  var sy = scrollY, st = 0, sv = 0, odd = false;
+  addEventListener("scroll", function () {
+    var now = performance.now(), y = scrollY, dt = Math.max(1, now - st);
+    sv = st && now - st < 200 ? sv * 0.6 + Math.abs(y - sy) / dt * 0.4 : 0;
+    sy = y; st = now;
+  }, { passive: true });
 
   function Y(x) { return 0.55 * Math.exp(-x * x * 0.16) - 0.42 + 0.07 * Math.sin(x * 1.15 - t * 0.9); }
   function Z(x) { return -0.1 * x * x + 0.06 * Math.cos(x * 1.15 - t * 0.9); }
@@ -4027,15 +4096,15 @@ docker compose -f docker-compose.demo.yml up</code></pre>
   }
 
   function size() {
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     W = vp.clientWidth; Hh = vp.clientHeight;
     cv.width = Math.round(W * dpr); cv.height = Math.round(Hh * dpr);
     fx = FY * Hh / W;
-    if (gl) gl.viewport(0, 0, cv.width, cv.height);
+    if (gl) { gl.viewport(0, 0, cv.width, cv.height); gl.uniform2f(loc.uView, fx, FY); }
   }
 
   function init() {
-    gl = cv.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: true, powerPreference: "low-power" });
+    gl = cv.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false, powerPreference: "low-power" });
     if (!gl) { html.classList.remove("wave-ok"); return false; }
     try {
       prog = gl.createProgram();
@@ -4046,8 +4115,9 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     gl.useProgram(prog);
     ["uSize", "uX", "uT", "uView", "uTex", "uHi"].forEach(function (n) { loc[n] = gl.getUniformLocation(prog, n); });
     aniso = gl.getExtension("EXT_texture_filter_anisotropic");
-    // a grid across each card: 40 columns so it bends smoothly, 1 row
-    var SX = 40, v = [], idx = [], i;
+    // a grid across each card: 20 columns, 1 row. The bend's sag between two
+    // columns is under a tenth of a pixel at this size, so more are not seen.
+    var SX = 20, v = [], idx = [], i;
     for (i = 0; i <= SX; i++) v.push(i / SX, 0, i / SX, 1);
     for (i = 0; i < SX; i++) { var a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
     buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(v), gl.STATIC_DRAW);
@@ -4079,24 +4149,24 @@ docker compose -f docker-compose.demo.yml up</code></pre>
     return true;
   }
 
-  var front = -1;
+  var front = -1, list = [], byDepth = function (p, q) { return Math.abs(q.x) - Math.abs(p.x); };
   function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.uniform1f(loc.uT, t);
-    gl.uniform2f(loc.uView, fx, FY);
-    var list = [];
-    cards.forEach(function (c, i) {
-      var x = wrapX(c.c - off);
-      if (Math.abs(x) - c.w / 2 < 6.2) list.push([x, c, i]);
+    list.length = 0;
+    cards.forEach(function (c) {
+      c.x = wrapX(c.c - off);
+      if (Math.abs(c.x) - c.w / 2 < 6.2) list.push(c);
     });
-    list.sort(function (p, q) { return Math.abs(q[0]) - Math.abs(p[0]); });
-    var near = list.length ? list[list.length - 1][2] : -1;
-    list.forEach(function (p) {
-      if (!p[1].tex) return;
-      gl.bindTexture(gl.TEXTURE_2D, p[1].tex);
-      gl.uniform1f(loc.uX, p[0]);
-      gl.uniform2f(loc.uSize, p[1].w, CH);
-      gl.uniform1f(loc.uHi, p[2] === near ? 1 : 0);
+    list.sort(byDepth);
+    var near = list.length ? cards.indexOf(list[list.length - 1]) : -1, w = 0, hi = -1;
+    list.forEach(function (c) {
+      if (!c.tex) return;
+      gl.bindTexture(gl.TEXTURE_2D, c.tex);
+      gl.uniform1f(loc.uX, c.x);
+      if (c.w !== w) { w = c.w; gl.uniform2f(loc.uSize, w, CH); }
+      var h = c === cards[near] ? 1 : 0;
+      if (h !== hi) { hi = h; gl.uniform1f(loc.uHi, h); }
       gl.drawElements(gl.TRIANGLES, nIdx, gl.UNSIGNED_SHORT, 0);
     });
     if (near !== front) {
@@ -4108,6 +4178,16 @@ docker compose -f docker-compose.demo.yml up</code></pre>
 
   function step(now) {
     raf = 0;
+    // While the page scrolls under it: fast, hold still (time stops too, so
+    // it resumes where it was rather than jumping); slower, every other
+    // frame, the next one's dt spanning both.
+    if (!dragging && now - st < 120) {
+      if (sv > 0.9) { last = now; again(); return; }
+      if ((odd = !odd)) { again(); return; }
+    }
+    // A 120 or 144 Hz screen draws it at half its rate: nothing at this pace
+    // gains from more, and 60 to 90 Hz screens still draw every frame.
+    if (last && now - last < 10.5) { again(); return; }
     var dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
     last = now; t += dt;
     if (!dragging) {
@@ -4121,8 +4201,9 @@ docker compose -f docker-compose.demo.yml up</code></pre>
       }
     }
     draw();
-    if (visible && !document.hidden) raf = requestAnimationFrame(step);
+    again();
   }
+  function again() { if (visible && !document.hidden) raf = requestAnimationFrame(step); }
   function kick() {
     if (started && !raf && visible && !document.hidden) { last = 0; raf = requestAnimationFrame(step); }
   }
