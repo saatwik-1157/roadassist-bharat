@@ -2216,8 +2216,8 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
            Postgres <code>RULES</code> make UPDATE and DELETE on the log no-ops.</p></div>
     </div>
     <!-- Illustration: only layers app/docs/SECURITY.md lists as in place. The
-         least-privilege database role is prepared but not applied on the hosted
-         database, so it is not drawn as a layer. -->
+         least-privilege database role (live since 5 Oct 2026) sits below these
+         request layers, so it is described under the drawing, not drawn. -->
     <div class="ill-row">
       <figure class="ill">
         <svg viewBox="0 0 480 460" role="img" aria-labelledby="ilShT ilShD">
@@ -2269,8 +2269,9 @@ footer{border-top:1px solid var(--line-soft);padding:46px 0 60px;background:var(
           <li><b>Input.</b> SQL injection, malformed JSON and oversized fields.</li>
           <li><b>Audit log.</b> An edited history, which no longer verifies.</li>
         </ol>
-        <p class="sub">Not drawn: the least-privilege database role. It is prepared and verified
-          locally, and not yet applied on the hosted database.</p>
+        <p class="sub">Under every layer: the live API connects to Postgres as a
+          least-privilege role that can read and write rows but cannot create, alter or drop
+          anything, or rewrite the audit log. Migrations alone run as the owner.</p>
       </div>
     </div>
 

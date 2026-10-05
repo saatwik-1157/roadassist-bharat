@@ -356,12 +356,13 @@ not covered or a handler attribute appears).
 refresh itself — while the tab is open; the cookie only stops it carrying the
 30-day token away. `style-src` keeps `'unsafe-inline'`: the pages set
 `style=""` throughout, and injected CSS can restyle a page but not run code.
-The hosted database still runs as its owner role. The least-privilege setup is
-prepared and verified locally (`packages/db/sql/least-privilege-role.sql`, a
-DML-only `roadassist_app` that cannot alter the audit log or its rules;
-migrations keep the owner through `MIGRATION_DATABASE_URL`); applying it is an
-owner action in Neon and Render that is still pending (DEPLOYMENT.md,
-"Least-privilege database role").
+Since 5 Oct 2026 the hosted API connects as the least-privilege role
+(`packages/db/sql/least-privilege-role.sql`: a DML-only `roadassist_app` that
+cannot alter the audit log or its rules), and migrations alone run as the
+owner through `MIGRATION_DATABASE_URL`, which `docker-start.sh` drops after the
+migrate step (DEPLOYMENT.md, "Least-privilege database role"). Checked on the
+live database: `pg_stat_activity` shows the running service connected as
+`roadassist_app`.
 
 ## Known gaps
 

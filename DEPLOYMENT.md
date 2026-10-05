@@ -223,11 +223,13 @@ The boot log does not report the setting. A lookup's answer is how to tell:
 `geo_disabled` means off; `geo_unavailable` means on, with the provider not
 answering.
 
-## Optional · Least-privilege database role — **YOU**
+## Least-privilege database role — **done on 5 Oct 2026**
 
-Until this is done the API connects as the Neon owner, so a flaw that let
+The hosted API now connects as `roadassist_app`; `pg_stat_activity` on the live
+database shows it. The steps below are kept for a new environment or a rebuilt
+database. Without them the API connects as the Neon owner, so a flaw that let
 someone run SQL through the API could drop tables or the audit log's
-append-only rules. The fix is prepared; only the owner can apply it.
+append-only rules. Only the owner can apply it.
 
 [`app/packages/db/sql/least-privilege-role.sql`](app/packages/db/sql/least-privilege-role.sql)
 creates `roadassist_app` with no password: `CONNECT`, `USAGE` on `public`,
