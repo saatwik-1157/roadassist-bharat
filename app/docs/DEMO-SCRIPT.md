@@ -172,8 +172,13 @@ now**.
 notified (with the real count), responder search, elapsed milliseconds.
 Above it, a line built only from the server's answer. With no contacts on
 file: *Emergency recorded (ref …). No responder or contact was reached. Call
-112 now.*, under a red **Call 112 now** button. With contacts: *Your N
-emergency contacts were alerted. No responder was contacted. Call 112 now.*
+112 now.*, under a red **Call 112 now** button. With contacts, on the hosted
+demo (`SMS_PROVIDER=console`, so `smsLive: false`): *Your N emergency
+contacts would be texted. On this demo server SMS is only logged, not sent. No
+responder or contact was reached. Call 112 now.*, and the card row reads *N
+logged, not sent*. Only with a real SMS provider (`smsLive: true`) does it say
+*Your N emergency contacts were alerted. No responder was contacted.* The
+countdown before it says the same: on the demo it does not promise a text.
 The nearest unit reads *unit located, not contacted*, with no ETA: the
 server locates it and contacts nobody (`respondersNotified: 0`).
 
@@ -270,7 +275,7 @@ one of them, live, if there is time.
 
 > An AI-powered, cloud-connected, network-resilient emergency mobility platform
 > that keeps protecting people when connectivity becomes unreliable.
-> 1158 assertions executed across six suites, no failures (22 Razorpay checks
+> 1162 assertions executed across six suites, no failures (22 Razorpay checks
 > against a local stub sit outside that total and are not counted). Three real
 > vulnerabilities found by
 > our own security suite during the audit, and fixed. Nothing on that list is a

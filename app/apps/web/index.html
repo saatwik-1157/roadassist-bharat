@@ -408,17 +408,21 @@ screens.sos = () => {
   // Only what the confirm answer reports: a located responder is not a contacted one.
   const contacts = Number(state.incident.contactsAlerted) || 0;
   const told = Number(state.incident.respondersNotified) || 0;
+  // A console SMS provider only logs: a counted contact was not texted.
+  const live = state.incident.smsLive === true;
   return `
   <h2 style="color:var(--red-t)">${responding ? "Emergency escalated" : "Crash detected"}</h2>
   <p class="sub">${responding
     ? `${told ? "Responders have been alerted. " : ""}${contacts
-        ? `${contacts} emergency contact${contacts === 1 ? " was" : "s were"} alerted. `
-        : ""}${told ? "" : contacts ? "No responder was contacted. Call 112 now." : "No responder or contact was reached. Call 112 now."}`
+        ? (live
+          ? `${contacts} emergency contact${contacts === 1 ? " was" : "s were"} alerted. `
+          : `${contacts} emergency contact${contacts === 1 ? "" : "s"} would be texted. On this demo server SMS is only logged, not sent. `)
+        : ""}${told ? "" : contacts && live ? "No responder was contacted. Call 112 now." : "No responder or contact was reached. Call 112 now."}`
     : "Nothing has been dispatched. Confirm or cancel."}</p>
   <div class="card" style="border-color:var(--red)">
     <div class="row"><span>Status</span><span class="k ${responding ? "warn" : "bad"}">${esc(state.incident.status)}</span></div>
     ${responding ? `
-      <div class="row"><span>Contacts alerted</span><b>${esc(state.incident.contactsAlerted ?? 0)}</b></div>
+      <div class="row"><span>${live ? "Contacts alerted" : "Contacts (SMS logged, not sent)"}</span><b>${esc(state.incident.contactsAlerted ?? 0)}</b></div>
       <div class="row"><span>Nearest responder</span><b>${esc(state.incident.nearestResponder?.name ?? "none in range")}</b></div>
       <div class="row"><span>Escalated in</span><b>${esc(state.incident.elapsedMs ?? "—")} ms</b></div>`
     : `<div class="row"><span>Cancel window</span><b id="countdown">${esc(state.incident.cancelWindowSeconds)}s</b></div>`}

@@ -235,6 +235,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
 
     return reply.code(201).send(ok({
       id: incident.id, status: incident.status, locationKnown: located,
+      smsLive: sms.live,
       cancelWindowSeconds: byModel ? 30 : 0,
       requiresConfirmation: byModel,
     }, {
@@ -471,7 +472,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
       logOp(req, { op: "sos.escalate", result: "ok", duplicate: true, incidentId: id, from: inc.status });
       return ok({
         id, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
-        contactsAlerted: 0, alreadyEscalated: true,
+        contactsAlerted: 0, alreadyEscalated: true, smsLive: sms.live,
         respondersNotified: RESPONDERS_NOTIFIED,
         nearestResponder: again[0] ?? null,
         elapsedMs: Date.now() - t0,
@@ -557,7 +558,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
     publish(inc.userId, {
       type: "sos.status", incidentId: id, status: respondingTo,
       stage: PUBLIC_STAGE[respondingTo],
-      contactsAlerted, responderFound: Boolean(responders[0]),
+      contactsAlerted, smsLive: sms.live, responderFound: Boolean(responders[0]),
       respondersNotified: RESPONDERS_NOTIFIED,
     });
     logOp(req, {
@@ -573,6 +574,10 @@ export async function emergencyRoutes(app: FastifyInstance) {
       ...(contactsFailed ? { contactsFailed } : {}),
       ...(withheld ? { contactsWithheld: contacts.length } : {}),
       ...(optedOut.length ? { contactsOptedOut: optedOut.length } : {}),
+      // contactsAlerted counts sends the provider accepted. On the console
+      // provider (the hosted demo) that is a log line, not a text on a phone,
+      // and smsLive: false says so, so no screen claims a contact was reached.
+      smsLive: sms.live,
       respondersNotified: RESPONDERS_NOTIFIED,
       nearestResponder: responders[0] ?? null,
       elapsedMs: Date.now() - t0,

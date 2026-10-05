@@ -17,10 +17,10 @@ Ticked only where the artefact exists **and** has been verified in this session.
 | ✅ | Offline documentation | `app/docs/OFFLINE.md` | Capability matrix, tiers, storage, retention |
 | ✅ | Deployment instructions | `app/docs/DEPLOYMENT.md` | Docker, config, backup, rollback, DR, cost |
 | ✅ | Live deployment | https://app.roadassistbharat.online · showcase https://roadassistbharat.online | One Render web service (Docker, free plan, Singapore) + Neon Postgres/PostGIS (Singapore); showcase on GitHub Pages. `NODE_ENV=demo`, mock payments, on-screen OTP |
-| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (1158 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
+| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (1162 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
 | ✅ | SWE4004 mapping | `app/docs/SWE4004-MAPPING.md` | Modules 1–6, 21-row cloud-concept audit |
 | ✅ | Claims audit | `app/docs/CLAIMS-AUDIT.md` | Every claim checked against the code |
-| ✅ | Presentation | `ppt/RoadAssist-Bharat-FINAL.pptx` | **38 slides**, generated, 0 over-claims |
+| ✅ | Presentation | kept with the team (not in the repository since 2026-10-05) | **38 slides**, generated, 0 over-claims; generator in git history at `95672c2:ppt/` |
 | ✅ | Demo script | `app/docs/DEMO-SCRIPT.md` | 10 minutes, every step with a backup |
 | ✅ | Screenshots | `app/docs/screenshots/` | **24 PNGs** captured from the running app |
 | ✅ | Environment example | `app/.env.example` | 141 lines, every variable documented |
@@ -36,8 +36,6 @@ npm run db:migrate && npm run db:seed && npm run db:seed:raksha
 npm start                                  # in another shell
 
 node scripts/capture-screens.mjs           # → docs/screenshots/
-python ../ppt/make_final.py                # → ppt/RoadAssist-Bharat-FINAL.pptx
-python ../ppt/md2pdf.py ../review1-ppt/presentation-script.md out.pdf
 ```
 
 ## Verification, in order
@@ -56,9 +54,10 @@ npm run perf                               # measured, not a load test
 1. `npm run db:migrate` on any other machine before running.
 
 Nothing else. The two items that stood here — the PDF export and the slide
-transitions — are done: `ppt/RoadAssist-Bharat-FINAL.pdf` is 38 pages exported
-from the final deck through PowerPoint itself, and all 38 slides carry a 0.7 s
-fade. Both are reproducible with the script in `ppt/README.md`.
+transitions — are done: the deck PDF is 38 pages exported from the final deck
+through PowerPoint itself, and all 38 slides carry a 0.7 s fade. The deck and
+its generator are kept with the team; the generator is in git history at
+`95672c2:ppt/`.
 
 ## External accounts — in place, and still required
 
@@ -94,10 +93,10 @@ demo every visitor's request does leave India.
 3. ERSS 112 handoff is a stub; the emergency routes run in the same process as
    the API, so emergency isolation (ADR-0005) is a design.
 4. Payments: the deployment runs the mock provider. The Razorpay adapter has 22
-   checks against a local stub (no account needed), outside the 1158 and not
+   checks against a local stub (no account needed), outside the 1162 and not
    re-run for this measurement — never a live account.
 5. Diagnosis "AI" is a deterministic rules engine, labelled as such everywhere.
 6. No load test, no external penetration test, no coverage on the HTTP layer,
    no real SMS gateway.
 7. `review1-ppt/` WAS the older Review-1 material, corrected during the audit and
-   kept for history; `ppt/RoadAssist-Bharat-FINAL.pptx` is the submission deck.
+   kept for history; the final 38-slide deck is the submission deck, kept with the team.

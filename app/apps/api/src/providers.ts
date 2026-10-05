@@ -14,6 +14,13 @@ import { consoleEmailLine, consoleSmsLine } from "./domain/log-redaction.js";
 // ── SMS ───────────────────────────────────────────────────────────────────
 export interface SmsProvider {
   readonly name: string;
+  /**
+   * Whether a successful send() puts a text on a phone. False for the console
+   * provider, which only writes to the server log: the hosted demo runs on it
+   * (render.yaml), so "your contact was alerted" would be untrue there. Every
+   * answer that counts contacts carries this as `smsLive`.
+   */
+  readonly live: boolean;
   send(to: string, body: string, opts?: { templateId?: string }): Promise<{ id: string; delivered: boolean }>;
 }
 
@@ -26,6 +33,7 @@ export interface SmsProvider {
  */
 const consoleSms: SmsProvider = {
   name: "console",
+  live: false,
   async send(to, body) {
     console.log(consoleSmsLine(to, body, env.nodeEnv));
     return { id: `dev-${Date.now()}`, delivered: true };
@@ -41,6 +49,7 @@ const consoleSms: SmsProvider = {
  */
 const twilioSms: SmsProvider = {
   name: "twilio",
+  live: true,
   async send(to, body) {
     const [sid, token] = env.sms.apiKey.split(":");
     if (!sid || !token) throw new Error('Twilio needs SMS_API_KEY="ACCOUNT_SID:AUTH_TOKEN"');
@@ -68,6 +77,7 @@ const twilioSms: SmsProvider = {
  */
 const msg91Sms: SmsProvider = {
   name: "msg91",
+  live: true,
   async send(to, body, opts) {
     if (!env.sms.apiKey) throw new Error("MSG91 needs SMS_API_KEY (authkey)");
     const templateId = opts?.templateId ?? env.sms.dltTemplateId;
@@ -92,6 +102,7 @@ const msg91Sms: SmsProvider = {
 /** Never guess a vendor's wire format: unverified providers refuse loudly. */
 const unsupportedSms = (name: string): SmsProvider => ({
   name,
+  live: false,   // every send throws, so nothing is ever delivered
   async send() {
     throw new Error(
       `SMS provider "${name}" has no verified adapter yet — use twilio, msg91, or console, ` +

@@ -16,7 +16,6 @@ on:
       - "pages/**"
       - "app/docs/screenshots/**"
       - "site/*.mp4"
-      - "ppt/assets/vis_*.png"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -114,7 +113,7 @@ jobs:
           # render_visuals.py builds them from the
           # real screenshots above and refuses a landscape capture in a phone
           # frame, which is how the hero silently rendered as overlap once.
-          cp ppt/assets/vis_*.png _site/visuals/
+          cp pages/visuals/vis_*.png _site/visuals/
           # WebP copies of the visuals the page shows (vis_hero: 712 KB -> 79 KB),
           # committed under pages/visuals/ like the poster's above. The PNGs stay
           # for og:image, the sitemap and the deck. Re-make one after its PNG

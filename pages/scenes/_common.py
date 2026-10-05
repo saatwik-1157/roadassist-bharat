@@ -4,7 +4,7 @@ Shared pieces for the per-stage 3D scenes on the public page.
 Every scene is built from a REAL screenshot of the running application, set into
 a perspective-warped device, inside a procedurally drawn scene that shows what
 that stage actually does. Nothing is a mockup and nothing is stock imagery —
-the same rule ppt/render_visuals.py follows, and these reuse its helpers.
+the same rule pages/visuals/render_visuals.py follows, and these reuse its helpers.
 
 Each scene module exposes render() and can also be run on its own:
 
@@ -16,7 +16,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "ppt"))
+sys.path.insert(0, str(ROOT / "pages" / "visuals"))
 
 # Re-exported so a scene imports everything from one place.
 from render_visuals import (  # noqa: E402,F401

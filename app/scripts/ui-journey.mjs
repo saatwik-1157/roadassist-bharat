@@ -1438,6 +1438,7 @@ const run = async () => {
         while (Date.now() - t0 < 10000 && !(sheet.classList.contains("show") && !document.getElementById("sos-now").hidden)) {
           await new Promise(r => setTimeout(r, 100));
         }
+        const grace = document.getElementById("sos-copy").textContent;
         document.getElementById("sos-now").click();
         while (Date.now() - t0 < 20000 && !(window.__sosAns && document.querySelector("#sos-out .card.feature"))) {
           await new Promise(r => setTimeout(r, 100));
@@ -1448,6 +1449,7 @@ const run = async () => {
         const card = out.querySelector(".card.feature");
         return {
           ans: window.__sosAns,
+          grace,
           dial: document.getElementById("sos-n").textContent,
           copy: document.getElementById("sos-copy").textContent,
           sheet: sheet.innerText,
@@ -1506,12 +1508,25 @@ const run = async () => {
     `);
     const one = await raiseAndConfirm();
     const ref1 = String(one.ans?.id ?? "").slice(0, 8);
-    check(one.ans && one.ans.contactsAlerted === 1 && one.ans.respondersNotified === 0,
-      "with one contact on file: the server reports 1 contact alerted and 0 responders notified",
-      JSON.stringify({ contacts: one.ans?.contactsAlerted, responders: one.ans?.respondersNotified }));
-    check(one.copy === `Emergency recorded (ref ${ref1}). Your 1 emergency contact was alerted. ` +
-      "No responder was contacted. Call 112 now.",
-      "…and the sheet names that one contact and still says no responder was contacted", one.copy);
+    check(one.ans && one.ans.contactsAlerted === 1 && one.ans.respondersNotified === 0 &&
+      typeof one.ans.smsLive === "boolean",
+      "with one contact on file: the server counts 1 contact, 0 responders, and says whether SMS is live",
+      JSON.stringify({ contacts: one.ans?.contactsAlerted, responders: one.ans?.respondersNotified,
+        smsLive: one.ans?.smsLive }));
+    // The suite runs on SMS_PROVIDER=console, as the hosted demo does: the
+    // "send" is a log line, so the sheet must not say the contact was alerted.
+    // Against a live provider the same check expects "was alerted".
+    check(one.copy === (one.ans?.smsLive
+      ? `Emergency recorded (ref ${ref1}). Your 1 emergency contact was alerted. No responder was contacted. Call 112 now.`
+      : `Emergency recorded (ref ${ref1}). Your 1 emergency contact would be texted. On this demo server SMS is ` +
+        "only logged, not sent. No responder or contact was reached. Call 112 now."),
+      "…and the sheet says what happened to that contact's text, and that no responder was contacted", one.copy);
+    check(one.ans?.smsLive
+      ? /1 alerted/.test(one.sheet) && one.dial === "✓"
+      : /1 logged, not sent/.test(one.sheet) && !/1 alerted|was alerted/.test(one.sheet) && one.dial !== "✓" &&
+        /only logged, not sent/.test(one.grace),
+      "…the card row, the dial and the countdown agree (logged, not sent, when SMS is not live)",
+      `${one.dial} | ${one.grace}`);
     check(!NOT_ON_FAITH.test(one.sheet) && one.call?.leads === true,
       "…with no 'on the way', and Call 112 still leading the sheet");
     await shoot("sos-with-contacts.png");

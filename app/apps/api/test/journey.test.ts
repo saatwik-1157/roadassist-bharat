@@ -24,7 +24,8 @@ interface Journey {
   sosExits(status: string | null): Array<{ command: string; path: string; label: string; body: Record<string, unknown> }>;
   sosActive(status: string | null): boolean;
   sosOutcome(data: Record<string, unknown> | null): {
-    contacts: number; responders: number; repeat: boolean; reached: boolean; call112: boolean; lines: string[];
+    contacts: number; responders: number; repeat: boolean; smsLive: boolean; reached: boolean; call112: boolean;
+    lines: string[];
   };
   sosHeadline(data: Record<string, unknown> | null, ref: string, t: (key: string) => string): string;
 }
@@ -172,8 +173,9 @@ describe("standing down an emergency", () => {
 describe("what an escalated SOS says happened", () => {
   // The shape POST /v1/sos/:id/confirm answers with (routes/emergency.ts).
   const UNIT = { id: "u1", name: "Gurugram PCR 4", km: 2.1 };
+  // smsLive: true is a real SMS provider; the smsLive: false cases are below.
   const answer = (over: Record<string, unknown> = {}) =>
-    ({ status: "RESPONDING", contactsAlerted: 0, respondersNotified: 0, nearestResponder: UNIT, ...over });
+    ({ status: "RESPONDING", contactsAlerted: 0, respondersNotified: 0, smsLive: true, nearestResponder: UNIT, ...over });
 
   it("an escalation that reached nobody says so and puts Call 112 first", () => {
     // The bug: "Help is on the way." after a confirm that reached no contact
@@ -224,6 +226,30 @@ describe("what an escalated SOS says happened", () => {
     assert.deepEqual(J.sosOutcome(null).lines, ["sos.done.recorded", "sos.done.none"]);
   });
 
+  it("on a server whose SMS is only logged, counted contacts 'would be texted' and nobody counts as reached", () => {
+    // The hosted demo runs SMS_PROVIDER=console: a send is a log line. The
+    // sheet said "Your 1 emergency contact was alerted" there regardless.
+    const one = J.sosOutcome(answer({ contactsAlerted: 1, smsLive: false }));
+    assert.deepEqual(one.lines, ["sos.done.recorded", "sos.done.contacts.logged.one", "sos.done.none"]);
+    assert.equal(one.reached, false);
+    assert.equal(one.smsLive, false);
+    assert.deepEqual(J.sosOutcome(answer({ contactsAlerted: 3, smsLive: false })).lines,
+      ["sos.done.recorded", "sos.done.contacts.logged", "sos.done.none"]);
+    // No smsLive at all (an older server) is not proof of delivery either.
+    const absent = J.sosOutcome({ status: "RESPONDING", contactsAlerted: 2, respondersNotified: 0 });
+    assert.ok(!absent.lines.includes("sos.done.contacts"), absent.lines.join());
+    assert.equal(absent.reached, false);
+  });
+
+  it("'were alerted' only when the server says SMS is live", () => {
+    const live = J.sosOutcome(answer({ contactsAlerted: 1, smsLive: true }));
+    assert.deepEqual(live.lines, ["sos.done.recorded", "sos.done.contacts.one", "sos.done.noResponder"]);
+    assert.equal(live.reached, true);
+    for (const v of ["true", 1, "yes", null]) {
+      assert.equal(J.sosOutcome(answer({ contactsAlerted: 1, smsLive: v })).smsLive, false, String(v));
+    }
+  });
+
   it("reads as specified in English, every key exists in all 8 languages, and none says help is coming", () => {
     const web = loadWebI18n();
     assert.equal(web.locales.length, 8);
@@ -233,11 +259,16 @@ describe("what an escalated SOS says happened", () => {
       "Emergency recorded (ref ab12cd34). No responder or contact was reached. Call 112 now.");
     assert.equal(J.sosHeadline(answer({ contactsAlerted: 2 }), "ab12cd34", t),
       "Emergency recorded (ref ab12cd34). Your 2 emergency contacts were alerted. No responder was contacted. Call 112 now.");
+    assert.equal(J.sosHeadline(answer({ contactsAlerted: 2, smsLive: false }), "ab12cd34", t),
+      "Emergency recorded (ref ab12cd34). Your 2 emergency contacts would be texted. On this demo server SMS is " +
+      "only logged, not sent. No responder or contact was reached. Call 112 now.");
 
     const cases = [answer(), answer({ contactsAlerted: 1 }), answer({ contactsAlerted: 4 }),
-      answer({ respondersNotified: 1 }), answer({ alreadyEscalated: true })];
+      answer({ respondersNotified: 1 }), answer({ alreadyEscalated: true }),
+      answer({ contactsAlerted: 1, smsLive: false }), answer({ contactsAlerted: 4, smsLive: false })];
     const keys = new Set(cases.flatMap((c) => J.sosOutcome(c).lines));
     keys.add("sos.grace"); keys.add("sos.call112"); keys.add("sos.unit.found"); keys.add("sos.unit.notContacted");
+    keys.add("sos.grace.logged"); keys.add("sos.contacts.logged");
     for (const locale of web.locales) {
       web.set(locale);
       for (const k of keys) {

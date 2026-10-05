@@ -485,6 +485,16 @@ const adminToken = adminVer.data?.accessToken;
 ok("demo admin signs in with an authority role", adminVer.data?.roles?.includes("admin"),
    JSON.stringify(adminVer.data?.roles ?? []));
 
+// §12's confirm answer said whether its counted contacts were really texted.
+// It must follow the configured provider, which the operator health view names:
+// console only logs (the hosted demo), so smsLive is false there.
+const healthDetail = await call("GET", "/health?detail=1", { token: adminToken });
+const smsProviderName = healthDetail.data?.providers?.sms;
+ok("the confirm answer's smsLive follows the configured SMS provider (console only logs)",
+   typeof smsProviderName === "string" && typeof confirmed.data?.smsLive === "boolean" &&
+     confirmed.data.smsLive === (smsProviderName !== "console"),
+   `provider=${smsProviderName} smsLive=${confirmed.data?.smsLive}`);
+
 const citizenReg = await call("POST", "/v1/raksha/devices", {
   token, body: { name: "E2E-ROGUE [SIMULATED]", lat: 28.4, lng: 77.0 },
 });

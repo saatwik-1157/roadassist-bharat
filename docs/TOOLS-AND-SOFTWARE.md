@@ -181,7 +181,7 @@ page makes a visitor's browser contact a third party (enforced by
 | Gradle (wrapper) | 8.13 | The build tool. Must run on **JDK 21**: Gradle 8.13 rejects JDK 25 (ENGINEERING-NOTES.md) |
 | Java target | 17 (`sourceCompatibility`, `jvmTarget`) | Bytecode level of the app |
 | Android SDK | `compileSdk` 36, `targetSdk` 36, `minSdk` 26 | Runs on Android 8.0 and newer; built and targeted for Android 16 |
-| App version | `versionName` 1.0.4, `versionCode` 6 | The release published as `android-v1.0.4` on GitHub Releases |
+| App version | `versionName` 1.0.5, `versionCode` 7 | The release published as `android-v1.0.5` on GitHub Releases |
 | Jetpack Compose | BOM 2024.09.03; `ui`, `foundation`, `material3` | The user interface |
 | androidx.activity:activity-compose | 1.9.2 | Hosts Compose in the activity |
 | androidx.lifecycle:lifecycle-runtime-ktx | 2.8.6 | Lifecycle-aware coroutines |
@@ -201,7 +201,7 @@ repository (`RA_SIGNING_PROPS`, or a folder beside the repository; neither the
 keystore nor its properties file is committed). Its certificate SHA-256 is
 `f602bb634f6e5dfc76752aec42ac36bf1a35c081a1f04b545e3ab107dcf84359`, and the
 signed APKs are published as GitHub Releases tagged `android-vX.Y.Z` (latest
-`android-v1.0.4`; install and verification steps in `release/INSTALL.md`). A
+`android-v1.0.5`; install and verification steps in `release/INSTALL.md`). A
 machine without the key, such as CI, still builds a release APK but signs it
 with the debug key and prints a warning: that APK installs for a demo and can
 never update, or stand in for, the published release. The app is not on a
@@ -440,9 +440,9 @@ of them ships to users.
 | **Android Studio + emulator** | Builds and runs the Android app. From the emulator, a local API is at `10.0.2.2:4000`. Studio's Gradle JDK must be set to JDK 21 by name (ENGINEERING-NOTES.md) | `mobile/` |
 | **Gradle wrapper** | `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` | `mobile/gradlew` |
 | **Python 3.12 + venv** | The AI pipeline lives in `ai/.venv` (gitignored) | `ai/` |
-| **python-pptx + Pillow** | Generate the final deck: 38 slides from `ppt/part_final.py` via `python ppt/make_final.py`. Never edit the `.pptx` by hand | `ppt/` |
-| **Microsoft PowerPoint (COM)** | Applies the slide transitions and exports the deck PDF after each build | `ppt/README.md` |
-| **Pillow scripts** | Web-sized thumbnails, the 3D journey scenes and the deck visuals, all built from real screenshots | `pages/build-thumbs.py`, `pages/scenes/`, `ppt/render_visuals.py` |
+| **python-pptx + Pillow** | Generated the final 38-slide deck. The generator left the repository on 2026-10-05 (in git history at `95672c2:ppt/`) | git history |
+| **Microsoft PowerPoint (COM)** | Applied the slide transitions and exported the deck PDF after each build | git history (`95672c2:ppt/README.md`) |
+| **Pillow scripts** | Web-sized thumbnails, the 3D journey scenes and the deck visuals, all built from real screenshots | `pages/build-thumbs.py`, `pages/scenes/`, `pages/visuals/render_visuals.py` |
 | **Blender 5.2** | A headless script models the seven-layer architecture stack (7 layers, 31 parts), exports it as glTF with Draco compression (595 KB, `assets/3d/layers.glb`) for three.js, and renders the still shown before the live scene loads | `design/blender/build_layers.py` |
 | **Figma** | The design boards are written as SVG that Figma imports as editable layers | `design/build_boards.py`, `design/figma/` |
 | **Promo film** | A 30-second promo and a vertical cut, built from real recordings and screenshots, with drawn scenes tagged. The repository does not record which video tool assembled it | `site/roadassist-promo.mp4`, `site/roadassist-promo-vertical.mp4` |
@@ -486,19 +486,19 @@ against the running system, and each one has to fail.
 
 ### Test suites
 
-Counts are from `app/docs/measured.json` (measured on 2026-10-01 against a
+Counts are from `app/docs/measured.json` (measured on 2026-10-05 against a
 database migrated from empty, then seeded).
 
 | Suite | Count | What it proves | Runs |
 |---|---|---|---|
-| Unit (`npm test`) | 460 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
-| End-to-end (`npm run test:e2e`) | 248 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
+| Unit (`npm test`) | 462 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
+| End-to-end (`npm run test:e2e`) | 249 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
 | Concurrency (`npm run test:concurrency`) | 92 | Races: two mechanics accepting one job, three SOS taps at once, live event delivery | CI |
 | Gateway security (`npm run test:gateway`) | 58 | Webhook signatures, append-only audit rules, sign-in code limits per number and per IP | CI |
 | Security audit (`npm run test:security`) | 106 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
-| Browser (`npm run test:ui`) | 194 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
-| **Total** | **1158** | Six suites, zero failures | |
-| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1158, and never described as passing | By hand only |
+| Browser (`npm run test:ui`) | 195 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
+| **Total** | **1162** | Six suites, zero failures | |
+| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1162, and never described as passing | By hand only |
 | Android (Gradle) | 190 | Android unit tests, run with lint and both APK builds | CI `android` job |
 | SOS ladder | 21 | The subset of the Android tests over `SosLadder.kt`, the emergency fallback decisions | CI `android` job |
 | CV pipeline | 39 | The Python pipeline tests (standard library only) | CI `ai` job |
@@ -665,5 +665,5 @@ for the architecture (DEPLOYMENT.md, `render.yaml`).
 `.github/workflows/*.yml`, `mobile/build.gradle.kts`,
 `mobile/app/build.gradle.kts`, `mobile/gradle/wrapper/gradle-wrapper.properties`,
 `ai/README.md`, `ai/requirements.txt`, `ai/requirements-serve.txt`,
-`docs/raksha/05-dataset-license-verification.md`, `deploy/aws/`, `ppt/README.md`,
+`docs/raksha/05-dataset-license-verification.md`, `deploy/aws/`,
 `design/`. Written 2026-10-05.*

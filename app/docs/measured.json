@@ -14,15 +14,15 @@
   "measuredOn": "2026-10-05",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 1158,
+    "total": 1162,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 460,
-      "e2e": 248,
+      "unit": 462,
+      "e2e": 249,
       "concurrency": 92,
       "gatewaySecurity": 58,
       "securityAudit": 106,
-      "browser": 194
+      "browser": 195
     },
     "notExecuted": {
       "paymentSandbox": 22,
@@ -118,7 +118,7 @@
     ],
     "serverKeys": 18,
     "androidKeys": 173,
-    "webKeys": 41,
+    "webKeys": 45,
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."
   },

@@ -27,7 +27,8 @@
 // v22: the pre-filled sign-in number moves into the demo block (+917000009876): app.html.
 // v23: lime map markers and the edge-pin popup fix (map.html); a missing space in app.html's sign-in field.
 // v24: the online SOS sheet says only what the server did — no "Help is on the way." when no contact or responder was reached (app.html, journey.js, i18n.js).
-const VERSION = "ra-v24";
+// v25: SOS contacts are "alerted" only when the server says SMS is live (smsLive); on a console SMS provider the sheet says "would be texted … only logged, not sent" (app.html, journey.js, i18n.js, index.html).
+const VERSION = "ra-v25";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.

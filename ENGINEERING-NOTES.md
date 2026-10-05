@@ -13,7 +13,7 @@ repo, each with its own toolchain:
 | `app/` | npm workspace — Fastify API, Drizzle schema, static web surfaces | Node 22+, `npm` |
 | `mobile/` | Android client, Kotlin + Compose | Gradle 8.13, AGP 8.13.2 |
 | `ai/` | RAKSHA road-damage CV pipeline | Python 3.12 |
-| `docs/`, `ppt/` | Planning docs, dated evidence, the deck | — |
+| `docs/` | Documentation index, tools inventory, RAKSHA design, translation review | — |
 
 `app/` is where nearly all work happens. **Run npm commands from `app/`, not the
 repository root.**
@@ -78,12 +78,12 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 460 unit — no I/O, the only ones that run standalone
-npm run test:e2e         # 248
+npm test                 # 462 unit — no I/O, the only ones that run standalone
+npm run test:e2e         # 249
 npm run test:concurrency # 92
 npm run test:gateway     # 58
 npm run test:security    # 106 attacks, every one must be refused
-npm run test:ui          # 194, drives real Chrome over CDP (--headed to watch)
+npm run test:ui          # 195, drives real Chrome over CDP (--headed to watch)
 ```
 
 **The concurrency suite degrades on a database it has already run against.**
@@ -111,7 +111,7 @@ they fail on their first sign-in there. The demo stack resets with
 local stub of the Orders API and signs webhooks with a stub secret — but it
 refuses to run (exit 2) unless the API was started with the variables in the
 script's header (`PAYMENTS_PROVIDER=razorpay`, `PAYMENTS_BASE_URL` at the stub).
-It is **not** part of the 1158 and must never be described as passing.
+It is **not** part of the 1162 and must never be described as passing.
 
 Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (190
 tests). AI: `python -m unittest discover -s ai/tests` (39, stdlib only).
@@ -304,8 +304,8 @@ This project's credibility rests on not over-claiming, and it has a mechanism
 for it: `app/docs/CLAIMS-AUDIT.md`. Follow it.
 
 - If you change a number that appears in the docs, **measure it**, then update
-  every occurrence — `grep -r` across `*.md`, the deck sources in `ppt/*.py`,
-  and rebuild the deck. `npm run claims` is the gate; it reads
+  every occurrence — `grep -r` across `*.md` and the web pages. `npm run claims`
+  is the gate; it reads
   `app/docs/measured.json` and checks the total, every individual suite, and the
   `npm run … # N` comments the command lists are written as.
 - **A `file.ts:123` in the docs is a claim too.** `npm run citations` checks that
@@ -320,9 +320,7 @@ for it: `app/docs/CLAIMS-AUDIT.md`. Follow it.
   from the tree on 2026-10-05 and stay in git history. If you quote a figure
   from one, say which build it describes. If it was *wrong when written*, say
   so in CLAIMS-AUDIT.
-- The decks under `ppt/` are generated: edit `ppt/part_final.py`, then
-  `python ppt/make_final.py`. Editing the `.pptx` directly gets overwritten.
-  The `.pdf` needs a manual PowerPoint export and goes stale silently.
+- The deck and its generator left the repository on 2026-10-05; they are in git history (`git show 95672c2:ppt/README.md`) and with the team.
 - Never describe something as shipped because it is on the roadmap. The README's
   team table is explicitly labelled as *planned* ownership for this reason.
 

@@ -399,7 +399,7 @@ export async function telecomRoutes(app: FastifyInstance) {
       const sent = await reply(fix ? "sos.received.located" : "sos.received",
         { ref: String(incident.id).slice(0, 8) });
       return { ...sent, meta: { ...sent.meta, incidentId: incident.id, escalated: escalation?.escalated ?? false,
-        contactsAlerted: escalation?.contactsAlerted ?? 0,
+        contactsAlerted: escalation?.contactsAlerted ?? 0, smsLive: sms.live,
         ...(escalation?.contactsFailed ? { contactsFailed: escalation.contactsFailed } : {}),
         ...(escalation?.contactsWithheld ? { contactsWithheld: escalation.contactsWithheld } : {}),
         ...(escalation?.contactsOptedOut ? { contactsOptedOut: escalation.contactsOptedOut } : {}) } };

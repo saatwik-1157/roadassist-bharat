@@ -11,7 +11,7 @@ Two kinds, and the distinction is deliberate:
     isometric geometry. Nothing photographic is claimed, and no stock image with
     unknown licensing enters the deck.
 
-    python ppt/render_visuals.py
+    python pages/visuals/render_visuals.py
 """
 import math
 import os
@@ -20,14 +20,14 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 HERE = Path(__file__).resolve().parent
-ASSETS = HERE / "assets"
+ASSETS = HERE  # the PNGs live beside this script; pages.yml publishes them
 ASSETS.mkdir(parents=True, exist_ok=True)
 
 # The real screenshots the deck is built from. They live in the repository, so
 # this script runs from a clean clone; RENDER_SHOTS overrides the location if a
 # fresher capture is being rendered from somewhere else.
 SHOTS = Path(os.environ.get(
-    "RENDER_SHOTS", HERE.parent / "app" / "docs" / "screenshots"))
+    "RENDER_SHOTS", HERE.parent.parent / "app" / "docs" / "screenshots"))
 
 BLUE = (46, 125, 255)
 CYAN = (34, 211, 238)

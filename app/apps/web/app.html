@@ -425,7 +425,7 @@
             <h2 class="title grow">Emergency contacts</h2>
             <span class="pill gold bare" id="ec-count">—</span>
           </div>
-          <p class="meta" style="margin-top:4px">Alerted automatically when you confirm an SOS, in priority order.</p>
+          <p class="meta" style="margin-top:4px">Texted automatically when you confirm an SOS, in priority order — on this demo server SMS is only logged, not sent.</p>
           <div id="ec-list" class="reveal" style="margin-top:10px"></div>
           <div class="field-row" style="margin-top:4px">
             <label class="field"><span>Name</span><input id="ec-name" placeholder="Amma"></label>
@@ -2959,7 +2959,7 @@
       sosId = r.data.id;
       sosPos = pos;
       trackIncident(sosId, r.data.status);
-      openSos(r.data.status);
+      openSos(r.data.status, r.data.smsLive === true);
       if (pos.demo || r.data.locationKnown === false) $("sos-out").innerHTML = sosNoFix();
     } catch (e) {
       // The connection died between the tier check and the request — which is
@@ -3135,7 +3135,9 @@
     $("og-open").onclick = function () { closeSos(); nav("offgrid"); };
   }
 
-  function openSos(status) {
+  // smsLive comes from the raise answer: on the console SMS provider (the hosted
+  // demo) "texts your contacts" would be untrue, so the countdown says so.
+  function openSos(status, smsLive) {
     var left = GRACE_S;
     $("sos-out").innerHTML = "";
     // The off-grid path rewrites this sheet's heading and dial; restore them so
@@ -3144,8 +3146,9 @@
     $("sos-n").style.fontSize = "";
     $("sos-bar").style.background = "";
     $("sos-abort").textContent = "Cancel — false alarm";
-    $("sos-copy").textContent = "Incident " + status + ". " +
-      tr("sos.grace", "At zero, RoadAssist texts your saved emergency contacts and looks for the nearest responder unit.");
+    $("sos-copy").textContent = "Incident " + status + ". " + (smsLive
+      ? tr("sos.grace", "At zero, RoadAssist texts your saved emergency contacts and looks for the nearest responder unit.")
+      : tr("sos.grace.logged", "At zero, RoadAssist looks for the nearest responder unit. On this demo server SMS to your contacts is only logged, not sent."));
     $("sos-n").textContent = left;
     $("sos-bar").style.transition = "none";
     $("sos-bar").style.transform = "scaleX(1)";
@@ -3208,8 +3211,11 @@
         ["Location shared", located, located ? "precise GPS" : "unknown — call 112"],
         // "none on file" only when that is why: a withheld, opted-out, failed
         // or repeated send also alerts nobody, and is not an empty list.
-        ["Contacts notified", outcome.contacts > 0,
-          outcome.contacts ? outcome.contacts + " alerted"
+        // Ticked only for texts a live provider sent; the console provider logs.
+        ["Contacts notified", outcome.contacts > 0 && outcome.smsLive,
+          outcome.contacts
+            ? (outcome.smsLive ? outcome.contacts + " alerted"
+              : tr("sos.contacts.logged", "{n} logged, not sent").replace("{n}", String(outcome.contacts)))
             : c.data.alreadyEscalated || c.data.contactsWithheld || c.data.contactsOptedOut || c.data.contactsFailed
               ? "0 alerted" : "none on file"],
         ["Responder search", Boolean(resp), !resp ? "no unit in range"

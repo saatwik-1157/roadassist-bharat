@@ -108,15 +108,25 @@
     var contacts = count(d.contactsAlerted);
     var responders = count(d.respondersNotified);
     var repeat = d.alreadyEscalated === true;
+    // `contactsAlerted` counts sends the SMS provider accepted. Only a live
+    // provider puts them on a phone; the console one (the hosted demo) writes
+    // them to the server log. Absent counts as not live: delivery is claimed
+    // only when the server says it is real.
+    var smsLive = d.smsLive === true;
+    var texted = smsLive ? contacts : 0;
     var lines = ["sos.done.recorded"];
     if (responders > 0) lines.push("sos.done.responders");
-    if (contacts > 0) lines.push(contacts === 1 ? "sos.done.contacts.one" : "sos.done.contacts");
+    if (contacts > 0) {
+      lines.push(smsLive
+        ? (contacts === 1 ? "sos.done.contacts.one" : "sos.done.contacts")
+        : (contacts === 1 ? "sos.done.contacts.logged.one" : "sos.done.contacts.logged"));
+    }
     // A repeat confirm texts nobody; whether the first one did is not in this answer.
     if (repeat) lines.push("sos.done.repeat");
-    if (responders === 0) lines.push(contacts > 0 || repeat ? "sos.done.noResponder" : "sos.done.none");
+    if (responders === 0) lines.push(texted > 0 || repeat ? "sos.done.noResponder" : "sos.done.none");
     return {
-      contacts: contacts, responders: responders, repeat: repeat,
-      reached: contacts > 0 || responders > 0, call112: responders === 0, lines: lines,
+      contacts: contacts, responders: responders, repeat: repeat, smsLive: smsLive,
+      reached: texted > 0 || responders > 0, call112: responders === 0, lines: lines,
     };
   }
 
