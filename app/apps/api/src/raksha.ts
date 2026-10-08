@@ -515,6 +515,15 @@ export async function rakshaRoutes(app: FastifyInstance) {
   // source:"citizen" so it is never mistaken for autonomous hardware. Unlike a
   // device sighting it never auto-raises an incident (ADR-0005): a citizen
   // report is advisory until a human authority confirms it.
+  //
+  // Idempotency: an OPTIONAL `clientReportId` (8-64 of [A-Za-z0-9_-]), made
+  // once per report draft and reused on every retry. With it, a re-send after
+  // a lost reply returns the original report (200, same id) and records
+  // nothing new; it is stored as source_key = sha256 of the user and the key,
+  // under the existing unique index (0009), so no migration was needed.
+  // Without it the old behaviour stands: every POST is a new report. The web
+  // scan sends it; the Android app does not yet (its queue will send the key
+  // in a later release).
   app.post("/v1/raksha/report", { preHandler: authenticate }, async (req, reply) => {
     const body = z.object({
       type: z.enum(["pothole", "road_damage", "obstruction"]),
@@ -535,9 +544,34 @@ export async function rakshaRoutes(app: FastifyInstance) {
       // citizen report. Malformed values are refused, never coerced.
       confidence: z.number().min(0).max(1).optional(),
       modelVersion: z.string().min(1).max(40).regex(/^[A-Za-z0-9._-]+$/).optional(),
+      clientReportId: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/).optional(),
     }).parse(req.body);
 
     const userId = req.user!.sub;
+    // Per user: one person's key can never collide with (or censor) another's.
+    const sourceKey = body.clientReportId ? sha256(`citizen-report:${userId}:${body.clientReportId}`) : null;
+    /** The report this key already recorded, as the first answer described it. */
+    const original = async () => {
+      if (!sourceKey) return null;
+      const [d] = await db.select({
+        id: S.rakshaDetections.id, status: S.rakshaDetections.status, type: S.rakshaDetections.detectionType,
+        severity: S.rakshaDetections.severity, imageRef: S.rakshaDetections.imageRef,
+        confidence: S.rakshaDetections.confidence, modelVersion: S.rakshaDetections.modelVersion,
+        accuracyM: S.rakshaDetections.locationAccuracyM, raw: S.rakshaDetections.raw,
+      }).from(S.rakshaDetections).where(eq(S.rakshaDetections.sourceKey, sourceKey)).limit(1);
+      if (!d || (d.raw as { reportedBy?: string } | null)?.reportedBy !== userId) return null;
+      return reply.code(200).send(ok(
+        {
+          id: d.id, status: d.status, type: d.type, severity: d.severity, hasPhoto: Boolean(d.imageRef),
+          confidence: d.confidence, modelVersion: d.modelVersion,
+          position: describePosition({ source: "citizen", simulated: null, modelVersion: d.modelVersion, accuracyM: d.accuracyM }),
+        },
+        { source: "citizen", duplicate: true, note: "Already received - this repeat was not recorded again." },
+      ));
+    };
+    // A repeat is answered before the rate limit: it adds nothing to the queue.
+    const repeat = await original();
+    if (repeat) return repeat;
     const byModel = body.confidence !== undefined && body.modelVersion !== undefined;
     const confidence = byModel ? body.confidence! : 1;
     const modelVersion = byModel ? body.modelVersion! : "citizen-report";
@@ -603,7 +637,12 @@ export async function rakshaRoutes(app: FastifyInstance) {
         modelVersion, usedFallback: false,
         notes: body.note, locationAccuracyM: accuracyM,
         raw: { source: "citizen", reportedBy: userId },
-      }).returning({ id: S.rakshaDetections.id });
+        sourceKey,
+      })
+        // Two copies of one report racing each other: the second loses here.
+        .onConflictDoNothing()
+        .returning({ id: S.rakshaDetections.id });
+      if (!ins) return { detectionId: null, imageRef: null };
       const id = ins.id;
       await tx.execute(raw`
         UPDATE raksha_detections
@@ -629,6 +668,11 @@ export async function rakshaRoutes(app: FastifyInstance) {
       }
       return { detectionId: id, imageRef: ref };
     });
+    if (!detectionId) {
+      const raced = await original();
+      if (raced) return raced;
+      return reply.code(409).send({ error: { code: "report_conflict", title: "This report could not be recorded - send it again", retryable: true } });
+    }
 
     return reply.code(201).send(ok(
       {

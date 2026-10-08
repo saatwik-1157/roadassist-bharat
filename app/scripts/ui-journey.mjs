@@ -2368,6 +2368,217 @@ const run = async () => {
       check(fixedCopy > 1024 * 1024, "…and the cache now holds the real file", `${fixedCopy} bytes`);
 
     });
+    // ══ 38. The consoles: a server that could not answer is not a refusal ═══
+    // Part 36's rule, for mechanic.html and raksha.html: their refreshSession()
+    // still read a 5xx or a 429 from /v1/auth/refresh as "the session is over",
+    // so a database restart signed a mechanic out mid-job. Only a 4xx other
+    // than 408/429 is a refusal.
+    await part("38. Mechanic and RAKSHA consoles: a 503 or 429 refresh keeps the session; a 401 still ends it", async () => {
+      const consoles = [
+        { name: "mechanic", url: `${BASE}/mechanic.html`, key: "ra.mechanic.session",
+          signedIn: `!document.getElementById("scr-work").hidden`,
+          settled: `document.readyState === "complete" && document.getElementById("m-restoring").hidden === true`,
+          signIn: async () => {
+            await page.waitFor(`document.getElementById("m-signin")`);
+            if (await page.eval(`return document.getElementById("scr-work").hidden;`)) {
+              await page.setValue("#m-msisdn", "+919600000440");
+              await page.click("#m-signin");
+            }
+            await page.waitFor(`!document.getElementById("scr-work").hidden && !/Loading/.test(document.getElementById("m-name").textContent)`, 45000, "the mechanic console");
+          },
+          working: `!/Loading/.test(document.getElementById("m-name").textContent)` },
+        { name: "RAKSHA", url: `${BASE}/raksha.html`, key: "ra.raksha.session",
+          signedIn: `document.getElementById("login-panel").hidden === true`,
+          settled: `document.readyState === "complete" && !/Restoring/.test(document.getElementById("status").textContent)`,
+          signIn: async () => {
+            await page.waitFor(`document.getElementById("login-btn")`);
+            await sleep(1500);
+            if (await page.eval(`return document.getElementById("login-panel").hidden === false;`)) {
+              await page.setValue("#msisdn", "+919999900001");
+              await page.click("#login-btn");
+            }
+            await page.waitFor(`document.getElementById("login-panel").hidden === true && /gov_officer|admin/.test(document.getElementById("who").textContent)`, 30000, "the RAKSHA console");
+          },
+          working: `/gov_officer|admin/.test(document.getElementById("who").textContent)` },
+      ];
+      const stub = (status) => `
+        (function () {
+          var real = window.fetch;
+          window.fetch = function (input) {
+            var url = typeof input === "string" ? input : input && input.url;
+            if (/\\/v1\\/auth\\/refresh/.test(String(url))) {
+              return Promise.resolve(new Response(JSON.stringify({ error: { code: "x", title: "refresh " + ${status} } }),
+                { status: ${status}, headers: { "content-type": "application/json" } }));
+            }
+            return real.apply(this, arguments);
+          };
+        })();`;
+      const expire = (key) => page.eval(`
+        const s = JSON.parse(sessionStorage.getItem(${JSON.stringify(key)}));
+        s.token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJib2d1cyJ9.deadbeef";
+        sessionStorage.setItem(${JSON.stringify(key)}, JSON.stringify(s));
+        return true;`);
+      const reopen = async (c, status) => {
+        const { identifier } = status ? await page.send("Page.addScriptToEvaluateOnNewDocument", { source: stub(status) }) : {};
+        try {
+          await page.goto(c.url);
+          await page.waitFor(c.settled, 30000, `${c.name} to settle`);
+          await sleep(1500);
+          return await page.eval(`return { in: ${c.signedIn}, kept: Boolean(localStorage.getItem(${JSON.stringify(c.key)})) };`);
+        } finally {
+          if (identifier) await page.send("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+        }
+      };
+      for (const c of consoles) {
+        await page.goto(c.url);
+        await c.signIn();
+        for (const status of [503, 429]) {
+          await expire(c.key);
+          const got = await reopen(c, status);
+          check(got.in && got.kept, `${c.name}: a ${status} from the refresh on reopen keeps the session and the console`, JSON.stringify(got));
+        }
+        await reopen(c, 0);
+        await page.waitFor(c.working, 30000, `${c.name} to work again`);
+        const healed = await page.eval(`return JSON.parse(sessionStorage.getItem(${JSON.stringify(c.key)})).token.split(".")[1].length > 20;`);
+        check(healed, `…${c.name}: once the server answers again, the same session refreshes and carries on`);
+        await expire(c.key);
+        const refused = await reopen(c, 401);
+        check(!refused.in && !refused.kept, `…${c.name}: a 401 refusal from the refresh still signs out`, JSON.stringify(refused));
+      }
+    });
+    // ══ 39. A false alarm pressed during a failed sync survives a reload ═══
+    // "Cancel — false alarm" pressed mid-upload was kept only in memory, and
+    // only a "created" answer applied it. When the upload reached the server
+    // but its reply was lost, the sync failed, a reload forgot the cancel, and
+    // the retry came back "duplicate" - so the withdrawn SOS stayed open.
+    await part("39. Off-grid cancel during a failing sync is kept across a reload and applied to a duplicate", async () => {
+      await signInAs("+917000004714");
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+      await offGrid(true);
+      await pressSos();
+      await page.waitFor(`window.__ra.offGrid().incidentId`, 15000, "an off-grid incident");
+      await recordToasts();
+      await page.eval(`
+        window.__held = false;
+        const real = window.__realFetch = window.fetch;
+        let release; window.__release = () => release();
+        const hold = new Promise((r) => { release = r; });
+        window.fetch = async function (url) {
+          if (/offline-sync$/.test(String(url))) {
+            window.__held = true; await hold;
+            await real.apply(this, arguments);              // the server records it...
+            throw new TypeError("Failed to fetch");         // ...and the reply is lost
+          }
+          return real.apply(this, arguments);
+        };
+        document.getElementById("net").click();     // signal returns: the upload starts, and is held
+        return true;`);
+      await page.waitFor(`window.__held`, 15000, "the upload to be in flight");
+      await page.eval(`document.getElementById("sos-abort").click(); return true;`);
+      await sleep(500);
+      await page.eval(`window.__release(); return true;`);
+      await page.waitFor(`(await window.__ra.listOffGrid())[0]?.status === "SYNC_RETRY_PENDING"`, 15000, "the sync to fail");
+      const kept = await page.eval(`const l = await window.__ra.listOffGrid(); window.fetch = window.__realFetch;
+        return { status: l[0].status, cancel: l[0].cancelRequested === true, toast: window.__toasts.join(" | ").slice(0, 160) };`);
+      check(kept.cancel, "the cancel pressed during the failing upload is stored on the incident, not held in memory", JSON.stringify(kept));
+      const { identifier } = await page.send("Page.addScriptToEvaluateOnNewDocument", { source: `
+        (function () {
+          var real = window.fetch; window.__calls = [];
+          window.fetch = function (input) {
+            var u = String(typeof input === "string" ? input : input && input.url);
+            var p = real.apply(this, arguments);
+            if (/\\/v1\\/sos\\//.test(u)) {
+              var c = { call: u.replace(/^.*\\/v1\\/sos\\//, "") }; window.__calls.push(c);
+              p.then(function (r) { return r.clone().json(); }).then(function (j) { c.status = j && j.data && j.data.status; }, function () {});
+            }
+            return p;
+          };
+        })();` });
+      let after;
+      try {
+        await page.goto(APP);
+        await page.waitFor(settled, 25000, "the app to settle");
+        await page.waitFor(`window.__ra && window.__ra.offGrid().storeLoaded`, 15000, "off-grid modules");
+        await page.waitFor(`(await window.__ra.listOffGrid())[0]?.status === "SYNCED" && window.__calls.some((c) => /cancel$/.test(c.call) && c.status)`,
+          40000, "the next sync to send it and cancel it");
+        after = await page.eval(`
+          const l = await window.__ra.listOffGrid();
+          const open = (await (await fetch("/v1/me/incidents", { headers: { authorization: "Bearer " + ${TOK} } })).json()).data || [];
+          return { calls: window.__calls, open: open.length, cancelLeft: l[0].cancelRequested === true };`);
+      } finally {
+        await page.send("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+      }
+      check(after.calls.some((c) => /offline-sync$/.test(c.call)) && after.calls.some((c) => /cancel$/.test(c.call) && c.status === "CANCELLED")
+        && !after.calls.some((c) => /confirm$/.test(c.call)) && after.open === 0 && !after.cancelLeft,
+        "after a reload the next sync - answered 'duplicate' - cancels it on the server (CANCELLED), and nothing is confirmed", JSON.stringify(after));
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+    });
+    // ══ 40. A lost reply still gets the SOS escalated ═══════════════════════
+    // Only a "created" answer was confirmed. When the upload reached the server
+    // but its reply was lost, the retry came back "duplicate" and nobody was
+    // ever alerted, while the screen said "synchronized".
+    await part("40. Off-grid SOS whose upload reply was lost is escalated once on the duplicate", async () => {
+      await signInAs("+917000004715");
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+      await offGrid(true);
+      await pressSos();
+      await page.waitFor(`window.__ra.offGrid().incidentId`, 15000, "an off-grid incident");
+      await page.eval(`
+        const real = window.__realFetch = window.fetch;
+        window.fetch = async function (url) {
+          if (/offline-sync$/.test(String(url))) {
+            await real.apply(this, arguments);              // the server records it...
+            throw new TypeError("Failed to fetch");         // ...and the reply is lost
+          }
+          return real.apply(this, arguments);
+        };
+        document.getElementById("net").click();
+        return true;`);
+      await page.waitFor(`(await window.__ra.listOffGrid())[0]?.status === "SYNC_RETRY_PENDING"`, 20000, "the sync to fail");
+      await page.eval(`window.fetch = window.__realFetch; return true;`);
+      const { identifier } = await page.send("Page.addScriptToEvaluateOnNewDocument", { source: `
+        (function () {
+          var real = window.fetch; window.__calls = [];
+          window.fetch = function (input) {
+            var u = String(typeof input === "string" ? input : input && input.url);
+            var p = real.apply(this, arguments);
+            if (/\\/v1\\/sos\\//.test(u)) {
+              var c = { call: u.replace(/^.*\\/v1\\/sos\\//, "") }; window.__calls.push(c);
+              p.then(function (r) { return r.clone().json(); }).then(function (j) {
+                c.status = j && j.data && (j.data.status || (j.data.results && j.data.results[0] && j.data.results[0].status)); }, function () {});
+            }
+            return p;
+          };
+        })();` });
+      let after;
+      try {
+        await page.goto(APP);
+        await page.waitFor(settled, 25000, "the app to settle");
+        await page.waitFor(`window.__ra && window.__ra.offGrid().storeLoaded`, 15000, "off-grid modules");
+        await page.waitFor(`(await window.__ra.listOffGrid())[0]?.status === "SYNCED" && window.__calls.some((c) => /confirm$/.test(c.call) && c.status)`,
+          40000, "the next sync to send and escalate it");
+        await sleep(1500);
+        after = await page.eval(`
+          const l = await window.__ra.listOffGrid();
+          const open = (await (await fetch("/v1/me/incidents", { headers: { authorization: "Bearer " + ${TOK} } })).json()).data || [];
+          return { calls: window.__calls, serverId: l[0].serverId, open: open.map((i) => ({ id: i.id, status: i.status })),
+            toast: document.getElementById("toast").textContent.slice(0, 120) };`);
+      } finally {
+        await page.send("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+      }
+      const confirms = after.calls.filter((c) => /confirm$/.test(c.call));
+      check(after.calls.some((c) => /offline-sync$/.test(c.call) && c.status === "duplicate") && confirms.length === 1
+        && /^(CONFIRMED|RESPONDING)$/.test(confirms[0].status || ""),
+        "the replay is answered 'duplicate' and the SOS is confirmed exactly once", JSON.stringify(after.calls));
+      check(after.open.length === 1 && after.open[0].id === after.serverId && /^(CONFIRMED|RESPONDING)$/.test(after.open[0].status),
+        "…the server holds one incident, escalated, and no duplicate was created", JSON.stringify(after.open));
+      check(!/alerting failed/i.test(after.toast), "…and the screen does not report an alerting failure", after.toast);
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+    });
 
   } catch (e) {
     bad("journey aborted", e.message);

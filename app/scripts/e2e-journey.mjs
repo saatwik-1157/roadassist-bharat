@@ -782,6 +782,42 @@ for (const extra of invalidModel) {
 ok("out-of-range, non-numeric, empty, over-long or oddly-spelled values are refused with 400",
    invalidStatuses.every((s) => s === 400), invalidStatuses.join(","));
 
+// A hazard report re-sent after a lost reply was recorded twice. With the
+// optional clientReportId (one per draft, reused on retry) a repeat returns
+// the original report and inserts nothing; without it every POST is new.
+console.log("\n17c. A re-sent report is recorded once (clientReportId)");
+const signInFresh = async () => {
+  const m = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+  const rq = await call("POST", "/v1/auth/otp/request", { body: { msisdn: m } });
+  return (await call("POST", "/v1/auth/otp/verify", { body: { msisdn: m, code: rq.meta.devOtp } })).data.accessToken;
+};
+const idemToken = await signInFresh();
+const myCount = async (t) => (await call("GET", "/v1/me/reports", { token: t })).meta?.count;
+const keyed = { type: "pothole", severity: 3, lat: 28.4515, lng: 77.0515, clientReportId: "web-" + Date.now().toString(16) + "a1b2" };
+const before17c = await myCount(idemToken);
+const firstSend = await call("POST", "/v1/raksha/report", { token: idemToken, body: keyed });
+const resend = await call("POST", "/v1/raksha/report", { token: idemToken, body: keyed });
+const after17c = await myCount(idemToken);
+ok("two identical POSTs with one clientReportId record one report, and the repeat returns the same id",
+   firstSend.status === 201 && resend.status === 200 && Boolean(firstSend.data?.id) &&
+   resend.data?.id === firstSend.data?.id && resend.meta?.duplicate === true && after17c - before17c === 1,
+   `status ${firstSend.status}/${resend.status}, rows +${after17c - before17c}, same id ${resend.data?.id === firstSend.data?.id}`);
+const keyOtherToken = await signInFresh();
+const otherUser = await call("POST", "/v1/raksha/report", { token: keyOtherToken, body: keyed });
+ok("the key is per user: another account sending the same key files its own report",
+   otherUser.status === 201 && otherUser.data?.id !== firstSend.data?.id, `status ${otherUser.status}`);
+const { clientReportId: _k, ...unkeyed } = keyed;
+const plainA = await call("POST", "/v1/raksha/report", { token: idemToken, body: unkeyed });
+const plainB = await call("POST", "/v1/raksha/report", { token: idemToken, body: unkeyed });
+ok("without a clientReportId the old behaviour stands: two POSTs, two reports",
+   plainA.status === 201 && plainB.status === 201 && plainA.data?.id !== plainB.data?.id &&
+   (await myCount(idemToken)) - after17c === 2, `status ${plainA.status}/${plainB.status}`);
+const badKeys = [];
+for (const k of ["short", "x".repeat(65), "has space!", 12345678]) {
+  badKeys.push((await call("POST", "/v1/raksha/report", { token: idemToken, body: { ...unkeyed, clientReportId: k } })).status);
+}
+ok("a malformed clientReportId is refused with 400, never coerced", badKeys.every((s) => s === 400), badKeys.join(","));
+
 // per-user report rate limit — one account cannot flood the queue
 console.log("\n18. Report rate limiting");
 const floodMsisdn = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));

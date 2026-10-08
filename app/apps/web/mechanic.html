@@ -438,7 +438,7 @@
     if (refreshing) return refreshing;
     if (!state.refresh) return Promise.resolve(false);
     refreshing = sess.refresh(state.refresh).then(function (token) {
-      if (!token) return false;
+      if (!token) return sess.refused() ? false : null;   // only a 4xx but 408/429 signs out; a 5xx, 429 or no answer is retried
       state.token = token;
       state.refresh = true;
       saveSession();
@@ -462,8 +462,8 @@
     catch (e) { throw Object.assign(new Error("Network unavailable — check your connection."), { transport: true }); }
 
     if (res.status === 401 && state.refresh && !opts.noRetry) {
-      if (await refreshSession()) res = await send();
-      else { signOut(true); throw new Error("Your session has ended. Sign in again."); }
+      var renewed = await refreshSession(); if (renewed === null) throw Object.assign(new Error("Network unavailable — check your connection."), { transport: true });
+      if (renewed) res = await send(); else { signOut(true); throw new Error("Your session has ended. Sign in again."); }
     }
     var json = await res.json().catch(function () { return {}; });
     if (!res.ok) {

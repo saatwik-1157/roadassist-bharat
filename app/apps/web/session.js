@@ -74,6 +74,15 @@
       },
       /** The last refresh's HTTP status, 0 when it got no answer, undefined before one. */
       refreshStatus: function () { return lastRefreshStatus; },
+      /**
+       * Whether the last refresh was the server refusing this session: a 4xx
+       * other than 408/429. A 5xx, a 408/429 or no answer is no signal - retry
+       * later, never sign out (the consoles; app.html applies the same rule).
+       */
+      refused: function () {
+        var st = lastRefreshStatus;
+        return st >= 400 && st < 500 && st !== 408 && st !== 429;
+      },
       /** End the session on the server and clear the cookie. Best effort. */
       logout: function (token) {
         return fetch(api + "/v1/auth/logout", {

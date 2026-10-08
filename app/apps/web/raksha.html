@@ -822,7 +822,10 @@
     if (refreshing) return refreshing;
     if (!refreshToken) return Promise.resolve(false);
     refreshing = sess.refresh(refreshToken).then(function (t) {
-      if (!t) return false;
+      // No token: true refusal (false) or no signal (null). Only a 4xx other
+      // than 408/429 is the server refusing this session; a 5xx, a 429 or no
+      // answer is retried on the next tick, never a sign-out.
+      if (!t) return sess.refused() ? false : null;
       token = t;
       refreshToken = true;
       saveSession();
@@ -897,11 +900,15 @@
         body: body ? JSON.stringify(body) : undefined,
       });
     }
-    var res = await send();
+    var res;
+    try { res = await send(); }
+    catch (e) { throw Object.assign(new Error("Network unavailable — check your connection."), { transport: true }); }
     // An expired access token is a routine event on a console that stays open,
     // not a sign-out. Refresh once and replay before surfacing anything.
     if (res.status === 401 && refreshToken && !opts.noRetry) {
-      if (await refreshSession()) res = await send();
+      var renewed = await refreshSession();
+      if (renewed) res = await send();
+      else if (renewed === null) throw Object.assign(new Error("Network unavailable — check your connection."), { transport: true });
       else { signOut(true); throw new Error("Your session has ended. Sign in again."); }
     }
     var json = await res.json().catch(function () { return {}; });
@@ -1509,6 +1516,7 @@
 
   function signOut(silent) {
     if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    if (restoreTimer) { clearTimeout(restoreTimer); restoreTimer = null; }
     token = null; refreshToken = null;
     clearSession();
     $("live").classList.remove("on");
@@ -1524,22 +1532,36 @@
   // ── restore a stored session before showing the login panel ──────────────
   // The stored access token is almost always stale — the page may have been
   // closed for hours — so the ordinary refresh path inside call() handles it.
-  (async function boot() {
-    var saved = sess.load();
-    if (!saved) return;
-    token = saved.token;
-    refreshToken = saved.refresh;
-    status("Restoring your session…");
+  var restoreTimer = null;
+  async function restore(saved) {
+    restoreTimer = null;
     try {
       // A pre-cookie session trades its stored refresh token for the cookie, once.
       if (typeof refreshToken === "string") await refreshSession();
       var me = await call("GET", "/v1/me");
       await enterConsole(me.data.roles, saved.msisdn || me.data.user.msisdn);
     } catch (e) {
+      if (refreshToken && (e.transport || e.status >= 500)) {
+        // No signal is not a sign-out: keep the session, show what this device
+        // has cached, and try again on the live cadence.
+        showCached();
+        $("signout-btn").hidden = false;
+        status("Server unreachable — your session is kept and reconnects automatically.");
+        restoreTimer = setTimeout(function () { restore(saved); }, REFRESH_MS);
+        return;
+      }
       signOut(true);
       if (saved.msisdn) $("msisdn").value = saved.msisdn;
       status("Session expired — sign in again.");
     }
+  }
+  (function boot() {
+    var saved = sess.load();
+    if (!saved) return;
+    token = saved.token;
+    refreshToken = saved.refresh;
+    status("Restoring your session…");
+    restore(saved);
   })();
 
   $("recompute").onclick = function () {
@@ -1561,7 +1583,7 @@
 
   // Net down before sign-in? The last authorized session's cache still shows
   // the corridor and still exports. (Cache lives only on this device.)
-  $("cached-btn").onclick = function () {
+  function showCached() {
     offline = true;
     $("login-panel").hidden = true;
     ["health-panel", "cond-panel", "photo-panel", "det-panel", "dev-panel", "export-panel"].forEach(function (id) { $(id).hidden = false; });
@@ -1570,7 +1592,8 @@
     liveEl.classList.add("on", "offline");
     liveEl.textContent = "Offline · cached";
     refresh();
-  };
+  }
+  $("cached-btn").onclick = showCached;
   // ── register an edge device (ADR-0008: secret shown once, hash stored) ───
   $("nd-add").onclick = async function () {
     var btn = this;

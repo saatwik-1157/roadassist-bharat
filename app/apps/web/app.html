@@ -3471,7 +3471,9 @@
             if (e.status === 409) reconcileSos();
           }
         } else {
-          ogCancel[ogId] = true;
+          // Kept on the incident row, not in memory: a sync that fails and a
+          // reload in between must not turn this false alarm into an alert.
+          await Store.requestCancel(ogId);
           toast("It is being sent right now — it will be cancelled as a false alarm, not alerted, " +
             "as soon as the server has it", "warn");
         }
@@ -3972,7 +3974,9 @@
       ogSyncing = false;
       throw e;
     }
-    if (!entries.length) { ogSyncing = false; renderOffGrid(); return null; }
+    // Nothing due yet is not nothing owed: an entry still in its backoff after a
+    // reload had no timer at all, so it waited for the next change of signal.
+    if (!entries.length) { ogSyncing = false; renderOffGrid(); scheduleOffGridRetry(); return null; }
 
     setSyncState("syncing");
     ogProgress("<b>Synchronizing emergency information…</b>");
@@ -4041,22 +4045,32 @@
             await Store.markSynced(entry.opId, out.id || null);
             if (out.status === "created") sent++; else duplicates++;
 
+            // "Cancel — false alarm" was pressed while this was on the wire -
+            // this sync or an earlier one that failed, perhaps before a reload.
+            // It is cancelled on the server and nobody is alerted. A duplicate
+            // counts too: the lost reply of an earlier upload is exactly when
+            // the server already holds it.
+            var row = out.id && await Store.getIncident(out.clientIncidentId);
+            if (row && row.cancelRequested) {
+              if (!RAJourney.sosActive(out.incidentStatus)) { await Store.clearCancel(out.clientIncidentId); continue; }
+              trackIncident(out.id, out.incidentStatus);
+              try {
+                trackIncident(out.id, (await api("POST", "/v1/sos/" + out.id + "/cancel", {}, { force: true })).data.status);
+                await Store.clearCancel(out.clientIncidentId);
+                cancelled++;
+              } catch (e) { console.warn("cancel after sync failed:", e.message); }
+              continue;
+            }
+
             // ── ESCALATE ────────────────────────────────────────────────────
             // The sync endpoint deliberately does not alert anybody (ADR-0009
             // rule 4). This is the explicit step that hands the incident to
-            // dispatch, and it reuses the same ladder an online SOS runs.
-            if (out.id && out.status === "created") {
+            // dispatch, and it reuses the same ladder an online SOS runs. A
+            // duplicate is escalated too while it is still open: an upload
+            // whose reply was lost reached the server, and nobody confirmed it.
+            // The server's confirm is idempotent (a repeat texts nobody).
+            if (out.id && (out.status === "created" || RAJourney.sosActive(out.incidentStatus))) {
               trackIncident(out.id, out.incidentStatus);
-              // "Cancel — false alarm" was pressed while this was on the wire:
-              // it is cancelled on the server, and nobody is alerted.
-              if (ogCancel[out.clientIncidentId]) {
-                delete ogCancel[out.clientIncidentId];
-                try {
-                  trackIncident(out.id, (await api("POST", "/v1/sos/" + out.id + "/cancel", {}, { force: true })).data.status);
-                  cancelled++;
-                } catch (e) { console.warn("cancel after sync failed:", e.message); }
-                continue;
-              }
               if (await escalate(out.id)) escalated++; else alertFailed++;
             }
           } else {
@@ -4107,7 +4121,7 @@
         ogProgress("<b>SOS synchronized.</b> RoadAssist dispatch can now process your incident." +
           (duplicates ? " " + duplicates + " replay" + (duplicates === 1 ? " was" : "s were") +
             " recognised and ignored — no duplicate incident was created." : ""));
-        toast(sent
+        toast(sent || escalated
           ? "SOS synchronized — dispatch can now process your incident"
           : "Already synchronised — no duplicate was created", "ok");
         buzz([30, 60, 30]);
@@ -4130,8 +4144,6 @@
     }
   }
 
-  /** Off-grid incidents whose "Cancel — false alarm" came mid-upload, by local id. */
-  var ogCancel = {};
   /** Synced incidents whose alerting (confirm) failed and is being retried, by server id. */
   var confirmRetry = {};
 

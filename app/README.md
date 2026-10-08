@@ -22,12 +22,12 @@ npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Deskt
 npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run share                                               # → public HTTPS url, for real phones
-npm run verify && npm run test:e2e                          # 527 unit + 288 end-to-end
+npm run verify && npm run test:e2e                          # 527 unit + 292 end-to-end
 npm run test:gateway                                        # 58 gateway-security checks
 npm run test:concurrency                                    # 112 race / idempotency / real-time
 npm run test:security                                       # 108 attacks, all must be refused
-npm run test:ui                                             # 259 browser-journey checks
-npm run test:razorpay                                       # 22 payment-gateway checks: not in the 1352, see below
+npm run test:ui                                             # 272 browser-journey checks
+npm run test:razorpay                                       # 22 payment-gateway checks: not in the 1369, see below
 ```
 
 > `db:seed` is not idempotent — against an already-seeded database run
@@ -291,7 +291,7 @@ renders live geospatial state:
 
 | Endpoint | Who | What |
 |---|---|---|
-| `POST /v1/raksha/report` | any signed-in citizen | flag a hazard (type, severity, GPS, note, optional photo). Rate-limited per user; enters the same pipeline as a device sighting, tagged `source:"citizen"`, never auto-raising an incident (ADR-0005). |
+| `POST /v1/raksha/report` | any signed-in citizen | flag a hazard (type, severity, GPS, note, optional photo). Rate-limited per user; enters the same pipeline as a device sighting, tagged `source:"citizen"`, never auto-raising an incident (ADR-0005). An optional `clientReportId` (8–64 of `[A-Za-z0-9_-]`, one per draft) makes a re-send idempotent per user: the repeat returns the original report (200, same id). The web scan sends it; the Android app does not yet. |
 | `GET /v1/me/reports` | reporter | own reports + live verification status |
 | `GET /v1/raksha/detections/:id/photo` | reporter **or** authority | the report photo, from whichever store holds it: disk, or the `raksha_photos` table (the default under `NODE_ENV=demo`/`production`, 600 KiB cap; ADR-0013) |
 | `GET /v1/raksha/detections?source=citizen` | authority | triage the crowdsourced queue |

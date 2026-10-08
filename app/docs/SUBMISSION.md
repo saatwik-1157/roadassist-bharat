@@ -17,7 +17,7 @@ Ticked only where the artefact exists **and** has been verified in this session.
 | ✅ | Offline documentation | `app/docs/OFFLINE.md` | Capability matrix, tiers, storage, retention |
 | ✅ | Deployment instructions | `app/docs/DEPLOYMENT.md` | Docker, config, backup, rollback, DR, cost |
 | ✅ | Live deployment | https://app.roadassistbharat.online · showcase https://roadassistbharat.online | One Render web service (Docker, free plan, Singapore) + Neon Postgres/PostGIS (Singapore); showcase on GitHub Pages. `NODE_ENV=demo`, mock payments, on-screen OTP |
-| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (1352 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
+| ✅ | Testing report | `app/docs/TESTING.md` | 6 executed suites (1369 assertions, 0 failures), coverage, what is not covered; the 22 Razorpay checks are outside the total and not run |
 | ✅ | SWE4004 mapping | `app/docs/SWE4004-MAPPING.md` | Modules 1–6, 21-row cloud-concept audit |
 | ✅ | Claims audit | `app/docs/CLAIMS-AUDIT.md` | Every claim checked against the code |
 | ✅ | Presentation | kept with the team (not in the repository since 2026-10-05) | **38 slides**, generated, 0 over-claims; generator in git history at `95672c2:ppt/` |
@@ -93,7 +93,7 @@ demo every visitor's request does leave India.
 3. ERSS 112 handoff is a stub; the emergency routes run in the same process as
    the API, so emergency isolation (ADR-0005) is a design.
 4. Payments: the deployment runs the mock provider. The Razorpay adapter has 22
-   checks against a local stub (no account needed), outside the 1352 and not
+   checks against a local stub (no account needed), outside the 1369 and not
    re-run for this measurement — never a live account.
 5. Diagnosis "AI" is a deterministic rules engine, labelled as such everywhere.
 6. No load test, no external penetration test, no coverage on the HTTP layer,

@@ -1,11 +1,11 @@
 # Testing
 
-Six suites, 1352 assertions, all executed against a real PostgreSQL + PostGIS and a
+Six suites, 1369 assertions, all executed against a real PostgreSQL + PostGIS and a
 real Chrome, with no failures. A seventh — 22 payment-gateway checks in
 `scripts/razorpay-test.mjs` — needs **no** Razorpay account (it runs its own
 local stub of the Orders API), but refuses to run unless the API was started
 with `PAYMENTS_PROVIDER=razorpay` pointed at that stub; it is therefore outside
-the 1352, was not re-run for these figures, and is never described as passing.
+the 1369, was not re-run for these figures, and is never described as passing.
 Nothing here is mocked except the third-party vendors, and each
 of those has a stub that speaks the vendor's actual wire format.
 
@@ -45,12 +45,12 @@ expected outcome of each, and times it. It fails if any beat fails.
 | Suite | Assertions | What it exists for |
 |---|---|---|
 | `npm test` (node:test) | **527** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's (`apps/api/test/offline-engine.test.ts:58`). Six more are skipped, not counted: the least-privilege role test (`packages/db/test/least-privilege.test.ts`) needs a database with the role applied and runs only when `LEAST_PRIVILEGE_DB_URL` points at it. |
-| `scripts/e2e-journey.mjs` | **288** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. 288 with the database photo store (`PHOTO_STORE=db`, as CI and the hosted demo run it); a disk-store server skips §29 and gives 238. |
+| `scripts/e2e-journey.mjs` | **292** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. 292 with the database photo store (`PHOTO_STORE=db`, as CI and the hosted demo run it); a disk-store server skips §29 and gives 238. |
 | `scripts/concurrency-test.mjs` | **112** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
 | `scripts/gateway-security-test.mjs` | **58** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |
-| `scripts/razorpay-test.mjs` | **22** — not in the 1352 | Payment negative space, against a local stub (no account); only runs against an API started with `PAYMENTS_PROVIDER=razorpay`, and not re-run for these figures: forged signature, replayed delivery, wrong amount, wrong order, unconfigured secret — each must fail closed. |
+| `scripts/razorpay-test.mjs` | **22** — not in the 1369 | Payment negative space, against a local stub (no account); only runs against an API started with `PAYMENTS_PROVIDER=razorpay`, and not re-run for these figures: forged signature, replayed delivery, wrong amount, wrong order, unconfigured secret — each must fail closed. |
 | `scripts/security-audit.mjs` | **108** | Application-level penetration checks — every case is an attack that must FAIL: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error-body leakage, rate limits. Three real vulnerabilities were found by this suite and fixed. |
-| `scripts/ui-journey.mjs` | **259** | What only a browser can prove: the app boots without a console error, a session survives a reload, an offline payment is refused rather than queued, live updates arrive without polling, a booking with no GPS fix is not sent unless the user chooses the NH-48 demo point, and the complete Off-Grid Mode scenario end to end. |
+| `scripts/ui-journey.mjs` | **272** | What only a browser can prove: the app boots without a console error, a session survives a reload, an offline payment is refused rather than queued, live updates arrive without polling, a booking with no GPS fix is not sent unless the user chooses the NH-48 demo point, and the complete Off-Grid Mode scenario end to end. |
 
 ## Verified against the production image, not just the source
 

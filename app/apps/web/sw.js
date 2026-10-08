@@ -44,7 +44,12 @@
 //      it falls back to WebAssembly, which runs a frame in about half the time; WebGPU keeps the
 //      640 px model. Both are in SCAN (renamed, so the old cache is dropped) and both sidecars are in
 //      the shell; the off-grid SOS cancel re-reads after a 409 (scan.js, app.html, the 416 sidecar).
-const VERSION = "ra-v29";
+// v30: the shell's pages changed without a bump last round; this round the mechanic and RAKSHA
+//      consoles keep their session on a 5xx/429 refresh (session.js refused()), an off-grid false
+//      alarm is kept on the IndexedDB row across a reload (offline-store.js, app.html), a synced
+//      SOS answered "duplicate" is still escalated (app.html), and the scan sends a clientReportId
+//      per draft (scan.js).
+const VERSION = "ra-v30";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.

@@ -779,7 +779,10 @@
     // The model that produced these boxes, held with them: the engine (and so
     // the model) may change before the report is sent.
     R.snap = { blob: blob, dets: dets, pick: pick, modelVersion: S.cfg.modelVersion,
-               note: Core.reportNote(dets, S.cfg.modelVersion) };
+               note: Core.reportNote(dets, S.cfg.modelVersion),
+               // Made once per draft and sent with every attempt: a re-send after
+               // a lost reply is answered with the original report, not a second.
+               clientReportId: reportId() };
     S.pending = null;   // a new report replaces one that was never sent
     var thumb = $("r-thumb");
     if (thumb.dataset.url) URL.revokeObjectURL(thumb.dataset.url);
@@ -846,6 +849,12 @@
     return { status: res.status, ok: res.ok, json: json };
   }
 
+  function reportId() {
+    var b = new Uint8Array(12);
+    crypto.getRandomValues(b);
+    return "web-" + Array.prototype.map.call(b, function (x) { return (x + 256).toString(16).slice(1); }).join("");
+  }
+
   async function buildPayload() {
     var snap = R.snap, pick = snap.pick;
     var body = {
@@ -856,6 +865,7 @@
       // The reported detection's own confidence and the model that gave it,
       // stored on the RAKSHA row instead of a fixed 100% "citizen-report".
       confidence: pick.confidence, modelVersion: snap.modelVersion,
+      clientReportId: snap.clientReportId,
     };
     // Shrunk to the server's photo cap exactly as the app's own report is.
     var photo = await window.RAPhotoShrink.shrink(snap.blob);

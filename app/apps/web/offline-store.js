@@ -311,7 +311,8 @@ export async function reviseIncident(incidentId, patch) {
   if (!row) return null;
   if (row.status !== STATUS_LOCAL && row.status !== STATUS_FAILED) return null;
   const payload = Object.assign({}, await unseal(row.sealed), patch);
-  return createIncident({ incidentId, opId: row.opId, type: "sos.offgrid", payload, owner: row.owner });
+  const next = await createIncident({ incidentId, opId: row.opId, type: "sos.offgrid", payload, owner: row.owner });
+  return row.cancelRequested ? requestCancel(incidentId) : next;   // a pending false alarm survives the edit
 }
 
 /**
@@ -333,6 +334,21 @@ export async function discardIncident(incidentId) {
   if (row.opId) t.objectStore(STORE_JOURNAL).delete(row.opId);
   await done;
   return true;
+}
+
+/**
+ * "Cancel — false alarm" pressed while the incident was on the wire, so it
+ * could not be withdrawn here. Kept on the incident row (it survives a failed
+ * sync and a reload); the next sync that names the server's incident -
+ * created or duplicate - cancels it there instead of alerting anyone.
+ */
+export async function requestCancel(incidentId) {
+  return patch(STORE_INCIDENTS, incidentId, { cancelRequested: true });
+}
+
+/** The server has the cancel (or the incident is already closed). */
+export async function clearCancel(incidentId) {
+  return patch(STORE_INCIDENTS, incidentId, { cancelRequested: false });
 }
 
 /** Append a journal entry that is not an incident — a local diagnosis, say. */
@@ -592,7 +608,7 @@ export async function clearAll() {
 
 const api = {
   available, open, encryption,
-  createIncident, reviseIncident, discardIncident, journalOperation,
+  createIncident, reviseIncident, discardIncident, requestCancel, clearCancel, journalOperation,
   listIncidents, getIncident, readIncident,
   dueEntries, allEntries, entryPayload,
   markSyncing, markSynced, markFailed,
