@@ -184,10 +184,10 @@ that reach the people with the worst connections and the cheapest phones, first.
 |---|---|---|
 | API (SMS + OTP) | **Everything the platform sends**, in all 8 — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
 | Android | **Most of the user-facing UI**, in all 8 — 248 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer, the SOS rung results and most toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | English literals remain in `MainActivity.kt`: the SOS countdown's explanation and the data-rung summary (`Escalated (…)`), the online/offline pill, the hazard dialog's type names, button and confirmation toasts, the Trip Guardian button, `No rescues yet`, the Book service picker, the tracking-screen command labels, and the `Failed` fallbacks; plus diagnostics and wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
-| Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 45 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
+| Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 54 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 
-That is **126 server strings, 1,211 Android strings and 315 web strings** for the
+That is **140 server strings, 1,736 Android strings and 378 web strings** for the
 seven non-English locales.
 
 A feature phone has no settings screen, so **`LANG <code>` over SMS** is the

@@ -92,7 +92,7 @@
       "",
       "  grep -rnE 'app[.](get|post|put|patch|delete)[(]' apps/api/src | wc -l",
       "",
-      "71 of the 74 are under /v1. The other three are infrastructure, all in",
+      "72 of the 75 are under /v1. The other three are infrastructure, all in",
       "server.ts: GET /tiles/:z/:x/:file, GET /basemap/:z/:x/:file and GET /health.",
       "",
       "The SPLIT moves whenever a route group is lifted out of server.ts — it was",

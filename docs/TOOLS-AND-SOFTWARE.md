@@ -181,7 +181,7 @@ page makes a visitor's browser contact a third party (enforced by
 | Gradle (wrapper) | 8.13 | The build tool. Must run on **JDK 21**: Gradle 8.13 rejects JDK 25 (ENGINEERING-NOTES.md) |
 | Java target | 17 (`sourceCompatibility`, `jvmTarget`) | Bytecode level of the app |
 | Android SDK | `compileSdk` 36, `targetSdk` 36, `minSdk` 26 | Runs on Android 8.0 and newer; built and targeted for Android 16 |
-| App version | `versionName` 1.0.6, `versionCode` 8 | The release published as `android-v1.0.6` on GitHub Releases |
+| App version | `versionName` 1.1.3, `versionCode` 12 | The release published as `android-v1.1.3` on GitHub Releases |
 | Jetpack Compose | BOM 2024.09.03; `ui`, `foundation`, `material3` | The user interface |
 | androidx.activity:activity-compose | 1.9.2 | Hosts Compose in the activity |
 | androidx.lifecycle:lifecycle-runtime-ktx | 2.8.6 | Lifecycle-aware coroutines |
@@ -201,7 +201,7 @@ repository (`RA_SIGNING_PROPS`, or a folder beside the repository; neither the
 keystore nor its properties file is committed). Its certificate SHA-256 is
 `f602bb634f6e5dfc76752aec42ac36bf1a35c081a1f04b545e3ab107dcf84359`, and the
 signed APKs are published as GitHub Releases tagged `android-vX.Y.Z` (latest
-`android-v1.0.6`; install and verification steps in `release/INSTALL.md`). A
+`android-v1.1.3`; install and verification steps in `release/INSTALL.md`). A
 machine without the key, such as CI, still builds a release APK but signs it
 with the debug key and prints a warning: that APK installs for a demo and can
 never update, or stand in for, the published release. The app is not on a
