@@ -75,6 +75,22 @@ object ScanReport {
         return Fit(s, (viewW - imgW * s) / 2f, (viewH - imgH * s) / 2f)
     }
 
+    /** What the scanner shows: nothing yet, the live camera, or a picked photo. Saved across process death. */
+    const val MODE_NONE = 0
+    const val MODE_CAMERA = 1
+    const val MODE_PHOTO = 2
+
+    /**
+     * The mode to show on (re)entry. The mode is saveable, so it outlives the
+     * process; the camera permission need not. "Only this time" is revoked
+     * once the app has been in the background a while, which also kills the
+     * process, and Android then restored MODE_CAMERA: CameraX bound with no
+     * permission and the screen sat black, with no refusal card and no prompt.
+     * So the live camera comes back only while the permission is still held.
+     */
+    fun resumeMode(mode: Int, cameraGranted: Boolean): Int =
+        if (mode == MODE_CAMERA && !cameraGranted) MODE_NONE else mode
+
     /** Smoothed frames per second from the gap between two finished frames. */
     fun nextFps(previous: Double, gapMs: Long): Double {
         if (gapMs <= 0) return previous

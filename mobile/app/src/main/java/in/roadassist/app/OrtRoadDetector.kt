@@ -6,6 +6,33 @@ import ai.onnxruntime.OrtSession
 import java.io.Closeable
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+
+/**
+ * Build something that must be closed, on [context], without leaking it when
+ * the caller is cancelled while it is being built.
+ *
+ * The scanner used to load its detector with
+ * `withContext(Dispatchers.IO + NonCancellable) { ... }` and then check
+ * `isActive` to close a detector nobody would use. That check never ran:
+ * withContext hands its result back to a cancelled caller by throwing
+ * CancellationException (its prompt-cancellation guarantee), so leaving the
+ * screen during the load dropped a live OrtSession, the model's native memory
+ * included, with nobody to close it. Here the built object is remembered and
+ * closed on exactly that path.
+ */
+suspend fun <T : Closeable> buildOwned(context: CoroutineContext, build: () -> T): T {
+    val built = AtomicReference<T?>(null)
+    try {
+        return withContext(context + NonCancellable) { build().also { built.set(it) } }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        built.getAndSet(null)?.let { runCatching { it.close() } }
+        throw e
+    }
+}
 
 /**
  * The detector itself: one ONNX Runtime session plus [Detector]'s pre- and

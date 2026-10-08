@@ -86,4 +86,32 @@ class SessionTest {
         assertFalse(SessionRules.verifyEndsSession(503))
         assertFalse(SessionRules.verifyEndsSession(0))
     }
+
+    @Test
+    fun `a token rotation during a profile save is not overwritten by the old tokens`() {
+        val lock = Any()
+        var stored: StoredSession? = StoredSession("AT-old", "RT-old", "u-1", "+917000009876")
+        val profileRead = java.util.concurrent.CountDownLatch(1)
+        val rotated = java.util.concurrent.CountDownLatch(1)
+        val profileThread = Thread.currentThread()
+        val vault = SessionVault(lock, read = {
+            val s = synchronized(lock) { stored }
+            if (Thread.currentThread() === profileThread) {
+                profileRead.countDown()
+                // Give the rotation every chance to land between this read and the write.
+                rotated.await(300, java.util.concurrent.TimeUnit.MILLISECONDS)
+            }
+            s
+        }, write = { synchronized(lock) { stored = it } })
+        val rotation = Thread {
+            profileRead.await()
+            vault.saveTokens(StoredSession("AT-new", "RT-new", "u-1"))
+            rotated.countDown()
+        }
+        rotation.start()
+        vault.saveProfile("+917000009876", "v-1", "KA01AB1234")
+        rotation.join(5_000)
+        assertEquals("the rotated-out refresh token was written back", "RT-new", stored?.refresh)
+        assertEquals("the profile was lost", "v-1", stored?.vehicleId)
+    }
 }

@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.filter
@@ -28,9 +29,21 @@ class ReplayTrigger(
     private val ready: () -> Boolean,
     private val flush: suspend () -> Int,
     private val onSent: (Int) -> Unit,
+    /**
+     * Try again after this long while [ready] still holds after a pass (0: never).
+     *
+     * Only a network change or a sign-in used to poke the replay. An SOS
+     * queued because the API failed while the phone WAS online (a captive
+     * portal, the host waking up with a 502) then sat on a phone that was
+     * online, signed in and running, which is exactly when the SOS strings
+     * say it goes, until the network happened to change.
+     */
+    private val retryMs: Long = 0,
 ) {
     private val running = AtomicBoolean(false)
     private val again = AtomicBoolean(false)
+    /** One pending retry at most, however many pokes end in a pass. */
+    private val retryPending = AtomicBoolean(false)
 
     fun poke(): Job? {
         again.set(true)
@@ -48,7 +61,15 @@ class ReplayTrigger(
                 running.set(false)
             }
             // A poke that landed between the last check and the release.
-            if (again.get()) poke()
+            if (again.get()) {
+                poke()
+            } else if (retryMs > 0 && ready() && retryPending.compareAndSet(false, true)) {
+                // Still something to send: come back for it, not only on the next network change.
+                scope.launch {
+                    try { delay(retryMs) } finally { retryPending.set(false) }
+                    poke()
+                }
+            }
         }
     }
 }
@@ -70,6 +91,10 @@ class ReplayTrigger(
  * "while the app is running" needs. The SOS strings say exactly that.
  */
 object SosReplay {
+    /** While a queue is waiting, it is retried this often even with no network change. */
+    private const val SOS_RETRY_MS = 30_000L
+    private const val HAZARD_RETRY_MS = 120_000L
+
     private val started = AtomicBoolean(false)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -98,6 +123,7 @@ object SosReplay {
             ready = { Api.hasSession() && Emergency.queueDepth(app) > 0 },
             flush = { Emergency.flush(app) },
             onSent = { sentFlow.tryEmit(it) },
+            retryMs = SOS_RETRY_MS,
         )
         trigger = t
         val h = ReplayTrigger(
@@ -105,6 +131,7 @@ object SosReplay {
             ready = { Api.hasSession() && Hazards.depth(app) > 0 },
             flush = { Hazards.flush(app) },
             onSent = { hazardsSentFlow.tryEmit(it) },
+            retryMs = HAZARD_RETRY_MS,
         )
         hazardTrigger = h
         val cm = app.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager

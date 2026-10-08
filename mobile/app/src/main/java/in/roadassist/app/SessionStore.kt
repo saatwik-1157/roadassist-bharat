@@ -67,11 +67,15 @@ object SessionStore {
         }
     }
 
-    /** Merge the display profile into whatever is stored now. */
-    fun saveProfile(ctx: Context, msisdn: String?, vehicleId: String?, vehicleLabel: String?) {
-        val now = load(ctx) ?: return
-        save(ctx, now.copy(msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel))
-    }
+    /** Merge the display profile into whatever is stored now, atomically (SessionVault). */
+    fun saveProfile(ctx: Context, msisdn: String?, vehicleId: String?, vehicleLabel: String?) =
+        vault(ctx).saveProfile(msisdn, vehicleId, vehicleLabel)
+
+    /** New tokens from Api (null: signed out), keeping the stored profile, atomically (SessionVault). */
+    fun saveTokens(ctx: Context, s: StoredSession?) = vault(ctx).saveTokens(s)
+
+    // load and save take the same lock, which is reentrant.
+    private fun vault(ctx: Context) = SessionVault(lock, read = { load(ctx) }, write = { save(ctx, it) })
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 

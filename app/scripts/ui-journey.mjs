@@ -2298,6 +2298,76 @@ const run = async () => {
         `threads=${scanOff.threads}`);
 
     });
+    // ══ 36. A server that could not answer is not a refusal ════════════════
+    // refreshSession() read every failed refresh the server answered as "the
+    // session is over": a 503 from /v1/auth/refresh (the database restarting)
+    // on a reopen wiped the stored session and landed on sign-in.
+    await part("36. A refresh the server could not answer (503) does not sign the person out", async () => {
+      await signInAs("+917000004713");
+      await page.eval(`
+        const s = JSON.parse(sessionStorage.getItem("ra.app.session"));
+        s.token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJib2d1cyJ9.deadbeef";   // an expired access token
+        sessionStorage.setItem("ra.app.session", JSON.stringify(s));
+        return true;`);
+      const { identifier } = await page.send("Page.addScriptToEvaluateOnNewDocument", { source: `
+        (function () {
+          var real = window.fetch;
+          window.fetch = function (input) {
+            var url = typeof input === "string" ? input : input && input.url;
+            if (/\\/v1\\/auth\\/refresh/.test(String(url))) {
+              return Promise.resolve(new Response(JSON.stringify({ error: { code: "internal", title: "database restarting" } }),
+                { status: 503, headers: { "content-type": "application/json" } }));
+            }
+            return real.apply(this, arguments);
+          };
+        })();` });
+      let hiccup;
+      try {
+        await page.goto(APP);
+        await page.waitFor(settled, 25000, "the app to settle");
+        await sleep(600);
+        hiccup = await page.eval(`return { screen: document.querySelector(".screen.active").id,
+          tabs: !document.getElementById("tabs").hidden, kept: Boolean(localStorage.getItem("ra.app.session")) };`);
+      } finally {
+        await page.send("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+      }
+      check(hiccup.screen !== "scr-auth" && hiccup.tabs && hiccup.kept,
+        "a 503 from the refresh on reopen keeps the session and the app, not sign-in", JSON.stringify(hiccup));
+      await page.goto(APP);
+      await page.waitFor(`document.getElementById("scr-home").classList.contains("active") && !document.getElementById("tabs").hidden`, 25000, "home");
+      const healed = await page.eval(`return ${TOK}.split(".")[1].length > 20;`);
+      check(healed, "…and once the server answers again, the same session refreshes and carries on");
+
+    });
+    // ══ 37. A wrong model in the scan cache heals itself ═══════════════════
+    // The service worker serves the detector cache-first, for good. When the
+    // stored .onnx was not the one its sidecar names (a half-deployed or older
+    // file cached under the current name), scan.html refused it and said
+    // "reload the page" - and every reload got the same bad copy from the cache.
+    await part("37. A model in the scan cache that fails its sha256 is fetched again, not refused for good", async () => {
+      await page.goto(`${BASE}/scan.html`);
+      await page.waitFor(`window.__scan && window.__scan.ready()`, 120000, "the detector to start");
+      await page.waitFor(`navigator.serviceWorker.controller`, 10000);
+      const poisoned = await page.eval(`
+        const key = (await caches.keys()).find((k) => /^ra-scan-/.test(k));
+        const c = await caches.open(key);
+        const path = "/assets/models/raksha-yolo11n-india-ft-gpu-416.onnx";
+        if (!(await c.match(path))) return null;
+        await c.put(path, new Response(new Uint8Array(1024), { headers: { "content-type": "application/octet-stream" } }));
+        return key;`);
+      check(Boolean(poisoned), "the 416 px model was in the scan cache, and is replaced with a wrong file", String(poisoned));
+      await page.goto(`${BASE}/scan.html?ep=wasm`);
+      let healed = false, why = "";
+      try { await page.waitFor(`window.__scan && window.__scan.ready()`, 120000, "the detector to start"); healed = true; }
+      catch { why = await page.text("#status"); }
+      check(healed, "the page fetches the model again past the cache and starts, instead of failing on every reload", why.slice(0, 120));
+      const fixedCopy = await page.eval(`
+        const c = await caches.open(${JSON.stringify(poisoned)});
+        const r = await c.match("/assets/models/raksha-yolo11n-india-ft-gpu-416.onnx");
+        return r ? (await r.arrayBuffer()).byteLength : 0;`);
+      check(fixedCopy > 1024 * 1024, "…and the cache now holds the real file", `${fixedCopy} bytes`);
+
+    });
 
   } catch (e) {
     bad("journey aborted", e.message);

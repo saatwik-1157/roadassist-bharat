@@ -72,4 +72,19 @@ class ReplayTriggerTest {
         t.poke()?.join()
         assertEquals(2, flushes.get())
     }
+
+    @Test
+    fun `a queue still waiting after a failed pass is retried with no network change`() = runBlocking {
+        val queued = AtomicInteger(1)
+        val flushes = AtomicInteger()
+        val sent = CompletableDeferred<Int>()
+        val t = ReplayTrigger(scope, ready = { queued.get() > 0 }, flush = {
+            // The first pass fails the way a 502 from a waking host does; the API is back by the retry.
+            if (flushes.incrementAndGet() == 1) 0 else { queued.set(0); 1 }
+        }, onSent = { sent.complete(it) }, retryMs = 50)
+        t.poke()                          // right after the SOS was queued; nothing else pokes
+        assertEquals("the queued SOS was never retried", 1, withTimeout(5_000) { sent.await() })
+        Thread.sleep(300)                 // nothing left: no further passes
+        assertEquals(2, flushes.get())
+    }
 }

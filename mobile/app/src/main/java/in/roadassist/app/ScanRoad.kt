@@ -84,8 +84,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
@@ -107,17 +105,22 @@ private sealed interface ModelState {
     class Failed(val reason: String) : ModelState
 }
 
-private suspend fun loadDetector(ctx: Context): ModelState = withContext(Dispatchers.IO + NonCancellable) {
-    try {
+private suspend fun loadDetector(ctx: Context): ModelState = try {
+    // buildOwned: leaving the screen mid-load closes the detector it built,
+    // rather than dropping a live session (see buildOwned for why the old
+    // isActive check never ran).
+    ModelState.Ready(buildOwned(Dispatchers.IO) {
         val config = DetectorConfig.parse(ctx.assets.open(DetectorConfig.ASSET).use { it.readBytes().decodeToString() })
         val model = ctx.assets.open(config.modelAsset).use { it.readBytes() }
         // Half the cores: the camera, the UI and the renderer need the rest.
         val threads = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(1, 4)
-        ModelState.Ready(OrtRoadDetector(model, config, threads))
-    } catch (t: Throwable) {
-        Log.w("ScanRoad", "detector did not load", t)
-        ModelState.Failed(t.message ?: t.javaClass.simpleName)
-    }
+        OrtRoadDetector(model, config, threads)
+    })
+} catch (e: kotlinx.coroutines.CancellationException) {
+    throw e
+} catch (t: Throwable) {
+    Log.w("ScanRoad", "detector did not load", t)
+    ModelState.Failed(t.message ?: t.javaClass.simpleName)
 }
 
 /** One analysed picture and what was found in it. */
@@ -175,9 +178,9 @@ private fun className(label: String): String = when (label) {
     else -> label
 }
 
-private const val MODE_NONE = 0
-private const val MODE_CAMERA = 1
-private const val MODE_PHOTO = 2
+private const val MODE_NONE = ScanReport.MODE_NONE
+private const val MODE_CAMERA = ScanReport.MODE_CAMERA
+private const val MODE_PHOTO = ScanReport.MODE_PHOTO
 
 /**
  * "Scan road": the RAKSHA road-damage detector on the phone, over the live
@@ -207,9 +210,9 @@ fun ScanRoadScreen(
 
     var model by remember { mutableStateOf<ModelState>(ModelState.Loading) }
     LaunchedEffect(Unit) {
-        val loaded = loadDetector(ctx)
-        // Left before it finished loading: nobody will close it but us.
-        if (!isActive) (loaded as? ModelState.Ready)?.detector?.close() else model = loaded
+        // Left before it finished loading: loadDetector closes what it built
+        // and throws, so nothing is assigned here.
+        model = loadDetector(ctx)
     }
     // Closed with the screen. OrtRoadDetector serialises close() against a
     // running detect(), so the analyser thread can never use a freed session.
@@ -240,10 +243,16 @@ fun ScanRoadScreen(
         }
     }
     // Back from Settings with the permission now on: drop the refusal card.
+    // Back with it gone (a one-time grant lapses with the process, and the
+    // saved mode does not): leave the live camera rather than bind it blind.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val obs = LifecycleEventObserver { _, e ->
-            if (e == Lifecycle.Event.ON_RESUME && cameraDenied && hasCamera()) cameraDenied = false
+            if (e == Lifecycle.Event.ON_RESUME) {
+                val granted = hasCamera()
+                if (cameraDenied && granted) cameraDenied = false
+                mode = ScanReport.resumeMode(mode, granted)
+            }
         }
         lifecycleOwner.lifecycle.addObserver(obs)
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
@@ -341,7 +350,7 @@ fun ScanRoadScreen(
                     stringResource(R.string.scan_model_failed, (model as ModelState.Failed).reason),
                     color = Color.White, style = RaType.label, modifier = Modifier.padding(24.dp),
                 )
-                mode == MODE_CAMERA && ready != null && cameraError == null && !cameraDenied -> {
+                mode == MODE_CAMERA && ready != null && cameraError == null && !cameraDenied && hasCamera() -> {
                     val cd = stringResource(R.string.cd_scan_preview)
                     Box(Modifier.fillMaxSize().semantics { contentDescription = cd }) {
                         CameraView(

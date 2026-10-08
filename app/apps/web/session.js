@@ -34,6 +34,10 @@
    */
   window.RASession = function (key, slot, api) {
     var headers = { "x-ra-client": "web-" + slot };
+    // The HTTP status of the last refresh (0: no answer at all). A null token
+    // alone cannot tell "the server refused this session" from "the server
+    // could not answer", and only the first is a sign-out.
+    var lastRefreshStatus;
     // By name: merely touching a blocked storage object throws.
     function read(store) { try { return JSON.parse(window[store].getItem(key) || "null"); } catch { return null; } }
     return {
@@ -64,10 +68,12 @@
           method: "POST", credentials: "include",
           headers: Object.assign({ "content-type": "application/json" }, headers),
           body: JSON.stringify(typeof legacy === "string" ? { refreshToken: legacy } : {}),
-        }).then(function (r) { return r.ok ? r.json() : null; })
+        }).then(function (r) { lastRefreshStatus = r.status; return r.ok ? r.json() : null; })
           .then(function (j) { return (j && j.data && j.data.accessToken) || null; })
-          .catch(function () { return null; });
+          .catch(function () { lastRefreshStatus = 0; return null; });
       },
+      /** The last refresh's HTTP status, 0 when it got no answer, undefined before one. */
+      refreshStatus: function () { return lastRefreshStatus; },
       /** End the session on the server and clear the cookie. Best effort. */
       logout: function (token) {
         return fetch(api + "/v1/auth/logout", {

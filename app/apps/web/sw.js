@@ -213,7 +213,10 @@ self.addEventListener("fetch", (event) => {
   if (!key && SCAN_DIRS.some((d) => url.pathname.startsWith(d)) && !req.headers.has("range")) {
     event.respondWith(
       caches.open(SCAN).then(async (cache) => {
-        const hit = await cache.match(url.pathname);
+        // cache: "reload" is scan.js asking past a copy that failed its sha256
+        // check: without this way round the cache, a wrong file stored once
+        // was served on every reload, and "reload the page" could never help.
+        const hit = req.cache === "reload" ? null : await cache.match(url.pathname);
         if (hit) return hit;
         const res = await fetch(req);
         if (cacheable(res)) await cache.put(url.pathname, res.clone()).catch(() => {});

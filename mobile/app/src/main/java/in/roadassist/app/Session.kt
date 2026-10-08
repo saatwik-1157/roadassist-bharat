@@ -22,6 +22,40 @@ data class StoredSession(
     val vehicleLabel: String? = null,
 )
 
+/**
+ * The two read-merge-writes of the stored session, each atomic under [lock].
+ *
+ * A token rotation keeps the stored profile (number, vehicle) and a profile
+ * change keeps the stored tokens, so each one reads, merges and writes. They
+ * ran as separate load() and save() calls, each locked on its own, so a
+ * rotation landing between a profile save's load and its save was overwritten
+ * by the pre-rotation tokens. The phone then kept a refresh token the server
+ * had already rotated out, and the next cold start presented it: the server's
+ * reuse detection ends that session, and the person is signed out for nothing.
+ * [read] and [write] are SessionStore's unlocked halves; the lock is its own.
+ */
+class SessionVault(
+    private val lock: Any,
+    private val read: () -> StoredSession?,
+    private val write: (StoredSession?) -> Unit,
+) {
+    /** New tokens (or null: signed out), keeping the stored profile. */
+    fun saveTokens(s: StoredSession?) = synchronized(lock) {
+        if (s == null) {
+            write(null)
+            return@synchronized
+        }
+        val kept = read()
+        write(s.copy(msisdn = kept?.msisdn, vehicleId = kept?.vehicleId, vehicleLabel = kept?.vehicleLabel))
+    }
+
+    /** A new profile, keeping the stored tokens. Nothing stored: nothing to merge into. */
+    fun saveProfile(msisdn: String?, vehicleId: String?, vehicleLabel: String?) = synchronized(lock) {
+        val now = read() ?: return@synchronized
+        write(now.copy(msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel))
+    }
+}
+
 object SessionCodec {
 
     /** The session as JSON, ready to be encrypted. Absent fields are left out. */

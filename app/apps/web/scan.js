@@ -72,6 +72,9 @@
     lastAnnounce: 0, lastCountSig: "",
     pending: null,   // a report that has not reached the server
     locked: false, engineGen: 0, warmMs: {}, sessions: {}, starting: false,
+    sending: false,          // a report POST (or its photo shrink) is in flight
+    camStarting: false,      // getUserMedia / play() not settled yet
+    camResume: false,        // the camera was stopped because the page was hidden
   };
 
   // The frame is read at its own resolution (drawImage 1:1 does not resample)
@@ -101,8 +104,8 @@
   setNet();
 
   /* ── model + engine ─────────────────────────────────────────────────── */
-  async function fetchBytes(url, expected, onProgress) {
-    var res = await fetch(url);
+  async function fetchBytes(url, expected, onProgress, init) {
+    var res = await fetch(url, init);
     if (!res.ok) throw new Error("could not download " + url + " (HTTP " + res.status + ")");
     if (!res.body || !res.body.getReader) return new Uint8Array(await res.arrayBuffer());
     var total = Number(res.headers.get("content-length")) || expected || 0;
@@ -139,18 +142,26 @@
       throw new Error("the model description has no class list or input size");
     }
     var base = sidecar.slice(0, sidecar.lastIndexOf("/") + 1);
-    var bytes = await fetchBytes(base + cfg.model, cfg.bytes, function (f) {
+    var progress = function (f) {
       if (quiet) return;
       var pct = Math.round(f * 100);
       $("load-bar").style.width = pct + "%";
       $("load-progress").setAttribute("aria-valuenow", String(pct));
       $("placeholder-text").textContent = "Loading the detector… " + pct + "%";
-    });
+    };
+    var bytes = await fetchBytes(base + cfg.model, cfg.bytes, progress);
     // A cached or half-deployed .onnx that is not the one its sidecar
     // describes would draw the wrong class names on real boxes: refuse it.
+    // Once, it is fetched again past every cache (sw.js honours "reload" and
+    // stores the fresh copy): the service worker serves the model cache-first,
+    // so a bad copy kept there used to come back on every reload.
     var hash = await sha256Hex(bytes);
     if (hash && cfg.sha256 && hash !== cfg.sha256) {
-      throw new Error("the model file does not match its description (sha256) - reload the page");
+      bytes = await fetchBytes(base + cfg.model, cfg.bytes, progress, { cache: "reload" });
+      hash = await sha256Hex(bytes);
+    }
+    if (hash && cfg.sha256 && hash !== cfg.sha256) {
+      throw new Error("the model file does not match its description (sha256), even fetched fresh - the server has a different model");
     }
     return (S.models[sidecar] = { cfg: cfg, bytes: bytes });
   }
@@ -571,6 +582,7 @@
   function stopAll() {
     S.gen++;
     S.running = false;
+    S.camStarting = false;
     clearTimeout(S.timer);
     if (S.stream) { S.stream.getTracks().forEach(function (t) { t.stop(); }); S.stream = null; }
     var v = $("video");
@@ -600,7 +612,14 @@
 
   async function startCamera() {
     stopAll();
+    // This start's ticket. Any later stopAll (a second tap, Stop, another
+    // source, the page hidden) moves S.gen on, and this start then lets go of
+    // what it got. Checking S.source alone kept a second tap's stream AND the
+    // first's: one camera stream nobody held, its light on until the tab closed.
+    var gen = S.gen;
+    var stale = function () { return gen !== S.gen || S.source !== "camera"; };
     S.source = "camera"; pressSource("camera");
+    S.camStarting = true; S.camResume = false;
     $("cam-toggle").textContent = "Stop camera";
     $("source-caption").textContent = "Rear camera, if this device has one.";
     placeholder("Starting the camera…", false);
@@ -610,18 +629,22 @@
         audio: false,
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
       });
-      if (S.source !== "camera") { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+      if (stale()) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
       S.stream = stream;
       var v = $("video");
       v.srcObject = stream; v.hidden = false;
       await v.play();
       await new Promise(function (r) { if (v.videoWidth) r(); else v.addEventListener("loadedmetadata", r, { once: true }); });
+      if (stale()) return;   // stopAll has already stopped S.stream
+      S.camStarting = false;
       layoutStage(v.videoWidth, v.videoHeight);
       placeholder(null);
       S.running = true;
       say("Camera on. Scanning with " + EP_LABEL[S.ep] + ".");
       loop();
     } catch (e) {
+      if (stale()) return;   // play() aborted by a stop: not a camera fault
+      S.camStarting = false;
       placeholder("Camera unavailable", false);
       say(cameraError(e), true);
       $("cam-toggle").textContent = "Try camera again";
@@ -744,7 +767,7 @@
   function refreshSend() {
     var snap = R.snap;
     // Once the server has it, the same frame cannot be filed twice.
-    $("r-send").disabled = !(snap && snap.pick && R.pos && !snap.sent);
+    $("r-send").disabled = S.sending || !(snap && snap.pick && R.pos && !snap.sent);
     $("r-send").textContent = snap && snap.sent ? "Sent" : "Send report";
   }
 
@@ -842,18 +865,29 @@
 
   async function sendReport(auto) {
     var btn = $("r-send");
-    if (!S.pending) {
-      if (!R.snap || !R.snap.pick || !R.pos) return;
-      S.pending = { body: await buildPayload() };
-    }
+    // One send at a time. The button used to be disabled only after the photo
+    // was shrunk (an await), so a double tap - or the "online" retry landing
+    // beside a tap - built and posted the same hazard twice.
+    if (S.sending) return;
+    if (!S.pending && !(R.snap && R.snap.pick && R.pos)) return;
+    S.sending = true;
     btn.classList.add("is-busy"); btn.disabled = true;
     try {
+      if (!S.pending) {
+        var snap = R.snap, body;
+        try { body = await buildPayload(); } catch (e) {
+          result("Not sent: the photo could not be prepared (" + msg(e) + ").", "bad");
+          return;
+        }
+        S.pending = { body: body, snap: snap };
+      }
       if (!navigator.onLine) { var off = new Error("transport"); off.transport = true; throw off; }
       var r = await authedPost("/v1/raksha/report", S.pending.body);
       if (r.ok && r.json && r.json.data) {
         var d = r.json.data, meta = r.json.meta || {};
+        // The frame that was sent, not whichever report panel is open now.
+        if (S.pending && S.pending.snap) S.pending.snap.sent = true;
         S.pending = null;
-        if (R.snap) R.snap.sent = true;
         result("Sent. The server answered: " + (meta.note || "accepted") + " Report " + String(d.id).slice(0, 8) +
           ", status " + d.status + (d.hasPhoto ? ", photo attached" : "") +
           ". No authority has verified it yet.", "ok");
@@ -876,6 +910,7 @@
         window.__scan.lastReport = { status: 0, held: true };
       }
     } finally {
+      S.sending = false;
       btn.classList.remove("is-busy");
       refreshSend();
     }
@@ -893,8 +928,11 @@
   $("sample-prev").addEventListener("click", function () { showSample(S.sampleIndex - 1); });
   $("sample-next").addEventListener("click", function () { showSample(S.sampleIndex + 1); });
   $("cam-toggle").addEventListener("click", function () {
-    if (S.running && S.source === "camera") {
-      stopAll(); S.source = null;
+    // Also while it is still starting: "Stop camera" is on the button from the
+    // first tap, and pressing it during the permission prompt used to start a
+    // second camera instead.
+    if (S.source === "camera" && (S.running || S.camStarting)) {
+      stopAll(); S.source = null; S.camResume = false;
       $("cam-toggle").textContent = "Start camera";
       placeholder("Camera off", false);
       say("Camera off.");
@@ -916,9 +954,24 @@
   $("r-cancel").addEventListener("click", closeReport);
   $("r-send").addEventListener("click", function () { sendReport(false); });
   $("r-locate").addEventListener("click", locate);
+  /**
+   * Hidden, the camera is let go, not just left unread: pausing the loop kept
+   * the stream (and the camera light) on behind another tab or the home screen
+   * for as long as the page stayed open. Shown again, it starts again.
+   */
+  function releaseCamera() {
+    if (S.source !== "camera" || !(S.running || S.camStarting || S.stream)) return;
+    stopAll();
+    S.camResume = true;
+    placeholder("Camera paused while this page is not on screen", false);
+  }
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden && S.running) scheduleLoop(0);
+    if (document.hidden) { releaseCamera(); return; }
+    if (S.camResume && S.source === "camera") { S.camResume = false; startCamera(); }
+    else if (S.running) scheduleLoop(0);
   });
+  // Leaving the page (or entering the back/forward cache) ends the stream too.
+  window.addEventListener("pagehide", function () { if (S.source === "camera") releaseCamera(); });
   window.addEventListener("resize", function () {
     if (S.frameW) { layoutStage(S.frameW, S.frameH); drawOverlay(); }
   });

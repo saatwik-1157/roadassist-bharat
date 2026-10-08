@@ -226,10 +226,16 @@ export function shapeCells(rows: CellRow[], min = MIN_CELL_COUNT) {
   for (const r of rows) {
     const n = int(r.n);
     if (n < min) { suppressedCells++; suppressedDetections += n; continue; }
+    // The citizen share of a drawn cell is held to the same floor. Two device
+    // detections and one report made a drawn cell of 3 that said "1 citizen
+    // report", which placed that one person in a 2 km square: exactly what the
+    // floor exists to prevent. Below it the share is null ("fewer than min"),
+    // and 0 is null too, so a null says nothing about whether anyone reported.
+    const citizen = int(r.citizen);
     cells.push({
       lat: Math.round(Number(r.lat) * 1000) / 1000,
       lng: Math.round(Number(r.lng) * 1000) / 1000,
-      count: n, maxSeverity: int(r.max_severity), citizen: int(r.citizen),
+      count: n, maxSeverity: int(r.max_severity), citizen: citizen >= min ? citizen : null,
     });
   }
   cells.sort((a, b) => b.count - a.count || a.lat - b.lat || a.lng - b.lng);

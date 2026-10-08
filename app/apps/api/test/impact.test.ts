@@ -111,6 +111,18 @@ test("the map withholds thin cells, counts what it withheld, and loses nothing",
   for (const c of m.cells) assert.deepEqual(Object.keys(c).sort(), ["citizen", "count", "lat", "lng", "maxSeverity"]);
 });
 
+test("a drawn cell never publishes a citizen share below the floor (one report padded by devices is not placed)", () => {
+  const m = shapeCells([
+    { lat: 28.37, lng: 76.93, n: MIN_CELL_COUNT, max_severity: 4, citizen: 1 },
+    { lat: 28.45, lng: 77.01, n: 9, max_severity: 5, citizen: MIN_CELL_COUNT },
+    { lat: 28.43, lng: 76.99, n: 5, max_severity: 3, citizen: 0 },
+  ]);
+  const at = (lat: number) => m.cells.find((c) => c.lat === lat)!;
+  assert.equal(at(28.37).citizen, null, "1 citizen report among 3 detections is withheld, not published as 1");
+  assert.equal(at(28.43).citizen, null, "0 is withheld too, so a null does not reveal that someone reported");
+  assert.equal(at(28.45).citizen, MIN_CELL_COUNT, "at the floor the share is published");
+});
+
 test("no personal field survives shaping, even when a query returns one", () => {
   const answer = {
     data: {

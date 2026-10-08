@@ -494,15 +494,15 @@ database migrated from empty, then seeded).
 
 | Suite | Count | What it proves | Runs |
 |---|---|---|---|
-| Unit (`npm test`) | 526 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
+| Unit (`npm test`) | 527 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
 | End-to-end (`npm run test:e2e`) | 288 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
 | Concurrency (`npm run test:concurrency`) | 112 | Races: two mechanics accepting one job, three SOS taps at once, live event delivery | CI |
 | Gateway security (`npm run test:gateway`) | 58 | Webhook signatures, append-only audit rules, sign-in code limits per number and per IP | CI |
 | Security audit (`npm run test:security`) | 108 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
-| Browser (`npm run test:ui`) | 254 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
-| **Total** | **1346** | Six suites, zero failures | |
-| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1346, and never described as passing | By hand only |
-| Android (Gradle) | 323 | Android unit tests, run with lint and both APK builds | CI `android` job |
+| Browser (`npm run test:ui`) | 259 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
+| **Total** | **1352** | Six suites, zero failures | |
+| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1352, and never described as passing | By hand only |
+| Android (Gradle) | 328 | Android unit tests, run with lint and both APK builds | CI `android` job |
 | SOS ladder | 21 | The subset of the Android tests over `SosLadder.kt`, the emergency fallback decisions | CI `android` job |
 | CV pipeline | 49 | The Python pipeline tests (standard library only) | CI `ai` job |
 

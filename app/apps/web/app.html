@@ -951,8 +951,14 @@
     if (!state.refresh) return Promise.resolve(false);
     refreshing = sess.refresh(state.refresh).then(function (token) {
       // No token: refused, or never answered. Only a refusal ends the session
-      // (false). Unreachable (null) is no signal, which is not a sign-out.
+      // (false). Unreachable (null) is no signal, which is not a sign-out - and
+      // nor is a server that answered but could not do it (a 5xx while its
+      // database restarts, a 429): read as a refusal, one bad second on the
+      // server wiped the session and dropped the person on sign-in, SOS gone.
       if (!token) {
+        var st = sess.refreshStatus ? sess.refreshStatus() : undefined;
+        if (st === 0 || st >= 500 || st === 408 || st === 429) return null;
+        if (st !== undefined) return false;
         return fetch(API + "/v1/ping", { cache: "no-store" }).then(function () { return false; }, function () { return null; });
       }
       state.token = token;

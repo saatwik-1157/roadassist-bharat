@@ -92,4 +92,11 @@ class ScanReportTest {
         assertEquals(5.0 * 0.8 + 10.0 * 0.2, ScanReport.nextFps(5.0, 100), 1e-9)
         assertEquals(5.0, ScanReport.nextFps(5.0, 0), 0.0)
     }
+
+    @Test fun `a restored live camera with the permission gone shows the start card, not a black preview`() {
+        assertEquals(ScanReport.MODE_NONE, ScanReport.resumeMode(ScanReport.MODE_CAMERA, cameraGranted = false))
+        assertEquals(ScanReport.MODE_CAMERA, ScanReport.resumeMode(ScanReport.MODE_CAMERA, cameraGranted = true))
+        assertEquals(ScanReport.MODE_PHOTO, ScanReport.resumeMode(ScanReport.MODE_PHOTO, cameraGranted = false))
+        assertEquals(ScanReport.MODE_NONE, ScanReport.resumeMode(ScanReport.MODE_NONE, cameraGranted = false))
+    }
 }

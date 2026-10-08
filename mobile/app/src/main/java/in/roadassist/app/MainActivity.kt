@@ -172,11 +172,9 @@ class MainActivity : ComponentActivity() {
         val app = applicationContext
         if (!Api.hasSession()) SessionStore.load(app)?.let { Api.restoreSession(it) }
         Api.onSessionChanged = { s ->
-            // A refresh carries tokens only; keep the profile stored beside them.
-            val kept = s?.let { SessionStore.load(app) }
-            SessionStore.save(app, s?.copy(
-                msisdn = kept?.msisdn, vehicleId = kept?.vehicleId, vehicleLabel = kept?.vehicleLabel,
-            ))
+            // A refresh carries tokens only; keep the profile stored beside
+            // them, in one locked step against a concurrent profile save.
+            SessionStore.saveTokens(app, s)
         }
         // Queued SOS replay whenever a network returns, whatever screen is up.
         SosReplay.start(app)

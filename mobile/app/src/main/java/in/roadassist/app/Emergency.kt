@@ -167,6 +167,10 @@ object Emergency {
         // so the local copy is the only record that exists: queue BEFORE the
         // handoff, because startActivity can throw and the queue is the last resort.
         queue(ctx, pos, ref)
+        // Start the replay now (it retries while the queue waits): the data
+        // rung may have failed with the phone online, and no network change
+        // need ever come to poke it.
+        SosReplay.poke()
         val handoff = handOffTo112(ctx)
         val detail = listOfNotNull(ctx.getString(SosLadder.handoffRes(handoff)), smsNote).joinToString("\n")
         return Result(SosLadder.rungOf(handoff), detail, handoff)

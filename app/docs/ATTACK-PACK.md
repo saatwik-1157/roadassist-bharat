@@ -35,7 +35,7 @@ repository; nothing is aspirational.
 > storage, and it says plainly that nothing has been transmitted. On reconnect
 > it forwards itself, and a unique key makes a duplicate impossible.
 >
-> **Result.** 1346 assertions executed across six suites, no failures, including 106
+> **Result.** 1352 assertions executed across six suites, no failures, including 106
 > attacks that must fail. Outside that total sit 22 Razorpay checks that run
 > against their own local stub of the Orders API — no account needed — but only
 > when the API is started with `PAYMENTS_PROVIDER=razorpay`, so they are not in

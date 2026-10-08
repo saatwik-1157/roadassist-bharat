@@ -358,6 +358,50 @@ const run = async () => {
       }
     }
 
+    // ══ the camera is let go ═══════════════════════════════════════════════
+    // getUserMedia is slowed to stand in for a permission prompt, and every
+    // stream it hands out is kept, so a stream nobody holds can be found.
+    section("5b. The camera is released: double start, Stop while starting, page hidden");
+    await page.eval(`
+      window.__streams = [];
+      const real = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      navigator.mediaDevices.getUserMedia = async (c) => {
+        await new Promise((r) => setTimeout(r, 400));
+        const s = await real(c); window.__streams.push(s); return s;
+      };
+      window.__liveStreams = () => window.__streams.filter((s) => s.getTracks().some((t) => t.readyState === "live")).length;
+      return true;`);
+    await page.eval(`document.getElementById("src-camera").click(); document.getElementById("src-camera").click(); return true;`);
+    await page.waitFor(`window.__scan.state.running && window.__scan.state.frameW > 0`, 20000, "camera frames");
+    await sleep(1500);
+    const dbl = await page.eval(`return { live: window.__liveStreams(), made: window.__streams.length };`);
+    check(dbl.live === 1, "two taps on Camera leave one live camera stream, not an orphan nobody can stop", JSON.stringify(dbl));
+
+    await page.click("#cam-toggle");   // off
+    await page.eval(`window.__streams = []; document.getElementById("cam-toggle").click(); return true;`);   // on...
+    await sleep(100);
+    await page.click("#cam-toggle");   // ...and Stop, while getUserMedia is still pending
+    await sleep(2500);
+    const stopEarly = await page.eval(`return { live: window.__liveStreams(), running: window.__scan.state.running, label: document.getElementById("cam-toggle").textContent };`);
+    check(stopEarly.live === 0 && !stopEarly.running, "Stop pressed while the camera is starting leaves it off, with no stream live", JSON.stringify(stopEarly));
+
+    await page.click("#cam-toggle");   // on again
+    await page.waitFor(`window.__scan.state.running && window.__scan.state.frameW > 0`, 20000, "camera frames");
+    const setHidden = (h) => page.eval(`
+      Object.defineProperty(document, "hidden", { configurable: true, get: () => ${h} });
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => ${h ? '"hidden"' : '"visible"'} });
+      document.dispatchEvent(new Event("visibilitychange")); return true;`);
+    await setHidden(true);
+    await sleep(800);
+    const hid = await page.eval(`return { live: window.__liveStreams() };`);
+    check(hid.live === 0, "with the page hidden the camera is stopped (its light goes off), not just the loop paused", JSON.stringify(hid));
+    await setHidden(false);
+    let back = false;
+    try { await page.waitFor(`window.__scan.state.running && window.__scan.state.frameW > 0 && window.__liveStreams() === 1`, 20000, "camera back"); back = true; } catch { /* reported below */ }
+    check(back, "shown again, the camera comes back on by itself");
+    await page.eval(`delete document.hidden; delete document.visibilityState; return true;`);
+    await page.click("#cam-toggle");   // off before the report sections
+
     // ══ report: online ════════════════════════════════════════════════════
     section("6. Report this hazard -> POST /v1/raksha/report (local API)");
     await page.eval(`window.__scan.useEngine("auto"); return true;`);
@@ -400,6 +444,28 @@ const run = async () => {
     `);
     const filed = (mine || []).find((m) => m.id === rep.data.id);
     check(Boolean(filed) && filed.has_photo === true && /Live road scan/.test(String(filed.notes)), "the report, its photo and its note are in the citizen's own report list", filed ? `${filed.detection_type} sev ${filed.severity} ${filed.status}` : "missing");
+
+    // ══ report: a double tap ═══════════════════════════════════════════════
+    // Send stayed enabled while the photo was being shrunk (an await before the
+    // button was disabled), so a second tap built and posted a second report:
+    // two RAKSHA rows, two pins, for one hazard.
+    section("6b. A double tap on Send files one report, not two");
+    const myCount = () => page.eval(`
+      const s = JSON.parse(sessionStorage.getItem("ra.app.session") || "{}");
+      const r = await fetch("/v1/me/reports", { headers: { authorization: "Bearer " + s.token } });
+      return ((await r.json()).data || []).length;`);
+    await page.click("#r-open");
+    await page.waitFor(`!document.getElementById("r-panel").hidden && !document.getElementById("r-send").disabled`, 20000);
+    const before2 = await myCount();
+    await page.eval("window.__scan.lastReport = null; return true;");
+    page.requests.length = 0;
+    await page.eval(`const b = document.getElementById("r-send"); b.click(); b.click(); return true;`);
+    await page.waitFor(`window.__scan.lastReport`, 30000, "the server's answer");
+    await sleep(4000);   // a second post, if one went, lands well within this
+    const posts = page.requests.filter((u) => u === `${origin}/v1/raksha/report`).length;
+    const after2 = await myCount();
+    check(posts === 1 && after2 - before2 === 1, "two taps on Send post the report once and file one RAKSHA row",
+      `${posts} POST(s), ${after2 - before2} new report(s)`);
 
     // ══ report: offline ═══════════════════════════════════════════════════
     section("7. Offline: not sent, not queued, said so; sent when back online");
