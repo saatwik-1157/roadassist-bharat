@@ -1,0 +1,51 @@
+onnxruntime-web 1.30.0 - vendored, served from this origin (no CDN)
+====================================================================
+
+Source:   npm package onnxruntime-web@1.30.0 (npm pack onnxruntime-web@1.30.0)
+          tarball sha512-q0y+JrrtukXSzsBWEMccVfqX25LRmosXHF+CaRJmg8pZClzcV7svNc4rKY3jL02Vb7QmRMDs1SigqR4CXAfKYQ==
+          (shasum b88b09117992e6f486321e931a826fd2f7775377)
+Matches:  onnxruntime==1.30.0 in ai/requirements-serve.txt (the Python serving path)
+Licence:  MIT (below)
+Used by:  scan.html / scan.js (the live road scan), via dynamic import()
+
+Files copied unmodified from the package's dist/ folder:
+
+  ort.all.min.mjs                    sha256 2e4a0eae53c3f246e26423aaca493d3bfc22ce524894f27519a9ec4a14e6397a
+  ort-wasm-simd-threaded.jsep.mjs    sha256 709853412fd1ffc34247af1e73569227b5b79629c5ca3f59cc39cf7e500e4947
+  ort-wasm-simd-threaded.jsep.wasm   sha256 3ad23231b5bd6d9dda55a7f84606315e0bf35b6750c28ee993c987c54cacab0f
+
+Why these three: ort.all bundles the WebGPU, WebGL and WebAssembly execution
+providers; WebGPU and WebAssembly both run on the "jsep" WebAssembly build, so
+that is the only .wasm needed. scan.js sets ort.env.wasm.wasmPaths to this
+folder, so the runtime never falls back to fetching its files from a CDN.
+
+Why vendored rather than an npm dependency: the API serves apps/web as static
+files with no build step, and a dependency would still need copying here. The
+hashes above are what a reviewer checks an upgrade against.
+
+To upgrade: npm pack onnxruntime-web@<version>, copy the same three files from
+package/dist/, update this note and the version string in scan.js, and rerun
+app/scripts/scan-check.mjs (it compares the page's detections with serve.py's).
+
+--------------------------------------------------------------------------
+MIT License
+
+Copyright (c) Microsoft Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

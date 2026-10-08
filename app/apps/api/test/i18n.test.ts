@@ -85,6 +85,26 @@ describe("the SMS SOS reply", () => {
   });
 });
 
+describe("the SMS booking replies say only what is true", () => {
+  it("a texted request says no search can start without a location, in every language", () => {
+    // A texted HELP carries no location, and dispatch matches on distance to
+    // it, so nothing ever searched — while the reply said "We are finding a
+    // mechanic near you" and STATUS kept saying it.
+    for (const locale of LOCALES) {
+      const body = t(locale, "sms.requested", { reference: "RA-ABC123" });
+      assert.ok(body.includes("RA-ABC123") && body.includes("112"), `${locale}: ${body}`);
+    }
+    const en = t("en", "sms.requested", { reference: "RA-ABC123" });
+    assert.match(en, /no location/i);
+    assert.doesNotMatch(en, /finding a mechanic|near you/i);
+  });
+
+  it("no reply claims a cancellation fee, because none is ever recorded", () => {
+    assert.equal(MESSAGE_KEYS.includes("sms.cancelled.fee"), false);
+    for (const key of MESSAGE_KEYS) assert.doesNotMatch(t("en", key, {}), /\bfee\b/i, key);
+  });
+});
+
 describe("SMS segment cost", () => {
   it("knows plain English is GSM and fits 160", () => {
     const r = smsSegments("SOS received and recorded (ref 1266c6bd). Nobody is dispatched automatically.");

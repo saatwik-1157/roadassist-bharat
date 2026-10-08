@@ -108,8 +108,17 @@ export const rakshaDetections = pgTable("raksha_detections", {
   verifiedAt: timestamp("verified_at", { withTimezone: true }),
   notes: text("notes"),
   raw: jsonb("raw"),
+  /**
+   * What the sighting IS, independent of the device that sent it: a sha256 of
+   * the model, frame and detection (apps/api/src/domain/raksha-input.ts).
+   * op_id dedups one device's replays; this dedups the same detection sent by
+   * a second device, and keeps a REJECTED one rejected when it is re-sent.
+   * NULL for citizen reports and for every row before 0009.
+   */
+  sourceKey: varchar("source_key", { length: 64 }),
 }, (t) => ({
   opUq: uniqueIndex("raksha_detections_op_uq").on(t.deviceId, t.opId),
+  sourceUq: uniqueIndex("raksha_detections_source_uq").on(t.sourceKey),
   deviceIdx: index("raksha_detections_device_idx").on(t.deviceId, t.createdAt),
   statusIdx: index("raksha_detections_status_idx").on(t.status),
   segmentIdx: index("raksha_detections_segment_idx").on(t.segmentId),

@@ -16,9 +16,9 @@ import { env, assertProductionSafe, validateEnv } from "./env.js";
 import { db, sql } from "./db.js";
 import * as S from "@roadassist/db";
 import {
-  authenticate, requireRole, sha256, verifyAccessToken,
+  authenticate, markDeviceRoutes, requireRole, sha256, verifyAccessToken,
 } from "./auth.js";
-import { apply, allowedFrom, finishesJob, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
+import { apply, allowedFrom, finishesJob, isCommand, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
 import { ratingBaseline, ratingPrior, shrunkRating } from "./domain/ai-rules.js";
 import {
   diagnoseWithFallback, email, maps, providerSummary, sms,
@@ -36,12 +36,15 @@ import { paymentRoutes, invoiceIsSettled } from "./routes/payments.js";
 import { bookingAudience, notYours } from "./booking-access.js";
 import { audit, auditChainSummary, verifyAuditChain } from "./audit.js";
 import { limit } from "./ratelimit.js";
-import { ApiError, fail } from "./errors.js";
+import { ApiError, fail, isUniqueViolation } from "./errors.js";
 import { logOp } from "./observability.js";
 import { fetchTile, sendTileFailure } from "./tile-upstream.js";
 import {
   escalate, providerRoster, providerStateFor, sendWave, startOfferSweeper, stopOfferSweeper, withdrawOpenOffers, announceWithdrawnOffers, type WithdrawnOffer,
+  boundLockTx,
 } from "./dispatch.js";
+import { actorRole } from "./domain/actor-role.js";
+import { daysToExpiry, expiryState } from "./domain/doc-expiry.js";
 import {
   IllegalIncidentTransition, allowedIncidentCommands,
 } from "./domain/incident-machine.js";
@@ -83,6 +86,7 @@ await app.register(cors, {
   exposedHeaders: ["x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset", "retry-after"],
 });
 registerClientIp(app);   // the caller's real address behind Cloudflare (client-ip.ts)
+app.addHook("onRoute", markDeviceRoutes);   // device tokens only where a route admits them (auth.ts)
 // Security headers on every response (security-headers.ts): CSP with the pages' inline scripts by hash, HSTS, nosniff, ...
 registerSecurityHeaders(app, { frameAncestors: env.cors.mode === "list" ? env.cors.origins : [], razorpay: env.payments.provider === "razorpay", pagesRoot: findUp("apps/web"), watchPages: isLocalEnv(env.nodeEnv) });
 
@@ -349,7 +353,13 @@ app.get("/v1/ping", async (_req, reply) =>
 app.get("/v1/events", { preHandler: [authenticate, limit("stream")] }, async (req, reply) => {
   const userId = req.user!.sub;
   openStream(reply);
-  const sub = subscribe(userId, reply, String(req.id));
+  // The stream ends with the sign-in that opened it: on sign-out (by its
+  // session id) and when its access token expires. The client then reconnects
+  // with a fresh token, as it does after any drop (realtime.ts subscribe).
+  const sub = subscribe(userId, reply, String(req.id), {
+    sid: req.user!.sid,
+    expiresAt: req.user!.exp !== undefined ? req.user!.exp * 1000 : undefined,
+  });
 
   if (!sub) {
     // Refusing loudly beats silently accepting a stream we will not feed.
@@ -566,11 +576,26 @@ app.post("/v1/vehicles", { preHandler: authenticate }, async (req, reply) => {
     });
   }
 
-  const [vehicle] = await db.insert(S.vehicles).values({
-    registrationNo: body.registrationNo, vehicleClass: body.vehicleClass,
-    nickname: body.nickname, odometerKm: body.odometerKm ?? 0,
-  }).returning();
-  await db.insert(S.userVehicles).values({ userId: req.user!.sub, vehicleId: vehicle.id, isPrimary: true });
+  // The read above answers the ordinary case; two adds of one plate at once
+  // both pass it, and the loser met the unique index as a 500. It is the same
+  // clash, so it gets the same 409 — and the vehicle and its owner link land
+  // together or not at all.
+  let vehicle: typeof S.vehicles.$inferSelect;
+  try {
+    vehicle = await db.transaction(async (tx) => {
+      const [row] = await tx.insert(S.vehicles).values({
+        registrationNo: body.registrationNo, vehicleClass: body.vehicleClass,
+        nickname: body.nickname, odometerKm: body.odometerKm ?? 0,
+      }).returning();
+      await tx.insert(S.userVehicles).values({ userId: req.user!.sub, vehicleId: row.id, isPrimary: true });
+      return row;
+    });
+  } catch (err) {
+    if (!isUniqueViolation(err, "vehicles_reg_uq")) throw err;
+    return reply.code(409).send({
+      error: { code: "vehicle_exists", title: "That registration number is already on the platform", retryable: false },
+    });
+  }
 
   return reply.code(201).send(ok(vehicle));
 });
@@ -622,10 +647,18 @@ app.patch("/v1/vehicles/:id", { preHandler: authenticate }, async (req, reply) =
     });
   }
 
-  const [updated] = await db.update(S.vehicles)
-    .set({ ...patch, updatedAt: new Date() })
-    .where(eq(S.vehicles.id, id)).returning();
-  return ok(updated);
+  try {
+    const [updated] = await db.update(S.vehicles)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(S.vehicles.id, id)).returning();
+    return ok(updated);
+  } catch (err) {
+    // A rename racing another add or rename of the same plate: see POST above.
+    if (!isUniqueViolation(err, "vehicles_reg_uq")) throw err;
+    return reply.code(409).send({
+      error: { code: "vehicle_exists", title: "That registration number is already on the platform", retryable: false },
+    });
+  }
 });
 
 // ══ diagnosis ══════════════════════════════════════════════════════════════
@@ -694,7 +727,7 @@ app.post("/v1/bookings", { preHandler: [authenticate, limit("booking")] }, async
     if (seen && seen.userId && seen.userId !== req.user!.sub) {
       return reply.code(409).send({ error: { code: "idempotency_key_in_use", title: "That idempotency key belongs to another request. Use a new one.", retryable: false } });
     }
-    if (seen) return reply.code(seen.responseStatus ?? 200).send(seen.responseBody);
+    if (seen?.responseBody != null) return reply.code(seen.responseStatus ?? 200).send(seen.responseBody);
   }
 
   // Ownership check at the resource, not just the route (threat #5).
@@ -732,7 +765,34 @@ app.post("/v1/bookings", { preHandler: [authenticate, limit("booking")] }, async
    * here, and ST_MakePoint has to be evaluated by the database.
    */
   const { to } = apply("DRAFT", "submit");
-  const booking = await db.transaction(async (tx) => {
+  type Created =
+    | { kind: "created"; booking: typeof S.bookings.$inferSelect; payload: ReturnType<typeof ok> }
+    | { kind: "replay"; status: number; body: unknown }
+    | { kind: "foreign" };
+  const outcome = await db.transaction(async (tx): Promise<Created> => {
+    /**
+     * The idempotency key is reserved FIRST, in this transaction. It used to
+     * be read before and written after, so four simultaneous POSTs with one
+     * key all read "unseen" and created four bookings - the duplicate the key
+     * exists to prevent. Now the unique index (key, endpoint) decides: a
+     * second request's insert waits on the first one's row, and once that
+     * commits it finds the key taken and replays the booking the first one
+     * stored. If the first rolls back, the second takes the key itself.
+     */
+    let reservation: string | null = null;
+    if (idemKey) {
+      const [mine] = await tx.insert(S.idempotencyKeys).values({
+        key: idemKey, userId: req.user!.sub, endpoint: "POST /v1/bookings",
+      }).onConflictDoNothing().returning({ id: S.idempotencyKeys.id });
+      if (!mine) {
+        const [seen] = await tx.select().from(S.idempotencyKeys)
+          .where(and(eq(S.idempotencyKeys.key, idemKey), eq(S.idempotencyKeys.endpoint, "POST /v1/bookings"))).limit(1);
+        if (seen?.userId && seen.userId !== req.user!.sub) return { kind: "foreign" };
+        return { kind: "replay", status: seen?.responseStatus ?? 200, body: seen?.responseBody ?? null };
+      }
+      reservation = mine.id;
+    }
+
     const [row] = await tx.insert(S.bookings).values({
       reference: reference(), userId: req.user!.sub, vehicleId: body.vehicleId,
       serviceTypeId: svc.id, status: "DRAFT", symptoms: body.symptoms,
@@ -752,18 +812,20 @@ app.post("/v1/bookings", { preHandler: [authenticate, limit("booking")] }, async
       bookingId: row.id, fromStatus: "DRAFT", toStatus: to,
       command: "submit", actorId: req.user!.sub, actorRole: "citizen",
     });
-    return row;
+    const payload = ok({ ...row, status: to, lat: body.lat, lng: body.lng },
+                       { nextCommands: allowedFrom(to) });
+    if (reservation) {
+      await tx.update(S.idempotencyKeys).set({ responseStatus: 201, responseBody: payload, updatedAt: new Date() })
+        .where(eq(S.idempotencyKeys.id, reservation));
+    }
+    return { kind: "created", booking: row, payload };
   });
 
-  const payload = ok({ ...booking, status: to, lat: body.lat, lng: body.lng },
-                     { nextCommands: allowedFrom(to) });
-  if (idemKey) {
-    await db.insert(S.idempotencyKeys).values({
-      key: idemKey, userId: req.user!.sub, endpoint: "POST /v1/bookings",
-      responseStatus: 201, responseBody: payload,
-    }).onConflictDoNothing();
+  if (outcome.kind === "foreign") {
+    return reply.code(409).send({ error: { code: "idempotency_key_in_use", title: "That idempotency key belongs to another request. Use a new one.", retryable: false } });
   }
-  return reply.code(201).send(payload);
+  if (outcome.kind === "replay") return reply.code(outcome.status).send(outcome.body);
+  return reply.code(201).send(outcome.payload);
 });
 
 /**
@@ -815,10 +877,18 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
   // but a second dispatch arriving AFTER that claim and BEFORE the first wave's
   // offers exist saw "MATCHING, no live offer" - the retry state - and sent a
   // second wave (concurrency-test 6d caught it: 200, 200, 409). A try-lock held
-  // for the whole claim-and-wave closes that window. It does not wait: waiting
-  // requests would each hold a pooled connection while the winner needs one to
-  // send its wave, so under load a blocking lock could starve the pool.
-  return db.transaction(async (lockTx) => {
+  // for the whole claim-and-wave closes that window. It does not wait: a second
+  // dispatch of the same booking is answered 409 at once rather than queued
+  // behind the first, each waiter holding a pooled connection while it queues.
+  //
+  // Everything after the lock runs on lockTx, the connection that holds it. The
+  // queries used to go to the shared pool, so each dispatch held one connection
+  // for the lock and queued for a second: ten at once filled the pool (10) with
+  // lock holders all waiting for an eleventh, and the API - /health included -
+  // froze for good. Pushes and audit entries wait for the commit (`after`).
+  const after: Array<() => Promise<unknown>> = [];
+  const answer = await db.transaction(async (lockTx) => {
+  await boundLockTx(lockTx);
   const [lock] = await lockTx.execute<{ got: boolean }>(raw`SELECT pg_try_advisory_xact_lock(6, hashtext(${id})) AS got`);
   if (!lock?.got) {
     return reply.code(409).send({ error: { code: "dispatch_in_progress",
@@ -826,7 +896,7 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
       retryable: false, requestId: req.id } });
   }
   // Re-read under the lock: the row read above may predate the other dispatch's claim.
-  const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, id)).limit(1);
+  const [booking] = await lockTx.select().from(S.bookings).where(eq(S.bookings.id, id)).limit(1);
   if (!booking) return reply.code(404).send({ error: { code: "not_found", title: "Booking not found", retryable: false } });
   const t0 = Date.now();
   /**
@@ -845,7 +915,7 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
    */
   let command: Command = "dispatch.start";
   if (booking.status === "MATCHING") {
-    const [{ live }] = await db.select({ live: raw<number>`count(*)::int` }).from(S.dispatchOffers)
+    const [{ live }] = await lockTx.select({ live: raw<number>`count(*)::int` }).from(S.dispatchOffers)
       .where(and(eq(S.dispatchOffers.bookingId, id), eq(S.dispatchOffers.status, "SENT"),
                  raw`${S.dispatchOffers.expiresAt} > now()`));
     if (booking.mechanicId || live > 0) {
@@ -858,7 +928,7 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
     apply(booking.status as Status, command);   // anything else is an illegal transition (409)
   }
   const to: Status = "MATCHING";
-  const claimed = await db.update(S.bookings)
+  const claimed = await lockTx.update(S.bookings)
     .set({ status: to, updatedAt: new Date(), version: booking.version + 1 })
     .where(and(eq(S.bookings.id, id), eq(S.bookings.status, booking.status),
                eq(S.bookings.version, booking.version), isNull(S.bookings.mechanicId)))
@@ -867,34 +937,38 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
     return reply.code(409).send({ error: { code: "conflict",
       title: "The booking changed while this request was in flight. Reload and retry.", retryable: true } });
   }
-  await db.insert(S.bookingEvents).values({
+  // The search the customer asked for is part of the booking's record: the
+  // ladder's later waves (dispatch.ts escalate) read it back from here.
+  await lockTx.insert(S.bookingEvents).values({
     bookingId: id, fromStatus: booking.status, toStatus: to, command, actorRole: "system",
+    meta: { radiusKm, waveSize: limit },
   });
 
   // The next wave of the ladder: rank stays monotonic across retries, and
   // `sendWave` skips anybody already asked. It also excludes providers who are
   // off duty or already committed to another customer.
-  const [{ sent }] = await db.select({ sent: raw<number>`count(*)::int` })
+  const [{ sent }] = await lockTx.select({ sent: raw<number>`count(*)::int` })
     .from(S.dispatchOffers).where(eq(S.dispatchOffers.bookingId, id));
   const waveNo = Math.floor(sent / limit) + 1;
-  const wave = await sendWave(id, {
+  const wave = await sendWave(lockTx, id, {
     radiusKm, waveSize: limit, wave: waveNo, actorId: req.user!.sub,
   });
+  after.push(wave.announce);
 
   if (wave.exhausted) {
     const noSupply = apply(to, "offers.exhausted");
     // Guarded: a cancel that landed during the search stands.
-    const moved = await db.update(S.bookings).set({ status: noSupply.to, updatedAt: new Date() })
+    const moved = await lockTx.update(S.bookings).set({ status: noSupply.to, updatedAt: new Date() })
       .where(and(eq(S.bookings.id, id), eq(S.bookings.status, to))).returning({ id: S.bookings.id });
     if (!moved.length) {
       return reply.code(409).send({ error: { code: "conflict",
         title: "The booking changed while this request was in flight. Reload and retry.", retryable: true } });
     }
-    await db.insert(S.bookingEvents).values({
+    await lockTx.insert(S.bookingEvents).values({
       bookingId: id, fromStatus: to, toStatus: noSupply.to, command: "offers.exhausted", actorRole: "system",
       meta: { radiusKm, skipped: wave.skipped.length },
     });
-    publish(req.user!.sub, { type: "booking.status", bookingId: id, status: noSupply.to });
+    after.push(async () => publish(req.user!.sub, { type: "booking.status", bookingId: id, status: noSupply.to }));
     logOp(req, {
       op: "dispatch.start", result: "rejected", durationMs: Date.now() - t0,
       bookingId: id, radiusKm, offers: 0, skippedProviders: wave.skipped.length,
@@ -912,14 +986,16 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
     });
   }
 
-  await audit({
-    actorId: req.user!.sub, actorRole: "citizen", action: "dispatch.started",
-    entity: "booking", entityId: id,
-    after: { offers: wave.offers.length, radiusKm, wave: waveNo,
-             topMechanicId: wave.ranked[0]?.id ?? null, skipped: wave.skipped.length },
-    ip: req.ip,
+  after.push(async () => {
+    await audit({
+      actorId: req.user!.sub, actorRole: actorRole(req.user!.roles), action: "dispatch.started",
+      entity: "booking", entityId: id,
+      after: { offers: wave.offers.length, radiusKm, wave: waveNo,
+               topMechanicId: wave.ranked[0]?.id ?? null, skipped: wave.skipped.length },
+      ip: req.ip,
+    });
+    publish(req.user!.sub, { type: "booking.status", bookingId: id, status: to, offers: wave.offers.length });
   });
-  publish(req.user!.sub, { type: "booking.status", bookingId: id, status: to, offers: wave.offers.length });
 
   logOp(req, {
     op: "dispatch.start", result: "ok", durationMs: Date.now() - t0,
@@ -935,6 +1011,9 @@ app.post("/v1/bookings/:id/dispatch", { preHandler: [authenticate, limit("bookin
     offerTtlSeconds: env.offerTtlSeconds,
   });
   });   // the dispatch lock is released here, after the wave is out
+  // Committed: only now are the offers pushed and the wave audited.
+  for (const step of after) await step();
+  return answer;
 });
 
 /**
@@ -977,7 +1056,7 @@ app.post("/v1/offers/:offerId/decline", { preHandler: [authenticate, limit("acce
   }
 
   await audit({
-    actorId: req.user!.sub, actorRole: "mechanic", action: "dispatch.provider_rejected",
+    actorId: req.user!.sub, actorRole: actorRole(req.user!.roles), action: "dispatch.provider_rejected",
     entity: "dispatch_offer", entityId: offerId,
     after: { bookingId: offer.bookingId, mechanicId: offer.mechanicId, reason: reason ?? null },
     ip: req.ip,
@@ -990,13 +1069,18 @@ app.post("/v1/offers/:offerId/decline", { preHandler: [authenticate, limit("acce
     mechanicId: offer.mechanicId, escalated: next.escalated, exhausted: next.exhausted,
   });
 
+  // Each note says what escalate actually did. "Other providers still hold
+  // live offers" used to be the answer to everything that was not a new wave,
+  // including a booking another mechanic had already taken.
   return ok({ offerId, status: "DECLINED", bookingId: offer.bookingId }, {
     escalated: next.escalated,
-    note: next.exhausted
-      ? "Declined. Every provider in range has now been asked."
-      : next.escalated
-        ? `Declined. The job was offered to ${next.offers} more provider(s).`
-        : "Declined. Other providers still hold live offers for this job.",
+    outcome: next.outcome,
+    note: {
+      exhausted: `Declined. Every provider within ${next.radiusKm} km has now been asked.`,
+      escalated: `Declined. The job was offered to ${next.offers} more provider(s) within ${next.radiusKm} km.`,
+      live_offers: `Declined. ${next.offers} other provider(s) still hold a live offer for this job.`,
+      not_matching: "Declined. This job is no longer being matched, so nobody else was asked.",
+    }[next.outcome],
   });
 });
 
@@ -1007,12 +1091,18 @@ app.post("/v1/offers/:offerId/accept", { preHandler: [authenticate, limit("accep
 
   const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, offer.bookingId)).limit(1);
 
-  // Only the offer's mechanic, the customer who owns the booking, or an admin
-  // may act on an offer — checked before the status so strangers learn nothing.
+  // Only the offer's mechanic, the customer who owns the booking (choosing
+  // that mechanic: the citizen apps' Accept), or an admin may act on an offer
+  // — checked before the status so strangers learn nothing. A customer's
+  // choice is recorded as theirs (acceptedBy below), and it cannot be turned
+  // into a rating: a review needs a completion the mechanic reported.
   const caller = req.user!;
   const [offerMech] = await db.select({ userId: S.mechanics.userId }).from(S.mechanics)
     .where(eq(S.mechanics.id, offer.mechanicId)).limit(1);
-  if (booking.userId !== caller.sub && offerMech?.userId !== caller.sub && !caller.roles.includes("admin")) {
+  const acceptedBy = offerMech?.userId === caller.sub ? "mechanic"
+    : caller.roles.includes("admin") ? "admin"
+    : booking.userId === caller.sub ? "customer" : null;
+  if (!acceptedBy) {
     return reply.code(403).send({ error: { code: "forbidden", title: "That offer is not yours to accept", retryable: false } });
   }
 
@@ -1038,7 +1128,7 @@ app.post("/v1/offers/:offerId/accept", { preHandler: [authenticate, limit("accep
    * minutes ago and steal a job from whoever accepted legitimately (§4).
    */
   type AcceptOutcome =
-    | { ok: true; to: Status }
+    | { ok: true; to: Status; withdrawn: Array<{ id: string; bookingId: string }> }
     | { ok: false; code: string; title: string };
 
   const outcome = await db.transaction(async (tx): Promise<AcceptOutcome> => {
@@ -1068,23 +1158,53 @@ app.post("/v1/offers/:offerId/accept", { preHandler: [authenticate, limit("accep
     // lock — a booking cancelled a moment ago must not be assignable.
     const next = apply(locked.status as Status, "mechanic.accept");
 
+    /**
+     * One mechanic, one job. The booking lock above serialises accepts for
+     * THIS job; it says nothing about a second job the same mechanic accepts
+     * at the same moment, and two offers to one mechanic each passed their own
+     * booking's lock and both went ASSIGNED to them. The mechanic's row is the
+     * lock both of those accepts share, and under it the mechanic must not
+     * already be committed (the same ASSIGNED…ESCALATED set dispatch.ts
+     * excludes from new offers).
+     */
+    await tx.execute(raw`SELECT id FROM mechanics WHERE id = ${offer.mechanicId} FOR UPDATE`);
+    const [busy] = await tx.execute<{ reference: string }>(raw`
+      SELECT reference FROM bookings
+       WHERE mechanic_id = ${offer.mechanicId} AND deleted_at IS NULL AND id <> ${offer.bookingId}
+         AND status IN ('ASSIGNED','EN_ROUTE','ON_SITE','IN_PROGRESS','AWAITING_PARTS','ESCALATED')
+       LIMIT 1`);
+    if (busy) {
+      return { ok: false, code: "mechanic_busy", title: `This mechanic is already on job ${busy.reference}. Finish or release it first.` };
+    }
+
     await tx.update(S.dispatchOffers).set({ status: "ACCEPTED", respondedAt: new Date(), updatedAt: new Date() })
       .where(eq(S.dispatchOffers.id, offerId));
     await tx.update(S.dispatchOffers).set({ status: "WITHDRAWN", updatedAt: new Date() })
       .where(and(eq(S.dispatchOffers.bookingId, offer.bookingId), eq(S.dispatchOffers.status, "SENT")));
+    // The mechanic's offers for OTHER jobs close too: they are committed now,
+    // and a second Accept from their inbox would only be refused above.
+    const withdrawn = await tx.update(S.dispatchOffers)
+      .set({ status: "WITHDRAWN", respondedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(S.dispatchOffers.mechanicId, offer.mechanicId), eq(S.dispatchOffers.status, "SENT")))
+      .returning({ id: S.dispatchOffers.id, bookingId: S.dispatchOffers.bookingId });
     await tx.update(S.bookings)
       .set({ status: next.to, mechanicId: offer.mechanicId, assignedAt: new Date(), updatedAt: new Date() })
       .where(eq(S.bookings.id, offer.bookingId));
+    // Who actually pressed Accept — the mechanic, the customer choosing them,
+    // or an admin — and in which capacity. The mechanic it assigns is in meta.
+    // actor_id used to hold the MECHANIC row's id, which is not a user at all,
+    // so a customer's choice read as the mechanic's own acceptance.
     await tx.insert(S.bookingEvents).values({
       bookingId: offer.bookingId, fromStatus: locked.status as Status, toStatus: next.to,
-      command: "mechanic.accept", actorId: offer.mechanicId, actorRole: "mechanic",
+      command: "mechanic.accept", actorId: caller.sub, actorRole: actorRole(caller.roles),
+      meta: { mechanicId: offer.mechanicId, offerId, acceptedBy },
     });
-    return { ok: true, to: next.to };
+    return { ok: true, to: next.to, withdrawn };
   });
 
   if (!outcome.ok) {
     await audit({
-      actorId: caller.sub, actorRole: "mechanic", action: "dispatch.provider_rejected_race",
+      actorId: caller.sub, actorRole: actorRole(caller.roles), action: "dispatch.provider_rejected_race",
       entity: "dispatch_offer", entityId: offerId,
       after: { reason: outcome.code, bookingId: offer.bookingId }, ip: req.ip,
     });
@@ -1093,15 +1213,27 @@ app.post("/v1/offers/:offerId/accept", { preHandler: [authenticate, limit("accep
   }
 
   await audit({
-    actorId: caller.sub, actorRole: "mechanic", action: "dispatch.provider_accepted",
+    actorId: caller.sub, actorRole: actorRole(caller.roles), action: "dispatch.provider_accepted",
     entity: "booking", entityId: offer.bookingId,
-    after: { offerId, mechanicId: offer.mechanicId, status: outcome.to, etaMinutes: offer.etaMinutes },
+    after: { offerId, mechanicId: offer.mechanicId, status: outcome.to, etaMinutes: offer.etaMinutes, acceptedBy },
     ip: req.ip,
   });
   publish(booking.userId!, {
     type: "booking.status", bookingId: offer.bookingId, status: outcome.to,
     mechanicId: offer.mechanicId, etaMinutes: offer.etaMinutes,
   });
+  // The jobs that just lost this mechanic's offer: their mechanic's inbox
+  // drops them, and each ladder moves on if that was its last live offer.
+  for (const w of outcome.withdrawn) {
+    publish(offerMech?.userId, { type: "booking.status", bookingId: w.bookingId, offerId: w.id,
+      offerStatus: "WITHDRAWN", reason: "you accepted another job" });
+  }
+  for (const other of new Set(outcome.withdrawn.map((w) => w.bookingId))) {
+    // The accept has committed; a ladder that fails to move here is moved by
+    // the sweeper when its offers expire, so this is logged, never a 500.
+    await escalate(other, "withdrawn").catch((err: unknown) =>
+      req.log.warn({ err: String(err), bookingId: other }, "escalation after a withdrawn offer failed"));
+  }
 
   return ok({ bookingId: offer.bookingId, status: outcome.to, mechanicId: offer.mechanicId, etaMinutes: offer.etaMinutes },
              { nextCommands: allowedFrom(outcome.to) });
@@ -1110,7 +1242,15 @@ app.post("/v1/offers/:offerId/accept", { preHandler: [authenticate, limit("accep
 /** Generic guarded transition — every other state change goes through here. */
 app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req, reply) => {
   const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
-  const { command } = z.object({ command: z.string() }).parse(req.body);
+  const { command: sent } = z.object({ command: z.string().max(48) }).parse(req.body);
+  // Checked against the real command list before anything else. "toString",
+  // "constructor" and "__proto__" used to reach the state machine's table as
+  // property names, find Object.prototype's functions there and fail as a 500.
+  if (!isCommand(sent)) {
+    return reply.code(400).send({ error: { code: "unknown_command",
+      title: `"${sent.slice(0, 48)}" is not a booking command.`, retryable: false, requestId: req.id } });
+  }
+  const command: Command = sent;
 
   const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, id)).limit(1);
   if (!booking) return reply.code(404).send({ error: { code: "not_found", title: "Booking not found", retryable: false } });
@@ -1124,7 +1264,7 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
   // "mechanic.accept" left a booking ASSIGNED to nobody. And cancelling is the
   // customer's (or an operator's) decision, not the assigned mechanic's.
   const isAdmin = caller.roles.includes("admin");
-  if (!isAdmin && ["mechanic.accept", "dispatch.start", "offers.exhausted", "submit"].includes(command)) {
+  if (!isAdmin && (["mechanic.accept", "dispatch.start", "offers.exhausted", "submit"] as Command[]).includes(command)) {
     return reply.code(409).send({ error: { code: "command_not_allowed",
       title: `"${command}" is not sent here - it happens through its own step.`, retryable: false } });
   }
@@ -1146,7 +1286,7 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
     });
   }
 
-  const { to, cancellationFee } = apply(booking.status as Status, command as Command);
+  const { to, lateCancellation } = apply(booking.status as Status, command);
 
   const patch: Record<string, unknown> = { status: to, updatedAt: new Date(), version: booking.version + 1 };
   if (to === "COMPLETED") patch.completedAt = new Date();
@@ -1188,7 +1328,7 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
 
     await tx.insert(S.bookingEvents).values({
       bookingId: id, fromStatus: booking.status, toStatus: to,
-      command, actorId: caller.sub, actorRole: caller.roles[0] ?? "citizen",
+      command, actorId: caller.sub, actorRole: actorRole(caller.roles),
       ...(withdrawn.length ? { meta: { offersWithdrawn: withdrawn.length } } : {}),
     });
 
@@ -1214,7 +1354,7 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
   }
 
   await audit({
-    actorId: caller.sub, actorRole: caller.roles[0] ?? "citizen",
+    actorId: caller.sub, actorRole: actorRole(caller.roles),
     action: "booking.status_changed", entity: "booking", entityId: id,
     before: { status: booking.status }, after: { status: to, command },
     ip: req.ip,
@@ -1227,7 +1367,9 @@ app.post("/v1/bookings/:id/transition", { preHandler: authenticate }, async (req
   // And every mechanic who was still being asked, so the job leaves their inbox.
   await announceWithdrawnOffers(id, withdrawn);
 
-  return ok({ id, status: to, cancellationFee, invoice },
+  // `lateCancellation` says a mechanic had already committed. No fee is
+  // charged or recorded for it (domain/booking-machine.ts), so none is claimed.
+  return ok({ id, status: to, lateCancellation, invoice },
             { nextCommands: allowedFrom(to), ...(withdrawn.length ? { offersWithdrawn: withdrawn.length } : {}) });
 });
 
@@ -1277,6 +1419,27 @@ app.post("/v1/bookings/:id/review", { preHandler: authenticate }, async (req, re
     });
   }
 
+  // A rating is of work the mechanic says they did. The customer can step a
+  // job through to COMPLETED on their own (the transition route allows it),
+  // and a review of that is a rating of nothing: it moved a real mechanic's
+  // score for a job only the customer claims happened. The completion must
+  // have been reported by the assigned mechanic, or by an admin.
+  const [reported] = await db.execute<{ ok: number }>(raw`
+    SELECT 1 AS ok FROM booking_events e
+      LEFT JOIN mechanics m ON m.id = ${booking.mechanicId}
+     WHERE e.booking_id = ${id} AND e.command = 'work.complete'
+       AND (e.actor_id = m.user_id OR e.actor_role = 'admin')
+     LIMIT 1`);
+  if (!reported) {
+    return reply.code(409).send({
+      error: {
+        code: "completion_not_confirmed",
+        title: "Only a job the mechanic marked complete can be rated.",
+        retryable: false,
+      },
+    });
+  }
+
   // Recompute from the reviews themselves rather than nudging a running
   // average: the stored value is then always reproducible from the source rows
   // and the mechanic's baseline, with no rounding drift across reviews. Shrunk
@@ -1321,7 +1484,7 @@ app.post("/v1/bookings/:id/review", { preHandler: authenticate }, async (req, re
   const { review, average, count } = outcome;
 
   await audit({
-    actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
+    actorId: req.user!.sub, actorRole: actorRole(req.user!.roles),
     action: "review.created", entity: "booking", entityId: id,
     // The rating before as well as after: an overwritten rating is otherwise
     // unrecoverable, which is exactly what made the old rule's damage permanent.
@@ -1585,7 +1748,7 @@ app.post("/v1/sync/operations", { preHandler: [authenticate, limit("sync")] }, a
   const applied = results.filter((r) => r.status === "applied").length;
   const conflicts = results.filter((r) => r.status === "conflict").length;
   await audit({
-    actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
+    actorId: req.user!.sub, actorRole: actorRole(req.user!.roles),
     action: "sync.completed", entity: "sync_batch", entityId: null,
     after: { kind: "operations", submitted: operations.length, applied, conflicts,
              duplicates: results.filter((r) => r.status === "duplicate").length,
@@ -1698,7 +1861,7 @@ app.put("/v1/me/medical", { preHandler: authenticate }, async (req) => {
   // The values are never audited, only the fact of a change: an audit log that
   // copies the record defeats the point of restricting the record.
   await audit({
-    actorId: userId, actorRole: req.user!.roles[0] ?? "citizen",
+    actorId: userId, actorRole: actorRole(req.user!.roles),
     action: "medical.updated", entity: "medical_profile", entityId: row.id,
     after: { fieldsSet: Object.keys(body).sort().join(",") || "none" }, ip: req.ip,
   });
@@ -1765,7 +1928,7 @@ app.get("/v1/incidents/:id/medical", {
   }).returning();
 
   await audit({
-    actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "gov_officer",
+    actorId: req.user!.sub, actorRole: actorRole(req.user!.roles),
     action: "medical.break_glass_read", entity: "incident", entityId: id,
     after: {
       subjectUserId, reason, found: Boolean(profile),
@@ -1898,16 +2061,15 @@ app.get("/v1/me/documents", { preHandler: authenticate }, async (req) => {
     ))
     .orderBy(asc(S.vehicleDocuments.expiresOn));
 
-  const today = Date.now();
+  // Counted on the IST calendar, not to UTC midnight (domain/doc-expiry.ts).
+  const today = new Date();
   const documents = rows.map((d) => {
-    const days = d.expiresOn
-      ? Math.ceil((d.expiresOn.getTime() - today) / 86_400_000)
-      : null;
+    const days = d.expiresOn ? daysToExpiry(d.expiresOn, today) : null;
     return {
       ...d,
       hasScan: !d.objectKey.startsWith("manual:"),
       daysToExpiry: days,
-      state: days === null ? "unknown" : days < 0 ? "expired" : days <= 30 ? "expiring" : "valid",
+      state: expiryState(days),
     };
   });
   return ok(documents, {
@@ -2062,6 +2224,7 @@ await app.register(mechanicRoutes);
 await app.register(paymentRoutes);
 await app.register(rakshaRoutes);
 await app.register(geoRoutes);
+await app.register((await import("./routes/impact.js")).impactRoutes);   // GET /v1/impact/summary, the public Impact page
 
 // ══ boot ═══════════════════════════════════════════════════════════════════
 // The dispatch timeout. Without this an unanswered offer simply stopped being

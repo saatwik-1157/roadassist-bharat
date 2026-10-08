@@ -2,6 +2,7 @@ package `in`.roadassist.app
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -73,60 +74,65 @@ class SosLadderTest {
 
     // ── rung 2: sms ─────────────────────────────────────────────────────────
 
+    private val provisioned = "+911234500000"
+
     @Test
     fun `sms is skipped when the data rung already handled it`() {
         // Otherwise the user is billed for a message nobody reads, and the
         // webhook raises a second incident for the same emergency.
-        assertFalse(SosLadder.shouldTrySms(dataSettledIt = true, hasSmsPermission = true))
+        assertFalse(SosLadder.shouldTrySms(dataSettledIt = true, hasSmsPermission = true, number = provisioned))
     }
 
     @Test
     fun `sms is skipped without the permission, because the send would throw`() {
-        assertFalse(SosLadder.shouldTrySms(dataSettledIt = false, hasSmsPermission = false))
+        assertFalse(SosLadder.shouldTrySms(dataSettledIt = false, hasSmsPermission = false, number = provisioned))
     }
 
     @Test
-    fun `sms is attempted when data failed and the permission is granted`() {
-        assertTrue(SosLadder.shouldTrySms(dataSettledIt = false, hasSmsPermission = true))
+    fun `sms is attempted when data failed, the permission is granted and a number is provisioned`() {
+        assertTrue(SosLadder.shouldTrySms(dataSettledIt = false, hasSmsPermission = true, number = provisioned))
     }
 
     @Test
-    fun `a confirmed sms settles the report and must NOT also queue`() {
-        // The telecom webhook raises the incident from the SMS. Queueing an API
-        // replay as well means two incidents for one emergency: two responders
-        // dispatched, the family alerted twice.
-        val v = SosLadder.afterSms(SosLadder.SmsOutcome.SENT)
-        assertTrue("a sent SMS owns the report", v.settles)
-        assertFalse("queueing as well would duplicate the incident", v.queueBackup)
+    fun `with no provisioned number the sms rung is skipped entirely`() {
+        // The old build texted +919999900000, a placeholder nobody provisioned:
+        // somebody's emergency and location on a stranger's phone, or nowhere.
+        assertFalse(SosLadder.smsRungEnabled(""))
+        assertFalse(SosLadder.smsRungEnabled("   "))
+        assertFalse(SosLadder.shouldTrySms(dataSettledIt = false, hasSmsPermission = true, number = ""))
     }
 
     @Test
-    fun `an unconfirmed sms settles the report AND queues a backup`() {
-        // The send did not fail and nothing confirmed it. Here the asymmetry
-        // flips: a duplicate incident is an annoyance, an emergency nobody hears
-        // is the failure this product exists to prevent.
-        val v = SosLadder.afterSms(SosLadder.SmsOutcome.UNCONFIRMED)
-        assertTrue(v.settles)
-        assertTrue("silence must never be mistaken for delivery", v.queueBackup)
+    fun `this build ships with the sms rung off`() {
+        // RaBuildConfig.RA_SMS_NUMBER is empty unless -PraSmsNumber is given.
+        assertEquals("", RaBuildConfig.RA_SMS_NUMBER)
+        assertFalse(SosLadder.smsRungEnabled(RaBuildConfig.RA_SMS_NUMBER))
     }
 
     @Test
-    fun `a failed sms owns nothing and does not queue - the dialer rung does that`() {
-        val v = SosLadder.afterSms(SosLadder.SmsOutcome.FAILED)
-        assertFalse("nothing was transmitted", v.settles)
-        assertFalse("the dialer rung queues; doing it here would double-queue", v.queueBackup)
-    }
-
-    @Test
-    fun `every sms outcome is handled - no silent fallthrough`() {
-        // If someone adds a fourth outcome, `when` stops being exhaustive and
-        // this fails rather than the ladder quietly taking a default branch.
+    fun `no sms outcome ever settles the ladder - 112 and the queue always follow`() {
+        // A SENT text used to settle it and skip 112 and the queue. "The message
+        // left the phone" is not "somebody is coming".
         for (outcome in SosLadder.SmsOutcome.entries) {
-            val v = SosLadder.afterSms(outcome)
-            // A rung that does not settle must not claim a backup either.
-            if (!v.settles) assertFalse("$outcome settles nothing but queues", v.queueBackup)
+            assertFalse("$outcome settled the ladder", SosLadder.afterSms(outcome).settles)
         }
         assertEquals(3, SosLadder.SmsOutcome.entries.size)
+    }
+
+    @Test
+    fun `an sms attempt only adds a line to the result`() {
+        assertEquals(R.string.sos_sms_sent, SosLadder.smsNoteRes(SosLadder.SmsOutcome.SENT))
+        assertEquals(R.string.sos_sms_unconfirmed, SosLadder.smsNoteRes(SosLadder.SmsOutcome.UNCONFIRMED))
+        assertEquals(null, SosLadder.smsNoteRes(SosLadder.SmsOutcome.FAILED))
+    }
+
+    // ── rung 1 needs a session ──────────────────────────────────────────────
+
+    @Test
+    fun `signed out the data rung is skipped rather than spent on a sure 401`() {
+        assertFalse(SosLadder.shouldTryData(hasData = true, hasSession = false))
+        assertTrue(SosLadder.shouldTryData(hasData = true, hasSession = true))
+        assertFalse(SosLadder.shouldTryData(hasData = false, hasSession = true))
     }
 
     // ── rungs 3 and 4: dialer, then the queue ───────────────────────────────
@@ -147,22 +153,69 @@ class SosLadderTest {
     // ── the ladder as a whole ───────────────────────────────────────────────
 
     @Test
-    fun `exactly one channel ever owns the report`() {
-        // The invariant behind every rule above: no combination of outcomes may
-        // produce two live reports of one emergency. SENT is the only outcome
-        // that both settles and declines a backup; UNCONFIRMED deliberately
-        // accepts the rare double, and nothing else settles at all.
-        val settling = SosLadder.SmsOutcome.entries.filter { SosLadder.afterSms(it).settles }
-        assertEquals(
-            listOf(SosLadder.SmsOutcome.SENT, SosLadder.SmsOutcome.UNCONFIRMED),
-            settling,
-        )
-        val duplicating = settling.filter { SosLadder.afterSms(it).queueBackup }
-        assertEquals(
-            "only an UNCONFIRMED send may risk a duplicate",
-            listOf(SosLadder.SmsOutcome.UNCONFIRMED),
-            duplicating,
-        )
+    fun `a dialer blocked in the background is not reported as open`() {
+        // Android 10+ drops a background activity start without an exception.
+        assertEquals(SosLadder.Handoff.OPENED, SosLadder.handoff(startAllowed = true, started = true, notified = false))
+        assertEquals(SosLadder.Handoff.NOTIFIED, SosLadder.handoff(startAllowed = false, started = false, notified = true))
+        assertEquals(SosLadder.Handoff.FAILED, SosLadder.handoff(startAllowed = false, started = false, notified = false))
+        assertEquals(SosLadder.Handoff.FAILED, SosLadder.handoff(startAllowed = true, started = false, notified = false))
+        assertEquals(R.string.sos_dialer_notified, SosLadder.handoffRes(SosLadder.Handoff.NOTIFIED))
+        assertEquals(R.string.sos_queued, SosLadder.handoffRes(SosLadder.Handoff.FAILED))
+        assertEquals(SosLadder.Rung.QUEUED, SosLadder.rungOf(SosLadder.Handoff.FAILED))
+    }
+
+    // ── the grace dialog says only what is true ─────────────────────────────
+
+    @Test
+    fun `with the sms rung off the grace dialog makes no sms claim`() {
+        for (session in listOf(true, false)) {
+            val parts = SosLadder.graceParts(hasSession = session, smsEnabled = false)
+            assertFalse(R.string.sos_grace_sms in parts)
+            assertFalse(R.string.sos_grace_contacts in parts)
+        }
+    }
+
+    @Test
+    fun `with the sms rung on contacts are said to be texted only if the server sms is live`() {
+        val parts = SosLadder.graceParts(hasSession = true, smsEnabled = true)
+        assertTrue(R.string.sos_grace_contacts in parts)
+        assertTrue(R.string.sos_grace_sms in parts)
+    }
+
+    @Test
+    fun `signed out the grace dialog does not promise an online alert`() {
+        val parts = SosLadder.graceParts(hasSession = false, smsEnabled = false)
+        assertFalse(R.string.sos_grace_online in parts)
+        assertEquals(R.string.sos_grace_signed_out, parts.first())
+        assertEquals(R.string.sos_grace_cancel, parts.last())
+    }
+
+    // ── one SOS at a time, process-wide ─────────────────────────────────────
+
+    @Test
+    fun `a second sos cannot start while one is running`() {
+        // Rotation or a tab switch mid-ladder re-enabled the button and a
+        // second tap raised a second emergency.
+        val gate = SosGate()
+        val first = gate.tryStart("RA-AAAAAA")!!
+        assertEquals(first, gate.active.value)
+        assertNull("a duplicate SOS was allowed to start", gate.tryStart("RA-BBBBBB"))
+        gate.finish(first, "line")
+        assertNull(gate.active.value)
+        assertTrue(gate.tryStart("RA-CCCCCC") != null)
+    }
+
+    @Test
+    fun `the outcome outlives the screen that raised it`() {
+        val gate = SosGate()
+        val run = gate.tryStart("RA-AAAAAA")!!
+        gate.finish(run, "→ Opening 112")
+        assertEquals("→ Opening 112", gate.last.value)
+        // A failure with no line still frees the ladder and keeps the last outcome.
+        val again = gate.tryStart("RA-BBBBBB")!!
+        gate.finish(again, null)
+        assertNull(gate.active.value)
+        assertEquals("→ Opening 112", gate.last.value)
     }
 
     @Test

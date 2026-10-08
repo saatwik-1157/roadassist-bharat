@@ -262,6 +262,9 @@ export async function createIncident(record) {
     lat: record.payload.lat ?? null,
     lng: record.payload.lng ?? null,
     accuracyM: record.payload.accuracyM ?? null,
+    // Whose emergency this is. One phone is often shared, and the store is
+    // device-wide: the app lists, guards and sends only its signed-in user's.
+    owner: record.owner ?? null,
     sealed,
   };
 
@@ -277,6 +280,7 @@ export async function createIncident(record) {
     nextAttemptAt: 0,           // eligible immediately
     lastError: null,
     digest: sealed.digest,
+    owner: incident.owner,
     sealed,
   };
 
@@ -307,7 +311,7 @@ export async function reviseIncident(incidentId, patch) {
   if (!row) return null;
   if (row.status !== STATUS_LOCAL && row.status !== STATUS_FAILED) return null;
   const payload = Object.assign({}, await unseal(row.sealed), patch);
-  return createIncident({ incidentId, opId: row.opId, type: "sos.offgrid", payload });
+  return createIncident({ incidentId, opId: row.opId, type: "sos.offgrid", payload, owner: row.owner });
 }
 
 /**
@@ -348,6 +352,7 @@ export async function journalOperation(record) {
     nextAttemptAt: 0,
     lastError: null,
     digest: sealed.digest,
+    owner: record.owner ?? null,
     sealed,
   };
   const { t, done } = tx(db, [STORE_JOURNAL], "readwrite");
@@ -356,11 +361,19 @@ export async function journalOperation(record) {
   return entry;
 }
 
-export async function listIncidents() {
+/**
+ * Whether a row belongs to `owner`. No owner given means every row (the
+ * journey suite, retention); a row written before rows had owners is anyone's.
+ */
+function mine(row, owner) {
+  return owner === undefined || !row.owner || row.owner === owner;
+}
+
+export async function listIncidents(owner) {
   const db = await open();
   const { t } = tx(db, [STORE_INCIDENTS], "readonly");
   const rows = await idbRequest(t.objectStore(STORE_INCIDENTS).getAll());
-  return rows.sort((a, b) => b.createdAt - a.createdAt);
+  return rows.filter((r) => mine(r, owner)).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function getIncident(incidentId) {
@@ -384,21 +397,23 @@ export async function readIncident(incidentId) {
  * Ordered oldest-first so an incident raised twenty minutes ago reaches dispatch
  * before one raised thirty seconds ago.
  */
-export async function dueEntries(now) {
+export async function dueEntries(now, owner) {
   const at = typeof now === "number" ? now : Date.now();
   const db = await open();
   const { t } = tx(db, [STORE_JOURNAL], "readonly");
   const rows = await idbRequest(t.objectStore(STORE_JOURNAL).getAll());
+  // Only the signed-in user's: sent under the next user's token, the last
+  // user's SOS became an incident on the wrong account.
   return rows
-    .filter((r) => r.status !== STATUS_SYNCED && (r.nextAttemptAt || 0) <= at)
+    .filter((r) => mine(r, owner) && r.status !== STATUS_SYNCED && (r.nextAttemptAt || 0) <= at)
     .sort((a, b) => a.createdAt - b.createdAt);
 }
 
-export async function allEntries() {
+export async function allEntries(owner) {
   const db = await open();
   const { t } = tx(db, [STORE_JOURNAL], "readonly");
   const rows = await idbRequest(t.objectStore(STORE_JOURNAL).getAll());
-  return rows.sort((a, b) => a.createdAt - b.createdAt);
+  return rows.filter((r) => mine(r, owner)).sort((a, b) => a.createdAt - b.createdAt);
 }
 
 /** The decrypted payload for one journal entry, ready to put on the wire. */
@@ -418,8 +433,32 @@ async function patch(store, key, fields) {
   return next;
 }
 
-export function markSyncing(opId) {
-  return patch(STORE_JOURNAL, opId, { status: STATUS_SYNCING });
+/**
+ * Mark an entry, AND its incident, as on the wire.
+ *
+ * Only the journal row used to change, so the incident still read
+ * STORED_LOCALLY during the upload: "Cancel — false alarm" passed the
+ * discardIncident guard, deleted the record and said "nothing was ever
+ * transmitted" while the upload landed and the SOS was escalated. Returns the
+ * entry, or null when it has already been withdrawn: then it must not be sent.
+ */
+export async function markSyncing(opId) {
+  const db = await open();
+  const { t, done } = tx(db, [STORE_JOURNAL, STORE_INCIDENTS], "readwrite");
+  const os = t.objectStore(STORE_JOURNAL);
+  const row = await idbRequest(os.get(opId));
+  if (!row) { await done; return null; }
+  const next = Object.assign({}, row, { status: STATUS_SYNCING });
+  os.put(next);
+  if (row.incidentId) {
+    const is = t.objectStore(STORE_INCIDENTS);
+    const inc = await idbRequest(is.get(row.incidentId));
+    if (inc && (inc.status === STATUS_LOCAL || inc.status === STATUS_FAILED)) {
+      is.put(Object.assign({}, inc, { status: STATUS_SYNCING }));
+    }
+  }
+  await done;
+  return next;
 }
 
 /**
@@ -531,8 +570,8 @@ export async function purge(now, retentionMs) {
 }
 
 /** Counts for the badge and the off-grid screen. */
-export async function stats() {
-  const [incidents, entries] = await Promise.all([listIncidents(), allEntries()]);
+export async function stats(owner) {
+  const [incidents, entries] = await Promise.all([listIncidents(owner), allEntries(owner)]);
   return {
     incidents: incidents.length,
     pendingIncidents: incidents.filter((i) => i.status !== STATUS_SYNCED).length,

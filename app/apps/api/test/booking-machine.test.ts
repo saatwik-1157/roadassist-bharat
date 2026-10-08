@@ -13,7 +13,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
 import {
-  allowedFrom, apply, canApply, finishesJob, IllegalTransition, STATUSES, type Status,
+  allowedFrom, apply, canApply, COMMANDS, finishesJob, IllegalTransition, isCommand, STATUSES, type Command, type Status,
 } from "../src/domain/booking-machine.js";
 
 /** Every status reachable from `start` by one or more legal commands. */
@@ -67,4 +67,29 @@ test("a cancelled booking never counts as a job done", () => {
     assert.equal(finishesJob(apply(from, "cancel").to), false, `cancel from ${from}`);
   }
   assert.equal(reachableFrom("CANCELLED").size, 0, "CANCELLED is terminal");
+});
+
+test("Object.prototype names are not commands, and never reach the table as one", () => {
+  // "toString" looked up Object.prototype.toString in the transition table,
+  // passed as a destination status and reached the database as a function: a
+  // 500 for any client that sent it. The route now refuses them as unknown
+  // (400), and the table itself reads own properties only.
+  for (const name of ["toString", "constructor", "__proto__", "hasOwnProperty", "valueOf"]) {
+    assert.equal(isCommand(name), false, name);
+    assert.equal(canApply("REQUESTED", name as Command), false, name);
+    assert.throws(() => apply("REQUESTED", name as Command), IllegalTransition, name);
+  }
+  assert.deepEqual(COMMANDS.filter(isCommand), [...COMMANDS], "every real command is recognised");
+});
+
+test("a late cancel is reported as one, and claims no fee", () => {
+  // Every surface used to announce "a cancellation fee applies"; nothing ever
+  // recorded one (no fee in the catalogue, no invoice, no payment path for a
+  // cancelled booking). The fact that a mechanic had committed is kept.
+  for (const from of ["ASSIGNED", "EN_ROUTE", "ON_SITE"] as Status[]) {
+    const r = apply(from, "cancel");
+    assert.equal(r.lateCancellation, true, from);
+    assert.equal("cancellationFee" in r, false, `${from}: no fee is recorded, so none is claimed`);
+  }
+  assert.equal(apply("MATCHING", "cancel").lateCancellation, false);
 });

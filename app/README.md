@@ -4,7 +4,8 @@
 > *"RoadAssist doesn't stop when the network stops."*
 >
 > "AI-powered" covers RAKSHA's trained YOLO11 road-damage detector (`ai/runs/`;
-> best run YOLO11s `yolo11s-multi-rich`, mAP50 0.472),
+> shipped model YOLO11n `yolo11n-india-ft-gpu`, mAP50 0.586 on held-out 4-country
+> validation and 0.500 on a held-out India split, see `ai/README.md`),
 > not the roadside diagnosis — that is a deterministic rule table returning
 > `rules-1.0.0`, and is never described as a model. `app/docs/CLAIMS-AUDIT.md`
 > records the claim as PARTIAL for exactly this reason.
@@ -21,12 +22,12 @@ npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Deskt
 npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run share                                               # → public HTTPS url, for real phones
-npm run verify && npm run test:e2e                          # 462 unit + 249 end-to-end
+npm run verify && npm run test:e2e                          # 526 unit + 283 end-to-end
 npm run test:gateway                                        # 58 gateway-security checks
-npm run test:concurrency                                    # 92 race / idempotency / real-time
-npm run test:security                                       # 106 attacks, all must be refused
-npm run test:ui                                             # 195 browser-journey checks
-npm run test:razorpay                                       # 22 payment-gateway checks: not in the 1162, see below
+npm run test:concurrency                                    # 107 race / idempotency / real-time
+npm run test:security                                       # 108 attacks, all must be refused
+npm run test:ui                                             # 254 browser-journey checks
+npm run test:razorpay                                       # 22 payment-gateway checks: not in the 1336, see below
 ```
 
 > `db:seed` is not idempotent — against an already-seeded database run
@@ -125,8 +126,8 @@ against a fresh PostGIS container on every push.
 | 3 · Database | 58 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
 | 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS, gateway-verified payments | ◐ slice complete, full surface pending |
-| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 190 tests); no React Native app |
-| 7 · AI | Rules engine + trained CV model on RDD2022: best YOLO11s (`yolo11s-multi-rich`, 4 countries, mAP50 0.472 · mAP50-95 0.226); YOLO11n on the full India set, mAP50 0.443 · mAP50-95 0.183 (`ai/train-full.log`) — the model whose detections RAKSHA shows (see ai/) | ◐ undertrained (epoch 13 of 100); its recorded detections feed RAKSHA, the model itself is not served on the hosted demo; GPU training is the path up |
+| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 304 tests); no React Native app |
+| 7 · AI | Rules engine + trained CV model on RDD2022: shipped detector YOLO11n `yolo11n-india-ft-gpu` (4 classes; held-out 4-country val mAP50 0.586 · mAP50-95 0.287 at 640, 0.516 · 0.245 at 416 on Android; held-out India split 0.500 · 0.217); RAKSHA's 34 recorded detections come from an earlier YOLO11n India model (`yolo-rdd2022in-best`, mAP50 0.443) (see ai/) | ◐ GPU-trained; the detector runs on-device in the web Live road scan and the Android Scan road screen, not on a server; potholes remain the weakest class (0.422 on the India split) |
 | R · RAKSHA | Edge simulator → offline queue → idempotent sync → segments → road health → authority verify/close | ◐ MVP slice live. Demo detections are real YOLO11 output at SIMULATED NH-48 positions; the edge simulator's own detector (`sim-rules-0.1.0`) is SIMULATED (ADR-0007) |
 | O · Off-Grid | Connectivity manager (ONLINE/LIMITED/OFF-GRID), offline SOS, on-device diagnosis, encrypted sync journal, cached maps | ✅ (ADR-0009); satellite/mesh explicitly NOT implemented |
 | H · Hardening | Live SSE stream, row-locked dispatch, offer expiry, SOS idempotency, sync conflict resolution, rate limits, audit coverage | ✅ (ADR-0010); single-instance only |
@@ -264,7 +265,7 @@ short list of what is genuinely not covered.
 Two kinds of RAKSHA event, and every one says which it is:
 
 - **Real model output, simulated position.** `ai/cv-detections-full.json` holds
-  34 real detections from the YOLO11n India model (model version `yolo-rdd2022in-best`, mAP50 0.443) on RDD2022
+  34 real detections from an earlier YOLO11n India model (model version `yolo-rdd2022in-best`, mAP50 0.443; the shipped scanner model is now `yolo11n-india-ft-gpu`, see `ai/README.md`) on RDD2022
   India images. The images carry no GPS, so each is placed along NH-48 — the
   POSITIONS are simulated. The demo deployment seeds these at boot
   (`SEED_DEMO_FLEET=true`, never under `NODE_ENV=production`) through the real

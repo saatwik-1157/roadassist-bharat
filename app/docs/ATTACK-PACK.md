@@ -35,7 +35,7 @@ repository; nothing is aspirational.
 > storage, and it says plainly that nothing has been transmitted. On reconnect
 > it forwards itself, and a unique key makes a duplicate impossible.
 >
-> **Result.** 1162 assertions executed across six suites, no failures, including 106
+> **Result.** 1336 assertions executed across six suites, no failures, including 106
 > attacks that must fail. Outside that total sit 22 Razorpay checks that run
 > against their own local stub of the Orders API — no account needed — but only
 > when the API is started with `PAYMENTS_PROVIDER=razorpay`, so they are not in
@@ -48,7 +48,7 @@ repository; nothing is aspirational.
 > plain HTML and ES modules served by the same process, so there is no build
 > step and no second deployment unit.
 >
-> They talk to a **Fastify API**: 74 routes, 71 of them under `/v1`, zod validation at
+> They talk to a **Fastify API**: 75 routes, 72 of them under `/v1`, zod validation at
 > every boundary, a uniform envelope, and stable error codes.
 >
 > Behind it, five modules in one deployable — identity, fleet, service, ops and
@@ -109,10 +109,10 @@ repository; nothing is aspirational.
 |---|---|---|---|
 | **Cloud concepts** | 6 of 21 concepts are DESIGN. It is deployed, but as one free-plan instance — an examiner wanting "elastic cloud" may mark down. | **HIGH** | Show the live deployment, then lead with the two Module 4 architectures that ARE built (workload distribution, resource pooling) and the readiness gate. Then say the rest is designed — precisely, with the three in-process blockers named. Precision reads as competence; vagueness reads as bluffing. |
 | **Cloud concepts** | "You have no Kubernetes." | MEDIUM | Correct, and deliberate: ADR-0001 explains why four developers should not operate a cluster. Offer the target diagram. |
-| **AI** | "Your AI is if-statements." | MEDIUM | Agree immediately. It is a deterministic rules engine, labelled `rules-1.0.0` in the response. Then pivot to the two genuinely interesting parts: the safety asymmetry, and the device/cloud divergence guard. Mention the real trained YOLO11 detectors with measured mAP50: best run YOLO11s (`yolo11s-multi-rich`) 0.472; the YOLO11n India model whose 34 detections RAKSHA shows scored 0.443 (their positions on NH-48 are simulated). |
+| **AI** | "Your AI is if-statements." | MEDIUM | Agree immediately. It is a deterministic rules engine, labelled `rules-1.0.0` in the response. Then pivot to the two genuinely interesting parts: the safety asymmetry, and the device/cloud divergence guard. Mention the real trained YOLO11 detectors with measured mAP50: the shipped YOLO11n `yolo11n-india-ft-gpu` scores 0.586 on held-out 4-country validation and 0.500 on a held-out India split (potholes, its weakest class, 0.422), and runs on the phone at 416 px (0.516 / 0.449); the earlier YOLO11n India model whose 34 detections RAKSHA shows scored 0.443 (their positions on NH-48 are simulated). |
 | **Functionality** | A demo step fails live. | MEDIUM | Every step in `DEMO-SCRIPT.md` has a backup, and no backup fakes success. The failure path *is* the argument. |
 | **Offline** | "Is the offline part real, or a mock?" | LOW | Close the tab and reopen it. That single action is unanswerable. |
-| **Security** | "Have you had a pentest?" | LOW | No. 106 self-written attacks is not the same thing, and I say so. |
+| **Security** | "Have you had a pentest?" | LOW | No. 108 self-written attacks is not the same thing, and I say so. |
 | **Testing** | "What is your coverage?" | LOW | 95.68% lines on the pure domain modules; the HTTP layer is tested out-of-process so instrumentation cannot see it. Precise beats impressive. |
 | **UI/UX** | Screens look sparse on a projector. | LOW | Demo on a phone-width window; the app is designed for 390px. |
 | **Presentation** | PowerPoint reflows text on an unfamiliar machine. | LOW | Closed. The final deck is exported to PDF — 38 pages, fonts embedded — and kept with the team, not in the repository. Present from the PDF; the .pptx is the backup, not the other way round. |

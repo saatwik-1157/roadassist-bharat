@@ -75,7 +75,9 @@ class BookingRefTest {
     @Test
     fun `the pre-filled sign-in number is in the API's demo block`() {
         val src = mainActivity()
-        val prefill = Regex("""var msisdn by rememberSaveable \{ mutableStateOf\("(\+\d+)"\) \}""")
+        // Since 1.1.1 a number stored with the session comes first; the
+        // pre-fill is what a fresh install shows.
+        val prefill = Regex("""var msisdn by rememberSaveable \{ mutableStateOf\((?:stored\?\.msisdn \?: )?"(\+\d+)"\) \}""")
             .find(src)?.groupValues?.get(1)
         assertEquals("+917000009876", prefill)
         // +91 70000 00000 to +91 70000 09999.

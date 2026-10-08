@@ -20,6 +20,7 @@ import { db } from "../db.js";
 import { env } from "../env.js";
 import { ok, msisdnSchema } from "../http.js";
 import { audit } from "../audit.js";
+import { actorRole } from "../domain/actor-role.js";
 import { alerts } from "../alerts.js";
 import { emailSignin } from "./email-auth.js";
 import { phoneSignInBlocked } from "../domain/email-signin.js";
@@ -327,7 +328,7 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
     await audit({
-      actorId: user.sub, actorRole: user.roles[0] ?? "citizen", action: "auth.logout",
+      actorId: user.sub, actorRole: actorRole(user.roles), action: "auth.logout",
       entity: "user", entityId: user.sub,
       after: { sessionsRevoked: revoked },
       ip: req.ip,

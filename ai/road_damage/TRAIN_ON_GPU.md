@@ -1,5 +1,19 @@
 # Finishing the RAKSHA detector on a GPU
 
+> **Done, 2026-10-08, on this laptop's RTX 3050 (4 GB).** Three runs, all in
+> `ai/README.md` → *Current edge model*, with commands to reproduce:
+> `yolo11n-multi-rich-gpu` (50 epochs, 2 h 13 min), `yolo11s-multi-rich-gpu`
+> (warm-start from the baseline below, early-stopped at epoch 137, best 112,
+> 4 h 54 min: rich val mAP50 **0.578** / mAP50-95 **0.287** against 0.472 / 0.226),
+> and `yolo11n-india-ft-gpu` (the nano fine-tuned on leak-checked India data,
+> 20 epochs, 1 h 30 min: rich val **0.586** / 0.287, leak-free India **0.500** /
+> 0.217). The fine-tune is the edge model. `train.py` now takes `--device 0`,
+> `--hours 0`, `--save-period`, `--optimizer` and `--lr0`; use `ai/.venv-gpu`
+> (torch 2.14.0+cu126). On Windows with little free RAM, keep `--workers` at 2–3:
+> a dataloader worker failed once with WinError 1455 ("paging file is too
+> small") while loading the CUDA DLLs. Everything below is the history that
+> led here.
+
 The checked-in detector is **undertrained, not converged**. Its best run stopped
 at epoch 13 of a requested 100 with mAP50 still climbing steeply — 0.443, 0.464,
 0.472 across its last three epochs, no plateau. `results.csv` in

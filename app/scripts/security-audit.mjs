@@ -484,8 +484,8 @@ ok("the profile response carries no password or token field",
 // UPLOAD_DIR is. Needs the API on this machine and the seeded operator.
 section("12. Upload references stay inside the upload directory");
 {
-  const { writeFileSync, existsSync, unlinkSync } = await import("node:fs");
-  const { resolve: resolvePath, parse: parsePath } = await import("node:path");
+  const { writeFileSync, existsSync, unlinkSync, mkdirSync } = await import("node:fs");
+  const { resolve: resolvePath, parse: parsePath, join, dirname } = await import("node:path");
   const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(BASE);
   const opReq = local ? await call("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } }) : null;
   const opVer = opReq?.meta?.devOtp
@@ -498,6 +498,7 @@ section("12. Upload references stay inside the upload directory");
     const tag = Math.random().toString(36).slice(2, 10);
     const sentinel = resolvePath(`.security-audit-sentinel-${tag}.txt`);
     writeFileSync(sentinel, `sentinel ${tag}`);
+    const victims = [];
     const climb = "../".repeat(24) + sentinel.slice(parsePath(sentinel).root.length).replaceAll("\\", "/");
     try {
       const dev = await call("POST", "/v1/raksha/devices", {
@@ -525,8 +526,38 @@ section("12. Upload references stay inside the upload directory");
         ok("rejecting the detection does not delete a file outside the upload directory",
            rejected.status === 200 && existsSync(sentinel), `reject ${rejected.status}, file ${existsSync(sentinel) ? "kept" : "DELETED"}`);
       }
+
+      // Inside the upload directory is not safe either: a device naming another
+      // report's photo, hazards/<their id>.jpg, had it served under its own
+      // detection and deleted by the officer's reject. UPLOAD_DIR is that of an
+      // API started from apps/api (npm run dev) unless the environment says.
+      const victim = join(process.env.UPLOAD_DIR ?? resolvePath("apps/api/uploads"), "hazards", `audit-victim-${tag}.jpg`);
+      mkdirSync(dirname(victim), { recursive: true });
+      writeFileSync(victim, `victim ${tag}`);
+      victims.push(victim);
+      const inside = await call("POST", "/v1/raksha/detections", {
+        token: devTok.data?.accessToken,
+        body: { detections: [{
+          opId: `audit-in-${tag}`, type: "pothole", confidence: 0.9, severity: 2, lat: 28.45, lng: 77.03,
+          capturedAt: new Date().toISOString(), modelVersion: "audit", imageRef: `hazards/audit-victim-${tag}.jpg`,
+        }] },
+      });
+      const insideId = inside.data?.results?.[0]?.detectionId;
+      if (insideId) {
+        const photo = await call("GET", `/v1/raksha/detections/${insideId}/photo`, { token: op });
+        ok("the photo endpoint does not serve another report's photo under a device's detection",
+           photo.status === 404 && !photo.raw.includes(`victim ${tag}`), `got ${photo.status}`);
+        const rejected = await call("POST", `/v1/raksha/detections/${insideId}/verify`, {
+          token: op, body: { action: "reject", notes: "security audit" },
+        });
+        ok("rejecting a device's detection does not delete another report's photo",
+           rejected.status === 200 && existsSync(victim), `reject ${rejected.status}, file ${existsSync(victim) ? "kept" : "DELETED"}`);
+      } else {
+        ok("a device can submit a detection naming a file inside the upload directory", false, `${inside.status}`);
+      }
     } finally {
       if (existsSync(sentinel)) unlinkSync(sentinel);
+      for (const v of victims) if (existsSync(v)) unlinkSync(v);
     }
   }
 }

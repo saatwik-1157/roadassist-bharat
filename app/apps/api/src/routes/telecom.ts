@@ -408,6 +408,9 @@ export async function telecomRoutes(app: FastifyInstance) {
     if (["status", "s"].includes(verb)) {
       const b = await activeBooking();
       if (!b) return reply("sms.noActive");
+      // A request with no location has no search running, so STATUS must not
+      // say "we are still finding a mechanic" about it (see HELP below).
+      if (b.status === "REQUESTED" && !b.location) return reply("sms.requested", { reference: b.reference });
       const [mech] = b.mechanicId
         ? await db.select().from(S.mechanics).where(eq(S.mechanics.id, b.mechanicId)).limit(1)
         : [];
@@ -420,9 +423,9 @@ export async function telecomRoutes(app: FastifyInstance) {
     if (["cancel", "c"].includes(verb)) {
       const b = await activeBooking();
       if (!b) return reply("sms.nothingToCancel");
-      let to: Status, cancellationFee: boolean;
+      let to: Status;
       try {
-        ({ to, cancellationFee } = apply(b.status as Status, "cancel"));
+        ({ to } = apply(b.status as Status, "cancel"));
       } catch (err) {
         if (!(err instanceof IllegalTransition)) throw err;
         return reply("sms.cancel.tooLate", { reference: b.reference, status: b.status });
@@ -435,9 +438,8 @@ export async function telecomRoutes(app: FastifyInstance) {
        *
        * It was `WHERE id = ?`. A mechanic's accept landing between the read
        * above and this write was overwritten — the booking went CANCELLED
-       * with a mechanic still assigned and driving — and the fee was decided
-       * from the stale status, so a cancel that should have cost the customer
-       * a fee (ASSIGNED) was free. Now the loser is told what happened instead.
+       * with a mechanic still assigned and driving, decided from a stale
+       * status. Now the loser is told what happened instead.
        * The booking's open offers close in the same transaction (dispatch.ts).
        */
       const cancelled = await db.transaction(async (tx) => {
@@ -459,8 +461,8 @@ export async function telecomRoutes(app: FastifyInstance) {
 
       if (!cancelled) {
         // Lost the race. Say what won, from the row as it now is — the most
-        // likely winner is a mechanic accepting, and the customer must know a
-        // second CANCEL now costs a fee rather than discover it on the invoice.
+        // likely winner is a mechanic accepting, and the customer must know
+        // somebody is now on the way before deciding to cancel again.
         const [now] = await db.select().from(S.bookings).where(eq(S.bookings.id, b.id)).limit(1);
         req.log.info({ bookingId: b.id, from: b.status, now: now?.status }, "sms cancel lost a race");
         return now?.mechanicId && now.mechanicId !== b.mechanicId
@@ -485,7 +487,9 @@ export async function telecomRoutes(app: FastifyInstance) {
       publishMany(audience, { type: "booking.status", bookingId: b.id, status: to, previous: b.status, command: "cancel" });
       await announceWithdrawnOffers(b.id, cancelled.withdrawn);
 
-      return reply(cancellationFee ? "sms.cancelled.fee" : "sms.cancelled", { reference: b.reference });
+      // No fee is charged or recorded for a late cancel (domain/booking-machine.ts),
+      // so the reply claims none.
+      return reply("sms.cancelled", { reference: b.reference });
     }
 
     if (["help", "madad", "sahaya", "h"].includes(verb)) {
@@ -522,6 +526,12 @@ export async function telecomRoutes(app: FastifyInstance) {
       // phone texting BOOK sends no coordinates, and guessing one would be worse
       // than having none. That makes its event row the only record of which
       // channel the request arrived on, so losing it loses the channel.
+      //
+      // And with no location there is no search: dispatch filters on distance
+      // to bookings.location, and NULL is near nobody. The reply used to say
+      // "We are finding a mechanic near you" about a booking nothing would ever
+      // dispatch. It now says the truth — recorded, no search without a
+      // location, call 112 in an emergency (sms.requested, all eight languages).
       const b = await db.transaction(async (tx) => {
         const [row] = await tx.insert(S.bookings).values({
           reference: reference(), userId: user.id, vehicleId,

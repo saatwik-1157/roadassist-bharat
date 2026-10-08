@@ -53,8 +53,29 @@
             try { scr.focus({ preventScroll: true }); } catch { /* ignore */ } }
         }
       }
+      syncInert();
     }).observe(sheet, { attributes: true, attributeFilter: ["class"] });
   }
+
+  // 1b. While a sheet is open the page behind it is inert, and Tab wraps inside
+  //     the sheet. Both are aria-modal, but that attribute moves no focus: Tab
+  //     walked straight out of the SOS countdown onto the page beneath it.
+  var shell = doc.querySelector(".shell");
+  function openSheet() { return doc.querySelector(".sheet.show"); }
+  function syncInert() { if (shell) shell.inert = Boolean(openSheet()); }
+  doc.addEventListener("keydown", function (e) {
+    var sheet = e.key === "Tab" ? openSheet() : null;
+    if (!sheet) return;
+    var all = Array.prototype.filter.call(sheet.querySelectorAll(
+      "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"),
+      function (el) { return !el.hidden && el.getClientRects().length > 0; });
+    if (!all.length) { e.preventDefault(); sheet.focus(); return; }
+    var first = all[0], last = all[all.length - 1], at = doc.activeElement;
+    var inside = sheet.contains(at) && at !== sheet;
+    if (e.shiftKey && (!inside || at === first)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (!inside || at === last)) { e.preventDefault(); first.focus(); }
+  });
+
   doc.querySelectorAll(".sheet").forEach(watchSheet);
 
   var main = doc.getElementById("main");

@@ -67,6 +67,38 @@ object Api {
     @Volatile var base: String = DEFAULT_BASE
     @Volatile var token: String? = null
     @Volatile var refreshToken: String? = null
+    /** The signed-in account's id, for tagging queued SOS with their owner. */
+    @Volatile var userId: String? = null
+
+    /**
+     * Is there a session at all? False after [clear], whoever called it.
+     *
+     * This is the signal the UI follows. A refresh the server rejected used to
+     * clear the tokens and tell nobody, so the signed-in screens stayed up with
+     * nothing behind them. RoadAssistApp now collects this and returns to the
+     * sign-in screen when it drops.
+     */
+    private val live = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val sessionLive: kotlinx.coroutines.flow.StateFlow<Boolean> = live
+
+    /**
+     * Bumped by every [clear]. A refresh adopts its answer only if this has not
+     * moved since it started (SessionRules.mayAdopt): a sign-out during an
+     * in-flight rotation otherwise brought the session straight back.
+     */
+    private val generation = java.util.concurrent.atomic.AtomicLong(0)
+
+    /** Guards the check-then-adopt in [refresh] against a concurrent [clear]. */
+    private val sessionLock = Any()
+
+    /**
+     * Called with the session after every change, and with null when it ends,
+     * so it survives a restart. MainActivity.onCreate points it at
+     * SessionStore; JVM tests leave it a no-op. Never logs.
+     */
+    @Volatile var onSessionChanged: (StoredSession?) -> Unit = {}
+
+    fun hasSession(): Boolean = refreshToken != null || token != null
 
     /**
      * Only one rotation at a time, across coroutines AND the WebView's binder
@@ -298,11 +330,38 @@ object Api {
 
     /** Store both tokens from an OTP-verify (or refresh) response. */
     fun adoptSession(data: JSONObject) {
-        token = data.optString("accessToken").takeIf { it.isNotBlank() } ?: token
-        refreshToken = data.optString("refreshToken").takeIf { it.isNotBlank() } ?: refreshToken
+        synchronized(sessionLock) {
+            token = data.optString("accessToken").takeIf { it.isNotBlank() } ?: token
+            refreshToken = data.optString("refreshToken").takeIf { it.isNotBlank() } ?: refreshToken
+            data.optJSONObject("user")?.optString("id")?.takeIf { it.isNotBlank() }?.let { userId = it }
+            live.value = hasSession()
+        }
+        persist()
     }
 
-    fun clear() { token = null; refreshToken = null }
+    /** Put back a session read from disk at launch. Not re-persisted: it is what is stored. */
+    fun restoreSession(s: StoredSession) {
+        synchronized(sessionLock) {
+            token = s.access
+            refreshToken = s.refresh
+            userId = s.userId
+            live.value = true
+        }
+    }
+
+    fun clear() {
+        synchronized(sessionLock) {
+            generation.incrementAndGet()
+            token = null; refreshToken = null; userId = null
+            live.value = false
+        }
+        onSessionChanged(null)
+    }
+
+    private fun persist() {
+        val r = refreshToken ?: return
+        onSessionChanged(StoredSession(access = token, refresh = r, userId = userId))
+    }
 
     /**
      * End the session on the server it was issued by, best effort.
@@ -373,7 +432,10 @@ object Api {
         // fail. Re-reading inside would pick up a rotation that already
         // happened and present the fresh token for a second, pointless spin.
         val presented = refreshToken ?: return false
+        val started = generation.get()
         return rotating.withLock {
+            // Signed out while this caller queued: there is nothing to refresh.
+            if (generation.get() != started) return@withLock false
             // Somebody rotated while this caller queued. Their token is live,
             // `presented` is now the burnt one, and sending it is precisely the
             // reuse this lock exists to prevent. Report their success as ours.
@@ -381,12 +443,28 @@ object Api {
 
             val (code, json) = raw("POST", "/v1/auth/refresh", JSONObject().put("refreshToken", presented))
             if (code in 200..299) {
-                adoptSession(json.optJSONObject("data") ?: return@withLock false)
-                return@withLock true
+                val data = json.optJSONObject("data") ?: return@withLock false
+                // Adopt only into the session that asked. A sign-out while the
+                // request was in the air must stay a sign-out.
+                val adopted = synchronized(sessionLock) {
+                    SessionRules.mayAdopt(started, generation.get(), presented, refreshToken).also {
+                        if (it) {
+                            token = data.optString("accessToken").takeIf { t -> t.isNotBlank() } ?: token
+                            refreshToken = data.optString("refreshToken").takeIf { t -> t.isNotBlank() } ?: refreshToken
+                        }
+                    }
+                }
+                if (adopted) persist()
+                return@withLock adopted
             }
-            // Genuinely rejected (expired, or a reuse from another device) —
-            // the session is gone.
-            clear()
+            // Genuinely rejected (expired, or a reuse from another device):
+            // the session is gone. Anything else (a 5xx, a 429, a proxy's
+            // 502) says nothing about the token, so it is kept and the next
+            // call simply tries again.
+            val errorCode = json.optJSONObject("error")?.optString("code")?.takeIf { it.isNotBlank() }
+            if (SessionRules.refreshEndsSession(code, errorCode) &&
+                SessionRules.mayAdopt(started, generation.get(), presented, refreshToken)
+            ) clear()
             return@withLock false
         }
     }

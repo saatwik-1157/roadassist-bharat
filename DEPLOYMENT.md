@@ -370,7 +370,7 @@ The image is not trusted because it built. `.github/workflows/publish-image.yml`
 boots it against a real PostGIS and runs the suites **against the running
 container** before publishing:
 
-- 249 end-to-end assertions and 106 security attacks, `API=` pointed at the
+- 283 end-to-end assertions and 106 security attacks, `API=` pointed at the
   container
 - every surface answers 200: `/app.html`, `/mechanic.html`, `/raksha.html`,
   `/map.html`, `/health`, `/v1/ping`

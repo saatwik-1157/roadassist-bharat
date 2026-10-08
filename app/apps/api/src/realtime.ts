@@ -40,9 +40,13 @@ export interface RealtimeEvent {
 interface Subscriber {
   id: string;
   userId: string;
+  /** The sign-in session the stream was opened under; "" for none. */
+  sid: string;
   reply: FastifyReply;
   openedAt: number;
   sent: number;
+  /** Ends the stream when its access token expires. */
+  expiry: NodeJS.Timeout | null;
 }
 
 /** userId → that user's open streams (a phone and a laptop are two). */
@@ -100,18 +104,44 @@ export function publishMany(userIds: Array<string | null | undefined>, event: Re
 }
 
 /**
+ * Close one stream, telling the client why first so it reconnects (with a
+ * fresh token) instead of treating the end as a network failure.
+ */
+function endStream(sub: Subscriber, reason: "signed_out" | "token_expired"): void {
+  try {
+    sub.reply.raw.write(`event: stream.closed\ndata: ${JSON.stringify({ type: "stream.closed", reason })}\n\n`);
+  } catch { /* already gone */ }
+  try { sub.reply.raw.end(); } catch { /* already gone */ }
+}
+
+/**
  * Attach a live stream to a reply. Returns the subscriber, or null if the user
  * already holds the maximum.
+ *
+ * A stream is authenticated once, when it opens, and then lives for hours. It
+ * used to outlive both things that end a sign-in: POST /v1/auth/logout revoked
+ * the session while the stream kept delivering that account's SOS and booking
+ * events, and an access token that expired ten minutes in still had a stream
+ * an hour later. So the stream carries its session id (ended by
+ * endSessionStreams on sign-out) and its token's expiry (ended by a timer).
  */
-export function subscribe(userId: string, reply: FastifyReply, id: string): Subscriber | null {
+export function subscribe(
+  userId: string, reply: FastifyReply, id: string,
+  auth: { sid?: string; expiresAt?: number } = {},
+): Subscriber | null {
   let set = streams.get(userId);
   if (!set) { set = new Set(); streams.set(userId, set); }
   if (set.size >= MAX_STREAMS_PER_USER) return null;
 
-  const sub: Subscriber = { id, userId, reply, openedAt: Date.now(), sent: 0 };
+  const sub: Subscriber = { id, userId, sid: auth.sid ?? "", reply, openedAt: Date.now(), sent: 0, expiry: null };
   set.add(sub);
+  if (auth.expiresAt !== undefined) {
+    sub.expiry = setTimeout(() => endStream(sub, "token_expired"), Math.max(0, auth.expiresAt - Date.now()));
+    sub.expiry.unref?.();
+  }
 
   const drop = () => {
+    if (sub.expiry) { clearTimeout(sub.expiry); sub.expiry = null; }
     const current = streams.get(userId);
     if (!current) return;
     current.delete(sub);
@@ -142,6 +172,23 @@ export function subscribe(userId: string, reply: FastifyReply, id: string): Subs
   return sub;
 }
 
+/**
+ * End every live stream opened under one of these sign-in sessions. Called by
+ * sign-out (auth.ts revokeSessionFamily) with the sessions it just revoked.
+ */
+export function endSessionStreams(sids: readonly string[]): number {
+  const ending = new Set(sids.filter(Boolean));
+  if (ending.size === 0) return 0;
+  let ended = 0;
+  for (const [, set] of streams) {
+    for (const s of [...set]) {
+      if (ending.has(s.sid)) { endStream(s, "signed_out"); set.delete(s); ended++; }
+    }
+  }
+  for (const [userId, set] of streams) if (set.size === 0) streams.delete(userId);
+  return ended;
+}
+
 /** Write the SSE preamble. Kept here so the headers live next to the framing. */
 export function openStream(reply: FastifyReply): void {
   reply.raw.writeHead(200, {
@@ -165,7 +212,10 @@ export function realtimeStats() {
 /** Test and shutdown hook: close every stream and stop the heartbeat. */
 export function closeAllStreams(): void {
   for (const [, set] of streams) {
-    for (const s of set) { try { s.reply.raw.end(); } catch { /* already gone */ } }
+    for (const s of set) {
+      if (s.expiry) clearTimeout(s.expiry);
+      try { s.reply.raw.end(); } catch { /* already gone */ }
+    }
   }
   streams.clear();
   if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }

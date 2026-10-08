@@ -18,7 +18,11 @@
  *     build styled markup in script. Injected CSS can restyle a page but not
  *     run code, which is why it is left for later.
  *   · 'wasm-unsafe-eval' - the 3D page decodes its model with Draco's
- *     WebAssembly decoder, in a worker started from a blob: URL.
+ *     WebAssembly decoder, in a worker started from a blob: URL, and the
+ *     live road scan runs its detector on ONNX Runtime's WebAssembly build
+ *     (vendor/ort/, served from this origin like everything else).
+ *   · one page gets headers of its own (pageHeaders): the road scan may use
+ *     the camera and is cross-origin isolated; nothing else changes.
  *   · connect and images are this origin (the map tiles are proxied through
  *     /basemap), plus data:/blob: for canvases and downloaded exports.
  *   · frame-ancestors lets the project site frame these pages - it shows the
@@ -123,6 +127,44 @@ export function staticHeaders(https: boolean): Record<string, string> {
 }
 
 /**
+ * Headers one page needs and no other page gets.
+ *
+ * scan.html (the live road scan) is the only page that opens the camera, so
+ * it alone is granted camera=(self); everywhere else the camera stays off, as
+ * staticHeaders says. It also runs a detection model on ONNX Runtime's
+ * WebAssembly build, whose threads need SharedArrayBuffer, which a browser
+ * only grants a cross-origin-isolated document: hence COOP same-origin and
+ * COEP require-corp. That costs this page nothing - it loads only this
+ * origin's files, which carry cross-origin-resource-policy already - and
+ * without it the model runs on a single thread. No other page is isolated:
+ * the citizen app opens payment popups that same-origin would sever.
+ */
+const PAGE_HEADERS: Record<string, Record<string, string>> = {
+  "/scan.html": {
+    "permissions-policy": "geolocation=(self), camera=(self), microphone=(), payment=(), usb=(), interest-cohort=()",
+    "cross-origin-opener-policy": "same-origin",
+    "cross-origin-embedder-policy": "require-corp",
+  },
+};
+
+/**
+ * ONNX Runtime starts its WebAssembly threads as workers from its own script
+ * (vendor/ort/*.mjs). A worker started by an isolated page is itself held to
+ * COEP, and Chrome refuses a worker script that does not declare it - the
+ * runtime then waits for threads that never start. So that folder declares it
+ * too. It is a restriction (only same-origin or CORP-marked subresources),
+ * never a relaxation.
+ */
+const ISOLATED_WORKER_DIRS = ["/vendor/ort/"];
+
+/** The overrides for one request path (query string ignored), or none. */
+export function pageHeaders(path: string): Record<string, string> {
+  const p = path.split("?")[0];
+  if (ISOLATED_WORKER_DIRS.some((d) => p.startsWith(d))) return { "cross-origin-embedder-policy": "require-corp" };
+  return PAGE_HEADERS[p] ?? {};
+}
+
+/**
  * `pagesRoot` is the directory the pages are served from; its inline scripts
  * are hashed into script-src. With `watchPages` (a development server) the
  * hashes are recomputed whenever a page's size or modification time changes,
@@ -143,6 +185,7 @@ export function registerSecurityHeaders(
   app.addHook("onSend", async (req, reply, payload) => {
     const https = req.protocol === "https";
     for (const [k, v] of Object.entries(staticHeaders(https))) reply.header(k, v);
+    for (const [k, v] of Object.entries(pageHeaders(req.url))) reply.header(k, v);
     if (o.watchPages && o.pagesRoot && /text\/html/.test(String(reply.getHeader("content-type") ?? ""))) {
       const now = signature();
       if (now !== seen) { seen = now; csp = build(); }

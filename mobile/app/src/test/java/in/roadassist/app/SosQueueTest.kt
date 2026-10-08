@@ -113,4 +113,74 @@ class SosQueueTest {
         SosQueue.append(original, entry("RA-BBBBBB", at = 2L))
         assertEquals("append mutated its input", 1, original.length())
     }
+
+    // ── replay: one refused entry must not block the rest (fix 5) ──────────
+
+    /** A send that answers each ref with a status: 0 is no answer at all, 2xx is delivered. */
+    private fun sender(answers: Map<String, Int>, posted: MutableList<String>): suspend (JSONObject) -> Unit = { o ->
+        val ref = o.getString("ref")
+        posted.add(ref)
+        val status = answers[ref] ?: 201
+        if (status == 0) throw java.io.IOException("no route")
+        if (status !in 200..299) throw ApiException("refused", status = status)
+    }
+
+    private val statusOf: (Exception) -> Int? = { e -> (e as? ApiException)?.status }
+
+    @Test
+    fun `a refused entry is dropped and the ones behind it still send`() = kotlinx.coroutines.runBlocking {
+        // A 409 invalid_state at the head used to `break` the loop for ever.
+        val posted = mutableListOf<String>()
+        val r = SosQueue.replay(
+            queueOf(entry("RA-AAAAAA"), entry("RA-BBBBBB"), entry("RA-CCCCCC")), "u-1", statusOf,
+            sender(mapOf("RA-AAAAAA" to 409), posted),
+        )
+        assertEquals(listOf("RA-AAAAAA", "RA-BBBBBB", "RA-CCCCCC"), posted)
+        assertEquals(setOf("RA-BBBBBB", "RA-CCCCCC"), r.sent)
+        assertEquals(listOf("RA-AAAAAA"), r.dropped.map { it.getString("ref") })
+        assertEquals("a dropped entry must leave the queue", 0,
+            SosQueue.remaining(queueOf(entry("RA-AAAAAA"), entry("RA-BBBBBB"), entry("RA-CCCCCC")), r.done).length())
+    }
+
+    @Test
+    fun `400 and 403 are terminal too`() {
+        for (status in listOf(400, 403, 404, 409, 422)) {
+            assertEquals("$status", SosQueue.Next.DROP, SosQueue.afterFailure(status))
+        }
+    }
+
+    @Test
+    fun `no answer, a 5xx, 401 and 429 stop the replay and keep everything`() = kotlinx.coroutines.runBlocking {
+        for (status in listOf(0, 500, 503, 401, 429)) {
+            val posted = mutableListOf<String>()
+            val r = SosQueue.replay(
+                queueOf(entry("RA-AAAAAA"), entry("RA-BBBBBB")), "u-1", statusOf,
+                sender(mapOf("RA-AAAAAA" to status), posted),
+            )
+            assertEquals("$status kept going", listOf("RA-AAAAAA"), posted)
+            assertTrue("$status lost an entry", r.done.isEmpty())
+        }
+    }
+
+    @Test
+    fun `only the signed-in account replays its own entries`() = kotlinx.coroutines.runBlocking {
+        val mine = SosQueue.withOwner(entry("RA-AAAAAA"), "u-1")
+        val theirs = SosQueue.withOwner(entry("RA-BBBBBB"), "u-2")
+        val unowned = SosQueue.withOwner(entry("RA-CCCCCC"), null)   // raised signed out
+        val posted = mutableListOf<String>()
+        val r = SosQueue.replay(queueOf(mine, theirs, unowned), "u-1", statusOf, sender(emptyMap(), posted))
+        assertEquals(listOf("RA-AAAAAA", "RA-CCCCCC"), posted)
+        assertEquals(setOf("RA-AAAAAA", "RA-CCCCCC"), r.sent)
+        assertEquals("another account's SOS must stay queued", 1,
+            SosQueue.remaining(queueOf(mine, theirs, unowned), r.done).length())
+    }
+
+    @Test
+    fun `an entry raised signed in carries its owner`() {
+        val e = SosQueue.withOwner(SosPosition.queueEntry(SosPosition.Unknown, "RA-AAAAAA", 1L), "u-1")
+        assertEquals("u-1", e.getString("owner"))
+        assertTrue(SosQueue.isMine(e, "u-1"))
+        assertTrue(!SosQueue.isMine(e, "u-2"))
+        assertTrue(!SosQueue.isMine(e, null))
+    }
 }

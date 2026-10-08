@@ -40,7 +40,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "road_damage"))
 
-from onnx_detector import decode, read_class_names, read_input_size  # noqa: E402
+from onnx_detector import (  # noqa: E402
+    NMS_IOU, decode, letterbox, model_version, read_class_names, read_input_size,
+)
 
 log = logging.getLogger("raksha.serve")
 
@@ -63,37 +65,14 @@ class Detector:
         self.class_names = read_class_names(self.session)
         self.model_w, self.model_h = read_input_size(self.session)
         self.input_name = self.session.get_inputs()[0].name
-        # Matches detect.py, so a detection is traceable to a run either way.
-        self.model_version = f"yolo-rdd2022in-{weights.stem}"
+        # The run directory plus a hash of these weights, as detect.py reports
+        # it, so a detection is traceable to the exact network that made it.
+        self.model_version = model_version(weights)
         log.info("classes=%s input=%dx%d", self.class_names, self.model_w, self.model_h)
 
     def preprocess(self, image_bytes: bytes):
         """Decode, letterbox to the model's input size, normalise to NCHW float32."""
-        from PIL import Image
-
-        np = self.np
-        img = Image.open(io.BytesIO(image_bytes))
-        # EXIF orientation: a phone photo is routinely stored rotated with a tag
-        # saying so. Ignoring it detects potholes in a sideways world.
-        try:
-            from PIL import ImageOps
-            img = ImageOps.exif_transpose(img)
-        except Exception:  # noqa: BLE001 - a missing tag must not fail a detection
-            pass
-        img = img.convert("RGB")
-        src_w, src_h = img.size
-
-        scale = min(self.model_w / src_w, self.model_h / src_h)
-        new_w, new_h = max(1, round(src_w * scale)), max(1, round(src_h * scale))
-        resized = img.resize((new_w, new_h), Image.BILINEAR)
-
-        # 114 grey is the padding ultralytics trains with; a black border would
-        # be a feature the model has never seen.
-        canvas = Image.new("RGB", (self.model_w, self.model_h), (114, 114, 114))
-        canvas.paste(resized, ((self.model_w - new_w) // 2, (self.model_h - new_h) // 2))
-
-        arr = np.asarray(canvas, dtype=np.float32) / 255.0
-        return np.transpose(arr, (2, 0, 1))[None, ...], src_w, src_h
+        return preprocess(image_bytes, self.model_w, self.model_h)
 
     def detect(self, image_bytes: bytes):
         t0 = time.perf_counter()
@@ -106,6 +85,33 @@ class Detector:
             self.model_w, self.model_h, self.min_conf, self.iou,
         )
         return detections, (time.perf_counter() - t0) * 1000.0, (src_w, src_h)
+
+
+def preprocess(image_bytes: bytes, model_w: int, model_h: int):
+    """Image bytes -> (1x3xHxW float32 in [0, 1], source width, source height).
+
+    The tensor is the one ultralytics builds in training and in predict: cv2's
+    INTER_LINEAR letterbox, reproduced in numpy by onnx_detector.letterbox.
+    PIL only decodes (its JPEG decoder gave the same pixels as cv2's on the
+    RDD frames). It used to resize too, and PIL's antialiased BILINEAR is a
+    different, softer image than the one the model learned from.
+    tests/test_preprocess.py holds this to a stored ultralytics tensor.
+    """
+    import numpy as np
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(image_bytes))
+    # EXIF orientation: a phone photo is routinely stored rotated with a tag
+    # saying so. Ignoring it detects potholes in a sideways world.
+    try:
+        from PIL import ImageOps
+        img = ImageOps.exif_transpose(img)
+    except Exception:  # noqa: BLE001 - a missing tag must not fail a detection
+        pass
+    rgb = np.asarray(img.convert("RGB"), dtype=np.uint8)
+    src_h, src_w = rgb.shape[:2]
+    arr = letterbox(rgb, model_w, model_h).astype(np.float32) / 255.0
+    return np.ascontiguousarray(np.transpose(arr, (2, 0, 1))[None, ...]), src_w, src_h
 
 
 def make_handler(det: Detector, max_bytes: int):
@@ -189,7 +195,8 @@ def main() -> None:
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8500)
     ap.add_argument("--min-conf", type=float, default=0.30)
-    ap.add_argument("--iou", type=float, default=0.45)
+    ap.add_argument("--iou", type=float, default=NMS_IOU,
+                    help=f"NMS IoU threshold (default {NMS_IOU}, ultralytics' and detect.py's)")
     ap.add_argument("--max-bytes", type=int, default=8_000_000)
     args = ap.parse_args()
 

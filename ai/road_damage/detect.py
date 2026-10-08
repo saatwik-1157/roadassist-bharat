@@ -25,7 +25,9 @@ from pathlib import Path
 
 from ultralytics import YOLO
 
-# One implementation, shared with serve.py — see severity.py.
+# One implementation, shared with serve.py — see severity.py. The model version
+# and the NMS threshold are shared the same way (onnx_detector.py is stdlib-only).
+from onnx_detector import NMS_IOU, model_version as weights_version
 from severity import severity
 from ultralytics.utils import LOGGER
 
@@ -42,6 +44,8 @@ def main() -> None:
     ap.add_argument("--source", required=True, help="image file or directory")
     ap.add_argument("--min-conf", type=float, default=0.30)
     ap.add_argument("--imgsz", type=int, default=640)
+    ap.add_argument("--iou", type=float, default=NMS_IOU,
+                    help=f"NMS IoU threshold (default {NMS_IOU}, the same as serve.py)")
     ap.add_argument("--limit", type=int, default=0, help="max images from a directory (0 = all)")
     args = ap.parse_args()
 
@@ -61,11 +65,13 @@ def main() -> None:
     with contextlib.redirect_stdout(chatter):
         model = YOLO(args.weights, task="detect")
         predictions = model.predict([str(p) for p in images], imgsz=args.imgsz,
-                                    conf=args.min_conf, verbose=False)
+                                    conf=args.min_conf, iou=args.iou, verbose=False)
     if chatter.getvalue().strip():
         print(chatter.getvalue().strip(), file=sys.stderr)
 
-    model_version = f"yolo-rdd2022in-{Path(args.weights).stem}"
+    # Run directory + weights hash, the same string serve.py reports for these
+    # weights: "yolo-rdd2022in-best" was every run's best.pt.
+    model_version = weights_version(Path(args.weights))
 
     out = []
     for r in predictions:

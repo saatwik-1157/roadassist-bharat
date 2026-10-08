@@ -1,0 +1,31 @@
+{
+  "_": [
+    "The road-damage model the Scan road screen runs on the phone (DetectorConfig.kt).",
+    "Swapping the model is this file plus the .onnx beside it: name the new file in",
+    "model, list its classes in the model's index order (they are checked against the",
+    "ONNX metadata key names at load, and a mismatch is refused, never guessed), set",
+    "inputWidth/inputHeight to its imgsz, and quote its measured mAP50 from ai/README.md.",
+    "reportAs maps a model class to the hazard type POST /v1/raksha/report accepts;",
+    "a class not listed there is shown but cannot be reported (onnx_detector.INGESTABLE).",
+    "faded_marking and manhole are deliberately not listed, as on the web scan",
+    "(scan-core.js NOT_REPORTABLE): road_damage means cracking in this model's training",
+    "map, and RDD2022 D50 labels every manhole cover, closed ones included.",
+    "minConfidence and iouThreshold are ai/serve.py defaults (NMS IoU 0.7 = onnx_detector.NMS_IOU).",
+    "Then regenerate the parity fixtures: mobile/tools/detector_parity_reference.py."
+  ],
+  "model": "detector/raksha-yolo11n-india-ft-gpu-416.onnx",
+  "modelName": "RAKSHA YOLO11n (india-ft-gpu, 416)",
+  "inputWidth": 416,
+  "inputHeight": 416,
+  "classes": ["pothole", "road_damage", "faded_marking", "manhole"],
+  "reportAs": {
+    "pothole": "pothole",
+    "road_damage": "road_damage"
+  },
+  "minConfidence": 0.30,
+  "iouThreshold": 0.7,
+  "map50": 0.516,
+  "map50_95": 0.245,
+  "modelSha256": "04a662853b947aeda372bc34695df7f7a4419cd291ec5ddf1c5777d1462c9381",
+  "metricsSource": "held-out yolo-multi-rich val, 800 images, measured 2026-10-08 (ai/runs/yolo11n-india-ft-gpu/compare.json, rich@416; India-clean 392 images: 0.449)"
+}

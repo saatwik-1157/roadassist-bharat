@@ -28,12 +28,32 @@
 // v23: lime map markers and the edge-pin popup fix (map.html); a missing space in app.html's sign-in field.
 // v24: the online SOS sheet says only what the server did — no "Help is on the way." when no contact or responder was reached (app.html, journey.js, i18n.js).
 // v25: SOS contacts are "alerted" only when the server says SMS is live (smsLive); on a console SMS provider the sheet says "would be texted … only logged, not sent" (app.html, journey.js, i18n.js, index.html).
-const VERSION = "ra-v25";
+// v26: same-origin scripts, styles and JSON are network-first (a deploy no longer runs new HTML
+//      with old scripts once); mechanic.html registers this worker; the Impact page and the live
+//      road scan join the shell, the scan's detector and engine are cached on first use (SCAN);
+//      plus this round's app fixes: an offline reopen stays signed in, the queue and off-grid
+//      incidents belong to the user who made them, one open SOS at a time, translated tabs and
+//      pill (app.html, mechanic.html, map.html, index.html, ui.js, near.js, i18n.js,
+//      offline-engine.js, offline-store.js, landing.html).
+// v27: the live road scan's detector becomes yolo11n-multi-rich-gpu (4 classes, 640 px; a new
+//      SCAN cache name, so the old model is dropped), with the reason each class it cannot report
+//      is not reportable (scan.html, scan.js, scan-core.js, the model sidecar).
+// v28: the live road scan's detector becomes yolo11n-india-ft-gpu (the same 4 classes and 640 px,
+//      fine-tuned on India; a new SCAN cache name, so the previous model is dropped): the sidecar.
+const VERSION = "ra-v28";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
 // Trip Guardian writes to this same name (see app.html) — bump both together.
 const TILES = "ra-tiles-v2";
+// The live road scan's detector (10.6 MB .onnx), its engine (ONNX Runtime, 28 MB
+// of wasm) and the sample photos: far too heavy to put on every install, so they
+// are cached the first time scan.html fetches them, and the page then works with
+// no network. Named after the model and the engine build rather than VERSION, so
+// a shell bump keeps them and a new model or ORT drops them: change this name
+// whenever assets/models/ or vendor/ort/ changes.
+const SCAN = "ra-scan-yolo11n-india-ft-gpu-7b26bec8-ort-1.30.0";
+const SCAN_DIRS = ["/assets/models/", "/vendor/ort/", "/assets/scan/"];
 
 // Everything needed to boot the app with no network at all.
 const SHELL_ASSETS = [
@@ -41,6 +61,14 @@ const SHELL_ASSETS = [
   "/map.html",
   // A mechanic works from the same dead zones their customers break down in.
   "/mechanic.html",
+  // The public Impact page: live counts, labelled as live, with the last copy offline.
+  "/impact.html",
+  // The live road scan. Only the small files: the model and the engine are SCAN, below.
+  "/scan.html",
+  "/scan.css",
+  "/scan-core.js",
+  "/scan.js",
+  "/assets/models/raksha-yolo11n-india-ft-gpu.json",
   "/ds.css",
   // app.html's own stylesheet; uncached, an off-grid launch would draw unstyled.
   "/app.css",
@@ -113,7 +141,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(
-        keys.filter((k) => k !== SHELL && k !== TILES).map((k) => caches.delete(k)),
+        keys.filter((k) => k !== SHELL && k !== TILES && k !== SCAN).map((k) => caches.delete(k)),
       ))
       .then(() => self.clients.claim()),
   );
@@ -173,11 +201,48 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // The road scan's model, engine and samples: cache-first, stored on first use.
+  // A cached response keeps the headers it came with, so the engine's worker
+  // script still carries the COEP header an isolated page requires of it.
+  if (!key && SCAN_DIRS.some((d) => url.pathname.startsWith(d)) && !req.headers.has("range")) {
+    event.respondWith(
+      caches.open(SCAN).then(async (cache) => {
+        const hit = await cache.match(url.pathname);
+        if (hit) return hit;
+        const res = await fetch(req);
+        if (cacheable(res)) await cache.put(url.pathname, res.clone()).catch(() => {});
+        return res;
+      }),
+    );
+    return;
+  }
+
   // Anything else that is not a shell asset (media, 3D assets, feeds) goes to
   // the network untouched - including its Range requests and 206 answers.
   if (!key) return;
 
-  // Shell assets: serve instantly from cache, refresh in the background.
+  // Scripts, styles and JSON: the network first, like the pages, with the cache
+  // when it is slow or gone. Served cache-first, the first load after a deploy
+  // ran the NEW page (network-first above) against the OLD scripts, and a page
+  // and a script that changed together disagreed until the next load.
+  if (/\.(m?js|css|json)$/.test(url.pathname)) {
+    event.respondWith(
+      caches.open(SHELL).then(async (cache) => {
+        const fresh = fetch(req).then((res) => {
+          if (cacheable(res)) cache.put(key, res.clone()).catch(() => {});
+          return res;
+        });
+        const slow = new Promise((resolve) => setTimeout(resolve, 3000, null));
+        const res = await Promise.race([fresh.catch(() => null), slow]);
+        if (res) return res;
+        return (await cache.match(key)) ?? (await fresh.catch(() => null)) ??
+          new Response("", { status: 504, statusText: "offline and not cached" });
+      }),
+    );
+    return;
+  }
+
+  // Fonts and icons: serve instantly from cache, refresh in the background.
   event.respondWith(
     caches.open(SHELL).then(async (cache) => {
       const hit = await cache.match(key);

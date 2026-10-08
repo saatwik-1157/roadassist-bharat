@@ -17,6 +17,7 @@ import { db } from "../db.js";
 import { env } from "../env.js";
 import { ok } from "../http.js";
 import { audit } from "../audit.js";
+import { actorRole } from "../domain/actor-role.js";
 import { alerts } from "../alerts.js";
 import { email as mail } from "../providers.js";
 import { otpPolicy } from "../domain/otp-policy.js";
@@ -151,7 +152,7 @@ export async function emailAuthRoutes(app: FastifyInstance) {
 
     const session = await startSession(db, user.id, { ip: req.ip, ua: req.headers["user-agent"] });
     await audit({
-      actorId: user.id, actorRole: session.roles[0] ?? "citizen", action: "auth.login",
+      actorId: user.id, actorRole: actorRole(session.roles), action: "auth.login",
       entity: "user", entityId: user.id,
       after: { newAccount: created, sessionCreated: true, channel: "email" },
       ip: req.ip,

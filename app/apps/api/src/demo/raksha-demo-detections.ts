@@ -4,10 +4,14 @@
  * by hand; regenerate from that file.
  *
  * The detections are real model output. Their POSITIONS are simulated: RDD2022
- * images carry no GPS, so each is placed along NH-48 by the same formula and
- * with the same op ids as scripts/raksha-simulator.mjs --from-json. A boot-time
- * seed and a manual upload of that file are therefore replays of each other,
- * and the ingest route counts the second as duplicates.
+ * images carry no GPS, so each is placed along NH-48 by the same formula as
+ * scripts/raksha-simulator.mjs --from-json. The op ids below do NOT make a
+ * manual upload of that file a replay of this seed: an op id is unique only
+ * per device, the seed posts as its own device and the simulator as another,
+ * and the simulator now builds its op ids differently anyway. What makes the
+ * second upload count as duplicates is raksha_detections.source_key (migration
+ * 0009): the same model, frame, class, confidence and severity is the same
+ * detection whichever device sends it (domain/raksha-input.ts).
  */
 export interface DemoDetection {
   opId: string; type: string; severity: number; confidence: number;

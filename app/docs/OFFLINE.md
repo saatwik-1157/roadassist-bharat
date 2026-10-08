@@ -109,7 +109,7 @@ The journal has never needed one, so it has never held one.
 **Retention:** a synchronised incident is deleted 24 hours after it reaches the
 platform (`apps/web/offline-store.js:47`). An unsynchronised one is **never**
 deleted, at any age — the purge only touches rows already marked synced
-(`apps/web/offline-store.js:524`). Losing somebody's emergency to a retention
+(`apps/web/offline-store.js:563`). Losing somebody's emergency to a retention
 timer is not an acceptable trade.
 
 ---
@@ -130,7 +130,7 @@ integrity digest.
   converges on the incident it already created rather than raising a second
   emergency.
 - Retries use exponential backoff with **full jitter**
-  (`apps/web/offline-engine.js:324`), so a convoy leaving a tunnel does not
+  (`apps/web/offline-engine.js:377`), so a convoy leaving a tunnel does not
   stampede the platform in the same second.
 - Entries are never dropped. Past the automatic retry ceiling the record stays
   for a manual "Sync now".

@@ -12,6 +12,7 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 import { env } from "./env.js";
 import { db as appDb, type Db } from "./db.js";
 import * as S from "@roadassist/db";
+import { endSessionStreams } from "./realtime.js";
 import {
   WEB_CLIENT_HEADER, carriesRefreshCookie, refreshCookie as buildRefreshCookie,
   refreshTokenFromCookies, webClientSlot as slotOf,
@@ -25,6 +26,8 @@ export interface Claims {
   sub: string;
   roles: string[];
   sid: string;
+  /** When the access token stops being valid, in epoch seconds (read, never issued from). */
+  exp?: number;
 }
 
 export async function issueAccessToken(claims: Claims): Promise<string> {
@@ -43,6 +46,7 @@ export async function verifyAccessToken(token: string): Promise<Claims> {
     sub: String(payload.sub),
     roles: (payload.roles as string[]) ?? [],
     sid: String(payload.sid ?? ""),
+    exp: typeof payload.exp === "number" ? payload.exp : undefined,
   };
 }
 
@@ -109,11 +113,11 @@ export async function revokeSessionFamily(db: Db, sid: string, userId: string): 
   // already claimed its token and was about to insert the next session, which
   // this UPDATE could not see - so sign-out answered 200 and that new session
   // went on working.
-  return db.transaction(async (tx) => {
+  const revoked = await db.transaction(async (tx) => {
     await lockFamily(tx, row.familyId);
     const now = new Date();
     const stillMinting = new Date(now.getTime() - env.accessTtlSeconds * 1000);
-    const revoked = await tx.update(S.sessions)
+    return tx.update(S.sessions)
       .set({
         revokedAt: sql`coalesce(${S.sessions.revokedAt}, now())`,
         revokedReason: LOGOUT_REASON,
@@ -124,8 +128,12 @@ export async function revokeSessionFamily(db: Db, sid: string, userId: string): 
         or(isNull(S.sessions.revokedAt), gt(S.sessions.createdAt, stillMinting)),
       ))
       .returning({ id: S.sessions.id });
-    return revoked.length;
   });
+  // Live event streams opened under any of those sessions end with them: a
+  // stream authenticates once, when it opens, and kept delivering this
+  // account's SOS and booking events after the sign-out (realtime.ts).
+  endSessionStreams(revoked.map((r) => r.id));
+  return revoked.length;
 }
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -362,6 +370,15 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply) {
   // not tied to a sign-in and skip it. Only a sign-out is refused here: a
   // family burned by reuse detection keeps its already-issued access tokens
   // until they expire, as it always has (the suites rely on that).
+  if (claims.roles.includes("device") &&
+      !(req.routeOptions?.config as { admitsDeviceTokens?: boolean } | undefined)?.admitsDeviceTokens) {
+    return reply.code(403).send({
+      error: {
+        code: "device_token_not_allowed", title: "A device token cannot be used on this route.",
+        retryable: false, requestId: req.id,
+      },
+    });
+  }
   if (claims.sid) {
     const revoked = await sessionSignedOut(claims.sid);
     if (revoked) {
@@ -388,7 +405,7 @@ async function sessionSignedOut(sid: string): Promise<boolean> {
 
 /** Role gate. Resource ownership is checked separately, at the resource. */
 export function requireRole(...allowed: string[]) {
-  return async (req: FastifyRequest, reply: FastifyReply) => {
+  const gate = async (req: FastifyRequest, reply: FastifyReply) => {
     if (!req.user) {
       return reply.code(401).send({ error: { code: "unauthenticated", title: "Sign in to continue", retryable: false } });
     }
@@ -398,6 +415,30 @@ export function requireRole(...allowed: string[]) {
       });
     }
   };
+  if (allowed.includes("device")) (gate as { [DEVICE_GATE]?: true })[DEVICE_GATE] = true;
+  return gate;
+}
+
+/**
+ * Device tokens, only where a device belongs.
+ *
+ * A RAKSHA edge device's token (sub = the device's id, roles ["device"], no
+ * session) passed `authenticate` on every route, and every citizen route then
+ * treated the device id as a user id: a device could raise an SOS, create a
+ * booking or read /v1/me as an account that does not exist. A device token is
+ * now refused unless the route itself admits devices - which a route says by
+ * having `requireRole(..., "device")` in its preHandlers. That marker is read
+ * once per route at registration (markDeviceRoutes), not trusted from a list
+ * kept by hand.
+ */
+const DEVICE_GATE = Symbol("admitsDeviceTokens");
+
+/** An onRoute hook: flag the routes whose preHandlers admit device tokens. */
+export function markDeviceRoutes(route: { preHandler?: unknown; config?: unknown }): void {
+  const pre = Array.isArray(route.preHandler) ? route.preHandler : [route.preHandler];
+  if (pre.some((f) => typeof f === "function" && (f as { [DEVICE_GATE]?: true })[DEVICE_GATE])) {
+    route.config = { ...(route.config as object | undefined), admitsDeviceTokens: true };
+  }
 }
 
 /**

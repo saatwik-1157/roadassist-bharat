@@ -1,0 +1,102 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   RoadAssist — live road scan (scan.html)
+   ───────────────────────────────────────────────────────────────────────────
+   Layout only. Tokens come from ds.css (:root.volt), the shell, top bar,
+   cards, chips and buttons from app.css; this file adds the camera stage, the
+   heads-up chips over it and the detection list. Mobile first: every rule is
+   written for a 390 px phone and the desktop simply gets the same column.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.back-btn {
+  width: var(--tap); height: var(--tap); border-radius: 50%; display: grid; place-items: center;
+  background: var(--surface); border: 1px solid var(--line); color: var(--text);
+}
+.back-btn svg { width: 20px; height: 20px; }
+.back-btn:hover { border-color: var(--line-2); }
+
+.scan-sources { margin-top: 18px; }
+.scan-sources .chip { min-height: var(--tap); }
+
+.scan-card { margin-top: 14px; }
+
+/* The stage is sized in script to the source's own aspect ratio, so the
+   overlay's pixels and the picture's pixels are the same rectangle - no
+   object-fit guesswork between the box maths and what is on screen. */
+.viewer {
+  position: relative; display: grid; place-items: center; overflow: hidden;
+  min-height: 200px; background: #050604;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+}
+.stage { position: relative; width: 100%; aspect-ratio: 4 / 3; }
+.stage video, .stage img, .stage canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%; max-width: none;
+}
+.stage canvas { pointer-events: none; }
+
+.hud { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; z-index: 2; }
+.hud-chip, .hud-tag {
+  font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  padding: 4px 9px; border-radius: var(--r-full);
+  background: rgba(5, 6, 4, 0.72); color: #f2f4ec; border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.hud-tag {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  font-family: var(--sans); text-transform: uppercase; letter-spacing: 0.1em; font-size: 9.5px;
+}
+
+.placeholder {
+  position: absolute; inset: 0; display: grid; place-content: center; gap: 12px;
+  padding: 24px; text-align: center; color: #b6bbad; font-size: 13.5px; z-index: 1;
+  background: #050604;
+}
+.placeholder[hidden] { display: none; }
+.progress { width: 180px; height: 4px; border-radius: 2px; background: #22251f; overflow: hidden; margin: 0 auto; }
+.progress[hidden] { display: none; }
+.progress span { display: block; height: 100%; width: 0%; background: #c8f031; transition: width var(--dur-2) var(--ease-standard); }
+
+.scan-controls { padding: 14px 16px 16px; display: grid; gap: 10px; }
+.scan-controls .btn-row[hidden] { display: none; }
+.engine-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ep-select {
+  min-height: var(--tap); padding: 0 14px; border-radius: var(--r-full);
+  background: var(--surface-2); border: 1px solid var(--line-2); color: var(--text);
+  font-size: 13px; font-weight: 600;
+}
+
+.scan-status { margin-top: 12px; font-size: 13px; color: var(--text-2); min-height: 1.4em; }
+.scan-status.bad { color: var(--red); }
+
+.scan-h { margin-top: 18px; }
+.det-list { list-style: none; margin-top: 8px; display: grid; gap: 8px; }
+.det-list li {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+  border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
+  font-size: 13.5px;
+}
+.det-list li.empty { color: var(--text-3); justify-content: center; }
+.det-list .grow { flex: 1; min-width: 0; }
+.det-list b { font-weight: 650; }
+.det-list small { display: block; color: var(--text-3); font-size: 11.5px; margin-top: 1px; }
+.sev {
+  flex: none; font-family: var(--mono); font-size: 11.5px; font-weight: 700;
+  padding: 4px 9px; border-radius: var(--r-full);
+}
+.sev-1, .sev-2 { background: var(--brand-soft); color: var(--brand); }
+.sev-3 { background: var(--amber-soft); color: var(--amber); }
+.sev-4, .sev-5 { background: var(--red-soft); color: var(--red); }
+
+.report-card { margin-top: 18px; }
+.report-panel { margin-top: 14px; display: grid; gap: 10px; }
+.report-panel[hidden] { display: none; }
+.report-panel:focus { outline: none; }
+#r-thumb { width: 100%; border-radius: 14px; border: 1px solid var(--line); }
+.r-note summary { cursor: pointer; }
+.r-note p { margin-top: 6px; word-break: break-word; }
+.r-result { font-size: 13.5px; line-height: 1.55; }
+.r-result.ok { color: var(--green); }
+.r-result.bad { color: var(--red); }
+.r-result:empty { display: none; }
+#r-locate[hidden] { display: none; }
+
+.about-card { margin-top: 14px; display: grid; gap: 8px; }
+.credits { border-top: 1px solid var(--line); padding-top: 8px; }

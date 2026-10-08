@@ -8,15 +8,15 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://app.roadassistbharat.online/">
 <meta property="og:title" content="RoadAssist — roadside assistance that works off-grid">
-<meta property="og:description" content="Offline-first roadside assistance for India. Request help, raise an SOS and reach a responder — on a smartphone, or on a feature phone over SMS with no app and no data.">
+<meta property="og:description" content="Offline-first roadside assistance for India. Request a mechanic and raise an SOS on a smartphone, kept on the phone when there is no signal, or by SMS from a feature phone with no app and no data.">
 <meta property="og:image" content="https://roadassistbharat.online/visuals/vis_products.png">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="description" content="Offline-first roadside assistance for India. Request help, raise an SOS and reach a responder on a smartphone, or on a feature phone over SMS with no data.">
+<meta name="description" content="Offline-first roadside assistance for India. Request a mechanic and raise an SOS on a smartphone, kept on the phone when there is no signal, or by SMS from a feature phone with no data.">
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#08090c" media="(prefers-color-scheme: dark)">
 <meta property="og:site_name" content="RoadAssist Bharat">
 <meta name="twitter:title" content="RoadAssist — roadside assistance that works off-grid">
-<meta name="twitter:description" content="Offline-first roadside assistance for India. Request help, raise an SOS and reach a responder on a smartphone, or on a feature phone over SMS with no data.">
+<meta name="twitter:description" content="Offline-first roadside assistance for India. Request a mechanic and raise an SOS on a smartphone, kept on the phone when there is no signal, or by SMS from a feature phone with no data.">
 <script>
   (function () {
     try {
@@ -61,6 +61,11 @@
   @media (max-width: 400px) {
     .nav .wrap { gap: var(--s-2); }
     .nav .btn { padding: 10px 14px; white-space: nowrap; }
+  }
+  /* At 320 px the bar (mark, theme, "Open the app") was still 16 px wider than the screen. */
+  @media (max-width: 359px) {
+    .nav .wrap { padding-inline: var(--s-3); }
+    .nav .btn { padding: 10px 11px; }
   }
 
   section { padding-block: var(--s-8); }
@@ -742,8 +747,8 @@
     <div class="wrap">
       <div class="sec-head" data-rv>
         <span class="eyebrow">Surfaces</span>
-        <h2 class="display">Four ways in.</h2>
-        <p class="sub">All four run against the same live API on this server.</p>
+        <h2 class="display">Six ways in.</h2>
+        <p class="sub">All six run against the same live API on this server.</p>
       </div>
       <div class="grid four" data-rv-stagger>
         <a class="card lift edge" href="/app.html">
@@ -762,6 +767,14 @@
           <h3>Request console <i aria-hidden="true">→</i></h3>
           <p class="sub">Every API call the client makes, with the server's reply — including the SMS path.</p>
         </a>
+        <a class="card lift edge" href="/impact.html">
+          <h3>Impact <i aria-hidden="true">→</i></h3>
+          <p class="sub">Live counts of requests, SOS incidents and road-damage detections, with seeded data labelled.</p>
+        </a>
+        <a class="card lift edge" href="/scan.html">
+          <h3>Live road scan <i aria-hidden="true">→</i></h3>
+          <p class="sub">Pothole detection from the camera, on the device; a sighting can be filed as a hazard report.</p>
+        </a>
       </div>
     </div>
   </section>
@@ -774,15 +787,15 @@
         <p class="sub">Every figure here is measured by a script in this repository and gated in CI, not estimated.</p>
       </div>
       <div class="stats" data-rv-stagger>
-        <div class="card stat"><div class="v num">1162</div><div class="k hint">automated checks across six suites</div></div>
-        <div class="card stat"><div class="v num">74</div><div class="k hint">API routes</div></div>
+        <div class="card stat"><div class="v num">1336</div><div class="k hint">automated checks across six suites</div></div>
+        <div class="card stat"><div class="v num">75</div><div class="k hint">API routes</div></div>
         <div class="card stat"><div class="v num">58</div><div class="k hint">database tables</div></div>
         <div class="card stat"><div class="v num">8</div><div class="k hint">languages offered</div></div>
       </div>
       <p class="hint" style="margin-top: var(--s-5); max-width: 70ch">
         Seven of the eight languages are machine-translated and have <b>not</b> been
         native-reviewed: the strings exist, the quality is unverified, and those are
-        different claims. The Razorpay checks run separately, against a local stub rather than the real gateway, and are not counted in the 1162.
+        different claims. The Razorpay checks run separately, against a local stub rather than the real gateway, and are not counted in the 1336.
       </p>
 
       <div class="card" style="margin-top: var(--s-6); padding: var(--s-5)" data-rv>

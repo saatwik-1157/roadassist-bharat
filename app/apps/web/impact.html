@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en" class="volt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoadAssist — Impact</title>
+<meta name="description" content="RoadAssist Bharat impact: live counts of requests, SOS incidents, RAKSHA road-damage detections and coverage, each read from the platform's database, with seeded and simulated data labelled.">
+<!-- Theme boot: the same key the other pages write, so the choice carries over. -->
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("ra.theme"); } catch (e) { /* storage blocked */ }
+    if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<!-- Everything is served by the platform itself: fonts and Leaflet are vendored. -->
+<link rel="stylesheet" href="vendor/fonts.css">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="ds.css">
+<style>
+  /* AA small text on every surface, both themes (ds.css premium layer). */
+  body { --text-3: var(--aa-text-3); min-height: 100dvh; }
+
+  .skip { position: absolute; left: 12px; top: -60px; z-index: 50; padding: 10px 14px; border-radius: var(--r-sm);
+    background: var(--ink); color: var(--ink-on); font-weight: 650; }
+  .skip:focus { top: 12px; }
+
+  /* ── top bar: the app's glass bar, full width ─────────────────────────── */
+  .bar { position: sticky; top: 0; z-index: 30; border-width: 0 0 1px; border-radius: 0; box-shadow: none; }
+  .bar-in { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: var(--s-3);
+    padding: calc(8px + var(--safe-t)) 16px 8px; }
+  .brand .mark { width: 28px; height: 28px; }
+  .brand .wordmark { font-family: var(--display); font-weight: 650; font-size: 17px; letter-spacing: -0.02em; }
+  .bar .page { color: var(--text-2); font-size: 13px; font-weight: 600; padding-left: var(--s-3);
+    border-left: 1px solid var(--line-2); }
+  .bar .theme-btn { margin-left: auto; width: var(--tap); height: var(--tap); }
+  .bar .theme-btn svg { width: 18px; height: 18px; }
+
+  .wrap { max-width: 1200px; margin: 0 auto; padding: var(--s-5) 16px var(--s-8); }
+
+  /* ── hero ──────────────────────────────────────────────────────────────── */
+  .hero { padding: var(--s-4) 0 var(--s-5); }
+  .hero .display { margin-top: var(--s-2); max-width: 22ch; }
+  .hero .sub { margin-top: var(--s-3); max-width: 68ch; font-size: 14.5px; }
+  .asof { margin-top: var(--s-4); display: inline-flex; align-items: baseline; gap: 10px;
+    padding: 8px 14px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line);
+    font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .asof b { color: var(--text); font-weight: 650; }
+  .asof .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); flex: none; transform: translateY(-1px); }
+  .asof.is-stale .dot { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); }
+  .asof.is-error .dot { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+  .key { margin-top: var(--s-4); display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .key div { display: flex; gap: 10px; align-items: baseline; font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+  .key .pill { flex: none; }
+
+  /* Labels. Every block carries one; the word carries the meaning, the tint only reinforces it. */
+  .pill.demo { background: var(--amber-soft); color: var(--aa-amber); border-color: transparent; }
+  .pill.sim  { background: var(--red-soft); color: var(--aa-red); border-color: transparent; }
+  .pill.live { background: var(--brand-soft); color: var(--aa-brand); border-color: transparent; }
+  .pill.file { background: var(--blue-soft); color: var(--blue); border-color: transparent; }
+  .pill.est  { background: var(--surface-2); color: var(--text-2); }
+
+  /* ── headline tiles ───────────────────────────────────────────────────── */
+  .kpis { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (min-width: 900px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px 16px;
+    box-shadow: var(--elev-1); min-width: 0; }
+  .tile .k { font-size: 12.5px; color: var(--text-2); font-weight: 550; line-height: 1.35; }
+  .tile .v { margin-top: 6px; font-family: var(--sans); font-weight: 650; font-size: clamp(24px, 6.4vw, 32px);
+    letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .tile .f { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 11.5px; color: var(--text-3); line-height: 1.4; }
+  .tile .pill { white-space: normal; text-align: left; line-height: 1.3; }
+  .tile.hero-tile { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 6px 20px; }
+  .tile.hero-tile .v { font-size: clamp(44px, 12vw, 64px); }
+  @media (min-width: 900px) { .tile.hero-tile { grid-column: span 2; } }
+
+  /* ── sections ─────────────────────────────────────────────────────────── */
+  .grid { margin-top: var(--s-5); display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wide { grid-column: 1 / -1; } }
+  .grid > .card { margin: 0; padding: 18px; min-width: 0; }
+  .card h2 { font-family: var(--display); font-weight: 600; font-size: 19px; letter-spacing: -0.015em; }
+  .card h3 { font-size: 13px; font-weight: 650; color: var(--text-2); margin-top: var(--s-5); }
+  .head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+  .lead { margin-top: 6px; color: var(--text-2); font-size: 13.5px; line-height: 1.6; }
+  .row3 { margin-top: var(--s-4); display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .row3 > div { background: var(--surface-2); border-radius: var(--r-sm); padding: 10px 12px; min-width: 0; }
+  .row3 .v { font-weight: 650; font-size: 22px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .row3 .k { font-size: 11.5px; color: var(--text-2); line-height: 1.35; }
+
+  /* One-series horizontal bars: the accent as the mark, values in text ink. */
+  .bars { list-style: none; margin-top: var(--s-3); display: grid; gap: 8px; }
+  .bars li { display: grid; grid-template-columns: minmax(7.5em, 34%) minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 12.5px; }
+  .bars .k { color: var(--text-2); overflow-wrap: anywhere; line-height: 1.3; }
+  .bars .t { height: 14px; background: var(--surface-2); border-radius: 0 4px 4px 0; position: relative; }
+  .bars .t i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--brand); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .bars .t i.zero { min-width: 0; }
+  .bars .v { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 4.5ch; text-align: right; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  caption { text-align: left; font-size: 12px; color: var(--text-3); padding-bottom: 6px; caption-side: top; }
+  th, td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { color: var(--text-2); font-weight: 600; font-size: 11.5px; }
+  tbody th { font-weight: 550; color: var(--text); }
+  .scrollx { overflow-x: auto; margin-top: var(--s-3); }
+  .heat td { border: 2px solid var(--surface); text-align: center; border-radius: 6px; min-width: 2.6em; }
+  .heat td.hot { color: var(--surface); font-weight: 650; }
+
+  .prov { margin-top: var(--s-4); padding: 10px 12px; border-left: 3px solid var(--line-2); background: var(--surface-2);
+    border-radius: 0 var(--r-xs) var(--r-xs) 0; font-size: 12px; color: var(--text-2); line-height: 1.55; }
+  .prov b { color: var(--text); font-weight: 650; }
+  details.src { margin-top: var(--s-3); font-size: 12px; }
+  details.src summary { cursor: pointer; color: var(--text-2); font-weight: 600; min-height: var(--tap); display: flex; align-items: center; }
+  details.src summary:hover { color: var(--text); }
+  details.src pre { margin-top: 4px; padding: 10px 12px; background: var(--surface-2); border-radius: var(--r-xs); overflow-x: auto;
+    font: 11px/1.5 var(--mono); color: var(--text-2); white-space: pre; }
+  details.src p { color: var(--text-2); line-height: 1.55; margin: 4px 0 8px; }
+
+  /* ── map ──────────────────────────────────────────────────────────────── */
+  .mapbox { position: relative; margin-top: var(--s-3); height: 300px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--line); }
+  @media (min-width: 900px) { .mapbox { height: 420px; } }
+  #map { position: absolute; inset: 0; background: var(--surface-2); font-family: var(--sans); }
+  .leaflet-container canvas { max-width: none; }
+  .map-dark .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.75); }
+  .leaflet-container .leaflet-bar a { width: 40px; height: 40px; line-height: 40px; background: var(--surface); color: var(--text-2); border-bottom-color: var(--line); }
+  .leaflet-control-attribution { background: var(--glass-strong) !important; color: var(--text-2); }
+  .leaflet-control-attribution a { color: var(--text-2); }
+  .leaflet-tooltip { background: var(--surface); color: var(--text); border: 1px solid var(--line); box-shadow: var(--shadow-2); font: 12px/1.45 var(--sans); }
+  .mapnote { position: absolute; z-index: 500; left: 10px; right: 10px; bottom: 10px; padding: 8px 12px; border-radius: var(--r-sm);
+    font-size: 12px; color: var(--text-2); background: var(--glass-strong); border: 1px solid var(--line); }
+  .ramp { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); }
+  .ramp i { display: inline-block; width: 120px; height: 10px; border-radius: 3px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--brand) 22%, transparent), var(--brand)); }
+
+  .langs { margin-top: var(--s-3); display: flex; flex-wrap: wrap; gap: 8px; list-style: none; }
+  .langs li { padding: 7px 12px; border-radius: var(--r-full); border: 1px solid var(--line); background: var(--surface-2); font-size: 13px; }
+  .langs li span { color: var(--text-3); font-size: 11.5px; margin-left: 6px; font-family: var(--mono); }
+
+  .stat-tests { display: flex; align-items: baseline; gap: 10px; margin-top: var(--s-3); }
+  .stat-tests .v { font-weight: 650; font-size: 40px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .stat-tests .l { color: var(--text-2); font-size: 13px; }
+
+  .foot { margin-top: var(--s-6); color: var(--text-3); font-size: 12px; line-height: 1.6; max-width: 80ch; }
+  .muted { color: var(--text-3); }
+  .warn-line { color: var(--aa-amber); }
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"></div>
+<a class="skip" href="#main">Skip to the figures</a>
+
+<header class="bar glass">
+  <div class="bar-in">
+    <span class="brand">
+      <img class="mark" src="icon.svg" alt="" width="28" height="28">
+      <span class="wordmark">Road<i>Assist</i></span>
+    </span>
+    <span class="page">Impact</span>
+    <button class="theme-btn" id="themeBtn" title="Switch theme" aria-label="Switch colour theme">
+      <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+      <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main" class="wrap">
+  <section class="hero" aria-labelledby="title">
+    <p class="eyebrow">Impact · read live</p>
+    <h1 class="display" id="title">What RoadAssist Bharat has done, <em>counted</em>.</h1>
+    <p class="sub">Every figure on this page is a query against the platform's own database, run on the server at most
+      once every 45 seconds, or a value read from a file in the repository. Under each block, "How this is counted"
+      shows the exact query. Nothing is projected or estimated, and what was seeded or simulated says so.</p>
+    <p class="asof" id="asof" role="status" aria-live="polite"><span class="dot"></span><span id="asofText">Reading the live database…</span></p>
+    <div class="key" aria-label="What the labels mean">
+      <div><span class="pill demo">Demo data</span><span>Created by the demo seed scripts or by demo accounts. No real person is behind these rows.</span></div>
+      <div><span class="pill sim">Simulated</span><span>Placed by a simulator, not measured: the RAKSHA positions along NH-48.</span></div>
+      <div><span class="pill live">Live count</span><span>Counted from the database at the time shown above.</span></div>
+      <div><span class="pill est bare">Estimate</span><span>None on this page. No projections, no "potential" figures.</span></div>
+    </div>
+  </section>
+
+  <section class="kpis stagger" aria-label="Headline figures">
+    <div class="tile hero-tile">
+      <div><div class="k">Assistance requests</div><div class="v" id="kRequests">—</div></div>
+      <div class="f"><span class="pill demo">Demo data</span><span id="kRequestsF"></span></div>
+    </div>
+    <div class="tile"><div class="k">Median time to assign a mechanic</div><div class="v" id="kAssign">—</div><div class="f"><span class="pill demo">Demo data</span><span id="kAssignF"></span></div></div>
+    <div class="tile"><div class="k">Median time to mechanic on site</div><div class="v" id="kArrive">—</div><div class="f"><span class="pill demo">Demo data</span><span id="kArriveF"></span></div></div>
+    <div class="tile"><div class="k">SOS incidents raised</div><div class="v" id="kSos">—</div><div class="f"><span class="pill demo">Demo data</span></div></div>
+    <div class="tile"><div class="k">SOS raised offline, synced later</div><div class="v" id="kOffline">—</div><div class="f"><span class="pill demo">Demo data</span><span id="kOfflineF"></span></div></div>
+    <div class="tile"><div class="k">RAKSHA road-damage detections</div><div class="v" id="kDet">—</div><div class="f"><span class="pill sim">Simulated positions</span></div></div>
+    <div class="tile"><div class="k">Verified mechanics</div><div class="v" id="kMech">—</div><div class="f"><span class="pill demo">Demo data</span></div></div>
+  </section>
+
+  <div class="grid">
+    <!-- ── bookings ───────────────────────────────────────────────────── -->
+    <section class="card" aria-labelledby="hBook">
+      <div class="head"><h2 id="hBook">Requests and bookings</h2><span class="pill demo">Demo data</span></div>
+      <p class="lead">Every booking in the database by its current status.</p>
+      <div class="row3">
+        <div><div class="v" id="bMatched">—</div><div class="k">matched to a mechanic</div></div>
+        <div><div class="v" id="bDone">—</div><div class="k">completed or paid</div></div>
+        <div><div class="v" id="bOffline">—</div><div class="k">created offline</div></div>
+      </div>
+      <h3>By status</h3>
+      <ul class="bars" id="bStatus" aria-label="Bookings by status"></ul>
+      <h3>Response times</h3>
+      <div class="scrollx">
+        <table id="bTimes">
+          <caption>Measured from the booking's own state-change history</caption>
+          <thead><tr><th scope="col">From the request to</th><th scope="col">Bookings</th><th scope="col">Median</th><th scope="col">90th percentile</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">a mechanic accepting</th><td id="tAn">—</td><td id="tA50">—</td><td id="tA90">—</td></tr>
+            <tr><th scope="row">the mechanic on site</th><td id="tRn">—</td><td id="tR50">—</td><td id="tR90">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prov" id="bProv"></p>
+      <details class="src"><summary>How this is counted</summary><p id="bBasis"></p><pre id="sBookings"></pre><pre id="sTimings"></pre></details>
+    </section>
+
+    <!-- ── SOS ─────────────────────────────────────────────────────────── -->
+    <section class="card" aria-labelledby="hSos">
+      <div class="head"><h2 id="hSos">SOS incidents</h2><span class="pill demo">Demo data</span></div>
+      <p class="lead">Emergencies raised by people: in the app, by SMS, by crash detection, or stored on a phone with no signal and synced later. RAKSHA's own road signals are counted separately, under coverage.</p>
+      <ul class="bars" id="sFunnel" aria-label="SOS incidents from raised to resolved"></ul>
+      <div class="row3">
+        <div><div class="v" id="sOffline">—</div><div class="k">raised offline, synced later</div></div>
+        <div><div class="v" id="sSms">—</div><div class="k">raised by SMS</div></div>
+        <div><div class="v" id="sCrash">—</div><div class="k">raised by crash detection</div></div>
+      </div>
+      <p class="lead" id="sDelay"></p>
+      <p class="prov" id="sProv"></p>
+      <details class="src"><summary>How this is counted</summary><pre id="sSos"></pre></details>
+    </section>
+
+    <!-- ── RAKSHA detections ───────────────────────────────────────────── -->
+    <section class="card" aria-labelledby="hDet">
+      <div class="head"><h2 id="hDet">RAKSHA road-damage detections</h2><span class="pill sim" id="dLabel">Simulated positions</span></div>
+      <p class="lead">Potholes, road damage and obstructions reported by edge devices, by class and severity (1 mild to 5 severe).</p>
+      <div class="scrollx">
+        <table class="heat" id="dHeat">
+          <caption>Detections by class and severity. Darker cells hold more.</caption>
+          <thead><tr><th scope="col">Class</th><th scope="col">1</th><th scope="col">2</th><th scope="col">3</th><th scope="col">4</th><th scope="col">5</th><th scope="col">All</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h3>Review funnel</h3>
+      <ul class="bars" id="dFunnel" aria-label="Detections by review outcome"></ul>
+      <p class="prov" id="dProv"></p>
+      <details class="src"><summary>How this is counted</summary><pre id="sDet"></pre></details>
+    </section>
+
+    <!-- ── citizen reports ─────────────────────────────────────────────── -->
+    <section class="card" aria-labelledby="hCit">
+      <div class="head"><h2 id="hCit">Citizen hazard reports</h2><span class="pill demo">Demo accounts</span></div>
+      <p class="lead">Hazards people reported from the app, with the phone's own GPS fix. A report stays advisory until an authority reviews it.</p>
+      <div class="row3">
+        <div><div class="v" id="cTotal">—</div><div class="k">reports</div></div>
+        <div><div class="v" id="cVer">—</div><div class="k">verified by an authority</div></div>
+        <div><div class="v" id="cPend">—</div><div class="k">awaiting review</div></div>
+      </div>
+      <h3>By class</h3>
+      <ul class="bars" id="cClass" aria-label="Citizen reports by class"></ul>
+      <p class="prov" id="cProv"></p>
+      <details class="src"><summary>How this is counted</summary><pre id="sCit"></pre></details>
+    </section>
+
+    <!-- ── map ─────────────────────────────────────────────────────────── -->
+    <section class="card wide" aria-labelledby="hMap">
+      <div class="head"><h2 id="hMap">Where the detections are</h2><span class="pill sim">Simulated positions</span></div>
+      <p class="lead" id="mLead">Detections counted into grid cells about 2 km across. Dismissed false positives are not drawn.</p>
+      <div class="mapbox">
+        <div id="map" role="img" aria-label="Map of detection counts by grid cell; the same figures are in the table below the map"></div>
+        <p class="mapnote" id="mNote" hidden></p>
+      </div>
+      <div class="ramp"><span>Fewer</span><i aria-hidden="true"></i><span>More</span><span id="mMax" class="muted"></span></div>
+      <details class="src"><summary>The cells as a table</summary>
+        <div class="scrollx"><table id="mTable"><caption>Busiest cells first (cell centre, rounded)</caption>
+          <thead><tr><th scope="col">Cell centre</th><th scope="col">Detections</th><th scope="col">Highest severity</th><th scope="col">Citizen reports</th></tr></thead>
+          <tbody></tbody></table></div>
+        <pre id="sCells"></pre>
+      </details>
+    </section>
+
+    <!-- ── coverage ────────────────────────────────────────────────────── -->
+    <section class="card" aria-labelledby="hCov">
+      <div class="head"><h2 id="hCov">Coverage</h2><span class="pill demo">Demo data</span></div>
+      <p class="lead">Who could be reached for help, and over how much ground.</p>
+      <div class="row3">
+        <div><div class="v" id="vMech">—</div><div class="k">verified mechanics</div></div>
+        <div><div class="v" id="vResp">—</div><div class="k">active responder units</div></div>
+        <div><div class="v" id="vArea">—</div><div class="k" id="vAreaK">km² within reach</div></div>
+      </div>
+      <ul class="bars" id="vList" aria-label="Coverage details"></ul>
+      <p class="prov" id="vProv"></p>
+      <details class="src"><summary>How this is counted</summary><p id="vDef"></p><pre id="sCov"></pre><pre id="sAcc"></pre></details>
+    </section>
+
+    <!-- ── languages ───────────────────────────────────────────────────── -->
+    <section class="card" aria-labelledby="hLang">
+      <div class="head"><h2 id="hLang">Languages</h2><span class="pill file">From the code</span></div>
+      <p class="lead">Every message the platform sends (OTP, SMS replies, emergency-contact alerts) exists in each of these.</p>
+      <ul class="langs" id="lList" aria-label="Languages available"></ul>
+      <p class="prov warn-line" id="lCaveat"></p>
+      <details class="src"><summary>How this is counted</summary><p id="sLang"></p></details>
+    </section>
+
+    <!-- ── tests ───────────────────────────────────────────────────────── -->
+    <section class="card wide" aria-labelledby="hTest">
+      <div class="head"><h2 id="hTest">Automated tests</h2><span class="pill file">From a file</span></div>
+      <p class="lead">The assertions the six suites run, as recorded in <code>app/docs/measured.json</code> with how each was obtained. The build fails if this page disagrees with that file.</p>
+      <div class="stat-tests"><div class="v" id="tTotal">1336</div><div class="l">automated assertions</div></div>
+      <div class="scrollx">
+        <table id="tSuites">
+          <caption id="tCap">As built into this page from app/docs/measured.json</caption>
+          <thead><tr><th scope="col">Suite</th><th scope="col">Assertions</th></tr></thead>
+          <tbody>
+            <tr data-suite="unit"><th scope="row">Unit</th><td>526</td></tr>
+            <tr data-suite="e2e"><th scope="row">End-to-end</th><td>283</td></tr>
+            <tr data-suite="concurrency"><th scope="row">Concurrency</th><td>107</td></tr>
+            <tr data-suite="gatewaySecurity"><th scope="row">Gateway security</th><td>58</td></tr>
+            <tr data-suite="securityAudit"><th scope="row">Security audit</th><td>108</td></tr>
+            <tr data-suite="browser"><th scope="row">Browser</th><td>254</td></tr>
+            <tr data-suite="total"><th scope="row">Total</th><td>1336</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="prov" id="tProv">Measured against a database migrated from empty, then seeded.</p>
+    </section>
+  </div>
+
+  <p class="foot">Aggregates only: no names, phone numbers, ids or exact positions leave the server, and the server refuses to
+    publish an answer that looks like it holds one. The numbers are recomputed at most once every 45 seconds per server, and this
+    page asks again every minute while it is open.</p>
+</main>
+
+<script src="vendor/leaflet.js"></script>
+<script>
+(function () {
+  "use strict";
+  var http = location.protocol === "http:" || location.protocol === "https:";
+  var BASE = !http ? "http://localhost:4000" : location.origin;
+  var REFRESH_MS = 60000;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var nf = new Intl.NumberFormat("en-IN");
+  function num(v) { return v == null ? "—" : nf.format(v); }
+  function text(id, v) { var e = $(id); if (e) e.textContent = v; }
+  function make(tag, cls, content) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (content != null) e.textContent = content;
+    return e;
+  }
+  function pill(cls, words) { return make("span", "pill " + cls, words); }
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  /** "48 s", "3 min 05 s", "2 h 10 min"; null stays "no samples", never 0. */
+  function dur(s) {
+    if (s == null) return "—";
+    s = Math.round(s);
+    if (s < 60) return s + " s";
+    if (s < 3600) return Math.floor(s / 60) + " min " + String(s % 60).padStart(2, "0") + " s";
+    return Math.floor(s / 3600) + " h " + String(Math.floor((s % 3600) / 60)).padStart(2, "0") + " min";
+  }
+
+  /** One-series bars: [[label, value], ...], scaled to the largest. */
+  function bars(id, rows) {
+    var ul = $(id); ul.textContent = "";
+    var max = rows.reduce(function (m, r) { return Math.max(m, r[1]); }, 0);
+    rows.forEach(function (r) {
+      var li = make("li");
+      var t = make("span", "t");
+      var fill = make("i", r[1] ? "" : "zero");
+      fill.style.width = (max ? (r[1] / max) * 100 : 0) + "%";
+      t.appendChild(fill);
+      li.title = r[0] + ": " + num(r[1]);
+      li.appendChild(make("span", "k", r[0])); li.appendChild(t); li.appendChild(make("span", "v", num(r[1])));
+      ul.appendChild(li);
+    });
+  }
+
+  // ── theme ──────────────────────────────────────────────────────────────
+  function isDark() {
+    var explicit = document.documentElement.getAttribute("data-theme");
+    if (explicit) return explicit === "dark";
+    return matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function paintBasemap() { document.documentElement.classList.toggle("map-dark", isDark()); }
+  paintBasemap();
+  $("themeBtn").addEventListener("click", function () {
+    var next = isDark() ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    try { localStorage.setItem("ra.theme", next); } catch (e) { /* per-page only */ }
+    paintBasemap(); drawCells();
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+    if (!document.documentElement.getAttribute("data-theme")) { paintBasemap(); drawCells(); }
+  });
+
+  // ── map ────────────────────────────────────────────────────────────────
+  var NH48 = [[28.34, 76.88], [28.50, 77.10]];
+  var map = null, cellLayer = null, lastMap = null, fitted = false;
+  function ensureMap() {
+    if (map || typeof L === "undefined") return;
+    map = L.map("map", { scrollWheelZoom: false, minZoom: 4, maxZoom: 16, zoomSnap: 0.25 });
+    map.fitBounds(NH48);
+    L.tileLayer(BASE + "/basemap/{z}/{x}/{y}.png", {
+      minZoom: 4, maxZoom: 16, attribution: "© OpenStreetMap contributors",
+      updateWhenIdle: true, keepBuffer: 2, crossOrigin: true,
+    }).addTo(map);
+    cellLayer = L.layerGroup().addTo(map);
+    window.addEventListener("resize", function () { map.invalidateSize(); });
+  }
+  function drawCells() {
+    if (!lastMap) return;
+    ensureMap();
+    var m = lastMap, note = $("mNote");
+    var half = m.cellDegrees / 2;
+    var max = m.cells.reduce(function (a, c) { return Math.max(a, c.count); }, 0);
+    text("mMax", max ? "(darkest cell: " + num(max) + ")" : "");
+    var tbody = $("mTable").querySelector("tbody"); tbody.textContent = "";
+    m.cells.forEach(function (c) {
+      var tr = make("tr");
+      tr.appendChild(make("th", null, c.lat.toFixed(2) + ", " + c.lng.toFixed(2))).setAttribute("scope", "row");
+      tr.appendChild(make("td", null, num(c.count)));
+      tr.appendChild(make("td", null, String(c.maxSeverity)));
+      tr.appendChild(make("td", null, num(c.citizen)));
+      tbody.appendChild(tr);
+    });
+    var withheld = m.suppressed.detections
+      ? num(m.suppressed.detections) + " detection(s) in " + num(m.suppressed.cells) + " cell(s) with fewer than " + m.minCount + " are not drawn, so no single report can be placed."
+      : "";
+    if (!map) { note.hidden = false; note.textContent = "The map library did not load. The cells are in the table below."; return; }
+    cellLayer.clearLayers();
+    var brand = cssVar("--brand") || "#4c5f00";
+    var bounds = [];
+    m.cells.forEach(function (c) {
+      var b = [[c.lat - half, c.lng - half], [c.lat + half, c.lng + half]];
+      bounds.push(b[0], b[1]);
+      var share = max ? c.count / max : 0;
+      L.rectangle(b, { color: brand, weight: 1, opacity: 0.9, fillColor: brand, fillOpacity: 0.18 + 0.62 * share })
+        .bindTooltip(num(c.count) + " detection" + (c.count === 1 ? "" : "s") + " in this cell<br>highest severity " + c.maxSeverity +
+          (c.citizen ? "<br>" + num(c.citizen) + " citizen report" + (c.citizen === 1 ? "" : "s") : ""), { sticky: true })
+        .addTo(cellLayer);
+    });
+    if (!m.cells.length) {
+      note.hidden = false;
+      note.textContent = "No detection has been recorded yet, so there is nothing to draw." + (withheld ? " " + withheld : "");
+    } else {
+      note.hidden = !withheld; note.textContent = withheld;
+      if (!fitted) { map.fitBounds(bounds, { padding: [24, 24], maxZoom: 13 }); fitted = true; }
+    }
+    setTimeout(function () { map.invalidateSize(); }, 50);
+  }
+
+  // ── render ─────────────────────────────────────────────────────────────
+  var CLASS = { pothole: "Pothole", road_damage: "Road damage", obstruction: "Obstruction" };
+  var STATUS = {
+    REQUESTED: "Requested", MATCHING: "Finding a mechanic", NO_SUPPLY: "Nobody in range", ASSIGNED: "Assigned",
+    EN_ROUTE: "On the way", ON_SITE: "On site", IN_PROGRESS: "Being fixed", AWAITING_PARTS: "Waiting for parts",
+    ESCALATED: "Escalated", COMPLETED: "Completed", PAID: "Paid", CANCELLED: "Cancelled", DRAFT: "Draft",
+  };
+  var STATUS_ORDER = Object.keys(STATUS);
+
+  function render(j) {
+    var d = j.data, src = (j.meta && j.meta.sources) || {};
+    var b = d.bookings, s = d.sos, r = d.raksha, v = d.coverage;
+
+    // headline
+    text("kRequests", num(b.requests));
+    text("kRequestsF", num(b.provenance.seededDirect) + " seeded, " + num(b.provenance.viaApi) + " through the app");
+    text("kAssign", dur(b.timings.timeToAssign.medianSeconds));
+    text("kAssignF", b.timings.timeToAssign.n ? "over " + num(b.timings.timeToAssign.n) + " bookings that went through the API" : "No booking has been accepted through the app yet");
+    text("kArrive", dur(b.timings.timeToArrive.medianSeconds));
+    text("kArriveF", b.timings.timeToArrive.n ? "over " + num(b.timings.timeToArrive.n) + " bookings; arrival is the mechanic's own tap" : "No mechanic has marked arrival through the app yet");
+    text("kSos", num(s.raised));
+    text("kOffline", num(s.raisedOfflineThenSynced));
+    text("kOfflineF", s.offlineDelay.medianSeconds != null ? "median " + dur(s.offlineDelay.medianSeconds) + " stored on the phone" : "None yet");
+    text("kDet", num(r.detections.total));
+    text("kMech", num(v.mechanics.verified));
+
+    // bookings
+    text("bMatched", num(b.matched)); text("bDone", num(b.completed)); text("bOffline", num(b.createdOffline));
+    bars("bStatus", STATUS_ORDER.filter(function (k) { return b.byStatus[k]; })
+      .map(function (k) { return [STATUS[k], b.byStatus[k]]; }));
+    var ta = b.timings.timeToAssign, tr = b.timings.timeToArrive;
+    text("tAn", num(ta.n)); text("tA50", dur(ta.medianSeconds)); text("tA90", dur(ta.p90Seconds));
+    text("tRn", num(tr.n)); text("tR50", dur(tr.medianSeconds)); text("tR90", dur(tr.p90Seconds));
+    provLine("bProv", "Seeded directly: " + num(b.provenance.seededDirect) + " · through the app: " + num(b.provenance.viaApi) + ". ", b.provenance.note);
+    text("bBasis", b.timings.basis);
+    text("sBookings", (src.bookings || "").trim()); text("sTimings", (src.timings || "").trim());
+
+    // SOS
+    bars("sFunnel", [["Raised", s.raised], ["Confirmed", s.confirmed], ["Resolved", s.resolved],
+      ["Cancelled (false alarm or stood down)", s.cancelled], ["Still open", s.active + s.awaitingConfirmation]]);
+    text("sOffline", num(s.raisedOfflineThenSynced)); text("sSms", num(s.bySms)); text("sCrash", num(s.crashDetected));
+    text("sDelay", s.offlineDelay.n
+      ? "An offline SOS waited on the phone for a median of " + dur(s.offlineDelay.medianSeconds) + " (90th percentile " + dur(s.offlineDelay.p90Seconds) + ") before it reached the platform."
+      : "No SOS has yet been raised offline and synced, so there is no waiting time to report.");
+    provLine("sProv", "Seeded directly: " + num(s.provenance.seededDirect) + " · through the app or SMS: " + num(s.provenance.viaApi) + ". ", s.provenance.note);
+    text("sSos", (src.sos || "").trim());
+
+    // detections
+    var det = r.detections;
+    text("dLabel", det.label === "MIXED" ? "Simulated and measured positions" : "Simulated positions");
+    var body = $("dHeat").querySelector("tbody"); body.textContent = "";
+    var hmax = 0;
+    Object.keys(CLASS).forEach(function (c) { [1, 2, 3, 4, 5].forEach(function (k) { hmax = Math.max(hmax, det.byClassSeverity[c][k]); }); });
+    Object.keys(CLASS).forEach(function (c) {
+      var row = make("tr"), th = make("th", null, CLASS[c]); th.scope = "row"; row.appendChild(th);
+      [1, 2, 3, 4, 5].forEach(function (k) {
+        var n = det.byClassSeverity[c][k], share = hmax ? n / hmax : 0;
+        var td = make("td", share > 0.55 ? "hot" : null, num(n));
+        td.style.background = n ? "color-mix(in srgb, var(--brand) " + Math.round(12 + 78 * share) + "%, transparent)" : "transparent";
+        td.title = CLASS[c] + ", severity " + k + ": " + num(n);
+        row.appendChild(td);
+      });
+      row.appendChild(make("td", null, num(det.byClass[c])));
+      body.appendChild(row);
+    });
+    var f = det.funnel;
+    bars("dFunnel", [["Awaiting review", f.pending], ["Verified by an authority", f.verified], ["Dismissed as false", f.dismissed],
+      ["of the verified: repair scheduled", f.repairScheduled], ["of the verified: repaired", f.repaired], ["of the verified: closed", f.closed]]);
+    provLine("dProv", "Positions: " + num(det.positions.simulated) + " simulated, " + num(det.positions.deviceGps) + " from device GPS. " +
+      num(v.raksha.simulatedDevices) + " of " + num(v.raksha.devices) + " devices are simulated. ", det.note);
+    text("sDet", (src.detections || "").trim());
+
+    // citizen reports
+    var c = r.citizenReports;
+    text("cTotal", num(c.total)); text("cVer", num(c.funnel.verified)); text("cPend", num(c.funnel.pending));
+    bars("cClass", Object.keys(CLASS).map(function (k) { return [CLASS[k], c.byClass[k]]; }));
+    provLine("cProv", num(c.funnel.dismissed) + " dismissed by an authority. ", c.note);
+    text("sCit", (src.detections || "").trim());
+
+    // map
+    lastMap = r.map;
+    text("mLead", "Detections counted into grid cells " + r.map.cellDegrees + "° (about 2 km) across, drawn at the cell, not at any one detection. " +
+      num(r.map.drawn) + " drawn. Dismissed false positives are not drawn.");
+    text("sCells", (src.cells || "").trim());
+    drawCells();
+
+    // coverage
+    text("vMech", num(v.mechanics.verified)); text("vResp", num(v.responders.active));
+    text("vArea", num(v.area.reachAreaKm2)); text("vAreaK", "km² within " + v.area.reachKm + " km of a verified mechanic");
+    bars("vList", [["Service districts with a verified mechanic", v.area.serviceZones], ["States", v.area.states],
+      ["Mechanics, verified or not", v.mechanics.total], ["Responder units, active or not", v.responders.total],
+      ["RAKSHA devices", v.raksha.devices], ["Monitored NH-48 segments", v.raksha.segments],
+      ["Road incidents RAKSHA raised for review", v.raksha.incidentSignals]]);
+    provLine("vProv", "Citizen accounts: " + num(d.accounts.citizens) + ", of which " + num(d.accounts.inSeedRange) +
+      " are the seed's synthetic citizens. Demo fleet mechanics: " + num(v.mechanics.demoFleet) + "; responders named '(simulated)': " +
+      num(v.responders.labelledSimulated) + ". ", v.note);
+    text("vDef", v.area.definition);
+    text("sCov", (src.coverage || "").trim()); text("sAcc", (src.accounts || "").trim());
+
+    // languages
+    var ul = $("lList"); ul.textContent = "";
+    d.languages.codes.forEach(function (code) {
+      var name = code;
+      try { name = new Intl.DisplayNames([code], { type: "language" }).of(code) || code; } catch (e) { /* older browser */ }
+      var li = make("li", null, name); li.lang = code; li.appendChild(make("span", null, code)); ul.appendChild(li);
+    });
+    text("lCaveat", d.languages.caveat);
+    text("sLang", "Read from " + (src.languages || "the code") + " at request time.");
+
+    // tests: the server's reading of measured.json when it can see the file
+    if (d.tests && d.tests.consistent) {
+      text("tTotal", num(d.tests.total));
+      Array.prototype.forEach.call($("tSuites").querySelectorAll("tr[data-suite]"), function (row) {
+        var k = row.getAttribute("data-suite");
+        var val = k === "total" ? d.tests.total : d.tests.suites[k];
+        if (val != null) row.querySelector("td").textContent = num(val);
+      });
+      text("tCap", "Read by the server from " + d.tests.source + " just now");
+      text("tProv", "Measured on " + d.tests.measuredOn + ", against " + d.tests.measuredAgainst + ". " +
+        (d.tests.notExecuted.paymentSandbox ? "The payment-sandbox suite (" + d.tests.notExecuted.paymentSandbox + ") needs a separately configured server, is not run, and is not counted." : ""));
+    }
+  }
+
+  function provLine(id, lead, note) {
+    var p = $(id); p.textContent = "";
+    p.appendChild(make("b", null, lead)); p.appendChild(document.createTextNode(note || ""));
+  }
+
+  // ── fetch ──────────────────────────────────────────────────────────────
+  var lastAsOf = null, timer = null;
+  function status(kind, words) {
+    var box = $("asof");
+    box.classList.toggle("is-stale", kind === "stale");
+    box.classList.toggle("is-error", kind === "error");
+    var t = $("asofText"); t.textContent = "";
+    words.forEach(function (w) { t.appendChild(typeof w === "string" ? document.createTextNode(w) : w); });
+  }
+  function when(iso) {
+    return new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+  async function load() {
+    clearTimeout(timer);
+    var wait = REFRESH_MS;
+    try {
+      var res = await fetch(BASE + "/v1/impact/summary", { cache: "no-store" });
+      var j = await res.json().catch(function () { return {}; });
+      if (res.status === 429) {
+        wait = Math.max(5, (j.error && j.error.retryAfterSeconds) || 30) * 1000;
+        throw new Error("The server asked this page to slow down; trying again in " + Math.round(wait / 1000) + " s.");
+      }
+      if (!res.ok || !j.data) throw new Error((j.error && j.error.title) || "The server answered " + res.status + ".");
+      render(j);
+      lastAsOf = j.data.asOf;
+      var age = j.meta && j.meta.cache ? j.meta.cache.ageSeconds : 0;
+      status("ok", ["As of ", make("b", null, when(j.data.asOf)), " · source: " + j.data.source +
+        (age ? " · computed " + age + " s ago on the server" : "")]);
+    } catch (e) {
+      // Old figures stay on screen only with their own timestamp beside them.
+      status(lastAsOf ? "stale" : "error", lastAsOf
+        ? ["Showing figures as of ", make("b", null, when(lastAsOf)), ". The latest refresh failed: " + e.message]
+        : ["Could not read the live database: " + e.message + " Nothing is shown rather than a guess."]);
+    }
+    timer = setTimeout(function tick() { if (document.hidden) { timer = setTimeout(tick, 5000); return; } load(); }, wait);
+  }
+  load();
+})();
+</script>
+</body>
+</html>

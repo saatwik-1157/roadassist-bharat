@@ -5,15 +5,130 @@ the **RDD2022 India** subset detecting `pothole` and `road_damage`, feeding the
 same idempotent ingestion pipeline the simulator uses.
 
 **Honest status:** all metrics below are **real, measured** on held-out data —
-no fabricated numbers. Training is **CPU-only on this box** (no CUDA), so every
-run is bounded by a wall-clock cap and is under-trained relative to what a GPU
-would reach — the loss curves were still descending when the cap hit. These are
-strong baselines and a working multi-country/multi-class pipeline, not converged
-production detectors; the single biggest lever left is simply **more epochs (a
-GPU or a longer run)**. `obstruction` has no verified dataset and stays
-rules-first (ADR-0006).
+no fabricated numbers. The runs in *Models trained* were **CPU-only**, each
+bounded by a wall-clock cap and under-trained — the loss curves were still
+descending when the cap hit. The current edge model (next section) is the
+first run trained to its full schedule, on a laptop GPU. Even so these are
+modest detectors, not production ones: read the per-class figures, not just
+the mean. `obstruction` has no verified dataset and stays rules-first
+(ADR-0006).
+
+### Current edge model: `yolo11n-india-ft-gpu`
+
+The model the web *Live road scan* and the Android *Scan road* screen run
+since 2026-10-08 (it replaced `yolo11n-multi-rich-gpu` the same day). It is
+that nano fine-tuned for India: warm-started from
+`yolo11n-multi-rich-gpu/weights/best.pt`, then 20 epochs on
+`data/yolo-india-ft` (every usable RDD2022-India train image relabelled with the
+4-class map and oversampled x2, plus the non-India part of `yolo-multi-rich`
+train; built by `road_damage/build_india_ft.py`, which refuses to write if any
+image of rich val, `yolo-full` val or India-clean is in it, checked by name and
+by sha256). 4 classes in index order `pothole, road_damage, faded_marking,
+manhole`, output `[1, 8, anchors]`.
+
+| Input | Where it runs | 4-country val (800): P / R / mAP50 / mAP50-95 | India-clean (392): mAP50 / mAP50-95 | ONNX |
+|---|---|---|---|---|
+| 640 | web (`raksha-yolo11n-india-ft-gpu.onnx`, sha256 `7b26bec8…`) | 0.593 / 0.566 / **0.586** / **0.287** | **0.500** / **0.217** | 10.6 MB |
+| 416 | Android (`raksha-yolo11n-india-ft-gpu-416.onnx`, sha256 `04a66285…`) | 0.567 / 0.506 / 0.516 / 0.245 | 0.449 / 0.195 | 10.5 MB |
+
+Per-class mAP50 at 640, 4-country val: pothole **0.389** · road_damage 0.547 ·
+faded_marking 0.588 · manhole 0.821; India-clean: pothole **0.422** ·
+road_damage 0.578. Potholes are still the weakest class.
+
+How it compares (`ai/runs/yolo11n-india-ft-gpu/compare.json`, every model
+scored by `eval_compare.py` on the same two splits):
+
+| Model | 4-country val, 4 classes (mAP50 / mAP50-95) | India-clean, pothole + road_damage | India-clean pothole |
+|---|---|---|---|
+| **`yolo11n-india-ft-gpu`** @640 (current edge) | **0.586** / 0.287 | **0.500** / **0.217** | **0.422** |
+| `yolo11n-india-ft-gpu` @416 | 0.516 / 0.245 | 0.449 / 0.195 | 0.381 |
+| `yolo11s-multi-rich-gpu` @640 (best YOLO11s, 38 MB) | 0.578 / 0.287 | 0.414 / 0.169 | 0.366 |
+| `yolo11n-multi-rich-gpu` @640 (its parent) | 0.547 / 0.262 | 0.396 / 0.160 | 0.333 |
+| `yolo11n-multi-rich-gpu` @416 | 0.499 / 0.236 | 0.360 / 0.151 | 0.289 |
+| `yolo11s-multi-rich` @512 (the previous best) | 0.471 / 0.226 | 0.293 / 0.113 | 0.258 |
+| `yolo11n-multi-edge` @512 (the previous edge model) | — (2 classes) | 0.299 / 0.119 | 0.263 |
+| baseline India-only `yolo11n` @480 | — (2 classes) | 0.441 / 0.183 | 0.411 |
+
+*India-clean* is `yolo-full` val minus every image that appears in any
+training split (including `yolo-india-ft`), so no model is graded on an image it
+trained on. The fine-tune is the best of every model here on both splits,
+including the India-only specialist on India data (0.500 against 0.441;
+potholes 0.422 against 0.411, a narrow margin). Its 4-country val rose too
+(0.547 to 0.586), so the India data did not cost the other countries. The
+specialist's 0.441 on the clean subset reproduces the 0.443 in the table below.
+Caveat: each model picked its best checkpoint on its own val split; the
+India-only model's was `yolo-full` val, which contains India-clean.
+
+**The runs.** All on an **NVIDIA GeForce RTX 3050 Laptop GPU (4 GB)**, CUDA
+12.6, torch 2.14.0, Ultralytics 8.4.126, imgsz 640, AMP, cosine LR, seed 0;
+artefacts in `ai/runs/<run>/` (gitignored), each with `metrics.json` (sha256 of
+every export) and `compare.json`.
+
+| Run | Start | Optimizer | Batch | Epochs | Best | Wall clock | Log |
+|---|---|---|---|---|---|---|---|
+| `yolo11n-multi-rich-gpu` | COCO `yolo11n.pt` | auto (AdamW 0.00125) | 16 | 50 of 50 | 50 | 2 h 13 min | `ai/train-gpu-yolo11n.log` |
+| `yolo11s-multi-rich-gpu` | `yolo11s-multi-rich/best.pt` | auto (AdamW 0.00125) | 8 | 137 (early stop, patience 25) | 112 | 4 h 54 min | `ai/train-gpu.log` |
+| `yolo11n-india-ft-gpu` | `yolo11n-multi-rich-gpu/best.pt` | AdamW, lr0 0.0005, warmup 1 | 16 | 20 of 20 | 20 | 1 h 30 min | `ai/train-gpu-india-ft.log` |
+
+The YOLO11s run converged (25 epochs without improvement), so the
+"under-trained" note no longer applies to it; it is not the edge model
+because the fine-tuned nano matches it at a quarter of the size.
+
+Reproduce, from `ai/road_damage` with the GPU venv (`ai/.venv-gpu`: torch
+CUDA build + ultralytics; `ai/.venv` is CPU-only torch):
+
+```bash
+# data/yolo-multi-rich: the 4-country split, --classes rich (Setup & reproduce, step 2)
+../.venv-gpu/Scripts/python train.py --data ../data/yolo-multi-rich/dataset.yaml \
+    --model yolo11n.pt --name yolo11n-multi-rich-gpu --device 0 \
+    --imgsz 640 --batch 16 --epochs 50 --hours 0 --workers 3 --save-period 5
+# YOLO11s, warm-started (5 h cap; it early-stopped at epoch 137)
+../.venv-gpu/Scripts/python train.py --data ../data/yolo-multi-rich/dataset.yaml \
+    --model ../runs/yolo11s-multi-rich/weights/best.pt --name yolo11s-multi-rich-gpu --device 0 \
+    --imgsz 640 --batch 8 --epochs 100 --hours 5 --workers 3 --save-period 5
+# the India fine-tune of the nano: build the leak-checked set, then 20 epochs at a low LR
+../.venv/Scripts/python build_india_ft.py
+../.venv-gpu/Scripts/python train.py --data ../data/yolo-india-ft/dataset.yaml \
+    --model ../runs/yolo11n-multi-rich-gpu/weights/best.pt --name yolo11n-india-ft-gpu --device 0 \
+    --imgsz 640 --batch 16 --epochs 20 --hours 0 --workers 2 --save-period 5 \
+    --optimizer AdamW --lr0 0.0005 --warmup-epochs 1
+# static ONNX at both sizes, each with a sidecar (classes from the model's metadata),
+# then .pt-vs-ONNX box parity through serve.py's decoder
+../.venv-gpu/Scripts/python export_onnx.py ../runs/yolo11n-india-ft-gpu/weights/best.pt --imgsz 640 416 --static
+../.venv-gpu/Scripts/python onnx_parity.py --pt ../runs/yolo11n-india-ft-gpu/weights/best.pt \
+    --onnx ../runs/yolo11n-india-ft-gpu/weights/best-640.onnx --images ../data/yolo-india-clean/images/val
+# the same splits for every model (India-clean is built on first use; results resume after a crash)
+../.venv-gpu/Scripts/python eval_compare.py --device 0 --out ../runs/yolo11n-india-ft-gpu/compare.json \
+    --model india-ft=../runs/yolo11n-india-ft-gpu/weights/best.pt@640,416 \
+    --model s-gpu=../runs/yolo11s-multi-rich-gpu/weights/best.pt@640 \
+    --model nano-gpu=../runs/yolo11n-multi-rich-gpu/weights/best.pt@640,416 \
+    --model base-11s-rich=../runs/yolo11s-multi-rich/weights/best.pt@512 \
+    --model base-11n-edge=../runs/yolo11n-multi-edge/weights/best.pt@512 \
+    --model base-11n-india=../../runs/runs/full/weights/best.pt@480
+python run_record.py ../runs/yolo11n-india-ft-gpu --label india-ft     # metrics.json + sha256
+# web: copy beside scan.html, write its sidecar, then the reference scan-check holds the browser to
+../.venv-gpu/Scripts/python web_model.py export --weights ../runs/yolo11n-india-ft-gpu/weights/best-640.onnx \
+    --name raksha-yolo11n-india-ft-gpu --map50 0.586 --map50-95 0.287 \
+    --class-map50 pothole=0.389 road_damage=0.547 faded_marking=0.588 manhole=0.821 \
+    --metrics-source "ai/runs/yolo11n-india-ft-gpu/compare.json: ..."
+../.venv-gpu/Scripts/python web_model.py reference \
+    --weights ../../app/apps/web/assets/models/raksha-yolo11n-india-ft-gpu.onnx \
+    --images ../../app/apps/web/assets/scan/*.jpg
+# Android: best-416.onnx into mobile/app/src/main/assets/detector/, named in detector.json, then
+../.venv-gpu/Scripts/python ../../mobile/tools/detector_parity_reference.py
+```
+
+`--hours 0` runs exactly `--epochs` (a capped run lets Ultralytics resize the
+schedule). Only `pothole` and `road_damage` can be reported from either app:
+`faded_marking` and `manhole` are shown with the reason, never filed (see
+*Serving the model over HTTP* below).
 
 ### Models trained (measured on held-out val)
+
+History: the CPU runs before the current edge model, each on its own val
+split as first published (the comparison table above re-scores them on shared
+splits). `yolo11n-multi-edge` was the web and Android scan model until
+2026-10-08.
 
 | Model | Data | Classes | Epochs | mAP50 | mAP50-95 | ONNX | ms/img (CPU) |
 |---|---|---|---|---|---|---|---|
@@ -34,8 +149,9 @@ Per-class mAP50 (rich model): pothole 0.242 · road_damage 0.431 · faded_markin
 partly lifted by the easy **manhole** class, and **potholes stay the hard case**
 (~0.24 — small objects, under-trained). The **nano edge** model matches the 11s
 on the 2-class task (0.293 vs 0.290) at ~1/4 the size and ~1/3 the latency — the
-recommended tier for Pi-class hardware. `yolo11s-multi-rich` is the most capable
-(4 asset types, best mAP); `faded_marking`/`manhole` need a server enum
+recommended tier for Pi-class hardware at the time. `yolo11s-multi-rich` was the most capable
+(4 asset types, best mAP) until `yolo11n-multi-rich-gpu` (above) beat it at a
+quarter of the size; `faded_marking`/`manhole` need a server enum
 extension before they can be *ingested* (see below), so they are not faked into
 the live pipeline yet.
 
@@ -234,16 +350,29 @@ endpoint is not implemented rather than leaving someone to wonder why wiring
 under `notIngestable` — reported so the data is not lost, separated so it is
 never sent to an ingest enum that would reject it.
 
+The two scan apps follow the same rule and say why (web `scan-core.js`
+`NOT_REPORTABLE`, Android `detector.json` `reportAs`). Neither class maps
+honestly onto `pothole|road_damage|obstruction`: `road_damage` is cracking
+(D00/D10/D20 in `convert_voc_to_yolo.py`), so a worn line filed under it
+would send a pavement crew to repaint; and D50 labels every manhole cover,
+closed ones included, so filing it as `obstruction` would pin a hazard on
+every intact cover.
+
 ---
 
 ## Edge runtime (ONNX)
 
 ```bash
+# the current edge model (static 640 and 416 exports: see "Current edge model" above)
+../.venv-gpu/Scripts/python export_onnx.py ../runs/yolo11n-india-ft-gpu/weights/best.pt --imgsz 640 416 --static
+../.venv/Scripts/python detect.py --weights ../runs/yolo11n-india-ft-gpu/weights/best-640.onnx --source <images> --imgsz 640
+# history: the earlier nano, dynamic 512
 ../.venv/Scripts/yolo export model=../runs/yolo11n-multi-edge/weights/best.pt format=onnx imgsz=512 dynamic=True
-../.venv/Scripts/python detect.py --weights ../runs/yolo11n-multi-edge/weights/best.onnx --source <images> --imgsz 512
 ```
 
-The nano ONNX is 10 MB at ~48 ms/image on this CPU — the Pi-class tier. Ingesting
+The figures in the rest of this section are the earlier `yolo11n-multi-edge`
+export's; the current model's CPU latency has not been measured the same way.
+That nano ONNX is 10 MB at ~48 ms/image on this CPU — the Pi-class tier. Ingesting
 the rich model's `faded_marking`/`manhole` classes needs the server detection
 enum (`pothole|road_damage|obstruction`) extended first — not yet wired, so those
 classes are trained and measured but not faked into the live ingest path.

@@ -53,6 +53,13 @@ async function operatorToken() {
   return v.data?.roles?.includes("admin") ? v.data.accessToken : null;
 }
 const adminTokenEarly = await operatorToken();
+/**
+ * Who accepts offers in this suite: the operator, who is authorised on every
+ * offer of every booking, which keeps each race about the race alone. (The
+ * booking's customer and the offered mechanic may accept too; §6g races two
+ * customers' own accepts.)
+ */
+const acceptToken = adminTokenEarly;
 const ALPHABET = "ABCDEFGHJKMNPQRSTVWXYZ23456789";
 const clientId = () => "RA-" + Array.from({ length: 6 },
   () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join("");
@@ -186,13 +193,12 @@ ok("dispatch produced at least two offers to race", first.offers.length >= 2,
 section("1. Two providers cannot both accept the same job");
 
 if (first.offers.length >= 2) {
-  // Fired together, deliberately. The customer's token is used because the
-  // customer is an authorised actor on every offer for their own booking —
-  // which isolates the RACE from any authorisation difference between two
-  // mechanic accounts.
+  // Fired together, deliberately. The operator's token is used because it is
+  // an authorised actor on every offer — which isolates the RACE from any
+  // authorisation difference between two mechanic accounts.
   const [a, b] = await Promise.all([
-    call("POST", `/v1/offers/${first.offers[0].id}/accept`, { token: customer.token }),
-    call("POST", `/v1/offers/${first.offers[1].id}/accept`, { token: customer.token }),
+    call("POST", `/v1/offers/${first.offers[0].id}/accept`, { token: acceptToken }),
+    call("POST", `/v1/offers/${first.offers[1].id}/accept`, { token: acceptToken }),
   ]);
   const winners = [a, b].filter((r) => r.status === 200);
   const losers = [a, b].filter((r) => r.status !== 200);
@@ -215,7 +221,7 @@ if (first.offers.length >= 2) {
 
   const losingOffer = first.offers.find((o) => o.id !== winners[0]?.data?.offerId);
   ok("the losing offer cannot be accepted afterwards either",
-     (await call("POST", `/v1/offers/${losingOffer.id}/accept`, { token: customer.token })).status === 409);
+     (await call("POST", `/v1/offers/${losingOffer.id}/accept`, { token: acceptToken })).status === 409);
   await release(first.booking.id, customer.token);
 }
 
@@ -229,7 +235,7 @@ if (storm.offers.length >= 2) {
   const attempts = [];
   for (let i = 0; i < 10; i++) {
     const offer = storm.offers[i % storm.offers.length];
-    attempts.push(call("POST", `/v1/offers/${offer.id}/accept`, { token: stormActor.token }));
+    attempts.push(call("POST", `/v1/offers/${offer.id}/accept`, { token: acceptToken }));
   }
   const results = await Promise.all(attempts);
   const succeeded = results.filter((r) => r.status === 200);
@@ -257,7 +263,7 @@ if (expiring.offers.length) {
   const ttl = Number(process.env.OFFER_TTL_SECONDS ?? 0);
   if (ttl > 0 && ttl <= 5) {
     await new Promise((r) => setTimeout(r, (ttl + 1) * 1000));
-    const late = await call("POST", `/v1/offers/${expiring.offers[0].id}/accept`, { token: expiryActor.token });
+    const late = await call("POST", `/v1/offers/${expiring.offers[0].id}/accept`, { token: acceptToken });
     ok("an offer accepted after its window is refused", late.status === 409, `${late.status} ${late.error?.code}`);
     ok("…and the refusal says it expired", late.error?.code === "offer_expired", late.error?.code);
   } else {
@@ -266,10 +272,10 @@ if (expiring.offers.length) {
 
   // The invariant that does not need a clock: an offer for a booking that is
   // already assigned is dead, however fresh it is.
-  await call("POST", `/v1/offers/${expiring.offers[0].id}/accept`, { token: expiryActor.token });
+  await call("POST", `/v1/offers/${expiring.offers[0].id}/accept`, { token: acceptToken });
   const second = expiring.offers[1];
   if (second) {
-    const dead = await call("POST", `/v1/offers/${second.id}/accept`, { token: expiryActor.token });
+    const dead = await call("POST", `/v1/offers/${second.id}/accept`, { token: acceptToken });
     ok("a live offer on an assigned booking is dead too", dead.status === 409,
        `${dead.status} ${dead.error?.code}`);
   }
@@ -338,7 +344,7 @@ section("6. Two commands on one booking cannot both apply");
 const raceActor = await makeCustomer();
 const race = await freshDispatchedBooking(raceActor);
 if (race.offers.length) {
-  await call("POST", `/v1/offers/${race.offers[0].id}/accept`, { token: raceActor.token });
+  await call("POST", `/v1/offers/${race.offers[0].id}/accept`, { token: acceptToken });
   const [t1, t2] = await Promise.all([
     call("POST", `/v1/bookings/${race.booking.id}/transition`, { token: raceActor.token, body: { command: "cancel" } }),
     call("POST", `/v1/bookings/${race.booking.id}/transition`, { token: raceActor.token, body: { command: "cancel" } }),
@@ -367,7 +373,7 @@ section("6b. Two settlements of one booking leave one payment");
 const payActor = await makeCustomer();
 const payRace = await freshDispatchedBooking(payActor);
 if (payRace.offers.length) {
-  await call(`POST`, `/v1/offers/${payRace.offers[0].id}/accept`, { token: payActor.token });
+  await call(`POST`, `/v1/offers/${payRace.offers[0].id}/accept`, { token: acceptToken });
   for (const command of ["mechanic.start_travel", "arrive", "work.start", "work.complete"]) {
     await call(`POST`, `/v1/bookings/${payRace.booking.id}/transition`,
                { token: payActor.token, body: { command } });
@@ -523,6 +529,186 @@ section("6e. The five-contact cap holds under simultaneous adds");
   const sameList = await call("GET", "/v1/me/emergency-contacts", { token: dActor.token });
   ok("one number added three times at once is stored once", sameList.data?.length === 1,
      `${sameList.data?.length} stored; ${same.map((r) => r.status).join(",")}`);
+}
+
+// ══ 6f. Twelve dispatches at once, and the API still answers ══════════════
+// The dispatch route held one pooled connection for its advisory lock and ran
+// its queries on the pool beside it — two connections per dispatch, against a
+// pool of ten. Ten at once took every connection as a lock holder, each waiting
+// for an eleventh, and the whole API froze: /health included, for good. Every
+// query after the lock now runs on the lock's own transaction.
+section("6f. Twelve simultaneous dispatches complete, and /health stays responsive");
+{
+  const items = [];
+  for (let u = 0; u < 3; u++) {
+    const who = await makeCustomer();
+    for (let k = 0; k < 4; k++) {
+      // Open sea: nobody to offer, so each search ends in NO_SUPPLY and holds no provider.
+      const b = await call("POST", "/v1/bookings", {
+        token: who.token,
+        body: { vehicleId: who.vehicleId, serviceTypeCode: "battery_jumpstart", lat: 11.0 + u * 0.3 + k * 0.05, lng: 60.0 },
+      });
+      if (b.data?.id) { items.push({ who, id: b.data.id }); createdBookings.push({ id: b.data.id, token: who.token }); }
+    }
+  }
+  const health = async () => {
+    const t0 = Date.now();
+    try {
+      const r = await fetch(BASE + "/health", { signal: AbortSignal.timeout(5000) });
+      return { status: r.status, ms: Date.now() - t0 };
+    } catch (e) { return { status: e.name, ms: Date.now() - t0 }; }
+  };
+  const inFlight = items.map(({ who, id }) => fetch(BASE + `/v1/bookings/${id}/dispatch`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${who.token}` },
+    body: JSON.stringify({ radiusKm: 5 }), signal: AbortSignal.timeout(20000),
+  }).then((r) => r.status).catch((e) => e.name));
+  await new Promise((r) => setTimeout(r, 300));
+  const during = await health();
+  const statuses = await Promise.all(inFlight);
+  const afterwards = await health();
+  ok("twelve bookings were set up to dispatch together", items.length === 12, `${items.length}`);
+  ok("all twelve simultaneous dispatches complete", statuses.length === 12 && statuses.every((s) => s === 200),
+     statuses.join(","));
+  ok("/health answers while they are in flight", during.status === 200, `${during.status} in ${during.ms} ms`);
+  ok("…and afterwards", afterwards.status === 200, `${afterwards.status} in ${afterwards.ms} ms`);
+}
+
+// ══ 6g–6h. Races that need providers of their own ═════════════════════════
+// Placed far out to sea through the database, so nothing else in the suite can
+// be offered to them and nothing here borrows the shared supply; put back after.
+{
+  const { default: postgres } = await import("postgres");
+  const seaSql = postgres(
+    process.env.DATABASE_URL ?? "postgres://roadassist:devpassword@localhost:5434/roadassist",
+    { max: 1, onnotice: () => {} },
+  );
+  const borrowed = await seaSql`
+    SELECT m.id, ST_Y(m.last_location) AS lat, ST_X(m.last_location) AS lng, m.is_available
+      FROM mechanics m
+     WHERE m.verified AND m.deleted_at IS NULL AND m.last_location IS NOT NULL
+       AND NOT ST_DWithin(m.last_location::geography, ST_SetSRID(ST_MakePoint(77.0266, 28.4595), 4326)::geography, 150000)
+       AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.mechanic_id = m.id
+                        AND b.status IN ('ASSIGNED','EN_ROUTE','ON_SITE','IN_PROGRESS','AWAITING_PARTS','ESCALATED'))
+     ORDER BY m.id DESC LIMIT 5`;
+  const place = (m, lat, lng) => seaSql`
+    UPDATE mechanics SET is_available = true, last_location = ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)
+     WHERE id = ${m.id}`;
+  try {
+    // ── 6g. One mechanic, two jobs ──
+    // Each accept locked its own booking, and nothing locked the mechanic: two
+    // offers to one mechanic, accepted together, both went ASSIGNED to them.
+    // Here each customer chooses that mechanic for their own job at once.
+    section("6g. One mechanic cannot be assigned two jobs at once");
+    const solo = borrowed[0];
+    await place(solo, 10.0, 63.0);
+    const jobs = [];
+    for (const dLat of [0.01, -0.01]) {
+      const who = await makeCustomer();
+      const b = await call("POST", "/v1/bookings", {
+        token: who.token, body: { vehicleId: who.vehicleId, serviceTypeCode: "battery_jumpstart", lat: 10.0 + dLat, lng: 63.0 },
+      });
+      createdBookings.push({ id: b.data?.id, token: who.token });
+      const d = await call("POST", `/v1/bookings/${b.data?.id}/dispatch`, { token: who.token, body: { radiusKm: 5, limit: 1 } });
+      jobs.push({ who, id: b.data?.id, offer: d.data?.offers?.[0] });
+    }
+    ok("both jobs were offered to the same lone mechanic",
+       jobs.every((j) => j.offer?.mechanicId === solo.id), jobs.map((j) => String(j.offer?.mechanicId).slice(0, 8)).join(","));
+    const both = await Promise.all(jobs.map((j) => call("POST", `/v1/offers/${j.offer?.id}/accept`, { token: j.who.token })));
+    const [{ n: holding }] = await seaSql`
+      SELECT count(*)::int AS n FROM bookings WHERE mechanic_id = ${solo.id}
+         AND status IN ('ASSIGNED','EN_ROUTE','ON_SITE','IN_PROGRESS','AWAITING_PARTS','ESCALATED')`;
+    ok("exactly one of two customers choosing the same mechanic at once wins", both.filter((r) => r.status === 200).length === 1,
+       both.map((r) => `${r.status} ${r.error?.code ?? ""}`).join(", "));
+    ok("the other is a 409, not a 500", both.filter((r) => r.status === 409).length === 1);
+    ok("the database holds the mechanic on one job, not two", holding === 1, `${holding} active job(s)`);
+    for (const j of jobs) await release(j.id, j.who.token);
+
+    // ── 6h. Two declines at once ──
+    // Each decline ran escalate(), each found no live offer, and each sent a
+    // wave: the same providers were offered the same job twice.
+    section("6h. Two declines at once send the next wave once");
+    const four = borrowed.slice(1, 5);
+    for (const [k, m] of four.entries()) await place(m, 9.0 + 0.01 * (k + 1), 64.0);
+    const decliner = await makeCustomer();
+    let doubled = 0, waves = 0, trials = 0;
+    for (let t = 0; t < 3; t++) {
+      const b = await call("POST", "/v1/bookings", {
+        token: decliner.token, body: { vehicleId: decliner.vehicleId, serviceTypeCode: "battery_jumpstart", lat: 9.0, lng: 64.0 },
+      });
+      if (!b.data?.id) break;
+      createdBookings.push({ id: b.data.id, token: decliner.token });
+      const d = await call("POST", `/v1/bookings/${b.data.id}/dispatch`, { token: decliner.token, body: { radiusKm: 10, limit: 2 } });
+      const offers = d.data?.offers ?? [];
+      if (offers.length !== 2) break;
+      trials++;
+      await Promise.all(offers.map((o) => call("POST", `/v1/offers/${o.id}/decline`, { token: acceptToken })));
+      const rows = await seaSql`
+        SELECT mechanic_id, count(*)::int AS n FROM dispatch_offers WHERE booking_id = ${b.data.id} GROUP BY 1`;
+      const [{ n: escalations }] = await seaSql`
+        SELECT count(*)::int AS n FROM audit_log WHERE entity_id = ${b.data.id} AND action = 'dispatch.escalated'`;
+      if (rows.some((r) => r.n > 1) || rows.length > 4) doubled++;
+      waves += escalations;
+      await release(b.data.id, decliner.token);
+    }
+    ok("three trials of two simultaneous declines ran", trials === 3, `${trials}`);
+    ok("no provider is offered the same job twice", doubled === 0, `${doubled} trial(s) with a repeated offer`);
+    ok("each pair of declines sends exactly one next wave", waves === trials, `${waves} escalation(s) in ${trials} trial(s)`);
+  } finally {
+    for (const m of borrowed) {
+      await seaSql`UPDATE mechanics SET is_available = ${m.is_available},
+                     last_location = ST_SetSRID(ST_MakePoint(${m.lng}, ${m.lat}), 4326) WHERE id = ${m.id}`;
+    }
+    await seaSql.end({ timeout: 5 });
+  }
+}
+
+// ══ 6i. One idempotency key, four simultaneous requests ═══════════════════
+// The key was read before the booking was written and stored after it, so
+// four requests carrying it all read "unseen" and created four bookings.
+section("6i. Simultaneous bookings with one idempotency key create one booking");
+{
+  const who = await makeCustomer();
+  const key = "conc-idem-" + Math.random().toString(36).slice(2, 10);
+  const body = { vehicleId: who.vehicleId, serviceTypeCode: "battery_jumpstart", lat: 28.4595, lng: 77.0266, idempotencyKey: key };
+  const res = await Promise.all([1, 2, 3, 4].map(() => call("POST", "/v1/bookings", { token: who.token, body })));
+  const refs = new Set(res.map((r) => r.data?.reference));
+  const mine = await call("GET", "/v1/bookings", { token: who.token });
+  for (const r of mine.data ?? []) createdBookings.push({ id: r.id, token: who.token });
+  ok("all four are answered with the same booking", res.every((r) => r.status === 201) && refs.size === 1,
+     res.map((r) => `${r.status}:${r.data?.reference}`).join(" "));
+  ok("and exactly one booking exists", mine.data?.length === 1, `${mine.data?.length} stored`);
+  for (const r of mine.data ?? []) await release(r.id, who.token);
+}
+
+// ══ 6j. One registration plate, two writers ═══════════════════════════════
+// Both requests passed the "already registered?" read, and the loser met the
+// unique index as a 500. It is the same clash the read reports: a 409.
+section("6j. Two writes of one registration plate: a 409, never a 500");
+{
+  const a = await signIn(), b = await signIn();
+  const statuses = [];
+  for (let t = 0; t < 3; t++) {
+    const plate = "RC" + Math.floor(1000 + Math.random() * 8999) + Math.random().toString(36).slice(2, 5).toUpperCase();
+    const adds = await Promise.all([a, b].map((w) => call("POST", "/v1/vehicles", {
+      token: w.token, body: { registrationNo: plate, vehicleClass: "car" },
+    })));
+    statuses.push(adds.map((r) => r.status).sort().join("+"));
+  }
+  ok("two simultaneous adds of one plate: one 201, one 409", statuses.every((s) => s === "201+409"), statuses.join(" "));
+
+  const renames = [];
+  for (let t = 0; t < 3; t++) {
+    const own = await Promise.all([a, b].map((w) => call("POST", "/v1/vehicles", {
+      token: w.token, body: { registrationNo: "RN" + Math.floor(1000 + Math.random() * 8999) + Math.random().toString(36).slice(2, 5).toUpperCase(), vehicleClass: "car" },
+    })));
+    const target = "RT" + Math.floor(1000 + Math.random() * 8999) + Math.random().toString(36).slice(2, 5).toUpperCase();
+    const r = await Promise.all([a, b].map((w, i) => call("PATCH", `/v1/vehicles/${own[i].data?.id}`, {
+      token: w.token, body: { registrationNo: target },
+    })));
+    renames.push(r.map((x) => x.status).sort().join("+"));
+  }
+  ok("two simultaneous renames onto one plate: one 200, one 409", renames.every((s) => s === "200+409"), renames.join(" "));
 }
 
 // ══ 7. Rate limiting protects without breaking the emergency path ══════════
@@ -684,7 +870,7 @@ if (watched.offers.length) {
   await new Promise((r) => setTimeout(r, 300));
 
   const t0 = Date.now();
-  await call("POST", `/v1/offers/${watched.offers[0].id}/accept`, { token: watchActor.token });
+  await call("POST", `/v1/offers/${watched.offers[0].id}/accept`, { token: acceptToken });
   await listener.wait();
   const elapsed = Date.now() - t0;
 
@@ -707,7 +893,7 @@ await new Promise((r) => setTimeout(r, 300));
 
 const ownActor = await makeCustomer();
 const own = await freshDispatchedBooking(ownActor);
-if (own.offers.length) await call("POST", `/v1/offers/${own.offers[0].id}/accept`, { token: ownActor.token });
+if (own.offers.length) await call("POST", `/v1/offers/${own.offers[0].id}/accept`, { token: acceptToken });
 await new Promise((r) => setTimeout(r, 800));
 outsiderListener.stop();
 await outsiderListener.wait();
@@ -795,7 +981,7 @@ if (offer1) {
     ok("declining the same offer twice is refused, not double-counted",
        replayDecline.status === 409, `${replayDecline.status} ${replayDecline.error?.code}`);
 
-    const acceptDeclined = await call("POST", `/v1/offers/${offer1.id}/accept`, { token: soloActor.token });
+    const acceptDeclined = await call("POST", `/v1/offers/${offer1.id}/accept`, { token: acceptToken });
     ok("a declined offer can never then be accepted", acceptDeclined.status === 409,
        `${acceptDeclined.status} ${acceptDeclined.error?.code}`);
   } else {
@@ -812,7 +998,7 @@ const busyActor = await makeCustomer();
 const busyBooking = await freshDispatchedBooking(busyActor);
 if (busyBooking.offers.length) {
   const taken = busyBooking.offers[0];
-  const accepted = await call("POST", `/v1/offers/${taken.id}/accept`, { token: busyActor.token });
+  const accepted = await call("POST", `/v1/offers/${taken.id}/accept`, { token: acceptToken });
   ok("a provider accepts and becomes committed", accepted.status === 200, `${accepted.status}`);
 
   // A second customer at the same coordinates must not be offered the mechanic

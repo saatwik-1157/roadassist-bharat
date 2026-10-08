@@ -197,7 +197,7 @@ flowchart LR
   end
 
   subgraph Render["Render · Docker · Singapore"]
-    API["Fastify API · 74 routes<br/>zod validation · JWT + rotating refresh<br/>CSP & security headers · rate limits"]
+    API["Fastify API · 75 routes<br/>zod validation · JWT + rotating refresh<br/>CSP & security headers · rate limits"]
     MOD["Modules: auth · bookings · dispatch<br/>emergency · telecom · payments · RAKSHA"]
     API --> MOD
   end
@@ -227,9 +227,13 @@ flowchart LR
 
 This has to be stated precisely, so it comes before the numbers.
 
-**RAKSHA road-damage detection is a genuinely trained YOLO11 model.** The best
-`mAP50` is **0.472** (`mAP50-95` 0.226; YOLO11s, run `yolo11s-multi-rich`) on
-held-out validation, trained on RDD2022 across four countries. The weights and
+**RAKSHA road-damage detection is a genuinely trained YOLO11 model.** The
+shipped model, YOLO11n `yolo11n-india-ft-gpu` (the 4-country model fine-tuned
+on RDD2022 India), scores `mAP50` **0.586** (`mAP50-95` 0.287) at 640 px on the
+held-out 4-country validation split (800 images, 4 classes) and **0.500**
+(0.217) on a held-out India split no model trained on (392 images); potholes
+are its weakest class (0.422 on that India split). The Android app runs it at
+416 px: 0.516 / 0.245 and 0.449 / 0.195. The weights and
 per-epoch metrics live in `ai/runs/`, which is gitignored. A clone gets the
 pipeline, the measured figures and the commands that produced them, but not the
 artefacts. See [ai/README.md](ai/README.md).
@@ -257,12 +261,12 @@ with it.
 
 | | |
 |---|---|
-| **1162 assertions**, six suites, zero failures | 462 unit · 249 e2e · 92 concurrency · 106 attacks · 58 gateway security · 195 browser |
-| Android | 190 tests, zero lint errors, release APK under R8 |
+| **1336 assertions**, six suites, zero failures | 526 unit · 283 e2e · 107 concurrency · 108 attacks · 58 gateway security · 254 browser |
+| Android | 304 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`), run against a local stub of Razorpay's Orders API. They need an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so they sit outside the six suites and are never described as passing |
-| Schema | 58 tables · 142 indexes · 9 migrations |
-| API | 74 routes: 71 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
+| Schema | 58 tables · 143 indexes · 9 migrations |
+| API | 75 routes: 72 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
 | Localisation | 8 languages, **not native-reviewed** |
 
 CI also kills PostgreSQL under a running API and checks that the platform is
@@ -275,7 +279,7 @@ re-verifies the audit hash chain on the restored copy.
 
 ## Security
 
-The security suite fires **106 attacks that must every one be refused**:
+The security suite fires **108 attacks that must every one be refused**:
 - cross-tenant reads and writes;
 - role escalation and id manipulation;
 - SQL injection;
@@ -337,7 +341,7 @@ npm run verify               # typecheck · lint · boundaries · claims · cita
 ```
 
 **Android:** `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease`
-(190 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
+(304 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
 install talks to the live platform. To use a local API instead, install a debug
 build (a release build is HTTPS only), long-press the wordmark on the sign-in
 screen and enter its address, for example `10.0.2.2:4000` from the emulator.
@@ -413,7 +417,7 @@ idempotently.
 
 | Path | What | Toolchain |
 |---|---|---|
-| [`app/apps/api`](app/apps/api) | Fastify API: 74 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
+| [`app/apps/api`](app/apps/api) | Fastify API: 75 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
 | [`app/apps/web`](app/apps/web) | Citizen, mechanic, authority, map and 3D surfaces | Plain HTML/CSS/JS |
 | [`app/packages/db`](app/packages/db) | Drizzle schema, migrations, seeds | PostgreSQL 16 + PostGIS |
 | [`app/scripts`](app/scripts) | Six test runners, the claims and citation gates, the RAKSHA simulator | Node |

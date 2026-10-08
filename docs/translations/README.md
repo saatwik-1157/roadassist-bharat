@@ -9,7 +9,7 @@ without reading any code.
 |---|---|---|
 | `review-sms-server.csv` | SMS replies a feature phone receives (`app/apps/api/src/i18n.ts`) | 21 |
 | `review-web-app.csv` | The citizen web app (`app/apps/web/i18n.js`) | 45 |
-| `review-android.csv` | The Android app (`mobile/app/src/main/res/values-*/strings.xml`) | 174 (173 keys; the one plural has a row per form) |
+| `review-android.csv` | The Android app (`mobile/app/src/main/res/values-*/strings.xml`) | 243 (242 keys; the one plural has a row per form) |
 
 ## How to review
 

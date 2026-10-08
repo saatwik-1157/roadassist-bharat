@@ -11,8 +11,10 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import Fastify from "fastify";
 import {
-  contentSecurityPolicy, inlineScriptHashes, inlineScripts, scriptHash, servedPages, staticHeaders,
+  contentSecurityPolicy, inlineScriptHashes, inlineScripts, pageHeaders, registerSecurityHeaders, scriptHash,
+  servedPages, staticHeaders,
 } from "../src/security-headers.js";
 
 /** The directory server.ts serves the pages from. */
@@ -165,5 +167,56 @@ test("HSTS is sent over HTTPS only; nosniff and a referrer policy always", () =>
     assert.equal(h["x-content-type-options"], "nosniff");
     assert.equal(h["referrer-policy"], "strict-origin-when-cross-origin");
     assert.match(h["permissions-policy"], /geolocation=\(self\)/);
+  }
+});
+
+/**
+ * The live road scan (scan.html) is the one page allowed the camera, and the
+ * one page that is cross-origin isolated, so ONNX Runtime's WebAssembly build
+ * can use threads. Everything else keeps the camera off and the usual opener
+ * policy - the citizen app's payment popup would not survive same-origin.
+ */
+test("only the road scan page may use the camera, and only it is cross-origin isolated", () => {
+  const scan = pageHeaders("/scan.html");
+  assert.match(scan["permissions-policy"], /(^|, )camera=\(self\)/);
+  assert.match(scan["permissions-policy"], /geolocation=\(self\)/);
+  assert.match(scan["permissions-policy"], /microphone=\(\)/, "the scan page needs no microphone");
+  assert.equal(scan["cross-origin-opener-policy"], "same-origin");
+  assert.equal(scan["cross-origin-embedder-policy"], "require-corp");
+  assert.deepEqual(pageHeaders("/scan.html?source=sample"), scan, "a query string does not lose the overrides");
+
+  // ONNX Runtime's thread workers come from vendor/ort/; an isolated page's
+  // worker must declare COEP itself or Chrome never starts it.
+  assert.deepEqual(pageHeaders("/vendor/ort/ort-wasm-simd-threaded.jsep.mjs"), { "cross-origin-embedder-policy": "require-corp" });
+
+  for (const path of ["/app.html", "/", "/raksha.html", "/map.html", "/v1/raksha/report", "/scan.htm", "/x/scan.html", "/vendor/leaflet.js"]) {
+    assert.deepEqual(pageHeaders(path), {}, `${path} gets no page-specific headers`);
+  }
+  // The default stays exactly as strict as it was.
+  assert.match(staticHeaders(false)["permissions-policy"], /camera=\(\)/);
+  assert.equal(staticHeaders(false)["cross-origin-opener-policy"], "same-origin-allow-popups");
+});
+
+test("the server sends the scan page's headers on scan.html and the defaults everywhere else", async () => {
+  const app = Fastify();
+  registerSecurityHeaders(app, { frameAncestors: [], razorpay: false });
+  app.get("/scan.html", async (_req, reply) => reply.type("text/html").send("<p>scan</p>"));
+  app.get("/app.html", async (_req, reply) => reply.type("text/html").send("<p>app</p>"));
+  try {
+    const scan = await app.inject({ method: "GET", url: "/scan.html?source=camera" });
+    assert.match(String(scan.headers["permissions-policy"]), /camera=\(self\)/);
+    assert.equal(scan.headers["cross-origin-opener-policy"], "same-origin");
+    assert.equal(scan.headers["cross-origin-embedder-policy"], "require-corp");
+    // Isolation needs every subresource to opt in; this origin's files already do.
+    assert.equal(scan.headers["cross-origin-resource-policy"], "same-site");
+    // The content security policy is the same strict one: no third-party script.
+    assert.deepEqual(dir(String(scan.headers["content-security-policy"]), "script-src"), ["'self'", "'wasm-unsafe-eval'"]);
+
+    const other = await app.inject({ method: "GET", url: "/app.html" });
+    assert.match(String(other.headers["permissions-policy"]), /camera=\(\)/);
+    assert.equal(other.headers["cross-origin-opener-policy"], "same-origin-allow-popups");
+    assert.equal(other.headers["cross-origin-embedder-policy"], undefined);
+  } finally {
+    await app.close();
   }
 });

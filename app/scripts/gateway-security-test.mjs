@@ -290,8 +290,9 @@ ok("and the next SOS texts that contact again",
     const [after] = await sql`SELECT status, mechanic_id FROM bookings WHERE id = ${bk.id}`;
     ok("an SMS CANCEL that loses to an accept does not overwrite it",
        after.status === "ASSIGNED" && after.mechanic_id === mech.id, `${after.status} mechanic=${Boolean(after.mechanic_id)}`);
-    ok("and tells the customer a mechanic accepted, and that cancelling now costs a fee",
-       /mechanic accepted/i.test(lost.data?.reply ?? "") && /fee/i.test(lost.data?.reply ?? ""),
+    // No fee is charged or recorded for a late cancel, so the reply claims none.
+    ok("and tells the customer a mechanic accepted, without claiming a fee nobody records",
+       /mechanic accepted/i.test(lost.data?.reply ?? "") && !/fee/i.test(lost.data?.reply ?? ""),
        (lost.data?.reply ?? "").slice(0, 70));
   } finally {
     await watcher.end();

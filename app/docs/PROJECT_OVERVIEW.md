@@ -39,7 +39,7 @@ it, **and** a test exercises it.
 |---|---|---|
 | OTP auth, rotating refresh with theft detection | **IMPLEMENTED** | e2e §2, security §6 |
 | Vehicles, bookings, invoicing, payment, reviews | **IMPLEMENTED** | e2e, browser |
-| AI-assisted diagnosis | **PARTIAL** | Deterministic rules engine — labelled as such. A trained YOLO11 road-damage detector does exist (best: YOLO11s `yolo11s-multi-rich`, mAP50 0.472, measured) |
+| AI-assisted diagnosis | **PARTIAL** | Deterministic rules engine — labelled as such. A trained YOLO11 road-damage detector does exist (shipped: YOLO11n `yolo11n-india-ft-gpu`, mAP50 0.586 on held-out 4-country validation, 0.500 on a held-out India split, measured) |
 | Dynamic dispatch — rank, wave, timeout, escalate | **IMPLEMENTED** | concurrency §1, §2, §9b, §9c |
 | Race-safe assignment | **IMPLEMENTED** | ten simultaneous accepts, exactly one wins |
 | Emergency SOS — online | **IMPLEMENTED** | e2e §12 |
@@ -63,33 +63,33 @@ PostGIS database. Live at <https://app.roadassistbharat.online>: one Render web
 service in Singapore over Neon Postgres in Singapore, with the showcase on GitHub
 Pages at <https://roadassistbharat.online>.
 
-- **58 tables**, 63 foreign keys, 142 indexes, 5 GiST spatial indexes,
+- **58 tables**, 63 foreign keys, 143 indexes, 5 GiST spatial indexes,
   9 migrations
-- **74 routes**, 71 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
+- **75 routes**, 72 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
 - **6 web surfaces**: citizen app, mechanic console, authority dashboard, live
   map, landing, showcase
 - **13 ADRs**, an enforced module-boundary check, and a 20-row failure matrix
 
 ## Verification
 
-**1162 assertions executed across six suites, no failures**, against a real
+**1336 assertions executed across six suites, no failures**, against a real
 PostgreSQL + PostGIS and a real Chrome:
 
 | Suite | Assertions |
 |---|---|
-| Unit | 462 |
-| End-to-end | 249 |
-| Concurrency + real-time | 92 |
-| Security (attacks that must fail) | 106 |
+| Unit | 526 |
+| End-to-end | 283 |
+| Concurrency + real-time | 107 |
+| Security (attacks that must fail) | 108 |
 | Gateway security | 58 |
-| Browser / offline | 195 |
-| **Total** | **1162** |
+| Browser / offline | 254 |
+| **Total** | **1336** |
 
 Not in that total: 22 Razorpay checks (`npm run test:razorpay`). They need no
 Razorpay account — the script stubs the Orders API locally — but they only run
 against an API started with `PAYMENTS_PROVIDER=razorpay`, were not re-run for
 these figures, and are not described as passing. Separately, the Android client
-has 190 tests and the AI pipeline 39, on their own runners.
+has 304 tests and the AI pipeline 49, on their own runners.
 
 Plus: clean typecheck, zero lint errors, module boundaries clean, a production
 Docker image that the full suite passes **against**, and a rehearsed

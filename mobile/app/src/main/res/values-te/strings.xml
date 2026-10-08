@@ -12,10 +12,10 @@
   app/docs/TESTING.md for what that means for the claim.
 -->
 <resources>
-    <string name="sos_sms_sent">RoadAssist-కు SMS ద్వారా SOS పంపాము (%1$s). డేటా అవసరం లేదు — మీ సిమ్‌మే గుర్తింపు.</string>
-    <string name="sos_sms_unconfirmed">SOS SMS ద్వారా పంపాము (ధృవీకరణ లేదు) — డేటా వచ్చాక ఒక బ్యాకప్ కూడా వెళ్తుంది. సిమ్‌మే గుర్తింపు.</string>
-    <string name="sos_dialer">RoadAssist చేరలేకపోయాం — 112 తెరుస్తున్నాం, అది ఏ టవర్‌తోనైనా కలుస్తుంది. మీ SOS సేవ్ అయింది, సిగ్నల్ రాగానే వెళ్తుంది.</string>
-    <string name="sos_queued">సిగ్నల్ అస్సలు లేదు. SOS ఈ ఫోన్‌లో సేవ్ అయింది — కనెక్షన్ రాగానే దానంతట అదే వెళ్తుంది. వీలైతే బహిరంగ ప్రదేశం లేదా హైవే వైపు కదలండి.</string>
+    <string name="sos_sms_sent">RoadAssist కు %1$s కి SMS కూడా పంపాం. SMS సహాయాన్ని నిర్ధారించదు, కాబట్టి 112 మరియు సేవ్ చేసిన కాపీ అలాగే ఉంటాయి.</string>
+    <string name="sos_sms_unconfirmed">RoadAssist కు %1$s కి SMS పంపడానికి ప్రయత్నించాం; చేరినట్లు నిర్ధారణ లేదు.</string>
+    <string name="sos_dialer">112 తెరుస్తున్నాం. ఇది ఏ టవర్‌తోనైనా కలుస్తుంది. మీ SOS ఈ ఫోన్‌లో కూడా సేవ్ అయింది; మీరు ఆన్‌లైన్‌లోకి వచ్చి సైన్ ఇన్ అయ్యాక, యాప్ నడుస్తుండగా RoadAssist కు వెళ్తుంది.</string>
+    <string name="sos_queued">ఈ ఫోన్‌లో 112 తెరవలేకపోయాం: అందుబాటులో ఉన్న ఏ ఫోన్ నుంచైనా 112 కి కాల్ చేయండి. మీ SOS ఇక్కడ సేవ్ అయింది; ఆన్‌లైన్‌లోకి వచ్చి సైన్ ఇన్ అయ్యాక, యాప్ నడుస్తుండగా RoadAssist కు వెళ్తుంది.</string>
     <string name="report_hazard_short">⚠  ప్రమాదం తెలపండి</string>
     <string name="report_hazard_title">రోడ్డు ప్రమాదం తెలపండి</string>
     <string name="report_hazard_sub">మీ లొకేషన్ జతచేయబడుతుంది, తద్వారా అధికారులు కనుగొని ధృవీకరించగలరు.</string>
@@ -44,7 +44,7 @@
     <string name="field_contact_phone">వారి మొబైల్ (+91…)</string>
     <string name="server">సర్వర్</string>
     <string name="server_sub">ఈ ఫోన్ మాట్లాడే చిరునామా. దీన్ని మార్చితే సైన్ అవుట్ అవుతారు — సెషన్ దాన్ని ఇచ్చిన సర్వర్‌దే.</string>
-    <string name="server_queued_warning">ఈ ఫోన్‌లో పంపని అత్యవసర సమాచారాలు: %1$d. ఇవి కొత్త సర్వర్‌కు వెళ్తాయి.</string>
+    <string name="server_queued_warning">ఈ ఫోన్‌లో పంపని అత్యవసరాలు: %1$d. ప్రతి ఒక్కటి దాన్ని పంపిన ఖాతా సైన్ ఇన్ అయి ఉన్నప్పుడే పంపబడుతుంది.</string>
     <string name="action_use_server">ఈ సర్వర్ వాడండి</string>
     <string name="server_unreachable">ఆ చిరునామాలో ఏ RoadAssist API స్పందించలేదు. ఏదీ మారలేదు — మీరు ఇక్కడే సైన్ ఇన్‌లో ఉన్నారు.</string>
     <string name="server_https_required">ఈ చిరునామాకు HTTPS అవసరం: దీన్ని https:// తో ఇవ్వండి. సాధారణ http:// డీబగ్ బిల్డ్‌లో మాత్రమే, అదీ ఎమ్యులేటర్ హోస్ట్ (10.0.2.2) లేదా localhost కు మాత్రమే అనుమతించబడుతుంది.</string>
@@ -110,7 +110,7 @@
     <string name="head_book_italic">అభ్యర్థించండి.</string>
     <string name="signed_in_suffix">· సైన్ ఇన్ అయ్యారు</string>
     <string name="label_status">స్థితి</string>
-    <string name="sos_offline_note">ఇంటర్నెట్ లేకుండా పనిచేస్తుంది: SOS డేటా → SMS → 112 → ఆఫ్‌లైన్ క్యూ వరుసలో ప్రయత్నిస్తుంది, సిగ్నల్ తిరిగి రాగానే సింక్ అవుతుంది. SMS నంబర్ తాత్కాలికం.</string>
+    <string name="sos_offline_note">ఇంటర్నెట్ లేకున్నా పనిచేస్తుంది: SOS ముందు RoadAssist కు ఆన్‌లైన్‌లో ప్రయత్నిస్తుంది, తర్వాత 112 తెరిచి SOS ను ఈ ఫోన్‌లో సేవ్ చేస్తుంది. సేవ్ చేసిన SOS మీరు ఆన్‌లైన్‌లోకి వచ్చి సైన్ ఇన్ అయ్యాక, యాప్ నడుస్తుండగా RoadAssist కు వెళ్తుంది.</string>
     <string name="toast_image_unreadable">ఆ చిత్రాన్ని చదవలేకపోయాం</string>
     <string name="toast_otp_sent">OTP SMS ద్వారా పంపబడింది</string>
     <string name="toast_signed_in">సైన్ ఇన్ అయ్యారు</string>
@@ -192,4 +192,81 @@
     <string name="track_status_unavailable">స్థితి అందుబాటులో లేదు — మీరు ఆఫ్‌లైన్‌లో ఉన్నారు లేదా సర్వర్ స్పందించలేదు</string>
     <string name="cd_theme_to_light">లైట్ థీమ్‌కు మారండి</string>
     <string name="cd_theme_to_dark">డార్క్ థీమ్‌కు మారండి</string>
+
+    <!-- Scan road (ScanRoad.kt). Machine-translated and NOT yet reviewed by a
+         native speaker, like the rest of this file; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="scan_card_title">రోడ్డును స్కాన్ చేయండి</string>
+    <string name="scan_card_sub">కెమెరాను రోడ్డు వైపు చూపండి, లేదా ఫోటో ఎంచుకోండి. గుంతలు, పగుళ్లు ఈ ఫోన్‌లోనే, ఇంటర్నెట్ లేకుండా గుర్తించబడతాయి.</string>
+    <string name="scan_card_action">స్కానర్ తెరవండి</string>
+    <string name="scan_title">రోడ్డు స్కాన్</string>
+    <string name="scan_info">బాక్సులు ఈ ఫోన్‌లో ఇంటర్నెట్ లేకుండా నడుస్తున్న %1$s మోడల్ అంచనాలు. అవి తప్పు కావచ్చు: పక్కన ఉంచిన రోడ్డు ఫోటోలపై దీని mAP50 %2$s. తీవ్రత బాక్స్ పరిమాణ నియమం, కొలత కాదు. రిపోర్ట్ చేసే ముందు చూసుకోండి.</string>
+    <string name="scan_use_camera">కెమెరా వాడండి</string>
+    <string name="scan_pick_photo">ఫోటో ఎంచుకోండి</string>
+    <string name="scan_start_hint">లైవ్ స్కాన్ కోసం కెమెరా వాడండి, లేదా గ్యాలరీ నుండి ఫోటో ఎంచుకోండి.</string>
+    <string name="scan_loading_model">డిటెక్టర్ లోడ్ అవుతోంది…</string>
+    <string name="scan_model_failed">ఈ ఫోన్‌లో ఆన్-డివైస్ గుర్తింపు ప్రారంభం కాలేదు (%1$s). హోమ్ నుండి ప్రమాదాన్ని మీరే రిపోర్ట్ చేయవచ్చు.</string>
+    <string name="scan_camera_denied_title">కెమెరా అనుమతి ఆఫ్‌లో ఉంది</string>
+    <string name="scan_camera_denied_body">లైవ్ స్కాన్‌కు రోడ్డును చూడటానికి కెమెరా కావాలి. ఫ్రేమ్‌లు ఈ ఫోన్‌లోనే ఉంటాయి; మీరు రిపోర్ట్ పంపే వరకు ఏదీ అప్‌లోడ్ కాదు. సెట్టింగ్స్‌లో అనుమతి ఆన్ చేయండి, లేదా ఫోటో ఎంచుకోండి.</string>
+    <string name="scan_open_settings">సెట్టింగ్స్ తెరవండి</string>
+    <string name="scan_camera_error">కెమెరా ప్రారంభం కాలేదు (%1$s). బదులుగా ఫోటో ఎంచుకోండి.</string>
+    <string name="scan_no_detections">ఇక్కడ ఏమీ కనిపించలేదు. ఇది మోడల్ అంచనా, రోడ్డు తనిఖీ కాదు.</string>
+    <string name="scan_detection_line">%1$s · %2$d%% · తీవ్రత %3$d/5</string>
+    <string name="scan_stats_live">%1$s fps · %2$d ms</string>
+    <string name="scan_stats_photo">ఈ ఫోన్‌లో %1$d ms</string>
+    <string name="scan_report">ప్రమాదం రిపోర్ట్ చేయండి</string>
+    <string name="scan_not_reportable">మసకబారిన మార్కింగ్‌లు, మ్యాన్‌హోల్‌లు సమాచారం కోసం మాత్రమే చూపిస్తాం; RAKSHA రిపోర్ట్‌లు గుంతలు, రోడ్డు దెబ్బతినడం మాత్రమే తీసుకుంటాయి.</string>
+    <string name="scan_offline_note">ఆఫ్‌లైన్: స్కాన్ పనిచేస్తుంది, కానీ రిపోర్ట్‌కు కనెక్షన్ కావాలి. రిపోర్ట్‌లు తర్వాత పంపడానికి సేవ్ కావు.</string>
+    <string name="scan_predictions_heading">మోడల్ అంచనాలు</string>
+    <string name="scan_class_pothole">గుంత</string>
+    <string name="scan_class_road_damage">రోడ్డు దెబ్బతినడం</string>
+    <string name="scan_class_faded_marking">మసకబారిన మార్కింగ్</string>
+    <string name="scan_class_manhole">మ్యాన్‌హోల్</string>
+    <string name="scan_report_prefilled">ఆన్-డివైస్ స్కాన్ నుండి నింపబడింది, ఇది మోడల్ అంచనా. పంపే ముందు రకం, తీవ్రత చూసుకోండి.</string>
+    <string name="report_not_sent_offline">పంపబడలేదు: సర్వర్‌ను చేరలేకపోయాం. ప్రమాద రిపోర్ట్‌లు ఈ ఫోన్‌లో సేవ్ కావు, కాబట్టి ఆన్‌లైన్‌కి వచ్చాక మళ్లీ పంపండి.</string>
+    <string name="cd_scan_preview">డిటెక్టర్ బాక్సులతో కెమెరా దృశ్యం</string>
+    <string name="cd_scan_photo">డిటెక్టర్ బాక్సులతో ఎంచుకున్న ఫోటో</string>
+
+    <!-- 1.1.1 (SOS, session, hazard dialog, Track). Machine-translated and NOT
+         yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="sos_dialer_notified">బ్యాక్‌గ్రౌండ్ నుంచి డయలర్ తెరవడానికి Android అనుమతించదు, కాబట్టి 112 తెరుచుకోలేదు. 112 కి కాల్ చేయడానికి నోటిఫికేషన్‌ను నొక్కండి. మీ SOS ఈ ఫోన్‌లో సేవ్ అయింది; ఆన్‌లైన్‌లోకి వచ్చి సైన్ ఇన్ అయ్యాక RoadAssist కు వెళ్తుంది.</string>
+    <string name="sos_offline_note_sms">ఇంటర్నెట్ లేకున్నా పనిచేస్తుంది: SOS ముందు RoadAssist కు ఆన్‌లైన్‌లో ప్రయత్నిస్తుంది, తర్వాత RoadAssist కు SMS పంపుతుంది, తర్వాత 112 తెరిచి SOS ను ఈ ఫోన్‌లో సేవ్ చేస్తుంది. సేవ్ చేసిన SOS మీరు ఆన్‌లైన్‌లోకి వచ్చి సైన్ ఇన్ అయ్యాక, యాప్ నడుస్తుండగా RoadAssist కు వెళ్తుంది.</string>
+    <string name="sos_notify_channel">అత్యవసరం</string>
+    <string name="sos_notify_title">ఇప్పుడే 112 కి కాల్ చేయండి</string>
+    <string name="sos_notify_body">RoadAssist డయలర్‌ను తెరవలేకపోయింది. 112 కి కాల్ చేయడానికి నొక్కండి.</string>
+    <string name="sos_notify_action">112 కి కాల్ చేయండి</string>
+    <string name="sos_grace_online">సున్నా వద్ద RoadAssist మీ SOS మరియు లొకేషన్‌ను ఆన్‌లైన్‌లో పంపి, దగ్గరి రెస్పాండర్ యూనిట్ కోసం చూస్తుంది.</string>
+    <string name="sos_grace_contacts">సర్వర్ SMS లైవ్‌గా ఉంటేనే మీ అత్యవసర కాంటాక్ట్‌లకు SMS వెళ్తుంది.</string>
+    <string name="sos_grace_signed_out">మీరు సైన్ ఇన్ కాలేదు, కాబట్టి ఈ SOS ఇప్పుడే ఆన్‌లైన్‌లో RoadAssist కు వెళ్లదు.</string>
+    <string name="sos_grace_sms">RoadAssist ఆన్‌లైన్‌లో అందనప్పుడు, మీ సిమ్ నుంచి దానికి SMS పంపబడుతుంది.</string>
+    <string name="sos_grace_handoff">RoadAssist ఆన్‌లైన్‌లో అందకపోతే, 112 తెరుచుకుంటుంది మరియు SOS ఈ ఫోన్‌లో సేవ్ అవుతుంది.</string>
+    <string name="sos_grace_handoff_signed_out">సున్నా వద్ద 112 తెరుచుకుంటుంది మరియు SOS ఈ ఫోన్‌లో సేవ్ అవుతుంది; మీరు సైన్ ఇన్ అయ్యాక RoadAssist కు వెళ్తుంది.</string>
+    <string name="sos_grace_cancel">ఇది పొరపాటున జరిగితే ఇప్పుడే రద్దు చేయండి.</string>
+    <string name="sos_line_online">✓ ఆన్‌లైన్ — %1$s</string>
+    <string name="sos_escalated">ముందుకు పంపాం (%1$s) · %2$s · %3$s · %4$d ms</string>
+    <string name="sos_where_gps">నిజమైన GPS</string>
+    <string name="sos_where_unknown">లొకేషన్ తెలియదు</string>
+    <string name="sos_contacts_none">ఏ కాంటాక్ట్‌కూ తెలియజేయలేదు</string>
+    <string name="sos_contacts_alerted">తెలియజేసిన కాంటాక్ట్‌లు: %1$d</string>
+    <string name="sos_contacts_logged">నమోదైన కాంటాక్ట్‌లు, పంపలేదు: %1$d</string>
+    <string name="sos_unit_none">దగ్గరలో యూనిట్ లేదు</string>
+    <string name="sos_unit_alerted">%1$s కు తెలియజేశాం</string>
+    <string name="sos_unit_located">%1$s కనుగొనబడింది, సంప్రదించలేదు</string>
+    <string name="sos_toast_data">SOS ఆన్‌లైన్‌లో పంపబడింది</string>
+    <string name="sos_toast_dialer">SOS: 112 తెరుస్తున్నాం</string>
+    <string name="sos_toast_notified">SOS: 112 కి కాల్ చేయడానికి నోటిఫికేషన్ నొక్కండి</string>
+    <string name="sos_toast_queued">SOS ఈ ఫోన్‌లో సేవ్ అయింది. 112 కి కాల్ చేయండి.</string>
+    <string name="sos_signed_out_note">అత్యవసరంలో సైన్ ఇన్ కాకుండానే SOS పంపవచ్చు.</string>
+    <string name="toast_session_lost">మీ సెషన్ ముగిసింది. మళ్లీ సైన్ ఇన్ చేయండి.</string>
+    <string name="hazard_type_pothole">గుంత</string>
+    <string name="hazard_type_road_damage">రోడ్డు దెబ్బతినడం</string>
+    <string name="hazard_type_obstruction">అడ్డంకి</string>
+    <string name="toast_hazard_reported">మీ లొకేషన్‌లో ప్రమాదం నమోదైంది — ధన్యవాదాలు</string>
+    <string name="report_failed">రిపోర్ట్ చేయలేకపోయాం</string>
+    <string name="action_reporting">రిపోర్ట్ చేస్తున్నాం…</string>
+    <string name="action_submit_report">రిపోర్ట్ పంపండి</string>
+    <string name="loading">లోడ్ అవుతోంది…</string>
+    <string name="rescues_empty_title">ఇంకా రెస్క్యూలు లేవు</string>
+    <string name="track_booking">బుకింగ్ %1$s</string>
 </resources>

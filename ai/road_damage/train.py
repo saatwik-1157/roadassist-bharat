@@ -31,10 +31,22 @@ def main() -> None:
     ap.add_argument("--imgsz", type=int, default=640)
     ap.add_argument("--epochs", type=int, default=100)
     ap.add_argument("--batch", type=int, default=16)
-    ap.add_argument("--hours", type=float, default=6.0, help="hard wall-clock cap")
+    ap.add_argument("--hours", type=float, default=6.0,
+                    help="hard wall-clock cap. Ultralytics then RESIZES the epoch count (and the "
+                         "LR schedule) to fit it, so --epochs is ignored. 0 = no cap, run exactly "
+                         "--epochs (reproducible; what the GPU runs use)")
     ap.add_argument("--patience", type=int, default=25)
     ap.add_argument("--threads", type=int, default=int(os.environ.get("RAKSHA_THREADS", "8")))
     ap.add_argument("--workers", type=int, default=8)
+    ap.add_argument("--device", default="cpu",
+                    help='"cpu" (default, the original box) or a CUDA index such as "0"')
+    ap.add_argument("--save-period", type=int, default=-1,
+                    help="also write weights/epochN.pt every N epochs, so a crash loses little")
+    ap.add_argument("--cache", default="false", choices=["false", "ram", "disk"],
+                    help="image cache; 'disk' writes .npy beside the images")
+    ap.add_argument("--optimizer", default="auto", help="auto | SGD | AdamW (auto ignores --lr0)")
+    ap.add_argument("--lr0", type=float, default=None, help="initial LR; needs --optimizer")
+    ap.add_argument("--warmup-epochs", type=float, default=3.0)
     ap.add_argument("--project", default="../runs")
     ap.add_argument("--name", default="yolo11s-full")
     ap.add_argument("--fallback", default="yolo11n.pt",
@@ -85,26 +97,32 @@ def main() -> None:
             print(f"[train] could not load {args.model} ({e}); falling back to {args.fallback}")
             model = YOLO(args.fallback)
 
-    print(f"[train] device=cpu threads={args.threads} model={args.model} imgsz={args.imgsz} "
-          f"epochs≤{args.epochs} cap={args.hours}h data={args.data}")
+    print(f"[train] device={args.device} threads={args.threads} model={args.model} "
+          f"imgsz={args.imgsz} batch={args.batch} epochs≤{args.epochs} cap={args.hours or 'none'}h "
+          f"data={args.data}")
 
     model.train(
         data=args.data,
         resume=args.resume,
-        device="cpu",
+        device=args.device,
         imgsz=args.imgsz,
         epochs=args.epochs,
-        time=args.hours,          # hard cap; ultralytics stops + saves best
+        time=args.hours or None,  # hard cap; ultralytics stops + saves best
         patience=args.patience,   # early stop on plateau
         batch=args.batch,
         workers=args.workers,
+        save_period=args.save_period,
+        cache=False if args.cache == "false" else args.cache,
         project=args.project,
         name=args.name,
         exist_ok=True,
         # schedule
-        optimizer="auto",
+        # "auto" ignores lr0: it picks AdamW(lr≈0.00125) for short runs and
+        # SGD(lr=0.01) above 10k iterations. A fine-tune needs a pinned optimizer.
+        optimizer=args.optimizer,
+        **({"lr0": args.lr0} if args.lr0 is not None else {}),
         cos_lr=True,
-        warmup_epochs=3.0,
+        warmup_epochs=args.warmup_epochs,
         # augmentation — a small dataset benefits from aggressive aug
         mosaic=1.0,
         close_mosaic=10,          # turn mosaic off for the last 10 epochs to sharpen
@@ -117,7 +135,7 @@ def main() -> None:
     )
 
     # Report real validation metrics on the held-out split.
-    metrics = model.val(data=args.data, imgsz=args.imgsz, device="cpu", workers=args.workers)
+    metrics = model.val(data=args.data, imgsz=args.imgsz, device=args.device, workers=args.workers)
     box = metrics.box
     print("\n[train] ── final validation (measured) ──")
     print(f"  precision {box.mp:.4f}  recall {box.mr:.4f}  "

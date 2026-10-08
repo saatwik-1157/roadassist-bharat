@@ -17,10 +17,10 @@
       The remaining UI strings are still hardcoded English in MainActivity.kt.
       That is stated in app/docs/TESTING.md rather than left to be discovered.
     -->
-    <string name="sos_sms_sent">Sent SOS by SMS to RoadAssist (%1$s). No data needed — the SIM is your identity.</string>
-    <string name="sos_sms_unconfirmed">SOS sent by SMS (delivery unconfirmed) — a backup will also sync when data returns. The SIM is your identity; no data needed.</string>
-    <string name="sos_dialer">No RoadAssist channel reachable — opening 112. It connects through any tower. Your SOS is queued and will sync when signal returns.</string>
-    <string name="sos_queued">No signal at all. SOS saved on this device — it will send automatically the moment connectivity returns. Move toward open sky or a highway if you can.</string>
+    <string name="sos_sms_sent">Also texted RoadAssist at %1$s. A text is not confirmed help, so 112 and the saved copy still stand.</string>
+    <string name="sos_sms_unconfirmed">Also tried to text RoadAssist at %1$s; delivery is not confirmed.</string>
+    <string name="sos_dialer">Opening 112. It connects through any tower. Your SOS is also saved on this phone and goes to RoadAssist once you are online and signed in, while the app is running.</string>
+    <string name="sos_queued">112 could not be opened on this phone: call 112 from any phone you can. Your SOS is saved here and goes to RoadAssist once you are online and signed in, while the app is running.</string>
 
     <!-- MainActivity UI. Extracted wholesale rather than a few at a
          time: lint's MissingTranslation check only protects strings that
@@ -54,7 +54,7 @@
     <string name="field_contact_phone">Their mobile (+91…)</string>
     <string name="server">Server</string>
     <string name="server_sub">The address this phone talks to. Changing it signs you out — the session belongs to the server that issued it.</string>
-    <string name="server_queued_warning">Unsent emergencies on this phone: %1$d. They will be sent to the new server.</string>
+    <string name="server_queued_warning">Unsent emergencies on this phone: %1$d. Each is sent only while the account that raised it is signed in.</string>
     <string name="action_use_server">Switch to this server</string>
     <string name="server_unreachable">No RoadAssist API answered at that address. Nothing changed — you are still signed in here.</string>
     <string name="server_https_required">This address needs HTTPS: enter it as https://. Plain http:// is allowed only in a debug build, and only to the emulator host (10.0.2.2) or localhost.</string>
@@ -125,7 +125,7 @@
     <string name="head_book_italic">assistance.</string>
     <string name="signed_in_suffix">· signed in</string>
     <string name="label_status">STATUS</string>
-    <string name="sos_offline_note">Works with no internet: SOS falls back data → SMS → 112 → offline queue, and syncs the moment signal returns. SMS number is a placeholder until a real code is provisioned.</string>
+    <string name="sos_offline_note">Works with no internet: SOS tries RoadAssist online, then opens 112 and saves the SOS on this phone. A saved SOS goes to RoadAssist once you are online and signed in, while the app is running.</string>
     <string name="toast_image_unreadable">That image could not be read</string>
     <string name="toast_otp_sent">OTP sent by SMS</string>
     <string name="toast_signed_in">Signed in</string>
@@ -235,4 +235,84 @@
     <string name="track_status_unavailable">Status unavailable — you’re offline or the server didn’t answer</string>
     <string name="cd_theme_to_light">Switch to light theme</string>
     <string name="cd_theme_to_dark">Switch to dark theme</string>
+
+    <!-- Scan road (ScanRoad.kt): the on-device road-damage detector. Every
+         result is called a model prediction, and the info line quotes the
+         model's measured mAP50 from detector.json (ai/README.md). -->
+    <string name="scan_card_title">Scan the road</string>
+    <string name="scan_card_sub">Point the camera at the road, or pick a photo. Potholes and cracks are found on this phone, with no internet.</string>
+    <string name="scan_card_action">Open the scanner</string>
+    <string name="scan_title">Scan road</string>
+    <string name="scan_info">Boxes are predictions of the %1$s model running on this phone, with no internet. They can be wrong: it scored mAP50 %2$s on held-out road photos. Severity is a box-size rule, not a measurement. Check before you report.</string>
+    <string name="scan_use_camera">Use camera</string>
+    <string name="scan_pick_photo">Pick a photo</string>
+    <string name="scan_start_hint">Use the camera for a live scan, or pick a photo from the gallery.</string>
+    <string name="scan_loading_model">Loading the detector…</string>
+    <string name="scan_model_failed">On-device detection could not start on this phone (%1$s). You can still report a hazard by hand from Home.</string>
+    <string name="scan_camera_denied_title">Camera permission is off</string>
+    <string name="scan_camera_denied_body">The live scan needs the camera to see the road. Frames stay on this phone; nothing is uploaded unless you send a report. Turn the permission on in Settings, or pick a photo instead.</string>
+    <string name="scan_open_settings">Open settings</string>
+    <string name="scan_camera_error">The camera could not start (%1$s). Pick a photo instead.</string>
+    <string name="scan_no_detections">Nothing found here. This is a model prediction, not a check of the road.</string>
+    <string name="scan_detection_line">%1$s · %2$d%% · severity %3$d/5</string>
+    <string name="scan_stats_live">%1$s fps · %2$d ms</string>
+    <string name="scan_stats_photo">%1$d ms on this phone</string>
+    <string name="scan_report">Report hazard</string>
+    <string name="scan_not_reportable">Faded markings and manholes are shown for information; RAKSHA reports take potholes and road damage.</string>
+    <string name="scan_offline_note">Offline: scanning works, but a report needs a connection. Reports are not saved to send later.</string>
+    <string name="scan_predictions_heading">Model predictions</string>
+    <string name="scan_class_pothole">Pothole</string>
+    <string name="scan_class_road_damage">Road damage</string>
+    <string name="scan_class_faded_marking">Faded marking</string>
+    <string name="scan_class_manhole">Manhole</string>
+    <string name="scan_report_prefilled">Filled in from the on-device scan, which is a model prediction. Check the type and severity before you send it.</string>
+    <string name="report_not_sent_offline">Not sent: the server could not be reached. Hazard reports are not saved on this phone, so send it again when you are online.</string>
+    <string name="cd_scan_preview">Camera view with the detector boxes</string>
+    <string name="cd_scan_photo">Picked photo with the detector boxes</string>
+
+    <!-- 1.1.1: the SOS ladder as it now behaves (SMS only to a provisioned
+         number and never final, 112 from the background, the queue sent
+         once online and signed in), the session, and the hazard dialog and
+         Track text that was still hardcoded in MainActivity.kt. -->
+    <string name="sos_dialer_notified">Android does not let RoadAssist open the dialer from the background, so 112 did not open. Tap the notification to call 112. Your SOS is saved on this phone and goes to RoadAssist once you are online and signed in.</string>
+    <string name="sos_offline_note_sms">Works with no internet: SOS tries RoadAssist online, then texts RoadAssist, then opens 112 and saves the SOS on this phone. A saved SOS goes to RoadAssist once you are online and signed in, while the app is running.</string>
+    <string name="sos_notify_channel">Emergency</string>
+    <string name="sos_notify_title">Call 112 now</string>
+    <string name="sos_notify_body">RoadAssist could not open the dialer. Tap to call 112.</string>
+    <string name="sos_notify_action">Call 112</string>
+    <string name="sos_grace_online">At zero, RoadAssist sends your SOS and location online and looks for the nearest responder unit.</string>
+    <string name="sos_grace_contacts">Your emergency contacts are texted only if the server’s SMS is live.</string>
+    <string name="sos_grace_signed_out">You are not signed in, so this SOS cannot go to RoadAssist online yet.</string>
+    <string name="sos_grace_sms">When RoadAssist cannot be reached online, it is texted from your SIM.</string>
+    <string name="sos_grace_handoff">If RoadAssist cannot be reached online, 112 opens and the SOS is saved on this phone.</string>
+    <string name="sos_grace_handoff_signed_out">At zero, 112 opens and the SOS is saved on this phone, to go to RoadAssist after you sign in.</string>
+    <string name="sos_grace_cancel">Cancel now if this was a mistake.</string>
+    <string name="sos_line_online">✓ Online — %1$s</string>
+    <string name="sos_escalated">Escalated (%1$s) · %2$s · %3$s · %4$d ms</string>
+    <string name="sos_where_gps">real GPS</string>
+    <string name="sos_where_unknown">location unknown</string>
+    <string name="sos_contacts_none">no contacts alerted</string>
+    <string name="sos_contacts_alerted">contacts alerted: %1$d</string>
+    <string name="sos_contacts_logged">contacts logged, not sent: %1$d</string>
+    <string name="sos_unit_none">no unit in range</string>
+    <string name="sos_unit_alerted">%1$s alerted</string>
+    <string name="sos_unit_located">%1$s located, not contacted</string>
+    <string name="sos_toast_data">SOS raised online</string>
+    <string name="sos_toast_dialer">SOS: opening 112</string>
+    <string name="sos_toast_notified">SOS: tap the notification to call 112</string>
+    <string name="sos_toast_queued">SOS saved on this phone. Call 112.</string>
+    <string name="sos_signed_out_note">In an emergency you can raise SOS without signing in.</string>
+    <string name="toast_session_lost">Your session has ended. Sign in again.</string>
+    <string name="hazard_type_pothole">Pothole</string>
+    <string name="hazard_type_road_damage">Road damage</string>
+    <string name="hazard_type_obstruction">Obstruction</string>
+    <string name="toast_hazard_reported">Hazard reported at your location — thank you</string>
+    <string name="report_failed">Failed to report</string>
+    <string name="action_reporting">Reporting…</string>
+    <string name="action_submit_report">Submit report</string>
+    <string name="loading">Loading…</string>
+    <string name="rescues_empty_title">No rescues yet</string>
+    <string name="track_booking">Booking %1$s</string>
+    <string name="sos_line_dialer" translatable="false">→ %1$s</string>
+    <string name="sos_line_queued" translatable="false">◷ %1$s</string>
 </resources>

@@ -16,7 +16,7 @@
 > (`app/apps/api/src/demo/raksha-demo-seed.ts`). The detections are real; their
 > NH-48 **positions are SIMULATED** (RDD2022 images carry no GPS), and so is
 > the patrol device. The best run so far is a YOLO11s (`yolo11s-multi-rich`,
-> mAP50 0.472), still undertrained — see `ai/README.md`. The demo is hosted in
+> mAP50 0.472; superseded 2026-10-08: see ai/README.md), still undertrained — see `ai/README.md`. The demo is hosted in
 > Singapore, so the "No PII leaves India" constraint below is the production
 > target, not yet true of the demo. No camera is on a road.
 

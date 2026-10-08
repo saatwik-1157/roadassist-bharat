@@ -19,6 +19,11 @@
 #   ./.venv/Scripts/pip install -r requirements-serve.txt
 #   python serve.py --weights runs/yolo11s-multi-rich/weights/best.onnx
 #
+# No opencv. The model was trained on cv2's INTER_LINEAR letterbox, and serving
+# has to feed it the same pixels, so onnx_detector.letterbox reproduces cv2's
+# fixed-point resize in numpy (bit-exact; tests/test_preprocess.py) and pillow
+# only decodes the image.
+#
 # Pinned, for the same reason everything else here is: the licensing argument
 # above is only reproducible if the versions are known.
 onnxruntime==1.30.0

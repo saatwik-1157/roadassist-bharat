@@ -13,11 +13,18 @@ export const STATUSES = [
 
 export type Status = (typeof STATUSES)[number];
 
-export type Command =
-  | "submit" | "dispatch.start" | "mechanic.accept" | "offers.exhausted"
-  | "retry.widen" | "mechanic.start_travel" | "arrive" | "work.start"
-  | "parts.required" | "parts.received" | "work.complete" | "tow.required"
-  | "tow.assigned" | "payment.settled" | "cancel";
+export const COMMANDS = [
+  "submit", "dispatch.start", "mechanic.accept", "offers.exhausted",
+  "retry.widen", "mechanic.start_travel", "arrive", "work.start",
+  "parts.required", "parts.received", "work.complete", "tow.required",
+  "tow.assigned", "payment.settled", "cancel",
+] as const;
+
+export type Command = (typeof COMMANDS)[number];
+
+/** Is this string one of the commands above? A client sends a string, not a Command. */
+export const isCommand = (v: unknown): v is Command =>
+  typeof v === "string" && (COMMANDS as readonly string[]).includes(v);
 
 /** from → command → to. Anything not listed here is rejected. */
 const TRANSITIONS: Partial<Record<Status, Partial<Record<Command, Status>>>> = {
@@ -36,8 +43,17 @@ const TRANSITIONS: Partial<Record<Status, Partial<Record<Command, Status>>>> = {
   CANCELLED:      {},
 };
 
-/** States after which the customer owes a cancellation fee. */
-const FEE_AFTER: ReadonlySet<Status> = new Set<Status>(["ASSIGNED", "EN_ROUTE", "ON_SITE"]);
+/**
+ * States in which a cancel lands on a mechanic who has already committed.
+ *
+ * This was FEE_AFTER, and every surface told the customer "a cancellation fee
+ * applies" — but no fee was ever recorded: there is no fee in the service
+ * catalogue, no invoice is raised on a cancel, and the payment routes only
+ * settle a COMPLETED job, so nothing could have charged it. The fact itself
+ * (a mechanic was already on the way) is still worth knowing; a charge is not
+ * claimed until one exists.
+ */
+const MECHANIC_COMMITTED: ReadonlySet<Status> = new Set<Status>(["ASSIGNED", "EN_ROUTE", "ON_SITE"]);
 
 export const isTerminal = (s: Status) => s === "PAID" || s === "CANCELLED";
 
@@ -59,12 +75,25 @@ export const isTerminal = (s: Status) => s === "PAID" || s === "CANCELLED";
  */
 export const finishesJob = (to: Status) => to === "COMPLETED";
 
+/**
+ * The table lookup, own properties only.
+ *
+ * `TRANSITIONS[from][command]` is a plain object read, and a plain object
+ * inherits from Object.prototype: "toString", "constructor" and "__proto__"
+ * all looked up a FUNCTION, which passed as a destination status and reached
+ * the database as one — a 500 for any client that sent them.
+ */
+function destination(from: Status, command: string): Status | undefined {
+  const row = Object.hasOwn(TRANSITIONS, from) ? TRANSITIONS[from] : undefined;
+  return row && Object.hasOwn(row, command) ? row[command as Command] : undefined;
+}
+
 export function canApply(from: Status, command: Command): boolean {
-  return Boolean(TRANSITIONS[from]?.[command]);
+  return Boolean(destination(from, command));
 }
 
 export function allowedFrom(from: Status): Command[] {
-  return Object.keys(TRANSITIONS[from] ?? {}) as Command[];
+  return Object.keys((Object.hasOwn(TRANSITIONS, from) ? TRANSITIONS[from] : undefined) ?? {}) as Command[];
 }
 
 export class IllegalTransition extends Error {
@@ -75,8 +104,8 @@ export class IllegalTransition extends Error {
   }
 }
 
-export function apply(from: Status, command: Command): { to: Status; cancellationFee: boolean } {
-  const to = TRANSITIONS[from]?.[command];
+export function apply(from: Status, command: Command): { to: Status; lateCancellation: boolean } {
+  const to = destination(from, command);
   if (!to) throw new IllegalTransition(from, command);
-  return { to, cancellationFee: command === "cancel" && FEE_AFTER.has(from) };
+  return { to, lateCancellation: command === "cancel" && MECHANIC_COMMITTED.has(from) };
 }

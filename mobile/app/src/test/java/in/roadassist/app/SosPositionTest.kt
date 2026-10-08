@@ -180,11 +180,16 @@ class SosPositionTest {
     @Test
     fun `fireSos raises through SosPosition and has no demo fallback`() {
         val src = source("MainActivity.kt")
-        val start = src.indexOf("val fireSos: () -> Unit = {")
+        // Since 1.1.1 fireSos lives in SosPanel (shared by Home and the
+        // sign-in screen) and the data rung's body in sosDataSummary.
+        val start = src.indexOf("val fireSos: () -> Unit = fire@{")
         assertTrue("fireSos not found in MainActivity.kt", start >= 0)
-        val end = src.indexOf("\n        }\n", start)
+        val end = src.indexOf("\n    }\n", start)
         assertTrue("end of fireSos not found", end > start)
-        val body = src.substring(start, end)
+        val summaryStart = src.indexOf("private suspend fun sosDataSummary(")
+        assertTrue("sosDataSummary not found", summaryStart >= 0)
+        val summary = src.substring(summaryStart, src.indexOf("\n}\n", summaryStart))
+        val body = src.substring(start, end) + summary
 
         assertTrue("fireSos no longer decides through SosPosition.from", body.contains("SosPosition.from("))
         assertTrue("fireSos no longer builds its API body with SosPosition.apiBody", body.contains("SosPosition.apiBody("))
@@ -192,9 +197,9 @@ class SosPositionTest {
             assertFalse("fireSos contains '$it' again: a no-fix SOS would send a responder somewhere made up",
                 body.contains(it))
         }
-        // The stand-in declaration lived just above fireSos, in HomeScreen.
-        val home = src.substring(src.indexOf("fun HomeScreen("), end)
-        assertFalse("HomeScreen declares a demo SOS coordinate again", Regex("""val DEMO_L(AT|NG)""").containsMatchIn(home))
+        // The stand-in declaration lived just above fireSos.
+        val panel = src.substring(src.indexOf("fun SosPanel("), end)
+        assertFalse("SosPanel declares a demo SOS coordinate again", Regex("""val DEMO_L(AT|NG)""").containsMatchIn(panel))
     }
 
     /** The ladder's SMS, queue and replay carry the position, not raw numbers. */

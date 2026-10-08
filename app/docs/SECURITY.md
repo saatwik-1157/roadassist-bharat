@@ -3,7 +3,7 @@
 Threat model: [`security/threat-model.md`](security/threat-model.md) — STRIDE,
 20 threats mapped to controls.
 Penetration suite: [`../scripts/security-audit.mjs`](../scripts/security-audit.mjs) —
-**106 attacks, every one refused.**
+**108 attacks, every one refused.**
 
 Everything below has been executed. A control described here without a test
 beside it says so.
@@ -41,12 +41,12 @@ would be worth nothing.
   number at `apps/api/src/auth.ts:450`, per IP at `:451`.
 - A guess spends an attempt **before** the compare, in one conditional UPDATE
   (`apps/api/src/routes/auth.ts:179`); the compare is constant-time
-  (`apps/api/src/routes/auth.ts:187`), and the consume just below it is
+  (`apps/api/src/routes/auth.ts:188`), and the consume just below it is
   conditional, so two correct submissions cannot both get a session.
 - Rotation is `rotateSession()` at `apps/api/src/auth.ts:165`. The claim is the
   conditional UPDATE at `apps/api/src/auth.ts:216`, so of two simultaneous
   presentations of one token exactly one wins; presenting a token that was
-  already rotated burns the family at `apps/api/src/auth.ts:183`.
+  already rotated burns the family at `apps/api/src/auth.ts:191`.
 
 ### Email sign-in for protected accounts
 
@@ -226,7 +226,7 @@ role, an incident that is **currently live**, and a written reason of 10–300
 characters. It writes a `break_glass_access` row and the subject is told it
 happened. There is no route to it for any other role. The role gate and the
 reason's length sit at the top of the route; the live-incident check is
-`apps/api/src/server.ts:1739`.
+`apps/api/src/server.ts:1902`.
 
 **Logging.** `observability.ts` redacts, at any depth (the field list is
 `apps/api/src/observability.ts:26`): tokens, authorization
@@ -393,7 +393,7 @@ live database: `pg_stat_activity` shows the running service connected as
 
 ## Known gaps
 
-1. **No external penetration test.** 106 self-written attacks is not the same
+1. **No external penetration test.** 108 self-written attacks is not the same
    thing.
 2. **Rate limiting is per-instance.** See above.
 3. **No column-level encryption at rest in Postgres.** Medical data is protected

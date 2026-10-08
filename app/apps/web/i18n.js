@@ -92,6 +92,17 @@
       "action.track": "Track",
       "action.retry": "Try again",
 
+      // ── added with the web fixes of Oct 2026 (one SOS at a time, translated tabs and pill) ──
+      "sos.holding": "keep holding…",
+      "sos.raising": "raising…",
+      "sos.alreadyOpen": "An emergency is already open ({ref}). Stand it down there before raising another, or call 112.",
+      "sos.alertFailed": "Recorded, but alerting failed — call 112.",
+      "net.limited.short": "Limited",
+      "net.failed": "Sync failed",
+      "nav.assist": "Assist",
+      "nav.activity": "Activity",
+      "scan.tile": "Live road scan",
+
       "lang.name": "English",
     },
     hi: {
@@ -145,6 +156,16 @@
       "action.track": "ट्रैक करें",
       "action.retry": "फिर कोशिश करें",
 
+      "sos.holding": "दबाए रखें…",
+      "sos.raising": "दर्ज हो रहा है…",
+      "sos.alreadyOpen": "एक आपात स्थिति पहले से खुली है ({ref})। दूसरी शुरू करने से पहले उसे वहीं बंद करें, या 112 पर कॉल करें।",
+      "sos.alertFailed": "दर्ज हो गया, पर सूचना नहीं जा सकी — 112 पर कॉल करें।",
+      "net.limited.short": "कमज़ोर",
+      "net.failed": "सिंक विफल",
+      "nav.assist": "मदद",
+      "nav.activity": "गतिविधि",
+      "scan.tile": "लाइव सड़क स्कैन",
+
       "lang.name": "हिंदी",
     },
     ta: {
@@ -193,6 +214,16 @@
       "action.pay": "பணம்",
       "action.track": "கண்காணி",
       "action.retry": "மீண்டும் முயற்சி",
+      "sos.holding": "அழுத்திக்கொண்டே இருங்கள்…",
+      "sos.raising": "பதிவு செய்கிறது…",
+      "sos.alreadyOpen": "ஒரு அவசரநிலை ஏற்கனவே திறந்துள்ளது ({ref}). மற்றொன்றை எழுப்பும் முன் அதை அங்கே முடிக்கவும், அல்லது 112-ஐ அழைக்கவும்.",
+      "sos.alertFailed": "பதிவானது, ஆனால் எச்சரிக்கை அனுப்ப முடியவில்லை — 112-ஐ அழைக்கவும்.",
+      "net.limited.short": "பலவீனம்",
+      "net.failed": "ஒத்திசைவு தோல்வி",
+      "nav.assist": "உதவி",
+      "nav.activity": "செயல்பாடு",
+      "scan.tile": "நேரடி சாலை ஸ்கேன்",
+
       "lang.name": "தமிழ்",
     },
     te: {
@@ -241,6 +272,16 @@
       "action.pay": "చెల్లింపు",
       "action.track": "ట్రాక్",
       "action.retry": "మళ్లీ ప్రయత్నించు",
+      "sos.holding": "నొక్కి ఉంచండి…",
+      "sos.raising": "నమోదు చేస్తోంది…",
+      "sos.alreadyOpen": "ఒక అత్యవసర పరిస్థితి ఇప్పటికే తెరిచి ఉంది ({ref}). మరొకటి ప్రారంభించే ముందు దాన్ని అక్కడే ముగించండి, లేదా 112కి కాల్ చేయండి.",
+      "sos.alertFailed": "నమోదైంది, కానీ హెచ్చరిక పంపడం విఫలమైంది — 112కి కాల్ చేయండి.",
+      "net.limited.short": "బలహీనం",
+      "net.failed": "సింక్ విఫలం",
+      "nav.assist": "సహాయం",
+      "nav.activity": "కార్యకలాపం",
+      "scan.tile": "లైవ్ రోడ్ స్కాన్",
+
       "lang.name": "తెలుగు",
     },
     bn: {
@@ -289,6 +330,16 @@
       "action.pay": "পেমেন্ট",
       "action.track": "ট্র্যাক",
       "action.retry": "আবার চেষ্টা",
+      "sos.holding": "চেপে ধরে রাখুন…",
+      "sos.raising": "নথিভুক্ত হচ্ছে…",
+      "sos.alreadyOpen": "একটি জরুরি অবস্থা আগে থেকেই খোলা আছে ({ref})। আরেকটি তোলার আগে সেটি সেখানে বন্ধ করুন, অথবা 112-এ কল করুন।",
+      "sos.alertFailed": "নথিভুক্ত হয়েছে, কিন্তু সতর্কবার্তা পাঠানো যায়নি — 112-এ কল করুন।",
+      "net.limited.short": "দুর্বল",
+      "net.failed": "সিঙ্ক ব্যর্থ",
+      "nav.assist": "সহায়তা",
+      "nav.activity": "কার্যকলাপ",
+      "scan.tile": "লাইভ রাস্তা স্ক্যান",
+
       "lang.name": "বাংলা",
     },
     mr: {
@@ -337,6 +388,16 @@
       "action.pay": "पेमेंट",
       "action.track": "ट्रॅक",
       "action.retry": "पुन्हा प्रयत्न",
+      "sos.holding": "दाबून ठेवा…",
+      "sos.raising": "नोंदवत आहे…",
+      "sos.alreadyOpen": "एक आणीबाणी आधीच सुरू आहे ({ref}). दुसरी सुरू करण्यापूर्वी ती तिथेच बंद करा, किंवा 112 वर कॉल करा.",
+      "sos.alertFailed": "नोंद झाली, पण सूचना पाठवता आली नाही — 112 वर कॉल करा.",
+      "net.limited.short": "कमकुवत",
+      "net.failed": "सिंक अयशस्वी",
+      "nav.assist": "मदत",
+      "nav.activity": "क्रियाकलाप",
+      "scan.tile": "थेट रस्ता स्कॅन",
+
       "lang.name": "मराठी",
     },
     kn: {
@@ -385,6 +446,16 @@
       "action.pay": "ಪಾವತಿ",
       "action.track": "ಟ್ರ್ಯಾಕ್",
       "action.retry": "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ",
+      "sos.holding": "ಒತ್ತಿ ಹಿಡಿದಿರಿ…",
+      "sos.raising": "ದಾಖಲಿಸಲಾಗುತ್ತಿದೆ…",
+      "sos.alreadyOpen": "ಒಂದು ತುರ್ತು ಪರಿಸ್ಥಿತಿ ಈಗಾಗಲೇ ತೆರೆದಿದೆ ({ref}). ಇನ್ನೊಂದನ್ನು ಎತ್ತುವ ಮೊದಲು ಅದನ್ನು ಅಲ್ಲೇ ಮುಗಿಸಿ, ಅಥವಾ 112 ಗೆ ಕರೆ ಮಾಡಿ.",
+      "sos.alertFailed": "ದಾಖಲಾಗಿದೆ, ಆದರೆ ಎಚ್ಚರಿಕೆ ಕಳುಹಿಸಲು ವಿಫಲವಾಯಿತು — 112 ಗೆ ಕರೆ ಮಾಡಿ.",
+      "net.limited.short": "ದುರ್ಬಲ",
+      "net.failed": "ಸಿಂಕ್ ವಿಫಲ",
+      "nav.assist": "ಸಹಾಯ",
+      "nav.activity": "ಚಟುವಟಿಕೆ",
+      "scan.tile": "ಲೈವ್ ರಸ್ತೆ ಸ್ಕ್ಯಾನ್",
+
       "lang.name": "ಕನ್ನಡ",
     },
     gu: {
@@ -433,6 +504,16 @@
       "action.pay": "ચુકવણી",
       "action.track": "ટ્રેક",
       "action.retry": "ફરી પ્રયાસ",
+      "sos.holding": "દબાવી રાખો…",
+      "sos.raising": "નોંધાઈ રહ્યું છે…",
+      "sos.alreadyOpen": "એક કટોકટી પહેલેથી ખુલ્લી છે ({ref}). બીજી શરૂ કરતાં પહેલાં તેને ત્યાં જ બંધ કરો, અથવા 112 પર કૉલ કરો.",
+      "sos.alertFailed": "નોંધાયું, પણ ચેતવણી મોકલી શકાઈ નહીં — 112 પર કૉલ કરો.",
+      "net.limited.short": "નબળું",
+      "net.failed": "સિંક નિષ્ફળ",
+      "nav.assist": "મદદ",
+      "nav.activity": "પ્રવૃત્તિ",
+      "scan.tile": "લાઇવ રસ્તા સ્કેન",
+
       "lang.name": "ગુજરાતી",
     },
   };

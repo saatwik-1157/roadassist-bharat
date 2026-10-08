@@ -28,8 +28,21 @@
  * a hard shoulder at 2am wants breadth, a busy city depot wants order.
  *
  * `escalate` is called from two places — a decline, and the expiry sweeper —
- * and is safe to call concurrently from both, because the booking's status is
- * the guard and the accept path holds a row lock over it (ADR-0010).
+ * and they DO race: two mechanics declining at the same moment each ran it,
+ * each found no live offer, and each sent a wave, so the same providers were
+ * offered the same job twice. The booking's status alone was never a guard
+ * (both callers read MATCHING). Every wave is now sent under the dispatch
+ * route's advisory lock, (6, hashtext(booking id)), inside that lock's own
+ * transaction: the second caller waits, then reads the first caller's
+ * committed offers and does nothing.
+ *
+ * ── one connection per wave ───────────────────────────────────────────────
+ * Every query of a wave runs on the transaction that holds the lock (`exec`
+ * below), never on the shared pool. Holding a pooled connection for the lock
+ * while queuing for a second one is a deadlock once the pool (10) is full of
+ * lock holders: ten concurrent dispatches froze the whole API, /health too.
+ * Pushes and audit entries go out after the commit (`announce`): the audit
+ * chain must read a committed tip, and an event must describe committed state.
  */
 import { and, eq, inArray, isNull, sql as raw } from "drizzle-orm";
 
@@ -61,6 +74,49 @@ export interface WaveResult {
   skipped: Array<{ id: string; state: ProviderState }>;
   exhausted: boolean;
   radiusKm: number;
+  /** The offer pushes and audit entries. Call it AFTER the wave's transaction commits. */
+  announce: () => Promise<void>;
+}
+
+/** A transaction handle, or the pool itself — whatever the caller is writing through. */
+type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Bound a transaction that holds the dispatch lock.
+ *
+ * The backstop behind "one connection per wave": should a query ever again be
+ * sent to the pool from inside such a transaction, its connection sits idle in
+ * transaction while the pool is exhausted, and Postgres now ends that session
+ * after 20 s instead of the API waiting forever. A runaway statement is cut at
+ * 15 s. Both are LOCAL, so they end with the transaction and touch nothing else.
+ */
+export async function boundLockTx(tx: Executor): Promise<void> {
+  await tx.execute(raw`SELECT set_config('statement_timeout', '15000', true),
+                              set_config('idle_in_transaction_session_timeout', '20000', true)`);
+}
+
+/**
+ * The radius and wave size the customer's last search used.
+ *
+ * Recorded on the booking's own history (the dispatch event's meta) when the
+ * search starts, so the ladder keeps walking the search the customer asked for.
+ * It used to fall back to the server defaults on every escalation: a customer
+ * who widened to 50 km had their second wave searched at 25 km, and was told
+ * "every provider in range has been asked" with a free mechanic at 40 km.
+ */
+export async function dispatchPlan(exec: Executor, bookingId: string): Promise<{ radiusKm: number; waveSize: number }> {
+  const [row] = await exec.execute<{ radius_km: string | null; wave_size: string | null }>(raw`
+    SELECT meta->>'radiusKm' AS radius_km, meta->>'waveSize' AS wave_size
+      FROM booking_events
+     WHERE booking_id = ${bookingId} AND command IN ('dispatch.start', 'retry.widen')
+       AND meta ? 'radiusKm'
+     ORDER BY created_at DESC LIMIT 1`);
+  const radiusKm = Number(row?.radius_km);
+  const waveSize = Number(row?.wave_size);
+  return {
+    radiusKm: Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : env.dispatchRadiusKm,
+    waveSize: Number.isInteger(waveSize) && waveSize > 0 ? waveSize : env.dispatchWaveSize,
+  };
 }
 
 /**
@@ -75,6 +131,7 @@ export interface WaveResult {
  * escalation that re-offers to the same person is not an escalation.
  */
 export async function findCandidates(
+  exec: Executor,
   bookingId: string,
   radiusKm: number,
   waveSize: number,
@@ -93,7 +150,7 @@ export async function findCandidates(
    * (the nearest provider is not always the best one) without pulling an
    * unbounded set on a busy corridor.
    */
-  const rows = await db.execute<{
+  const rows = await exec.execute<{
     id: string; display_name: string; rating: number; jobs_completed: number;
     distance_km: number; is_available: boolean; live_offers: number;
   }>(raw`
@@ -130,7 +187,7 @@ export async function findCandidates(
   // named states rather than a bare count, because "everyone nearby is on
   // another job" and "nobody is here" are different problems with different
   // answers — wait, or widen the search.
-  const [counts] = await db.execute<{ offline: number; busy: number }>(raw`
+  const [counts] = await exec.execute<{ offline: number; busy: number }>(raw`
     SELECT count(*) FILTER (WHERE NOT m.is_available)::int AS offline,
            count(*) FILTER (WHERE m.is_available AND EXISTS (
              SELECT 1 FROM bookings ab
@@ -153,28 +210,32 @@ export async function findCandidates(
 }
 
 /**
- * Send one wave of offers.
+ * Send one wave of offers, through `exec` — the transaction that holds the
+ * dispatch lock (see the header). Nothing here touches the pool.
  *
  * Returns `exhausted: true` when there is nobody left to ask — the caller
  * decides whether that means NO_SUPPLY (first wave) or the end of the ladder.
+ * The pushes and audit entries are returned as `announce`, for the caller to
+ * run once its transaction has committed.
  */
 export async function sendWave(
+  exec: Executor,
   bookingId: string,
   opts: { radiusKm: number; waveSize: number; wave: number; actorId?: string | null },
 ): Promise<WaveResult> {
-  const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, bookingId)).limit(1);
+  const [booking] = await exec.select().from(S.bookings).where(eq(S.bookings.id, bookingId)).limit(1);
   if (!booking) throw new Error(`booking ${bookingId} not found`);
 
-  const { offerable, skipped } = await findCandidates(bookingId, opts.radiusKm, opts.waveSize);
+  const { offerable, skipped } = await findCandidates(exec, bookingId, opts.radiusKm, opts.waveSize);
 
   if (offerable.length === 0) {
     return {
       status: booking.status as Status, offers: [], ranked: [], skipped,
-      exhausted: true, radiusKm: opts.radiusKm,
+      exhausted: true, radiusKm: opts.radiusKm, announce: async () => {},
     };
   }
 
-  const offers = await db.insert(S.dispatchOffers).values(
+  const offers = await exec.insert(S.dispatchOffers).values(
     offerable.map((m, i) => ({
       bookingId, mechanicId: m.id,
       // Rank is global across waves, so the audit trail shows the order the
@@ -185,107 +246,131 @@ export async function sendWave(
     })),
   ).returning();
 
-  // Push each offer to its provider's console the instant it exists. A 90-second
-  // window spent waiting for the next poll is a tenth of the window wasted.
-  const userIds = await db.select({ id: S.mechanics.id, userId: S.mechanics.userId })
+  const userIds = await exec.select({ id: S.mechanics.id, userId: S.mechanics.userId })
     .from(S.mechanics).where(inArray(S.mechanics.id, offerable.map((m) => m.id)));
 
-  for (const offer of offers) {
-    const mech = userIds.find((m) => m.id === offer.mechanicId);
-    const ranked = offerable.find((m) => m.id === offer.mechanicId);
-    publish(mech?.userId, {
-      type: "dispatch.offered", offerId: offer.id, bookingId,
-      wave: opts.wave, rank: offer.rank,
-      distanceKm: offer.distanceKm, etaMinutes: offer.etaMinutes,
-      expiresAt: offer.expiresAt.toISOString(),
-      expiresInSeconds: Math.max(0, Math.round((offer.expiresAt.getTime() - Date.now()) / 1000)),
-      displayName: ranked?.displayName,
+  // Push each offer to its provider's console the moment it is committed. A
+  // 90-second window spent waiting for the next poll is a tenth of the window
+  // wasted - but an offer pushed before its commit is one Accept cannot find.
+  const announce = async () => {
+    for (const offer of offers) {
+      const mech = userIds.find((m) => m.id === offer.mechanicId);
+      const ranked = offerable.find((m) => m.id === offer.mechanicId);
+      publish(mech?.userId, {
+        type: "dispatch.offered", offerId: offer.id, bookingId,
+        wave: opts.wave, rank: offer.rank,
+        distanceKm: offer.distanceKm, etaMinutes: offer.etaMinutes,
+        expiresAt: offer.expiresAt.toISOString(),
+        expiresInSeconds: Math.max(0, Math.round((offer.expiresAt.getTime() - Date.now()) / 1000)),
+        displayName: ranked?.displayName,
+      });
+      await audit({
+        actorId: opts.actorId ?? null, actorRole: "system", action: "dispatch.provider_offered",
+        entity: "dispatch_offer", entityId: offer.id,
+        after: { bookingId, mechanicId: offer.mechanicId, wave: opts.wave, rank: offer.rank },
+      });
+    }
+    publish(booking.userId, {
+      type: "dispatch.wave", bookingId, wave: opts.wave, offers: offers.length,
     });
-    await audit({
-      actorId: opts.actorId ?? null, actorRole: "system", action: "dispatch.provider_offered",
-      entity: "dispatch_offer", entityId: offer.id,
-      after: { bookingId, mechanicId: offer.mechanicId, wave: opts.wave, rank: offer.rank },
-    });
-  }
-
-  publish(booking.userId, {
-    type: "dispatch.wave", bookingId, wave: opts.wave, offers: offers.length,
-  });
+  };
 
   return {
     status: booking.status as Status,
     offers: offers.map((o) => ({ ...o, mechanic: offerable.find((m) => m.id === o.mechanicId) })),
-    ranked: offerable, skipped, exhausted: false, radiusKm: opts.radiusKm,
+    ranked: offerable, skipped, exhausted: false, radiusKm: opts.radiusKm, announce,
   };
 }
 
 /**
+ * What an escalation did, named so a caller can tell the customer the truth:
+ * a new wave went out, the ladder ran out, other offers are still live, or
+ * the booking had already left MATCHING (accepted, cancelled, out of supply).
+ */
+export type EscalationOutcome = "escalated" | "exhausted" | "live_offers" | "not_matching";
+
+/**
  * Move the ladder on after a refusal or a timeout.
  *
- * Only acts on a booking still in MATCHING with nothing live outstanding, which
- * makes it safe to call from the sweeper and from a decline at the same moment:
- * whichever arrives second finds either an assignment or a live offer and does
- * nothing.
+ * Only acts on a booking still in MATCHING with nothing live outstanding, and
+ * only under the dispatch lock: two declines (or a decline and the sweeper)
+ * arriving together used to both pass those checks and both send a wave. The
+ * lock here WAITS rather than skipping, because a caller that skipped could be
+ * the one whose decline closed the last live offer - the other caller may have
+ * counted that offer as live and stood down, and the ladder would stall. A
+ * waiting caller holds one connection and needs no other, so it cannot starve
+ * the holder.
+ *
+ * The next wave searches the radius and wave size the customer's own search
+ * used (dispatchPlan), not the server defaults.
  */
 export async function escalate(
   bookingId: string,
-  reason: "declined" | "expired",
-): Promise<{ escalated: boolean; exhausted: boolean; offers: number }> {
-  const [booking] = await db.select().from(S.bookings).where(eq(S.bookings.id, bookingId)).limit(1);
-  if (!booking || booking.status !== "MATCHING" || booking.mechanicId) {
-    return { escalated: false, exhausted: false, offers: 0 };
-  }
+  reason: "declined" | "expired" | "withdrawn",
+): Promise<{ escalated: boolean; exhausted: boolean; offers: number; outcome: EscalationOutcome; radiusKm?: number }> {
+  const after: Array<() => Promise<unknown>> = [];
 
-  const [{ live }] = await db.select({ live: raw<number>`count(*)::int` })
-    .from(S.dispatchOffers)
-    .where(and(
-      eq(S.dispatchOffers.bookingId, bookingId),
-      eq(S.dispatchOffers.status, "SENT"),
-      raw`${S.dispatchOffers.expiresAt} > now()`,
-    ));
-  if (live > 0) return { escalated: false, exhausted: false, offers: live };
+  const result = await db.transaction(async (tx) => {
+    await boundLockTx(tx);
+    await tx.execute(raw`SELECT pg_advisory_xact_lock(6, hashtext(${bookingId}))`);
 
-  // How many waves have already gone out, so ranking stays monotonic.
-  const [{ sent }] = await db.select({ sent: raw<number>`count(*)::int` })
-    .from(S.dispatchOffers).where(eq(S.dispatchOffers.bookingId, bookingId));
-  const waveSize = env.dispatchWaveSize;
-  const wave = Math.floor(sent / Math.max(1, waveSize)) + 1;
+    const [booking] = await tx.select().from(S.bookings).where(eq(S.bookings.id, bookingId)).for("update");
+    if (!booking || booking.status !== "MATCHING" || booking.mechanicId) {
+      return { escalated: false, exhausted: false, offers: 0, outcome: "not_matching" as const };
+    }
 
-  const result = await sendWave(bookingId, {
-    radiusKm: env.dispatchRadiusKm, waveSize, wave, actorId: null,
-  });
+    const [{ live }] = await tx.select({ live: raw<number>`count(*)::int` })
+      .from(S.dispatchOffers)
+      .where(and(
+        eq(S.dispatchOffers.bookingId, bookingId),
+        eq(S.dispatchOffers.status, "SENT"),
+        raw`${S.dispatchOffers.expiresAt} > now()`,
+      ));
+    if (live > 0) return { escalated: false, exhausted: false, offers: live, outcome: "live_offers" as const };
 
-  if (result.exhausted) {
-    // Genuinely nobody left. Only now does the booking say so.
-    const noSupply = apply("MATCHING", "offers.exhausted");
-    const updated = await db.update(S.bookings)
-      .set({ status: noSupply.to, updatedAt: new Date() })
-      .where(and(eq(S.bookings.id, bookingId), eq(S.bookings.status, "MATCHING")))
-      .returning({ id: S.bookings.id });
-    if (updated.length) {
-      await db.insert(S.bookingEvents).values({
+    // How many waves have already gone out, so ranking stays monotonic.
+    const [{ sent }] = await tx.select({ sent: raw<number>`count(*)::int` })
+      .from(S.dispatchOffers).where(eq(S.dispatchOffers.bookingId, bookingId));
+    const { radiusKm, waveSize } = await dispatchPlan(tx, bookingId);
+    const wave = Math.floor(sent / Math.max(1, waveSize)) + 1;
+
+    const sentWave = await sendWave(tx, bookingId, { radiusKm, waveSize, wave, actorId: null });
+
+    if (sentWave.exhausted) {
+      // Genuinely nobody left within the customer's radius. Only now does the booking say so.
+      const noSupply = apply("MATCHING", "offers.exhausted");
+      await tx.update(S.bookings)
+        .set({ status: noSupply.to, updatedAt: new Date() })
+        .where(and(eq(S.bookings.id, bookingId), eq(S.bookings.status, "MATCHING")));
+      await tx.insert(S.bookingEvents).values({
         bookingId, fromStatus: "MATCHING", toStatus: noSupply.to,
         command: "offers.exhausted", actorRole: "system",
-        meta: { reason, ladderExhausted: true },
+        meta: { reason, ladderExhausted: true, radiusKm },
       });
-      publish(booking.userId, {
-        type: "booking.status", bookingId, status: noSupply.to,
-        reason: "every provider in range has been asked",
+      after.push(async () => {
+        publish(booking.userId, {
+          type: "booking.status", bookingId, status: noSupply.to,
+          reason: `every provider within ${radiusKm} km has been asked`,
+        });
+        await audit({
+          actorId: null, actorRole: "system", action: "dispatch.exhausted",
+          entity: "booking", entityId: bookingId, after: { reason, offersSent: sent, radiusKm },
+        });
       });
-      await audit({
-        actorId: null, actorRole: "system", action: "dispatch.exhausted",
-        entity: "booking", entityId: bookingId, after: { reason, offersSent: sent },
-      });
+      return { escalated: false, exhausted: true, offers: 0, outcome: "exhausted" as const, radiusKm };
     }
-    return { escalated: false, exhausted: true, offers: 0 };
-  }
 
-  await audit({
-    actorId: null, actorRole: "system", action: "dispatch.escalated",
-    entity: "booking", entityId: bookingId,
-    after: { reason, wave, offers: result.offers.length },
+    after.push(sentWave.announce, () => audit({
+      actorId: null, actorRole: "system", action: "dispatch.escalated",
+      entity: "booking", entityId: bookingId,
+      after: { reason, wave, offers: sentWave.offers.length, radiusKm },
+    }));
+    return { escalated: true, exhausted: false, offers: sentWave.offers.length, outcome: "escalated" as const, radiusKm };
   });
-  return { escalated: true, exhausted: false, offers: result.offers.length };
+
+  // Committed: now the mechanics, the customer and the audit chain hear of it.
+  for (const step of after) await step();
+  return result;
 }
 
 /**
@@ -327,9 +412,6 @@ export async function sweepExpiredOffers(): Promise<{ expired: number; escalated
   }
   return { expired: expired.length, escalated };
 }
-
-/** A transaction handle, or the pool itself — whatever the caller is writing through. */
-type Executor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export interface WithdrawnOffer { id: string; mechanicId: string }
 

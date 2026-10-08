@@ -106,7 +106,6 @@
   .jobgrid .v { display: block; margin-top: 2px; font-size: 13.5px; font-weight: 650; overflow-wrap: anywhere; }
 
   .field-err { color: var(--red); font-size: 12px; font-weight: 600; margin-top: 6px; }
-
   .net { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px 5px 9px; border-radius: var(--r-full); border: 1px solid var(--line);
     background: var(--surface); color: var(--text-2); font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; }
   .net::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
@@ -349,7 +348,7 @@
     token: null, refresh: null, msisdn: null,
     bookingId: null, mechanic: null, online: navigator.onLine,
   };
-  var poll = null, ttlTimer = null, pollInFlight = false, offers = [];
+  var poll = null, ttlTimer = null, pollInFlight = false, pollAgain = false, offers = [];
 
   var toastTimer;
   function toast(m, kind) {
@@ -460,7 +459,7 @@
     }
     var res;
     try { res = await send(); }
-    catch (e) { throw new Error("Network unavailable — check your connection."); }
+    catch (e) { throw Object.assign(new Error("Network unavailable — check your connection."), { transport: true }); }
 
     if (res.status === 401 && state.refresh && !opts.noRetry) {
       if (await refreshSession()) res = await send();
@@ -705,8 +704,9 @@
     if (ev.type === "booking.status") refresh();
   }
 
-  async function refresh() {
-    if (pollInFlight || !state.token) return;
+  async function refresh() {   // one asked for mid-flight runs after it: a pushed offer used to be dropped
+    if (!state.token) return;
+    if (pollInFlight) { pollAgain = true; return; }
     pollInFlight = true;
     try {
       var jobs = await api("GET", "/v1/mechanic/jobs");
@@ -729,6 +729,7 @@
       $("m-stats").classList.remove("is-loading"); if ($("offers").querySelector(".card[aria-hidden]")) $("offers").innerHTML = "";
     } finally {
       pollInFlight = false;
+      if (pollAgain) { pollAgain = false; refresh(); }
     }
   }
 
@@ -1168,6 +1169,7 @@
 
   // ── boot ─────────────────────────────────────────────────────────────────
   setOnline(navigator.onLine);
+  if ("serviceWorker" in navigator) addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () { /* the shell needs it offline (sw.js) */ }); });
 
   (async function boot() {
     var saved = sess.load();
@@ -1184,8 +1186,8 @@
       var me = await api("GET", "/v1/me", null);
       await enterConsole(me.data.roles);
     } catch (e) {
-      signOut(true);
-      if (state.msisdn) $("m-msisdn").value = state.msisdn;
+      if (state.refresh && (e.transport || e.status >= 500)) { enterConsole(null); toast("Offline — this console refreshes when signal returns", "bad"); }   // no signal is not a sign-out
+      else { signOut(true); if (state.msisdn) $("m-msisdn").value = state.msisdn; }
     } finally {
       $("m-restoring").hidden = true;
     }

@@ -22,6 +22,7 @@ app/apps/api/uploads/
 
 # AI toolchain — heavy local artifacts never enter git
 ai/.venv/
+ai/.venv-gpu/
 ai/data/
 ai/runs/
 ai/*.zip

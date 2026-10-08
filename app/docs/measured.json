@@ -11,27 +11,27 @@
     "file. Dated evidence (a record of what was true for a past build) is exempt,",
     "because correcting it would falsify the record."
   ],
-  "measuredOn": "2026-10-05",
+  "measuredOn": "2026-10-08",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 1162,
+    "total": 1336,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 462,
-      "e2e": 249,
-      "concurrency": 92,
+      "unit": 526,
+      "e2e": 283,
+      "concurrency": 107,
       "gatewaySecurity": 58,
-      "securityAudit": 106,
-      "browser": 195
+      "securityAudit": 108,
+      "browser": 254
     },
     "notExecuted": {
       "paymentSandbox": 22,
       "why": "scripts/razorpay-test.mjs needs NO Razorpay account: it starts its own local stub of the Orders API and signs webhooks with a stub secret. It refuses to run (exit 2) unless the API was started separately with PAYMENTS_PROVIDER=razorpay and PAYMENTS_BASE_URL pointed at that stub, so it is outside every npm test run and was not re-run for this measurement. Never counted in the total, never described as passing"
     },
     "otherRunners": {
-      "android": 190,
+      "android": 304,
       "sosLadder": 21,
-      "ai": 39,
+      "ai": 49,
       "why": "separate toolchains with their own runners; not part of the six-suite total",
       "howSosLadder": [
         "grep -c '@Test' mobile/app/src/test/java/in/roadassist/app/SosLadderTest.kt",
@@ -48,11 +48,11 @@
     "tables": 58,
     "primaryKeys": 58,
     "foreignKeys": 63,
-    "indexes": 142,
-    "uniqueIndexes": 88,
+    "indexes": 143,
+    "uniqueIndexes": 89,
     "gistIndexes": 5,
     "checkConstraints": 7,
-    "migrations": 9,
+    "migrations": 10,
     "how": [
       "Count through pg_depend, NEVER bare information_schema.",
       "CREATE EXTENSION postgis installs spatial_ref_sys into public, which",
@@ -82,13 +82,13 @@
     ]
   },
   "api": {
-    "routes": 74,
-    "underV1": 71,
+    "routes": 75,
+    "underV1": 72,
     "how": [
       "Count app.get/post/patch/put/delete call sites across apps/api/src:",
       "34 in server.ts + 17 in raksha.ts + 4 in routes/auth.ts",
       "+ 2 in routes/email-auth.ts + 6 in routes/emergency.ts",
-      "+ 1 in routes/telecom.ts + 3 in routes/mechanic.ts + 3 in routes/payments.ts + 4 in routes/geo.ts.",
+      "+ 1 in routes/telecom.ts + 3 in routes/mechanic.ts + 3 in routes/payments.ts + 4 in routes/geo.ts + 1 in routes/impact.ts.",
       "",
       "  grep -rnE 'app[.](get|post|put|patch|delete)[(]' apps/api/src | wc -l",
       "",
@@ -116,9 +116,9 @@
       "kn",
       "gu"
     ],
-    "serverKeys": 18,
-    "androidKeys": 173,
-    "webKeys": 45,
+    "serverKeys": 20,
+    "androidKeys": 248,
+    "webKeys": 54,
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."
   },

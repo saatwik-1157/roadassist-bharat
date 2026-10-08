@@ -275,9 +275,20 @@ const saveQueue = () => {
   catch { /* storage blocked - the queue lasts for this page only */ }
 };
 
+// crypto.randomUUID needs a secure context (a LAN address over http has none).
+const randomId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => (b + 256).toString(16).slice(1)).join("");
+// Never queued, as in the citizen app: money, a state change the server owns, a
+// dispatch or an accept, and an emergency. Replayed later, each could charge
+// twice, move a booking that has moved on, or wait silently when it must fail.
+const neverQueue = (path) => /\/pay$|\/confirm$|\/transition$|\/dispatch$|\/accept$/.test(path) || path.startsWith("/v1/sos");
+
 async function api(method, path, body, opts = {}) {
   if (!state.online && !opts.force) {
-    const op = { opId: "op-" + crypto.randomUUID().slice(0, 12), method, path, body,
+    if (neverQueue(path)) {
+      write("r", `✗ NOT QUEUED  ${method} ${path}   (needs a live connection — nothing was sent or stored)`);
+      throw new Error("this needs a live connection");
+    }
+    const op = { opId: "op-" + randomId(), method, path, body,
                  clientUpdatedAt: new Date().toISOString() };
     state.queue.push(op); saveQueue();
     write("m", `⧗ QUEUED  ${method} ${path}   (no signal — stored on device as ${op.opId})`);
@@ -493,7 +504,7 @@ const acts = {
       vehicleId: state.vehicle.id, serviceTypeCode: "battery_jumpstart",
       lat: 28.4595, lng: 77.0266, symptoms: $("sym")?.value,
       highwayMarker: "NH-48, KM 212", createdOffline: !state.online,
-      idempotencyKey: "web-" + crypto.randomUUID().slice(0, 12),
+      idempotencyKey: "web-" + randomId(),
     });
     if (r.queued) return render("request");
     state.booking = r.data; state.next = r.meta.nextCommands; render("tracking");
@@ -531,7 +542,8 @@ const acts = {
       const r = await api("POST", `/v1/bookings/${state.booking.id}/transition`, { command: "cancel" });
       if (r.queued) return;
       state.booking.status = r.data.status;
-      if (r.data.cancellationFee) write("m", "   a cancellation fee applies at this stage");
+      // No fee is charged for a late cancel, so none is announced.
+      if (r.data.lateCancellation) write("m", "   a mechanic had already accepted this job");
       render("tracking");
     } catch { /* the error envelope is already in the console */ }
   },
@@ -593,8 +605,21 @@ $("toggle-net").addEventListener("click", async () => {
     }));
     try {
       const r = await api("POST", "/v1/sync/operations", { operations: ops }, { force: true });
-      for (const res of r.data.results) write("d", `   ${res.opId}: ${res.status}${res.reason ? " — " + res.reason : ""}`);
-      state.queue = []; saveQueue();
+      // The journal records intent ("applied" there means journaled); the calls
+      // below are what apply it. They used to be skipped, so nothing happened.
+      for (const res of r.data.results) write("d", `   ${res.opId}: journal ${res.status}${res.reason ? " — " + res.reason : ""}`);
+      const batch = state.queue; state.queue = [];
+      for (const o of batch) {
+        try {
+          const done = await api(o.method, o.path, o.body, { force: true });
+          if (o.path === "/v1/vehicles" && done.data) state.vehicle = done.data;
+          write("g", `   ✓ replayed ${o.method} ${o.path}`);
+        } catch (err) {
+          if (!err.payload) state.queue.push(o);   // never reached the server: kept for the next try
+          write("r", `   ✗ ${o.method} ${o.path}: ${err.message}${err.payload ? "" : " — kept in the queue"}`);
+        }
+      }
+      saveQueue();
     } catch { /* envelope already logged */ }
   }
   render(state.step);

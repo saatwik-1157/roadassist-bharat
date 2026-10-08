@@ -303,9 +303,62 @@ export async function integrityDigest(value) {
     for (let i = 0; i < view.length; i++) hex += view[i].toString(16).padStart(2, "0");
     return hex;
   }
-  // A runtime without WebCrypto exposed — same algorithm, Node's implementation.
-  const { createHash } = await import("node:crypto");
-  return createHash("sha256").update(bytes).digest("hex");
+  // No WebCrypto: a plain-http page that is not localhost (a phone opening the
+  // server by its LAN address). This used to import node:crypto, which does not
+  // exist in a browser, so every off-grid SOS on such a page failed to store.
+  return sha256Hex(bytes);
+}
+
+/** The SHA-256 round constants (FIPS 180-4 §4.2.2). */
+const K256 = [
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+];
+
+/**
+ * SHA-256 of a byte array, hex encoded, in plain JavaScript (FIPS 180-4).
+ *
+ * The fallback for a page with no WebCrypto. Slow next to the native one and
+ * irrelevant here: it hashes one small JSON record per SOS. The unit test checks
+ * it against node:crypto, byte for byte, across the padding boundaries.
+ */
+export function sha256Hex(bytes) {
+  const n = bytes.length;
+  const size = (((n + 8) >> 6) + 1) << 6;              // room for 0x80 and the 64-bit length
+  const m = new Uint8Array(size);
+  m.set(bytes);
+  m[n] = 0x80;
+  const dv = new DataView(m.buffer);
+  dv.setUint32(size - 8, Math.floor(n / 0x20000000));   // high bits of n * 8
+  dv.setUint32(size - 4, (n * 8) >>> 0);
+  const H = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]);
+  const W = new Uint32Array(64);
+  const rotr = (x, r) => (x >>> r) | (x << (32 - r));
+  for (let o = 0; o < size; o += 64) {
+    for (let t = 0; t < 16; t++) W[t] = dv.getUint32(o + t * 4);
+    for (let t = 16; t < 64; t++) {
+      const s0 = rotr(W[t - 15], 7) ^ rotr(W[t - 15], 18) ^ (W[t - 15] >>> 3);
+      const s1 = rotr(W[t - 2], 17) ^ rotr(W[t - 2], 19) ^ (W[t - 2] >>> 10);
+      W[t] = W[t - 16] + s0 + W[t - 7] + s1;
+    }
+    let a = H[0], b = H[1], c = H[2], d = H[3], e = H[4], f = H[5], g = H[6], h = H[7];
+    for (let t = 0; t < 64; t++) {
+      const t1 = (h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + K256[t] + W[t]) | 0;
+      const t2 = ((rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    H[0] += a; H[1] += b; H[2] += c; H[3] += d; H[4] += e; H[5] += f; H[6] += g; H[7] += h;
+  }
+  let hex = "";
+  for (let i = 0; i < 8; i++) hex += H[i].toString(16).padStart(8, "0");
+  return hex;
 }
 
 /* ═══ 4. retry schedule ════════════════════════════════════════════════════ */
@@ -336,7 +389,7 @@ const api = {
   ENGINE_VERSION, RULES, GENERIC, diagnose,
   ONLINE, LIMITED, OFFLINE, classifyConnectivity,
   LIMITED_RTT_MS, LIMITED_FAILURES, OFFLINE_FAILURES,
-  newIncidentId, newOpId, canonical, integrityDigest,
+  newIncidentId, newOpId, canonical, integrityDigest, sha256Hex,
   backoffMs, BACKOFF_BASE_MS, BACKOFF_CAP_MS,
 };
 globalThis.RAEngine = api;

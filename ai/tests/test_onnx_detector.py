@@ -6,14 +6,18 @@ loading a 37 MB model, which is what keeps it running on every push.
 
 The geometry is the part worth protecting. A wrong letterbox does not crash and
 does not look wrong in a JSON dump; it silently shifts every box, and the output
-of this system is a pin on an authority's map. The end-to-end check is recorded
-in ai/README.md: against RDD2022 ground truth, a predicted pothole box landed at
-IoU 0.753, which is the evidence that the maths below is right rather than
-merely self-consistent.
+of this system is a pin on an authority's map. The synthetic cases below are
+self-consistent by construction, so `RealModelOutput` holds `decode()` to
+ultralytics itself: a stored raw output of the trained model on a padded road
+image (tests/fixtures/decode_raw.json, made by tests/fixtures/make_fixtures.py)
+must decode to the boxes ultralytics' own NMS and scale_boxes gave for it.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -21,12 +25,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "road_damage"))
 
 from onnx_detector import (  # noqa: E402
     INGESTABLE,
+    NMS_IOU,
     decode,
     iou,
     letterbox_params,
+    model_version,
     nms,
+    read_input_size,
     undo_letterbox,
 )
+
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
 class Letterbox(unittest.TestCase):
@@ -86,8 +95,9 @@ class IoU(unittest.TestCase):
         self.assertAlmostEqual(iou((0, 0, 10, 10), (5, 0, 15, 10)), 50 / 150)
 
     def test_the_measured_ground_truth_case(self):
-        # The real prediction recorded in ai/README.md, pinned so a change to
-        # the geometry shows up here as a number rather than as a vague drift.
+        # The IoU recorded in ai/README.md, recomputed. This checks iou()'s
+        # arithmetic on those two boxes and nothing else; the geometry that
+        # produced the predicted box is RealModelOutput's job.
         self.assertAlmostEqual(iou((74, 469, 355, 572), (20, 473, 368, 576)), 0.753, places=3)
 
     def test_a_degenerate_box_has_no_area(self):
@@ -225,6 +235,95 @@ class Decode(unittest.TestCase):
         self.assertEqual(payload["confidence"], 0.877)   # rounded, as detect.py does
         self.assertFalse(payload["usedFallback"])
         self.assertTrue(1 <= payload["severity"] <= 5)
+
+
+class RealModelOutput(unittest.TestCase):
+    """decode() against ultralytics' own decode of the same raw model output.
+
+    The fixture is yolo11s-multi-rich on a 720x400 crop letterboxed into
+    512x512, so 114 rows of padding top and bottom, a scale of 0.711, four
+    classes and overlapping boxes for NMS to settle. Before this, nothing here
+    compared decode() with anything but itself.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.fx = json.loads((FIXTURES / "decode_raw.json").read_text(encoding="utf-8"))
+
+    def decoded(self):
+        fx = self.fx
+        rows = [list(r) for r in zip(*fx["anchors"])]          # anchors x 8 -> 8 x anchors
+        names = {int(k): v for k, v in fx["names"].items()}
+        (sw, sh), (mw, mh) = fx["source"], fx["input"]
+        # iou left at decode()'s default on purpose: it must be the threshold
+        # ultralytics used for the expected boxes.
+        return decode(rows, names, sw, sh, mw, mh, min_conf=fx["minConf"])
+
+    def test_the_fixture_was_decoded_with_the_shared_nms_threshold(self):
+        self.assertEqual(self.fx["iou"], NMS_IOU)
+
+    def test_the_same_detections_in_the_same_order(self):
+        got, want = self.decoded(), self.fx["expected"]
+        self.assertGreaterEqual(len(want), 5)
+        self.assertEqual([d.type for d in got], [e["type"] for e in want])
+        for d, e in zip(got, want):
+            self.assertAlmostEqual(d.confidence, e["confidence"], places=4)
+
+    def test_every_box_lands_where_ultralytics_put_it(self):
+        # 0.05 source pixels: a fractional letterbox pad (113.78 instead of the
+        # 114 rows actually painted) moves every box 0.31 px and fails this.
+        for d, e in zip(self.decoded(), self.fx["expected"]):
+            for got, want in zip(d.box, e["box"]):
+                self.assertAlmostEqual(got, want, delta=0.05, msg=f"{d.type} {d.box} vs {e['box']}")
+
+
+class _Session:
+    """Just enough of an onnxruntime session for the metadata readers."""
+
+    def __init__(self, meta):
+        self._meta = meta
+
+    def get_modelmeta(self):
+        return type("Meta", (), {"custom_metadata_map": self._meta})()
+
+
+class ModelMetadata(unittest.TestCase):
+    def test_imgsz_is_height_then_width(self):
+        # ultralytics writes [h, w]; a 384x640 (h x w) export is 640 wide.
+        self.assertEqual(read_input_size(_Session({"imgsz": "[384, 640]"})), (640, 384))
+
+    def test_a_square_or_missing_size(self):
+        self.assertEqual(read_input_size(_Session({"imgsz": "[512, 512]"})), (512, 512))
+        self.assertEqual(read_input_size(_Session({})), (640, 640))
+
+
+class ModelVersion(unittest.TestCase):
+    def weights(self, root: Path, run: str, content: bytes, name: str = "best.onnx") -> Path:
+        p = root / "runs" / run / "weights" / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(content)
+        return p
+
+    def test_names_the_run_the_weights_and_their_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = self.weights(Path(tmp), "yolo11s-multi-rich", b"weights-a")
+            want = "yolo11s-multi-rich-best-" + hashlib.sha256(b"weights-a").hexdigest()[:8]
+            self.assertEqual(model_version(p), want)
+
+    def test_two_runs_or_two_exports_never_share_a_version(self):
+        # Every model used to report "yolo-rdd2022in-best".
+        with tempfile.TemporaryDirectory() as tmp:
+            a = self.weights(Path(tmp), "yolo11s-multi", b"a")
+            b = self.weights(Path(tmp), "yolo11n-multi-edge", b"b")
+            c = self.weights(Path(tmp), "yolo11s-multi", b"c", "last.onnx")
+            self.assertEqual(len({model_version(a), model_version(b), model_version(c)}), 3)
+
+    def test_fits_the_40_character_column_keeping_the_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = self.weights(Path(tmp), "a-very-long-experiment-name-for-the-yolo11-rich-run", b"x")
+            v = model_version(p)
+            self.assertLessEqual(len(v), 40)
+            self.assertTrue(v.endswith("-best-" + hashlib.sha256(b"x").hexdigest()[:8]), v)
 
 
 if __name__ == "__main__":

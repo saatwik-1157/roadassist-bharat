@@ -32,6 +32,7 @@ import {
   DB_REF_PREFIX, describeCap, isDbPhotoRef, photoByteCap, photoSizeVerdict, photoStoreFor,
 } from "./domain/photo-store.js";
 import { airQuality } from "./routes/geo.js";
+import { capturedAtSchema, detectionSourceKey, isOwnPhotoKey, queryBoolean } from "./domain/raksha-input.js";
 
 // Re-exported for the live map in server.ts, which labels the same points and
 // must use the same sentence (and, taken from here, adds no line to server.ts
@@ -83,14 +84,18 @@ export async function rakshaRoutes(app: FastifyInstance) {
   app.get("/v1/raksha/stats", async () => {
     const [row] = await db.execute<{
       detections: number; open: number; verified: number;
-      devices: number; segments: number; avg_health: number | null;
+      open_critical: number; devices: number; segments: number; avg_health: number | null;
     }>(raw`
       SELECT (SELECT count(*)::int FROM raksha_detections WHERE deleted_at IS NULL) AS detections,
              (SELECT count(*)::int FROM raksha_detections WHERE deleted_at IS NULL
                AND status IN ('DETECTED', 'VERIFIED')) AS open,
              (SELECT count(*)::int FROM raksha_detections WHERE deleted_at IS NULL
                AND status = 'VERIFIED') AS verified,
-             (SELECT count(*)::int FROM edge_devices WHERE deleted_at IS NULL) AS devices,
+             -- the dashboard's "Severity 4-5" tile: open AND severe, corridor-wide
+             (SELECT count(*)::int FROM raksha_detections WHERE deleted_at IS NULL
+               AND status IN ('DETECTED', 'VERIFIED') AND severity >= 4) AS open_critical,
+             (SELECT count(*)::int FROM edge_devices WHERE deleted_at IS NULL
+               AND status <> 'RETIRED') AS devices,
              (SELECT count(*)::int FROM road_segments WHERE deleted_at IS NULL) AS segments,
              (SELECT round(avg(score))::int FROM (
                 SELECT DISTINCT ON (segment_id) score FROM road_health_scores
@@ -362,7 +367,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
     return ok({ status: degraded ? "DEGRADED" : "ACTIVE" });
   });
 
-  // ── detection ingestion (batched, idempotent on device op_id) ────────────
+  // ── detection ingestion (batched; idempotent on op_id and source_key) ───
   app.post("/v1/raksha/detections", { preHandler: [authenticate, requireRole("device")] }, async (req, reply) => {
     const { detections } = z.object({
       detections: z.array(z.object({
@@ -371,10 +376,10 @@ export async function rakshaRoutes(app: FastifyInstance) {
         confidence: z.number().min(0).max(1),
         severity: z.number().int().min(1).max(5),
         ...latLng,
-        capturedAt: z.coerce.date(),
+        capturedAt: capturedAtSchema,
         ranOffline: z.boolean().optional(),
         imageRef: z.string().max(200).optional(),
-        modelVersion: z.string().max(40),
+        modelVersion: z.string().min(1).max(40),
         usedFallback: z.boolean().optional(),
       })).min(1).max(200),
     }).parse(req.body);
@@ -408,7 +413,12 @@ export async function rakshaRoutes(app: FastifyInstance) {
           capturedAt: d.capturedAt, ranOffline: d.ranOffline ?? false,
           imageRef: d.imageRef, modelVersion: d.modelVersion,
           usedFallback: d.usedFallback ?? false,
-        }).onConflictDoNothing({ target: [S.rakshaDetections.deviceId, S.rakshaDetections.opId] })
+          sourceKey: detectionSourceKey(d),
+        })
+          // Either unique key makes it a duplicate: this device's op id replayed,
+          // or the same sighting already sent by ANY device - a REJECTED one
+          // included, so a re-sent rejection stays rejected and raises nothing.
+          .onConflictDoNothing()
           .returning({ id: S.rakshaDetections.id });
 
         if (!inserted.length) return { opId: d.opId, status: "duplicate" as const };
@@ -444,16 +454,20 @@ export async function rakshaRoutes(app: FastifyInstance) {
           // The same hazard seen again (same device, within 200 m, last hour,
           // still open) corroborates the existing incident — it never opens a
           // second one, so a stuck camera cannot bury the confirmation queue.
+          // One a human dismissed in the last hour counts too: the parked lorry
+          // an officer just called a false positive is still parked, and seeing
+          // it again must not put it straight back in the queue.
           const open = await tx.execute<{ id: string }>(raw`
             SELECT i.id FROM incidents i
               JOIN incident_signals s ON s.incident_id = i.id
              WHERE s.kind = 'raksha_detection'
                AND s.payload->>'deviceId' = ${deviceId}
-               AND i.status IN ('AWAITING_CONFIRMATION', 'CONFIRMED', 'RESPONDING')
+               AND ((i.status IN ('AWAITING_CONFIRMATION', 'CONFIRMED', 'RESPONDING')
+                     AND i.created_at > now() - interval '60 minutes')
+                 OR (i.status = 'CANCELLED' AND i.cancelled_at > now() - interval '60 minutes'))
                AND i.deleted_at IS NULL AND i.location IS NOT NULL
                AND ST_DWithin(i.location::geography,
                               ST_SetSRID(ST_MakePoint(${d.lng}, ${d.lat}), 4326)::geography, 200)
-               AND i.created_at > now() - interval '60 minutes'
              LIMIT 1`);
 
           if (open.length) {
@@ -645,7 +659,10 @@ export async function rakshaRoutes(app: FastifyInstance) {
       }
       return reply.header("cache-control", "private, max-age=3600").type(p.mime).send(p.bytes);
     }
-    const path = uploadPath(env.uploadDir, d.ref);   // a device-supplied ref may point anywhere
+    // A device-supplied ref may point anywhere, including at another report's
+    // photo inside UPLOAD_DIR: only the key the server wrote for THIS
+    // detection is read from disk (domain/raksha-input.ts).
+    const path = isOwnPhotoKey(d.ref, id) ? uploadPath(env.uploadDir, d.ref) : null;
     if (!path || !existsSync(path)) {
       return reply.code(404).send({ error: { code: "photo_missing", title: "Photo file is unavailable", retryable: false } });
     }
@@ -678,7 +695,7 @@ export async function rakshaRoutes(app: FastifyInstance) {
       status: z.enum(["DETECTED", "VERIFIED", "REJECTED", "REPAIR_SCHEDULED", "REPAIRED", "CLOSED"]).optional(),
       type: z.enum(["pothole", "road_damage", "obstruction"]).optional(),
       source: z.enum(["citizen", "device"]).optional(),
-      limit: z.coerce.number().min(1).max(200).optional(),
+      limit: z.coerce.number().int().min(1).max(200).optional(),
     }).parse(req.query);
 
     const rows = await db.execute<Record<string, unknown>>(raw`
@@ -723,9 +740,24 @@ export async function rakshaRoutes(app: FastifyInstance) {
   app.get("/v1/raksha/incidents/review-queue",
     { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req) => {
       const q = z.object({
-        overdueOnly: z.coerce.boolean().optional(),
-        limit: z.coerce.number().min(1).max(200).optional(),
+        overdueOnly: queryBoolean.optional(),
+        limit: z.coerce.number().int().min(1).max(200).optional(),
       }).parse(req.query);
+
+      // The clock is read once, so every row in one response is judged against
+      // the same instant — two rows a millisecond apart must not straddle a
+      // deadline and sort inconsistently. "Overdue" is assessReview's rule in
+      // SQL, so the totals and the overdueOnly filter apply BEFORE the LIMIT:
+      // counting the returned page capped both totals at the page size.
+      const now = new Date();
+      const sla = REVIEW_SLA_MINUTES;
+      const isOverdue = raw`i.created_at + make_interval(mins => CASE i.severity
+          WHEN 'CRITICAL' THEN ${sla.CRITICAL}::int WHEN 'HIGH' THEN ${sla.HIGH}::int
+          WHEN 'MEDIUM' THEN ${sla.MEDIUM}::int ELSE ${sla.LOW}::int END) <= ${now.toISOString()}::timestamptz`;
+      const [totals] = await db.execute<{ awaiting: number; overdue: number }>(raw`
+        SELECT count(*)::int AS awaiting, (count(*) FILTER (WHERE ${isOverdue}))::int AS overdue
+          FROM incidents i
+         WHERE i.deleted_at IS NULL AND i.status = 'AWAITING_CONFIRMATION'`);
 
       const rows = await db.execute<{
         id: string; status: string; severity: IncidentSeverity; created_at: string | Date;
@@ -739,13 +771,10 @@ export async function rakshaRoutes(app: FastifyInstance) {
           FROM incidents i
          WHERE i.deleted_at IS NULL
            AND i.status = 'AWAITING_CONFIRMATION'
+           AND (${q.overdueOnly ?? false}::boolean IS FALSE OR ${isOverdue})
          ORDER BY i.created_at ASC
          LIMIT ${q.limit ?? 100}`);
 
-      // The clock is read once, so every row in one response is judged against
-      // the same instant — two rows a millisecond apart must not straddle a
-      // deadline and sort inconsistently.
-      const now = new Date();
       const assessed = rows
         .map((row) => ({
           row,
@@ -755,7 +784,6 @@ export async function rakshaRoutes(app: FastifyInstance) {
         .sort(compareReviewUrgency);
 
       const visible = q.overdueOnly ? assessed.filter((a) => a.assessment.state === "OVERDUE") : assessed;
-      const overdue = assessed.filter((a) => a.assessment.state === "OVERDUE").length;
 
       return ok(visible.map(({ row, assessment }) => ({
         id: row.id,
@@ -775,8 +803,8 @@ export async function rakshaRoutes(app: FastifyInstance) {
         dismissable: row.detected_by_model && row.ownerless,
       })), {
         count: visible.length,
-        awaitingReview: assessed.length,
-        overdue,
+        awaitingReview: totals.awaiting,
+        overdue: totals.overdue,
         slaMinutes: REVIEW_SLA_MINUTES,
         note: "A queue, not a dispatch. ADR-0005: only a human moves an incident out of AWAITING_CONFIRMATION.",
       });
@@ -855,21 +883,54 @@ export async function rakshaRoutes(app: FastifyInstance) {
     if (!current) {
       return reply.code(404).send({ error: { code: "not_found", title: "Detection not found", retryable: false } });
     }
-    // Verification is a one-way gate: only a fresh detection can be judged,
-    // and prior verification evidence is never silently overwritten.
-    const rows = await db.update(S.rakshaDetections).set({
-      status: action === "verify" ? "VERIFIED" : "REJECTED",
-      verifiedBy: req.user!.sub, verifiedAt: new Date(), updatedAt: new Date(),
-      // Only overwrite notes when the reviewer supplies their own — otherwise a
-      // citizen's original report note (shown back to them) is preserved.
-      ...(notes !== undefined ? { notes } : {}),
-      // A rejected report is spam/noise — drop its photo reference now (the file
-      // is reclaimed just below) so disk isn't held by discarded submissions.
-      ...(action === "reject" && current.imageRef ? { imageRef: null } : {}),
-    }).where(and(
-      eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt),
-      eq(S.rakshaDetections.status, "DETECTED"),
-    )).returning({ id: S.rakshaDetections.id, status: S.rakshaDetections.status });
+    // Only the key the server wrote for THIS detection is its photo. A device's
+    // image_ref names a frame on the device (or, sent maliciously, someone
+    // else's photo), and is neither cleared nor deleted (domain/raksha-input.ts).
+    const ownPhoto = isOwnPhotoKey(current.imageRef, id);
+    const { rows, cancelled } = await db.transaction(async (tx) => {
+      // Verification is a one-way gate: only a fresh detection can be judged,
+      // and prior verification evidence is never silently overwritten.
+      const rows = await tx.update(S.rakshaDetections).set({
+        status: action === "verify" ? "VERIFIED" : "REJECTED",
+        verifiedBy: req.user!.sub, verifiedAt: new Date(), updatedAt: new Date(),
+        // Only overwrite notes when the reviewer supplies their own — otherwise a
+        // citizen's original report note (shown back to them) is preserved.
+        ...(notes !== undefined ? { notes } : {}),
+        // A rejected report is spam/noise — drop its photo reference now (the file
+        // is reclaimed just below) so disk isn't held by discarded submissions.
+        ...(action === "reject" && ownPhoto ? { imageRef: null } : {}),
+      }).where(and(
+        eq(S.rakshaDetections.id, id), isNull(S.rakshaDetections.deletedAt),
+        eq(S.rakshaDetections.status, "DETECTED"),
+      )).returning({ id: S.rakshaDetections.id, status: S.rakshaDetections.status });
+      if (!rows.length || action !== "reject") return { rows, cancelled: [] as Array<{ id: string; from: string; to: string }> };
+
+      // A rejected detection is a false positive, so an incident it raised on
+      // its own is one too: a model-raised, ownerless, unconfirmed incident
+      // whose every signal is now a REJECTED detection is cancelled with it,
+      // as a dismissal would. One still carrying a live sighting stays queued.
+      const linked = await tx.execute<{ id: string; status: IncidentStatus }>(raw`
+        SELECT i.id, i.status FROM incidents i
+         WHERE i.deleted_at IS NULL AND i.detected_by_model AND i.user_id IS NULL
+           AND i.status IN ('AWAITING_CONFIRMATION', 'DETECTED')
+           AND EXISTS (SELECT 1 FROM incident_signals s
+                        WHERE s.incident_id = i.id AND s.deleted_at IS NULL
+                          AND s.kind = 'raksha_detection' AND s.payload->>'detectionId' = ${id})
+           AND NOT EXISTS (SELECT 1 FROM incident_signals s
+                             LEFT JOIN raksha_detections d ON d.id::text = s.payload->>'detectionId'
+                            WHERE s.incident_id = i.id AND s.deleted_at IS NULL
+                              AND (d.id IS NULL OR d.status <> 'REJECTED'))`);
+      const cancelled: Array<{ id: string; from: string; to: string }> = [];
+      for (const inc of linked) {
+        const { to } = applyIncident(inc.status, "cancel");
+        const moved = await tx.update(S.incidents)
+          .set({ status: to, cancelledAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(S.incidents.id, inc.id), eq(S.incidents.status, inc.status)))
+          .returning({ id: S.incidents.id });
+        if (moved.length) cancelled.push({ id: inc.id, from: inc.status, to });
+      }
+      return { rows, cancelled };
+    });
     if (!rows.length) {
       return reply.code(409).send({
         error: { code: "already_reviewed", title: `This detection is already ${current.status} and cannot be re-judged`, retryable: false },
@@ -879,10 +940,31 @@ export async function rakshaRoutes(app: FastifyInstance) {
     // on disk (best-effort). The row is DELETEd - a soft delete keeps the bytes.
     if (action === "reject" && isDbPhotoRef(current.imageRef)) {
       await db.delete(S.rakshaPhotos).where(eq(S.rakshaPhotos.detectionId, id));
-    } else if (action === "reject" && current.imageRef) {
+    } else if (action === "reject" && ownPhoto) {
       try { const p = uploadPath(env.uploadDir, current.imageRef); if (p && existsSync(p)) unlinkSync(p); } catch { /* already gone */ }
     }
-    return ok(rows[0]);
+
+    const actorRole = req.user!.roles.includes("admin") ? "admin" : "gov_officer";
+    const auditHash = await audit({
+      actorId: req.user!.sub, actorRole,
+      action: action === "verify" ? "detection.verified" : "detection.rejected",
+      entity: "raksha_detection", entityId: id,
+      before: { status: current.status },
+      after: { status: rows[0].status, notes: notes ?? null, cancelledIncidents: cancelled.map((c) => c.id) },
+      ip: req.ip,
+    });
+    let audited = auditHash !== null;
+    for (const c of cancelled) {
+      const h = await audit({
+        actorId: req.user!.sub, actorRole,
+        action: "incident.dismissed", entity: "incident", entityId: c.id,
+        before: { status: c.from },
+        after: { status: c.to, falsePositive: true, reason: "its only detection was rejected", detectionId: id },
+        ip: req.ip,
+      });
+      audited = audited && h !== null;
+    }
+    return ok({ ...rows[0], cancelledIncidents: cancelled.map((c) => c.id) }, { audited });
   });
 
   app.post("/v1/raksha/detections/:id/close", { preHandler: [authenticate, requireRole("admin", "gov_officer")] }, async (req, reply) => {
@@ -906,7 +988,13 @@ export async function rakshaRoutes(app: FastifyInstance) {
         error: { code: "not_closable", title: `Only a VERIFIED or REPAIRED detection can be closed (this one is ${current.status})`, retryable: false },
       });
     }
-    return ok(rows[0]);
+    const auditHash = await audit({
+      actorId: req.user!.sub, actorRole: req.user!.roles.includes("admin") ? "admin" : "gov_officer",
+      action: "detection.closed", entity: "raksha_detection", entityId: id,
+      before: { status: current.status }, after: { status: rows[0].status },
+      ip: req.ip,
+    });
+    return ok(rows[0], { audited: auditHash !== null });
   });
 
   // ── dismissing a false positive from the confirmation queue (ADR-0011) ────
@@ -945,11 +1033,26 @@ export async function rakshaRoutes(app: FastifyInstance) {
       }
 
       const { to } = applyIncident(inc.status as IncidentStatus, "cancel");
-      const moved = await db.update(S.incidents)
-        .set({ status: to, cancelledAt: new Date(), updatedAt: new Date() })
-        .where(and(eq(S.incidents.id, id), eq(S.incidents.status, inc.status),
-                   isNull(S.incidents.userId), eq(S.incidents.detectedByModel, true)))
-        .returning({ id: S.incidents.id });
+      const { moved, rejected } = await db.transaction(async (tx) => {
+        const moved = await tx.update(S.incidents)
+          .set({ status: to, cancelledAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(S.incidents.id, id), eq(S.incidents.status, inc.status),
+                     isNull(S.incidents.userId), eq(S.incidents.detectedByModel, true)))
+          .returning({ id: S.incidents.id });
+        if (!moved.length) return { moved, rejected: [] as string[] };
+        // A false-positive incident means false-positive detections: the ones
+        // that raised or corroborated it are rejected with it, or they stay
+        // DETECTED on the map and in road health as if nobody had looked.
+        const rejected = await tx.execute<{ id: string }>(raw`
+          UPDATE raksha_detections
+             SET status = 'REJECTED', verified_by = ${req.user!.sub}, verified_at = now(), updated_at = now()
+           WHERE deleted_at IS NULL AND status = 'DETECTED'
+             AND id::text IN (SELECT s.payload->>'detectionId' FROM incident_signals s
+                               WHERE s.incident_id = ${id} AND s.deleted_at IS NULL
+                                 AND s.kind = 'raksha_detection')
+          RETURNING id`);
+        return { moved, rejected: rejected.map((r) => r.id) };
+      });
       if (!moved.length) {
         return reply.code(409).send({ error: {
           code: "invalid_state", retryable: true,
@@ -960,10 +1063,10 @@ export async function rakshaRoutes(app: FastifyInstance) {
       const auditHash = await audit({
         actorId: req.user!.sub, actorRole: req.user!.roles.includes("admin") ? "admin" : "gov_officer",
         action: "incident.dismissed", entity: "incident", entityId: id,
-        before: { status: inc.status }, after: { status: to, falsePositive: true, reason },
+        before: { status: inc.status }, after: { status: to, falsePositive: true, reason, rejectedDetections: rejected },
         ip: req.ip,
       });
-      return ok({ id, status: to, stage: PUBLIC_STAGE[to], dismissed: true, reason }, {
+      return ok({ id, status: to, stage: PUBLIC_STAGE[to], dismissed: true, reason, rejectedDetections: rejected }, {
         audited: auditHash !== null,
         note: auditHash !== null
           ? "Dismissed as a false positive. The reason is in the audit chain; nothing was dispatched."

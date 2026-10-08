@@ -22,7 +22,8 @@ import { join } from "node:path";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:4000";
 const HEADED = process.argv.includes("--headed");
-const PORT = 9333;
+// UI_CDP_PORT: a second run on the same machine (another API, another DB) needs its own.
+const PORT = Number(process.env.UI_CDP_PORT ?? 9333);
 
 const CHROME_CANDIDATES = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -48,6 +49,7 @@ class Page {
     this.pending = new Map();
     this.console = [];
     this.errors = [];
+    this.dialogs = [];
     ws.addEventListener("message", (ev) => {
       const msg = JSON.parse(ev.data);
       if (msg.id && this.pending.has(msg.id)) {
@@ -62,6 +64,11 @@ class Page {
           .map((a) => a.value ?? a.description ?? "").join(" ");
         this.console.push({ type: msg.params.type, text });
         if (msg.params.type === "error") this.errors.push(text);
+      }
+      // A confirm() (sign-out with an unsent SOS) is recorded and accepted.
+      if (msg.method === "Page.javascriptDialogOpening") {
+        this.dialogs.push(msg.params.message);
+        this.send("Page.handleJavaScriptDialog", { accept: true }).catch(() => {});
       }
       if (msg.method === "Runtime.exceptionThrown") {
         const d = msg.params.exceptionDetails;
@@ -155,6 +162,8 @@ async function launch() {
     // rather than hanging the run on a permission prompt nobody will answer.
     "--deny-permission-prompts",
     "--window-size=390,860",
+    // A LAN name with no secure context, for §29 (it resolves to this machine).
+    "--host-resolver-rules=MAP roadassist.local 127.0.0.1",
   ];
   if (!HEADED) args.push("--headless=new");
   // CI runners have no usable user namespace for Chrome's sandbox. This is the
@@ -724,6 +733,14 @@ const run = async () => {
     check(retention.before === 1, "a synchronised incident stays readable to its owner for now",
       `${retention.before} kept`);
 
+    // Stand the synced incident down: it is escalated, and one open emergency
+    // is enough to refuse the next SOS (§25), including in a rerun on this DB.
+    await page.eval(`
+      const h = { "content-type": "application/json", authorization: "Bearer " + JSON.parse(sessionStorage.getItem("ra.app.session")).token };
+      for (const i of (await (await fetch("/v1/me/incidents", { headers: h })).json()).data || []) {
+        await fetch("/v1/sos/" + i.id + "/cancel", { method: "POST", headers: h, body: "{}" });
+      }
+      return true;`);
     await page.eval(`await window.__ra.clearOffGrid(); location.hash = "#home"; return true;`);
     await page.send("Emulation.clearGeolocationOverride", {}).catch(() => {});
 
@@ -1133,6 +1150,24 @@ const run = async () => {
     check(!/✗|expired|Sign in/i.test(recovered.status),
       "the live loop keeps working after the refresh", recovered.status.slice(0, 80));
 
+    // The "Open detections" and "Severity 4–5" tiles counted the filtered,
+    // 100-row page, so filtering to Rejected read 0 open on a corridor full of
+    // open hazards. They are corridor-wide totals, whatever the filter shows.
+    const tiles = await page.eval(`
+      const sel = document.getElementById("f-status");
+      sel.value = "REJECTED"; sel.onchange();
+      await new Promise(r => setTimeout(r, 2500));
+      const s = (await (await fetch("/v1/raksha/stats")).json()).data;
+      const out = { open: Number(document.getElementById("n-open").textContent),
+                    crit: Number(document.getElementById("n-crit").textContent),
+                    statsOpen: s.open, statsCrit: s.open_critical };
+      sel.value = ""; sel.onchange();
+      await new Promise(r => setTimeout(r, 1500));
+      return out;
+    `);
+    check(tiles.statsOpen > 0 && tiles.open === tiles.statsOpen && tiles.crit === tiles.statsCrit,
+      "the open and severity tiles count the whole corridor, not the filtered page", JSON.stringify(tiles));
+
     const rErrs = page.errors.filter((e) => !/favicon|manifest|geolocation|Permission/i.test(e));
     check(rErrs.length === 0, "the dashboard raises no uncaught exceptions",
       rErrs.length ? rErrs.slice(0, 2).join(" | ").slice(0, 180) : "clean");
@@ -1537,6 +1572,732 @@ const run = async () => {
       }
       return true;
     `);
+
+
+    // ══ 18–35. The web bug hunt of 7 Oct 2026 ═══════════════════════════════
+    // Each of these reproduced in a real Chrome before it was fixed, and each
+    // check below failed against the code before the fix. Every section signs
+    // in its own number (+9170000047xx, clear of the seeds), so it stands
+    // alone, and stands down any emergency it raised.
+    // A section that throws is a failed check, not the end of the run: the
+    // ones after it still report.
+    const part = async (title, fn) => {
+      section(title);
+      try { await fn(); } catch (e) {
+        bad("aborted: " + title.replace(/^\d+\. /, ""), e.message.slice(0, 160));
+        await page.send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 }).catch(() => {});
+      }
+    };
+    const APP = `${BASE}/app.html`;
+    const NET_OFF = { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
+    const NET_ON = { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 };
+    const TOK = `JSON.parse(sessionStorage.getItem("ra.app.session")).token`;
+    // Registrations are unique server-wide: a rerun on the same database gets new ones.
+    const RUN = String(Date.now() % 10000).padStart(4, "0");
+    const settled = `document.readyState === "complete" && document.getElementById("auth-restoring").hidden === true &&
+      (document.getElementById("scr-home").classList.contains("active") || document.getElementById("scr-auth").classList.contains("active"))`;
+    const signInAs = async (msisdn, base = BASE) => {
+      await page.goto(`${base}/app.html`);
+      await page.waitFor(settled, 25000, "the app to settle");
+      if (await page.eval(`return document.getElementById("tabs").hidden === false;`)) {
+        await page.eval(`document.getElementById("s-out").click(); return true;`);
+        await page.waitFor(`document.getElementById("tabs").hidden === true`, 10000, "sign-out");
+      }
+      await page.setValue("#a-msisdn", msisdn);
+      await page.click("#a-send");
+      await page.waitFor(`/^\\d{6}$/.test(document.getElementById("a-code").value)`, 15000, "the dev code");
+      await page.click("#a-verify");
+      await page.waitFor(`document.getElementById("scr-home").classList.contains("active") && !document.getElementById("tabs").hidden`, 20000, "home");
+      await page.waitFor(`window.__ra && window.__ra.offGrid().storeLoaded && window.__ra.offGrid().managerLoaded`, 15000, "off-grid modules");
+    };
+    const offGrid = async (on) => {
+      await page.eval(`if ((window.__ra.tier() === "OFFLINE") !== ${on}) document.getElementById("net").click(); return true;`);
+      await page.waitFor(on ? `window.__ra.tier() === "OFFLINE"` : `window.__ra.tier() !== "OFFLINE"`, 15000, `tier ${on ? "OFFLINE" : "back"}`);
+    };
+    const pressSos = () => page.eval(`document.getElementById("sos").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); return true;`);
+    // Every toast, in order: one replaces another faster than a single read can see.
+    const recordToasts = () => page.eval(`
+      window.__toasts = [];
+      const el = document.getElementById("toast");
+      new MutationObserver(() => window.__toasts.push(el.textContent))
+        .observe(el, { childList: true, subtree: true, characterData: true });
+      return true;`);
+    // Cancel every emergency this account has open, until the server lists none
+    // (an escalation still in flight can land after the first cancel), and wait
+    // for the page to hear of it: one left open refuses the next SOS (§25).
+    const standDownAll = () => page.eval(`
+      const call = async (method, path, body) => {
+        const send = () => fetch(path, { method, body, headers: { "content-type": "application/json", authorization: "Bearer " + ${TOK} } });
+        let r = await send();
+        if (r.status === 401 && await window.__ra.refreshSession()) r = await send();
+        return r.json();
+      };
+      let left = [];
+      for (let n = 0; n < 4; n++) {
+        for (const i of (await call("GET", "/v1/me/incidents")).data || []) await call("POST", "/v1/sos/" + i.id + "/cancel", "{}");
+        await new Promise((r) => setTimeout(r, 800));
+        left = (await call("GET", "/v1/me/incidents")).data || [];
+        if (!left.length) break;
+      }
+      const t0 = Date.now();
+      while (Date.now() - t0 < 6000 && Object.keys(JSON.parse(localStorage.getItem("ra.app.sos") || "{}")).length) {
+        await new Promise((r) => setTimeout(r, 150));
+      }
+      return left.length;`);
+    await page.send("Browser.grantPermissions", { origin: BASE, permissions: ["geolocation"] });
+    await page.send("Emulation.setGeolocationOverride", { latitude: 28.4601, longitude: 77.0301, accuracy: 12 });
+
+    // ══ 18. No signal is not a sign-out ═════════════════════════════════════
+    await part("18. Reopened with no signal: still signed in, SOS in reach", async () => {
+      await signInAs("+917000004701");
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+      await page.waitFor(`navigator.serviceWorker.controller`, 20000, "the service worker to control the page");
+      await page.send("Network.emulateNetworkConditions", NET_OFF);
+      await page.goto(APP);
+      await page.waitFor(settled, 25000, "the app to settle offline");
+      await sleep(800);
+      const reopened = await page.eval(`return {
+        screen: document.querySelector(".screen.active").id, tabs: !document.getElementById("tabs").hidden,
+        sos: Boolean(document.getElementById("sos").offsetParent), kept: Boolean(localStorage.getItem("ra.app.session")) };`);
+      check(reopened.screen === "scr-home" && reopened.tabs && reopened.sos,
+        "reopened with no signal, the app opens on Home with SOS in reach — not on sign-in", JSON.stringify(reopened));
+      check(reopened.kept, "…and the stored session is kept, not wiped");
+      await page.waitFor(`window.__ra && window.__ra.offGrid().storeLoaded && window.__ra.tier() === "OFFLINE"`, 15000, "off-grid tier");
+      await pressSos();
+      await page.waitFor(`window.__ra.offGrid().incidentId`, 15000, "an off-grid incident");
+      ok("…and an SOS raised there is stored on this device");
+      await page.eval(`document.getElementById("og-close").click(); return true;`);
+      await page.send("Network.emulateNetworkConditions", NET_ON);
+      await page.waitFor(`window.__ra.tier() !== "OFFLINE" && !/offline/.test(document.getElementById("home-sub").textContent)`, 40000,
+        "the app to reload itself online");
+      await page.waitFor(`await window.__ra.listOffGrid().then((l) => l.length && l[0].status === "SYNCED")`, 20000, "the stored SOS to send");
+      const reconnected = await page.eval(`return { tabs: !document.getElementById("tabs").hidden, sub: document.getElementById("home-sub").textContent };`);
+      check(reconnected.tabs, "when the signal returns it reloads itself, still signed in, and sends the stored SOS", reconnected.sub);
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+
+    });
+
+    await part("18b. The mechanic console: its own service worker, and an offline reopen", async () => {
+      // It never registered the worker, so it only worked offline if the citizen
+      // app had registered it first; and a reopen with no signal signed it out.
+      await page.goto(`${BASE}/mechanic.html`);
+      await page.waitFor(`document.getElementById("m-signin")`);
+      await page.eval(`for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); return true;`);
+      await page.goto(`${BASE}/mechanic.html`);
+      await sleep(1500);
+      const mReg = await page.eval(`
+        const t0 = Date.now();
+        while (Date.now() - t0 < 10000 && !(await navigator.serviceWorker.getRegistration())) await new Promise((r) => setTimeout(r, 200));
+        return Boolean(await navigator.serviceWorker.getRegistration());`);
+      check(mReg, "mechanic.html registers the service worker itself");
+      // (If it did not, the check above has failed; register it here so the offline check below still runs.)
+      await page.eval(`if (!(await navigator.serviceWorker.getRegistration())) await navigator.serviceWorker.register("sw.js"); return true;`);
+      if (await page.eval(`return document.getElementById("scr-work").hidden;`)) {
+        await page.setValue("#m-msisdn", "+919600000440");
+        await page.click("#m-signin");
+      }
+      await page.waitFor(`document.getElementById("scr-work").hidden === false`, 45000, "the mechanic console");
+      await page.waitFor(`navigator.serviceWorker.controller`, 20000, "the worker to control the console");
+      await page.goto(`${BASE}/mechanic.html`);
+      await page.waitFor(`document.getElementById("scr-work").hidden === false`, 30000);
+      await page.send("Network.emulateNetworkConditions", NET_OFF);
+      await page.goto(`${BASE}/mechanic.html`);
+      await sleep(4000);
+      const mOff = await page.eval(`return { work: !document.getElementById("scr-work").hidden,
+        kept: Boolean(localStorage.getItem("ra.mechanic.session")) };`);
+      await page.send("Network.emulateNetworkConditions", NET_ON);
+      check(mOff.work && mOff.kept, "the mechanic console reopened with no signal stays signed in", JSON.stringify(mOff));
+    });
+    // ══ 19. One phone, two people ═══════════════════════════════════════════
+    await part("19. A shared phone: the queue and an off-grid SOS stay with their owner", async () => {
+      await signInAs("+917000004702");
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+      await offGrid(true);
+      await page.setValue("#v-reg", `KA01AB${RUN}`);
+      await page.click("#v-add");
+      await sleep(600);
+      await pressSos();
+      await page.waitFor(`window.__ra.offGrid().incidentId`, 15000, "A's off-grid incident");
+      const incA = await page.eval(`const id = window.__ra.offGrid().incidentId; document.getElementById("og-close").click(); return id;`);
+      page.dialogs.length = 0;
+      await page.eval(`document.getElementById("s-out").click(); return true;`);
+      await page.waitFor(`document.getElementById("tabs").hidden === true`, 10000, "A signed out");
+      check(page.dialogs.some((d) => /not reached RoadAssist yet/.test(d)),
+        "signing out with an unsent SOS warns first, and says it stays on this device", (page.dialogs[0] || "(no warning)").slice(0, 90));
+      // B signs in on the same page (sign-in is never queued), then signal returns.
+      await page.setValue("#a-msisdn", "+917000004703");
+      await page.click("#a-send");
+      await page.waitFor(`/^\\d{6}$/.test(document.getElementById("a-code").value)`, 15000);
+      await page.click("#a-verify");
+      await page.waitFor(`!document.getElementById("tabs").hidden`, 20000);
+      await offGrid(false);
+      await sleep(6000);
+      const shared = await page.eval(`
+        const me = await (await fetch("/v1/me", { headers: { authorization: "Bearer " + ${TOK} } })).json();
+        const inc = (await window.__ra.listOffGrid()).find((i) => i.incidentId === ${JSON.stringify(incA)});
+        return { bVehicles: me.data.vehicles.map((v) => v.registrationNo), aStatus: inc ? inc.status : null,
+          queue: localStorage.getItem("ra.app.queue") || "", screen: document.getElementById("og-body").innerText };`);
+      check(!shared.bVehicles.includes(`KA01AB${RUN}`), "the next user's reconnect does not replay the last user's queued vehicle",
+        JSON.stringify(shared.bVehicles));
+      check(shared.aStatus && shared.aStatus !== "SYNCED", "…nor send the last user's off-grid SOS under their own account", shared.aStatus);
+      check(shared.queue.includes(`KA01AB${RUN}`), "…which both stay on the device, still the first user's");
+      check(!shared.screen.includes(incA), "…and the off-grid screen does not show the next user someone else's incident");
+      await signInAs("+917000004702");
+      await page.waitFor(`await window.__ra.listOffGrid().then((l) => (l.find((i) => i.incidentId === ${JSON.stringify(incA)}) || {}).status === "SYNCED")`,
+        20000, "A's SOS to send when A is back");
+      const own = await page.eval(`
+        const me = await (await fetch("/v1/me", { headers: { authorization: "Bearer " + ${TOK} } })).json();
+        return me.data.vehicles.map((v) => v.registrationNo);`);
+      check(own.includes(`KA01AB${RUN}`), "when its owner signs in again, their queue and their SOS go out", JSON.stringify(own));
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+
+    });
+    // ══ 20. Cancel while the off-grid SOS is on the wire ════════════════════
+    await part("20. 'Cancel — false alarm' during the reconnect upload", async () => {
+      await signInAs("+917000004704");
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+      await offGrid(true);
+      await pressSos();
+      await page.waitFor(`window.__ra.offGrid().incidentId`, 15000, "an off-grid incident");
+      await recordToasts();
+      await page.eval(`
+        window.__calls = []; window.__held = false;
+        const real = window.__realFetch = window.fetch;
+        let release; window.__release = () => release();
+        const hold = new Promise((r) => { release = r; });
+        window.fetch = async function (url) {
+          const u = String(url);
+          if (/\\/v1\\/sos\\//.test(u)) window.__calls.push(u.replace(/^.*\\/v1\\/sos\\//, ""));
+          if (/offline-sync$/.test(u)) { window.__held = true; await hold; }
+          return real.apply(this, arguments);
+        };
+        document.getElementById("net").click();     // signal returns: the upload starts, and is held
+        return true;`);
+      await page.waitFor(`window.__held`, 15000, "the upload to be in flight");
+      const midway = await page.eval(`
+        document.getElementById("sos-abort").click();
+        await new Promise((r) => setTimeout(r, 500));
+        const l = await window.__ra.listOffGrid();
+        return { toast: window.__toasts.join(" | "), status: l[0] && l[0].status };`);
+      check(!/nothing was ever transmitted/.test(midway.toast),
+        "pressed mid-upload, it no longer says 'nothing was ever transmitted'", midway.toast.slice(0, 120));
+      check(midway.status === "SYNCING", "…because the record is marked as on the wire, so it cannot be withdrawn locally", midway.status);
+      await page.eval(`window.__release(); return true;`);
+      await sleep(4000);
+      const cancelled = await page.eval(`
+        window.fetch = window.__realFetch;
+        const open = (await (await fetch("/v1/me/incidents", { headers: { authorization: "Bearer " + ${TOK} } })).json()).data || [];
+        return { calls: window.__calls, open: open.length };`);
+      check(!cancelled.calls.some((c) => /confirm$/.test(c)) && cancelled.calls.some((c) => /cancel$/.test(c)) && cancelled.open === 0,
+        "once the server has it, it is cancelled there as a false alarm — and nobody is alerted", JSON.stringify(cancelled));
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+
+    });
+    // ══ 21–22. The generic queue ════════════════════════════════════════════
+    await part("21. A queued action lost on the way back is kept, not dropped", async () => {
+      await signInAs("+917000004705");
+      await offGrid(true);
+      await page.setValue("#v-reg", `KA01AC${RUN}`);
+      await page.click("#v-add");
+      await sleep(600);
+      await page.eval(`
+        const real = window.__realFetch = window.fetch;
+        window.fetch = function (url, init) {
+          if (/\\/v1\\/vehicles$/.test(String(url)) && init && init.method === "POST") {
+            return Promise.reject(new TypeError("Failed to fetch"));      // the link drops mid-replay, until restored
+          }
+          return real.apply(this, arguments);
+        };
+        return true;`);
+      await recordToasts();
+      await offGrid(false);
+      // Each failed attempt is retried as the connection settles; between two of
+      // them the entry is briefly out of storage, so wait for it to be put back.
+      const kept = await page.waitFor(`window.__toasts.some((t) => /still waiting/.test(t)) &&
+        (localStorage.getItem("ra.app.queue") || "").includes("KA01AC${RUN}")`, 10000).then(() => true, () => false);
+      const dropped = await page.eval(`return { toasts: window.__toasts.join(" | ") };`);
+      check(kept, "a replay the network dropped goes back in the queue", dropped.toasts.slice(-90));
+      await page.eval(`window.fetch = window.__realFetch; document.getElementById("q-flush").click(); return true;`);
+      await sleep(3000);
+      const replayed = await page.eval(`
+        const me = await (await fetch("/v1/me", { headers: { authorization: "Bearer " + ${TOK} } })).json();
+        return { vehicles: me.data.vehicles.map((v) => v.registrationNo), queue: localStorage.getItem("ra.app.queue") || "" };`);
+      check(replayed.vehicles.includes(`KA01AC${RUN}`) && !replayed.queue.includes(`KA01AC${RUN}`),
+        "…and lands on the next attempt", JSON.stringify(replayed.vehicles));
+
+    });
+    await part("22. A booking needs a connection, and says so", async () => {
+      await page.goto(APP);                         // the replayed vehicle, now in the app's own state
+      await page.waitFor(settled, 20000);
+      await page.eval(`location.hash = "#assist"; return true;`);
+      await page.waitFor(`document.getElementById("b-service").value`, 15000, "the services");
+      await page.click("#b-locate");
+      await page.waitFor(`/Location ready/.test(document.getElementById("b-loc-state").textContent)`, 15000, "a fix");
+      await offGrid(true);
+      await recordToasts();
+      await page.click("#b-book");
+      await sleep(1200);
+      const booked = await page.eval(`return { toasts: window.__toasts.join(" | "), offers: document.getElementById("b-offers").innerText,
+        queue: localStorage.getItem("ra.app.queue") || "" };`);
+      check(!/\/v1\/bookings/.test(booked.queue) && /needs a connection/.test(booked.offers),
+        "off-grid, a booking is not queued (it could never be dispatched) and the screen says it needs a connection",
+        booked.offers.slice(0, 100));
+      await offGrid(false);
+
+    });
+    // ══ 23. Hazard reports go through the queue ═════════════════════════════
+    await part("23. An off-grid hazard report is queued, never sent", async () => {
+      await page.eval(`location.hash = "#home"; return true;`);
+      await offGrid(true);
+      await page.eval(`
+        window.__reports = 0;
+        const real = window.__realFetch = window.fetch;
+        window.fetch = function (url, init) {
+          if (/\\/v1\\/raksha\\/report$/.test(String(url))) window.__reports++;
+          return real.apply(this, arguments);
+        };
+        document.getElementById("q-report").click();
+        document.getElementById("r-note").value = "pothole, reported off-grid";
+        document.getElementById("r-send").click();
+        await new Promise((r) => setTimeout(r, 2500));
+        return true;`);
+      const rep0 = await page.eval(`return { sent: window.__reports, queue: localStorage.getItem("ra.app.queue") || "",
+        open: document.getElementById("sheet-report").classList.contains("show"), toast: document.getElementById("toast").textContent };`);
+      check(rep0.sent === 0, "with 'Off-grid' on the pill, a hazard report sends nothing", `${rep0.sent} request(s)`);
+      check(/\/v1\/raksha\/report/.test(rep0.queue) && !rep0.open && /queued/i.test(rep0.toast),
+        "…it joins the queue, the sheet closes, and the toast says queued", rep0.toast);
+      // A full device: the report keeps its place in the queue and the photo is the part that gives.
+      const full = await page.eval(`
+        const blob = await (await fetch("/icon-512.png")).blob();
+        const dt = new DataTransfer(); dt.items.add(new File([blob], "pothole.png", { type: "image/png" }));
+        const input = document.getElementById("r-photo"); input.files = dt.files; input.dispatchEvent(new Event("change"));
+        await new Promise((r) => setTimeout(r, 1500));
+        const big = "x".repeat(256 * 1024); let i = 0;
+        try { for (;;) localStorage.setItem("fill-" + i++, big); } catch (e) { /* full */ }
+        const small = "y".repeat(1024); let j = 0;
+        try { for (;;) localStorage.setItem("fillsmall-" + j++, small); } catch (e) { /* brim */ }
+        localStorage.removeItem("fillsmall-" + (j - 2)); localStorage.removeItem("fillsmall-" + (j - 3));
+        window.__toasts = [];
+        const el = document.getElementById("toast");
+        new MutationObserver(() => window.__toasts.push(el.textContent)).observe(el, { childList: true, subtree: true, characterData: true });
+        document.getElementById("q-report").click();
+        document.getElementById("r-note").value = "pothole with a photo, storage full";
+        document.getElementById("r-send").click();
+        await new Promise((r) => setTimeout(r, 2500));
+        for (let k = 0; k < i; k++) localStorage.removeItem("fill-" + k);
+        for (let k = 0; k < j; k++) localStorage.removeItem("fillsmall-" + k);
+        return { toasts: window.__toasts.join(" | "), stored: /storage full/.test(localStorage.getItem("ra.app.queue") || "") };`);
+      check(/without its photo/.test(full.toasts), "with the device's storage full, the report is queued without its photo, and says so",
+        full.toasts.slice(0, 120));
+      await page.eval(`window.fetch = window.__realFetch; return true;`);
+      await offGrid(false);
+      await sleep(3500);
+      const rep1 = await page.eval(`
+        const r = await (await fetch("/v1/me/reports", { headers: { authorization: "Bearer " + ${TOK} } })).json();
+        return { notes: (r.data || []).map((d) => d.notes), queue: localStorage.getItem("ra.app.queue") || "" };`);
+      check(rep1.notes.includes("pothole, reported off-grid") && !/raksha\/report/.test(rep1.queue),
+        "…and both reports are filed when the signal returns", JSON.stringify(rep1.notes));
+
+    });
+    // ══ 24. The confirm after an off-grid sync ══════════════════════════════
+    await part("24. An off-grid SOS whose alerting fails says so, and retries", async () => {
+      await signInAs("+917000004706");
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+      await offGrid(true);
+      await pressSos();
+      await page.waitFor(`window.__ra.offGrid().incidentId`, 15000, "an off-grid incident");
+      await page.eval(`document.getElementById("og-close").click(); location.hash = "#offgrid"; return true;`);
+      await recordToasts();
+      await page.eval(`
+        window.__confirms = 0;
+        const real = window.__realFetch = window.fetch;
+        window.fetch = function (url) {
+          if (/\\/confirm$/.test(String(url)) && window.__confirms++ === 0) {
+            return Promise.resolve(new Response(JSON.stringify({ error: { code: "unavailable", title: "Service unavailable", retryable: true } }),
+              { status: 503, headers: { "content-type": "application/json" } }));
+          }
+          return real.apply(this, arguments);
+        };
+        document.getElementById("net").click();
+        return true;`);
+      await page.waitFor(`await window.__ra.listOffGrid().then((l) => l.length && l[0].status === "SYNCED")`, 20000, "the sync");
+      await sleep(800);
+      const alertFail = await page.eval(`return { toasts: window.__toasts.join(" | "),
+        screen: (document.getElementById("og-sync-status") || {}).innerText || "" };`);
+      check(/alerting failed — call 112/.test(alertFail.toasts) && !/dispatch can now process/.test(alertFail.toasts),
+        "a failed escalation after the sync says 'Recorded, but alerting failed — call 112', not success", alertFail.toasts.slice(0, 120));
+      check(/alerting failed/.test(alertFail.screen), "…and so does the off-grid screen", alertFail.screen.slice(0, 80));
+      await page.waitFor(`window.__confirms >= 2`, 15000, "the confirm to be retried").catch(() => {});
+      await sleep(1500);
+      const retried = await page.eval(`window.fetch = window.__realFetch; return { n: window.__confirms, toasts: window.__toasts.join(" | ") };`);
+      check(retried.n >= 2 && /now been escalated/.test(retried.toasts), "…and the confirm is retried until it lands", `${retried.n} confirm(s)`);
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); location.hash = "#home"; return true;`);
+
+    });
+    // ══ 25. One emergency at a time ═════════════════════════════════════════
+    await part("25. A second SOS while the first is open points to the first", async () => {
+      await signInAs("+917000004707");
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+      await page.eval(`
+        window.__raises = 0;
+        const real = window.__realFetch = window.fetch;
+        window.fetch = function (url, init) {
+          if (/\\/v1\\/sos$/.test(String(url)) && init && init.method === "POST") window.__raises++;
+          return real.apply(this, arguments);
+        };
+        return true;`);
+      await pressSos();
+      await page.waitFor(`document.getElementById("sheet-sos").classList.contains("show") && !document.getElementById("sos-now").hidden`, 15000);
+      await page.click("#sos-now");
+      await page.waitFor(`document.getElementById("sos-done")`, 20000, "the escalation");
+      await page.click("#sos-done");
+      await recordToasts();
+      await pressSos();
+      await sleep(2500);
+      const second = await page.eval(`return { raises: window.__raises, toasts: window.__toasts.join(" | "),
+        sheet: document.getElementById("sheet-sos").classList.contains("show") };`);
+      check(second.raises === 1 && /already open/.test(second.toasts) && !second.sheet,
+        "online: holding SOS again raises nothing new and points to the open one", `${second.raises} raised | ${second.toasts.slice(0, 80)}`);
+      await standDownAll();
+      await page.goto(APP);                         // the server's list replaces what the device remembered
+      await page.waitFor(settled, 20000);
+      await page.waitFor(`window.__ra.offGrid().storeLoaded && window.__ra.offGrid().managerLoaded`, 15000);
+      await offGrid(true);
+      await pressSos();
+      await page.waitFor(`window.__ra.offGrid().incidentId`, 15000, "an off-grid incident");
+      await page.eval(`document.getElementById("og-close").click(); return true;`);
+      await recordToasts();
+      await pressSos();
+      await sleep(2000);
+      const second2 = await page.eval(`return { n: (await window.__ra.listOffGrid()).length, toasts: window.__toasts.join(" | ") };`);
+      check(second2.n === 1 && /already open/.test(second2.toasts),
+        "off-grid: a second hold while the first is still on the device stores no second incident", `${second2.n} stored`);
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);   // the reload above already dropped the wrapper
+      await offGrid(false);
+
+    });
+    // ══ 26. The map in the app keeps up with the app's token ════════════════
+    await part("26. The in-app map follows the app's own session", async () => {
+      const mapTok = await page.eval(`
+        const badge = (f) => (f.contentDocument && f.contentDocument.getElementById("badge") || {}).innerText || "";
+        const wait = async (f) => { const t0 = Date.now(); while (Date.now() - t0 < 12000 && !/mechanic|⚠|OFFLINE/.test(badge(f))) await new Promise((r) => setTimeout(r, 200)); };
+        const f = document.createElement("iframe");
+        f.style.cssText = "position:fixed;left:0;top:0;width:320px;height:320px;opacity:0";
+        // The token the frame was opened with has expired (ten minutes on); the page's session has not.
+        f.src = "map.html#base=" + encodeURIComponent(location.origin) +
+          "&token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJib2d1cyJ9.deadbeef&slot=ra.app.session";
+        document.body.appendChild(f);
+        await wait(f);
+        const first = badge(f);
+        // Now the page's own access token expires: the frame asks the page to refresh it.
+        const s = JSON.parse(sessionStorage.getItem("ra.app.session"));
+        s.token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJib2d1cyJ9.deadbeef";
+        sessionStorage.setItem("ra.app.session", JSON.stringify(s));
+        f.contentDocument.getElementById("badge").innerText = "";
+        f.contentWindow.__refresh && f.contentWindow.__refresh();
+        await wait(f);
+        const second = badge(f);
+        f.remove();
+        return { first, second };`);
+      check(/mechanic/.test(mapTok.first) && !/expired/.test(mapTok.first),
+        "a frame opened with a since-expired token reads the page's current session", mapTok.first.split("\n")[0]);
+      check(/mechanic/.test(mapTok.second) && !/expired/.test(mapTok.second),
+        "…and when that expires too, the map has the page refresh it rather than saying 'session expired'", mapTok.second.split("\n")[0]);
+
+    });
+    // ══ 27. The mechanic console does not drop a refresh ════════════════════
+    await part("27. Mechanic console: a refresh asked for mid-poll is not dropped", async () => {
+      await page.goto(`${BASE}/mechanic.html`);
+      await page.waitFor(`document.getElementById("m-signin")`);
+      if (await page.eval(`return document.getElementById("scr-work").hidden;`)) {
+        await page.setValue("#m-msisdn", "+919600000440");
+        await page.click("#m-signin");
+      }
+      await page.waitFor(`document.getElementById("scr-work").hidden === false && !/Loading/.test(document.getElementById("m-name").textContent)`, 45000);
+      await sleep(1500);
+      const coalesce = await page.eval(`
+        window.__jobs = 0; let release; const hold = new Promise((r) => { release = r; }); let held = false;
+        const real = window.fetch;
+        window.fetch = async function (url) {
+          if (/\\/v1\\/mechanic\\/jobs/.test(String(url))) { window.__jobs++; if (!held) { held = true; await hold; } }
+          return real.apply(this, arguments);
+        };
+        document.getElementById("m-refresh").click();             // a poll goes out, and is slow
+        await new Promise((r) => setTimeout(r, 300));
+        document.dispatchEvent(new Event("visibilitychange"));     // a second refresh arrives mid-flight, as a pushed offer's does
+        await new Promise((r) => setTimeout(r, 300));
+        const during = window.__jobs;
+        release();
+        await new Promise((r) => setTimeout(r, 2500));
+        window.fetch = real;
+        return { during, after: window.__jobs };`);
+      check(coalesce.during === 1 && coalesce.after >= 2,
+        "a refresh asked for while one is in flight runs after it, instead of being dropped", JSON.stringify(coalesce));
+
+    });
+    // ══ 28. A deploy: pages and scripts agree on the first load ═════════════
+    await part("28. After a deploy, a page's scripts come from the network, not the old cache", async () => {
+      await page.goto(APP);
+      await page.waitFor(`navigator.serviceWorker.controller`, 20000);
+      await page.eval(`
+        const key = (await caches.keys()).find((k) => /-shell$/.test(k));
+        const c = await caches.open(key);
+        const fresh = await (await fetch("/near.js", { cache: "no-store" })).text();
+        await c.put("/near.js", new Response("window.__staleShell = true;\\n" + fresh, { headers: { "content-type": "text/javascript" } }));
+        return true;`);
+      await page.goto(APP);
+      await page.waitFor(settled, 20000);
+      const stale = await page.eval(`return window.__staleShell === true;`);
+      check(!stale, "a script cached by the previous release is not run once the network has the new one");
+      await page.send("Network.emulateNetworkConditions", NET_OFF);
+      await page.goto(APP);
+      await page.waitFor(settled, 25000);
+      const offShell = await page.eval(`return { near: typeof window.RANear, journey: typeof window.RAJourney, stale: window.__staleShell === true };`);
+      await page.send("Network.emulateNetworkConditions", NET_ON);
+      check(offShell.near === "object" && offShell.journey === "object" && !offShell.stale,
+        "…and with no network the scripts still come from the cache (refreshed by that load)", JSON.stringify(offShell));
+
+    });
+    // ══ 29. A plain-http address on the LAN ═════════════════════════════════
+    await part("29. Served over plain http on a LAN name (no secure context)", async () => {
+      const LAN = `http://roadassist.local:${new URL(BASE).port || 80}`;
+      await signInAs("+917000004708", LAN);
+      await standDownAll();
+      const insecure = await page.eval(`return { secure: isSecureContext, uuid: typeof crypto.randomUUID };`);
+      check(!insecure.secure, "the page really has no secure context (no WebCrypto, no randomUUID)", JSON.stringify(insecure));
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+      await offGrid(true);
+      await recordToasts();
+      await page.setValue("#v-reg", `KA01AD${RUN}`);
+      await page.click("#v-add");
+      await sleep(800);
+      const lanQueue = await page.eval(`return { queue: localStorage.getItem("ra.app.queue") || "", toasts: window.__toasts.join(" | ") };`);
+      check(lanQueue.queue.includes(`KA01AD${RUN}`), "an action taken offline is queued (crypto.randomUUID threw here)", lanQueue.toasts.slice(0, 80));
+      await pressSos();
+      await page.waitFor(`window.__ra.offGrid().incidentId || /not sent/i.test(document.getElementById("sos-h").textContent)`, 20000);
+      const lanSos = await page.eval(`const l = await window.__ra.listOffGrid(); const j = await window.__ra.journal();
+        return { n: l.length, digest: (j.find((e) => e.type === "sos.offgrid") || {}).digest || "" };`);
+      check(lanSos.n === 1 && /^[0-9a-f]{64}$/.test(lanSos.digest),
+        "an off-grid SOS is stored, with its SHA-256 digest, without WebCrypto", JSON.stringify(lanSos));
+      await page.eval(`const c = document.getElementById("og-close"); if (c) c.click(); return true;`);
+      await offGrid(false);
+      await page.waitFor(`await window.__ra.listOffGrid().then((l) => l.length && l[0].status === "SYNCED")`, 20000, "the LAN SOS to send").catch(() => {});
+      await standDownAll();
+      await page.eval(`await window.__ra.clearOffGrid(); return true;`);
+
+    });
+    // ══ 30. The request console ═════════════════════════════════════════════
+    await part("30. Request console: queued calls are replayed, and money is never queued", async () => {
+      await page.goto(`${BASE}/index.html`);
+      await page.waitFor(`document.querySelector('[data-act="send-otp"]')`, 15000);
+      const act = (a) => page.eval(`document.querySelector('[data-act="${a}"]').click(); return true;`);
+      const logText = () => page.eval(`return [...document.querySelectorAll("#log > div")].map((d) => d.textContent).join("\\n");`);
+      await page.setValue("#msisdn", "+917000004709");
+      await act("send-otp");
+      await page.waitFor(`document.querySelector('[data-act="verify-otp"]')`, 15000);
+      await sleep(500);
+      await act("verify-otp");
+      await page.waitFor(`document.querySelector('[data-act="add-vehicle"]')`, 15000);
+      await page.setValue("#reg", `KA01AE${RUN}`);
+      await act("add-vehicle");                          // the console starts with no signal: queued
+      await sleep(800);
+      await page.click("#toggle-net");                   // signal: journal, then replay
+      await sleep(3000);
+      const replay = await logText();
+      check(/replayed POST \/v1\/vehicles/.test(replay) && /← 201/.test(replay.split("replaying")[1] || ""),
+        "going online replays the queued call itself, not only its journal entry", (replay.match(/.*replayed.*/) || ["(no replay)"])[0].trim());
+      await page.waitFor(`document.querySelector('[data-act="go-request"]')`, 10000, "the garage with a vehicle");
+      await act("go-request");
+      await page.waitFor(`document.querySelector('[data-act="diagnose"]')`, 10000);
+      await act("diagnose");
+      await page.waitFor(`document.querySelector('[data-act="book"]')`, 10000);
+      await act("book");
+      await page.waitFor(`document.querySelector('[data-act="dispatch"]')`, 15000, "a booking");
+      await page.click("#toggle-net");                   // no signal again
+      await sleep(500);
+      await act("dispatch");
+      await sleep(800);
+      const refused = await page.eval(`return { log: [...document.querySelectorAll("#log > div")].slice(-3).map((d) => d.textContent).join(" | "),
+        queue: JSON.parse(localStorage.getItem("ra.queue") || "[]").length };`);
+      check(refused.queue === 0 && /NOT QUEUED/.test(refused.log), "offline, a dispatch is refused rather than queued", refused.log.slice(0, 100));
+      await page.click("#toggle-net");
+      await sleep(800);
+      await act("cancel");
+      await sleep(800);
+
+    });
+    // ══ 31. Sheets keep keyboard focus ══════════════════════════════════════
+    await part("31. A sheet holds keyboard focus until it closes", async () => {
+      await signInAs("+917000004710");
+      const tabWalk = async (sheet, n, shift = false) => {
+        const seen = [];
+        for (let i = 0; i < n; i++) {
+          const k = { key: "Tab", code: "Tab", windowsVirtualKeyCode: 9, modifiers: shift ? 8 : 0 };
+          await page.send("Input.dispatchKeyEvent", { type: "keyDown", ...k });
+          await page.send("Input.dispatchKeyEvent", { type: "keyUp", ...k });
+          await sleep(40);
+          seen.push(await page.eval(`return Boolean(document.activeElement && document.activeElement.closest("${sheet}"));`));
+        }
+        return seen;
+      };
+      await page.click("#q-report");
+      await sleep(500);
+      const fwd = await tabWalk("#sheet-report", 14), back = await tabWalk("#sheet-report", 6, true);
+      const inert = await page.eval(`return document.querySelector(".shell").inert === true;`);
+      check(fwd.every(Boolean) && back.every(Boolean), "Tab and Shift+Tab stay inside the open report sheet",
+        `${fwd.filter((x) => !x).length + back.filter((x) => !x).length} escapes in 20`);
+      check(inert, "…and the page behind it is inert while it is open");
+      await page.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+      await sleep(400);
+      check(await page.eval(`return document.querySelector(".shell").inert === false;`), "…and no longer inert once it closes");
+
+    });
+    // ══ 32. Words that were not true ════════════════════════════════════════
+    await part("32. What the screens say is what the server does", async () => {
+      await signInAs("+917000004712");
+      await page.eval(`location.hash = "#more"; return true;`);
+      await page.waitFor(`/contact/.test(document.getElementById("ec-count").textContent)`, 15000);
+      const words = await page.eval(`
+        const src = await (await fetch("/app.html", { cache: "no-store" })).text();
+        const land = await (await fetch("/landing.html", { cache: "no-store" })).text();
+        const metas = (h) => [...h.matchAll(/<meta[^>]+(?:name|property)="(?:og:|twitter:)?description"[^>]*>/g)].map((m) => m[0]).join(" ");
+        return { hint: document.getElementById("ec-list").innerText, contactsMeta: document.querySelector("#ec-list").closest(".card").querySelector(".meta").textContent,
+          frees: /frees the responder/.test(src), appMeta: metas(src), landMeta: metas(land) };`);
+      check(/reaches nobody automatically/.test(words.hint) && /call 112/.test(words.hint) && !/still reaches/.test(words.hint),
+        "with no contact on file the app says an SOS reaches nobody automatically — call 112", words.hint);
+      check(!/on this demo server SMS is only logged/.test(words.contactsMeta) && /live SMS provider/.test(words.contactsMeta),
+        "the contacts card no longer asserts SMS is only logged; it says it depends on the server");
+      check(!words.frees, "the open-emergency card no longer says 'it frees the responder' (none is ever assigned)");
+      check(!/falls back to SMS|reach a responder/.test(words.appMeta + words.landMeta),
+        "the page descriptions claim no SMS fallback and no responder reached");
+      // No fix and a refused SOS: nothing may say "SOS raised" before the server has it.
+      await page.eval(`location.hash = "#home"; return true;`);
+      await recordToasts();
+      const notRaised = await page.eval(`
+        const denied = { code: 1, message: "User denied Geolocation", PERMISSION_DENIED: 1 };
+        const realGeo = navigator.geolocation.getCurrentPosition;
+        navigator.geolocation.getCurrentPosition = function (ok, fail) { setTimeout(() => fail && fail(denied), 0); };
+        const real = window.fetch;
+        window.fetch = function (url, init) {
+          if (/\\/v1\\/sos$/.test(String(url)) && init && init.method === "POST") {
+            return Promise.resolve(new Response(JSON.stringify({ error: { code: "internal", title: "Server error" } }),
+              { status: 500, headers: { "content-type": "application/json" } }));
+          }
+          return real.apply(this, arguments);
+        };
+        try {
+          document.getElementById("sos").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+          const t0 = Date.now();
+          while (Date.now() - t0 < 8000 && !/not sent/i.test(document.getElementById("sos-h").textContent)) await new Promise((r) => setTimeout(r, 100));
+          return { toasts: window.__toasts.join(" | "), heading: document.getElementById("sos-h").textContent };
+        } finally {
+          window.fetch = real; navigator.geolocation.getCurrentPosition = realGeo;
+          const d = document.getElementById("sos-done"); if (d) d.click();
+        }`);
+      check(/not sent/i.test(notRaised.heading) && !/SOS raised/.test(notRaised.toasts),
+        "an SOS the server refused is never announced as 'SOS raised'", notRaised.toasts.slice(0, 100) || "(no toast)");
+
+    });
+    // ══ 33. Language ════════════════════════════════════════════════════════
+    await part("33. Hindi reaches the tabs, the pill, the banner and the SOS hint", async () => {
+      await page.eval(`I18N.set("hi"); location.hash = "#home"; return true;`);
+      await offGrid(true);
+      await sleep(400);
+      const hi = await page.eval(`return {
+        pill: document.getElementById("net").textContent, want: I18N.t("net.offline"),
+        tabs: [...document.querySelectorAll(".tab")].map((t) => t.textContent.trim()),
+        wantTabs: ["nav.home", "nav.assist", "nav.map", "nav.activity", "nav.more"].map((k) => I18N.t(k)),
+        banner: document.getElementById("offline-banner").innerText, detail: I18N.t("net.offline.detail") };`);
+      check(hi.pill === hi.want, "the connection pill is in Hindi", hi.pill);
+      check(hi.tabs.every((t, i) => t.startsWith(hi.wantTabs[i])), "the tab labels are in Hindi", hi.tabs.join(" · "));
+      check(hi.banner.includes(hi.want) && hi.banner.includes(hi.detail.slice(0, 20)), "the off-grid banner carries the Hindi strings");
+      await offGrid(false);
+      const box = await page.eval(`const s = document.getElementById("sos"); s.scrollIntoView({ block: "center" });
+        const r = s.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 };`);
+      await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: box.x, y: box.y, button: "left", clickCount: 1 });
+      await sleep(250);
+      await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: box.x, y: box.y, button: "left", clickCount: 1 });
+      await sleep(250);
+      const hint = await page.eval(`return { now: document.getElementById("sos-sub").textContent, want: I18N.t("sos.hold") };`);
+      check(hint.now === hint.want, "a short press restores the hint in Hindi, not 'hold 1.5s'", hint.now);
+      await page.eval(`I18N.set("en"); return true;`);
+
+    });
+    // ══ 34. Narrow screens, leftovers, the back button ══════════════════════
+    await part("34. Landing at 320 px, sign-out leftovers, back/forward cache", async () => {
+      await page.send("Emulation.setDeviceMetricsOverride", { width: 320, height: 780, deviceScaleFactor: 1, mobile: true });
+      await page.goto(`${BASE}/landing.html`);
+      await sleep(1200);
+      const land = await page.eval(`return { over: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        impact: Boolean(document.querySelector('a.card[href="/impact.html"]')), scan: Boolean(document.querySelector('a.card[href="/scan.html"]')) };`);
+      await page.send("Emulation.clearDeviceMetricsOverride");
+      check(land.over <= 0, "landing.html has no horizontal overflow at 320 px", `overflow=${land.over}px`);
+      check(land.impact && land.scan, "the landing page links the Impact page and the live road scan as surface cards");
+
+      await signInAs("+917000004711");
+      const leftovers = await page.eval(`
+        localStorage.setItem("ra.trip", JSON.stringify({ t: Date.now(), data: { segments: [], tiles: [] } }));
+        const el = document.createElement("div"); document.body.appendChild(el);
+        const fake = async (m, p) => p.indexOf("address") >= 0 ? { data: { address: { label: "THE LAST USER'S STREET" } } } : { data: { groups: {} } };
+        RANear.mount({ el, api: fake, locate: async () => ({ lat: 1, lng: 1 }), online: () => true, auto: true });
+        await new Promise((r) => setTimeout(r, 300));
+        document.getElementById("s-out").click();
+        await new Promise((r) => setTimeout(r, 300));
+        const el2 = document.createElement("div"); document.body.appendChild(el2);
+        RANear.mount({ el: el2, api: fake, locate: async () => ({ lat: 1, lng: 1 }), online: () => true, auto: false });
+        const out = { code: document.getElementById("a-code").value, step2: !document.getElementById("a-step2").hidden,
+          near: /THE LAST USER'S STREET/.test(el2.innerHTML), trip: localStorage.getItem("ra.trip") };
+        el.remove(); el2.remove();
+        return out;`);
+      check(!leftovers.code && !leftovers.step2, "sign-out clears the one-time code and hides its step", JSON.stringify({ code: leftovers.code, step2: leftovers.step2 }));
+      check(!leftovers.near && leftovers.trip === null, "…and forgets the last user's 'Near you' card and prepared trip");
+
+      await signInAs("+917000004711");
+      await page.waitFor(`window.__ra.stream().alive`, 15000, "the live stream");
+      await page.eval(`window.__bf = 1; return true;`);
+      await page.goto(`${BASE}/landing.html`);
+      await sleep(800);
+      const hist = await page.send("Page.getNavigationHistory");
+      await page.send("Page.navigateToHistoryEntry", { entryId: hist.entries[hist.currentIndex - 1].id });
+      await sleep(3500);
+      const bf = await page.eval(`return { restored: window.__bf === 1, alive: window.__ra.stream().alive };`);
+      check(bf.restored && bf.alive, "back from another page (the back/forward cache), the live stream is running again", JSON.stringify(bf));
+
+    });
+    // ══ 35. The live road scan and the Impact page ══════════════════════════
+    await part("35. Live road scan from Home, and offline after one visit", async () => {
+      const shell = await page.eval(`const key = (await caches.keys()).find((k) => /-shell$/.test(k)); const c = await caches.open(key);
+        return { key, impact: Boolean(await c.match("/impact.html")), scan: Boolean(await c.match("/scan.html")) };`);
+      check(shell.impact && shell.scan, "the Impact page and scan.html are in the offline shell", shell.key);
+      await page.eval(`location.hash = "#home"; document.getElementById("q-scan").click(); return true;`);
+      await page.waitFor(`location.pathname === "/scan.html" && document.readyState === "complete"`, 15000, "scan.html");
+      ok("the Live road scan tile on Home opens scan.html in the same tab");
+      await page.waitFor(`window.__scan && window.__scan.ready()`, 120000, "the detector to start online");
+      await page.waitFor(`navigator.serviceWorker.controller`, 10000);
+      await page.send("Network.emulateNetworkConditions", NET_OFF);
+      await page.goto(`${BASE}/scan.html`);
+      let scanOff = { ready: false };
+      try {
+        await page.waitFor(`window.__scan && window.__scan.ready()`, 120000, "the detector to start offline");
+        scanOff = await page.eval(`
+          const dets = await window.__scan.detectUrl("assets/scan/India_002049.jpg");
+          return { ready: true, isolated: crossOriginIsolated, threads: window.__scan.state.ort ? window.__scan.state.ort.env.wasm.numThreads : null,
+            ep: window.__scan.state.ep, dets: dets.length };`);
+      } catch (e) { scanOff.error = e.message; }
+      await page.send("Network.emulateNetworkConditions", NET_ON);
+      check(scanOff.ready && scanOff.dets >= 0, "with no network, scan.html opens from the cache with its model loaded and detects", JSON.stringify(scanOff));
+      check(scanOff.isolated === true, "…still cross-origin isolated (the cached responses kept COOP/COEP), so ORT may use threads",
+        `threads=${scanOff.threads}`);
+
+    });
 
   } catch (e) {
     bad("journey aborted", e.message);

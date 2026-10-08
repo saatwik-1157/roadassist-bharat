@@ -1,11 +1,11 @@
 # Testing
 
-Six suites, 1162 assertions, all executed against a real PostgreSQL + PostGIS and a
+Six suites, 1336 assertions, all executed against a real PostgreSQL + PostGIS and a
 real Chrome, with no failures. A seventh — 22 payment-gateway checks in
 `scripts/razorpay-test.mjs` — needs **no** Razorpay account (it runs its own
 local stub of the Orders API), but refuses to run unless the API was started
 with `PAYMENTS_PROVIDER=razorpay` pointed at that stub; it is therefore outside
-the 1162, was not re-run for these figures, and is never described as passing.
+the 1336, was not re-run for these figures, and is never described as passing.
 Nothing here is mocked except the third-party vendors, and each
 of those has a stub that speaks the vendor's actual wire format.
 
@@ -44,13 +44,13 @@ expected outcome of each, and times it. It fails if any beat fails.
 
 | Suite | Assertions | What it exists for |
 |---|---|---|
-| `npm test` (node:test) | **462** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's (`apps/api/test/offline-engine.test.ts:58`). Six more are skipped, not counted: the least-privilege role test (`packages/db/test/least-privilege.test.ts`) needs a database with the role applied and runs only when `LEAST_PRIVILEGE_DB_URL` points at it. |
-| `scripts/e2e-journey.mjs` | **249** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. 249 with the database photo store (`PHOTO_STORE=db`, as CI and the hosted demo run it); a disk-store server skips §29 and gives 238. |
-| `scripts/concurrency-test.mjs` | **92** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
+| `npm test` (node:test) | **526** | Pure logic with no I/O: the diagnosis rules, the booking, incident and provider state machines, connectivity classification, backoff, integrity digests, log redaction, and the **device/cloud divergence guard** that fails the build if the on-device rule table drifts from the server's (`apps/api/test/offline-engine.test.ts:58`). Six more are skipped, not counted: the least-privilege role test (`packages/db/test/least-privilege.test.ts`) needs a database with the role applied and runs only when `LEAST_PRIVILEGE_DB_URL` points at it. |
+| `scripts/e2e-journey.mjs` | **283** | The whole API journey against real Postgres — auth, refresh rotation and theft detection, vehicles, diagnosis, dispatch, payment, reviews, tenant isolation, the emergency path, the SMS feature-phone journey, off-grid sync and conflict resolution. 283 with the database photo store (`PHOTO_STORE=db`, as CI and the hosted demo run it); a disk-store server skips §29 and gives 238. |
+| `scripts/concurrency-test.mjs` | **107** | What a sequential suite structurally cannot: `Promise.all` on two accepts, ten simultaneous accepts, three SOS taps at once, concurrent syncs, concurrent transitions, live SSE delivery, per-user stream isolation, the dispatch ladder, and provider busy-exclusion. |
 | `scripts/gateway-security-test.mjs` | **58** | Webhook signatures, the append-only audit rules, OTP ceilings per number and per IP. |
-| `scripts/razorpay-test.mjs` | **22** — not in the 1162 | Payment negative space, against a local stub (no account); only runs against an API started with `PAYMENTS_PROVIDER=razorpay`, and not re-run for these figures: forged signature, replayed delivery, wrong amount, wrong order, unconfigured secret — each must fail closed. |
-| `scripts/security-audit.mjs` | **106** | Application-level penetration checks — every case is an attack that must FAIL: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error-body leakage, rate limits. Three real vulnerabilities were found by this suite and fixed. |
-| `scripts/ui-journey.mjs` | **195** | What only a browser can prove: the app boots without a console error, a session survives a reload, an offline payment is refused rather than queued, live updates arrive without polling, a booking with no GPS fix is not sent unless the user chooses the NH-48 demo point, and the complete Off-Grid Mode scenario end to end. |
+| `scripts/razorpay-test.mjs` | **22** — not in the 1336 | Payment negative space, against a local stub (no account); only runs against an API started with `PAYMENTS_PROVIDER=razorpay`, and not re-run for these figures: forged signature, replayed delivery, wrong amount, wrong order, unconfigured secret — each must fail closed. |
+| `scripts/security-audit.mjs` | **108** | Application-level penetration checks — every case is an attack that must FAIL: cross-tenant reads and writes, role escalation, id manipulation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error-body leakage, rate limits. Three real vulnerabilities were found by this suite and fixed. |
+| `scripts/ui-journey.mjs` | **254** | What only a browser can prove: the app boots without a console error, a session survives a reload, an offline payment is refused rather than queued, live updates arrive without polling, a booking with no GPS fix is not sent unless the user chooses the NH-48 demo point, and the complete Off-Grid Mode scenario end to end. |
 
 ## Verified against the production image, not just the source
 
@@ -183,7 +183,7 @@ that reach the people with the worst connections and the cheapest phones, first.
 | Surface | Covered | Not covered |
 |---|---|---|
 | API (SMS + OTP) | **Everything the platform sends**, in all 8 — OTP, every `/v1/telecom/sms` reply, the emergency-contact alert | — |
-| Android | **Most of the user-facing UI**, in all 8 — 173 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer, the SOS rung results and most toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | English literals remain in `MainActivity.kt`: the SOS countdown's explanation and the data-rung summary (`Escalated (…)`), the online/offline pill, the hazard dialog's type names, button and confirmation toasts, the Trip Guardian button, `No rescues yet`, the Book service picker, the tracking-screen command labels, and the `Failed` fallbacks; plus diagnostics and wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
+| Android | **Most of the user-facing UI**, in all 8 — 248 strings per locale. Every screen heading, the bottom navigation, the off-grid explainer, the SOS rung results and most toasts are resources. The brand wordmark and `SOS` are deliberately untranslated | English literals remain in `MainActivity.kt`: the SOS countdown's explanation and the data-rung summary (`Escalated (…)`), the online/offline pill, the hazard dialog's type names, button and confirmation toasts, the Trip Guardian button, `No rescues yet`, the Book service picker, the tracking-screen command labels, and the `Failed` fallbacks; plus diagnostics and wrappers around server data: `Dev OTP auto-filled`, `SOS via <rung>`, `Booking <ref>`, `Assigned to <name>`, `Requesting assistance near <x>`, `Focused <x>`, `→ <status>` |
 | Web citizen app | SOS control, connectivity tiers, sign-in, primary nav, booking verbs — 45 keys, in all 8 | Long explanatory prose; `I18N.coverage()` reports the real numbers |
 | Mechanic / authority consoles | Nothing | Both are operator tools used by staff |
 
@@ -275,7 +275,7 @@ now samples 25 times so its p95 is a percentile.
 | `verify` | install, typecheck, lint, unit tests, secret scan, dependency audit |
 | `integration` | a full PostGIS container — migrate, seed, every integration suite, the second short-TTL pass, the security audit, the database-loss chaos step and the backup/restore rehearsal |
 | `boundaries` | four fitness functions: module boundaries, the offline-shell completeness check, the documented-claims check and the code-citation check |
-| `android` | lint, 190 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
+| `android` | lint, 304 unit tests, debug APK and the R8-minified release APK, on a pinned JDK 21 |
 | `ai` | syntax-checks every CV script and runs the pipeline unit tests |
 
 `android` and `ai` were added because `mobile/` and `ai/` ship as real artefacts

@@ -87,8 +87,8 @@ in the live demo.*
   ([ADR-0002](../app/docs/adr/0002-boundaries-in-ci.md)).
 - **One database**: PostgreSQL 16 with the PostGIS extension
   ([ADR-0003](../app/docs/adr/0003-postgres-postgis.md)). The schema has
-  58 tables, 142 indexes and 9 migrations (`measured.json`).
-- **74 routes**, 71 of them under `/v1`; the other three are `/tiles`, `/basemap`
+  58 tables, 143 indexes and 9 migrations (`measured.json`).
+- **75 routes**, 72 of them under `/v1`; the other three are `/tiles`, `/basemap`
   and `/health`.
 - **Real-time updates** use server-sent events with a heartbeat, and polling
   underneath ([ADR-0010](../app/docs/adr/0010-realtime-and-concurrency.md)).
@@ -149,7 +149,7 @@ because each is attack surface (`app/Dockerfile` stage 3).
 | PostgreSQL | 16 | Stores everything: users, bookings, incidents, payments, RAKSHA detections, audit log | Transactions and row locks settle races (for example two mechanics accepting one job) |
 | PostGIS | 3.4 locally and in CI (image `postgis/postgis:16-3.4`); the PostGIS extension on Neon | Geometry columns, GiST spatial indexes, and `ST_DWithin` to rank the nearest mechanics | A hard requirement: the first migration runs `CREATE EXTENSION postgis`, which ruled out free hosts without it (DEPLOYMENT.md) |
 
-Database facts from `measured.json`: 58 tables, 63 foreign keys, 142 indexes
+Database facts from `measured.json`: 58 tables, 63 foreign keys, 143 indexes
 (88 unique, 5 GiST), 9 migrations. The audit log is append-only: Postgres
 `RULES` turn `UPDATE` and `DELETE` into no-ops, and each row is hash-chained to
 the one before it.
@@ -159,7 +159,7 @@ the one before it.
 | Tool | Version | What it does here | Where |
 |---|---|---|---|
 | Plain HTML, CSS, JavaScript | n/a | Every page. No framework and no bundler | `app/apps/web/` |
-| Service worker | cache `ra-v24` | Keeps the app shell and map tiles available offline. API answers are never cached, because a stale booking status is worse than an honest failure ([ADR-0004](../app/docs/adr/0004-offline-conflict-rules.md)) | `app/apps/web/sw.js` |
+| Service worker | cache `ra-v28` | Keeps the app shell and map tiles available offline. API answers are never cached, because a stale booking status is worse than an honest failure ([ADR-0004](../app/docs/adr/0004-offline-conflict-rules.md)) | `app/apps/web/sw.js` |
 | IndexedDB + Web Crypto (AES-GCM-256) | Browser built-ins | The offline SOS and sync journal. Payloads are encrypted under a **non-extractable** key generated on the device | `app/apps/web/offline-store.js`, `offline-engine.js` |
 | Web app manifest | n/a | Lets the citizen app install to the home screen (`start_url` `/app.html`, standalone) | `app/apps/web/manifest.webmanifest` |
 | Leaflet | 1.9.4 (vendored) | The maps on the live map and the RAKSHA dashboard | `vendor/leaflet.js`, used by `map.html` and `raksha.html` |
@@ -222,14 +222,17 @@ live in `SosLadder.kt` as pure functions so they can be tested off-device.
 | Pillow | 12.3.0 | Image loading for inference |
 | `unittest` (standard library) | n/a | The pipeline tests: class mapping, box maths, severity rule. No PyTorch needed, so they run on every push |
 
-What was trained (from `ai/README.md`, measured on held-out validation data,
-CPU-only training):
+What was trained (from `ai/README.md` and `ai/runs/yolo11n-india-ft-gpu/compare.json`,
+every model scored on the same two held-out splits: the 4-country validation
+set, 800 images, and India-clean, 392 India images no model trained on):
 
-| Model | Classes | mAP50 | mAP50-95 | ONNX size |
+| Model | Classes | 4-country val mAP50 / mAP50-95 | India-clean mAP50 / mAP50-95 | ONNX size |
 |---|---|---|---|---|
-| `yolo11n` baseline (India) | 2 | 0.443 | 0.183 | 10 MB |
-| `yolo11s-multi-rich` (India, Czech, Japan, USA) | 4 | **0.472** | **0.226** | 37 MB |
-| `yolo11n-multi-edge` | 2 | 0.293 | 0.117 | 10 MB |
+| **`yolo11n-india-ft-gpu`** @640 (shipped: web) | 4 | **0.586** / **0.287** | **0.500** / **0.217** | 10.6 MB |
+| `yolo11n-india-ft-gpu` @416 (shipped: Android) | 4 | 0.516 / 0.245 | 0.449 / 0.195 | 10.5 MB |
+| `yolo11s-multi-rich-gpu` @640 (best YOLO11s) | 4 | 0.578 / 0.287 | 0.414 / 0.169 | 38 MB |
+| `yolo11s-multi-rich` @512 (previous best, CPU-trained) | 4 | 0.471 / 0.226 | 0.293 / 0.113 | 37 MB |
+| `yolo11n` baseline (India), @480 | 2 | n/a | 0.441 / 0.183 | 10 MB |
 
 The detections the live RAKSHA dashboard shows are real output of the YOLO11n
 model (`yolo-rdd2022in-best`) on RDD2022 India images. Their positions on NH-48
@@ -491,17 +494,17 @@ database migrated from empty, then seeded).
 
 | Suite | Count | What it proves | Runs |
 |---|---|---|---|
-| Unit (`npm test`) | 462 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
-| End-to-end (`npm run test:e2e`) | 249 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
-| Concurrency (`npm run test:concurrency`) | 92 | Races: two mechanics accepting one job, three SOS taps at once, live event delivery | CI |
+| Unit (`npm test`) | 526 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
+| End-to-end (`npm run test:e2e`) | 283 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
+| Concurrency (`npm run test:concurrency`) | 107 | Races: two mechanics accepting one job, three SOS taps at once, live event delivery | CI |
 | Gateway security (`npm run test:gateway`) | 58 | Webhook signatures, append-only audit rules, sign-in code limits per number and per IP | CI |
-| Security audit (`npm run test:security`) | 106 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
-| Browser (`npm run test:ui`) | 195 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
-| **Total** | **1162** | Six suites, zero failures | |
-| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1162, and never described as passing | By hand only |
-| Android (Gradle) | 190 | Android unit tests, run with lint and both APK builds | CI `android` job |
+| Security audit (`npm run test:security`) | 108 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
+| Browser (`npm run test:ui`) | 254 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
+| **Total** | **1336** | Six suites, zero failures | |
+| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1336, and never described as passing | By hand only |
+| Android (Gradle) | 304 | Android unit tests, run with lint and both APK builds | CI `android` job |
 | SOS ladder | 21 | The subset of the Android tests over `SosLadder.kt`, the emergency fallback decisions | CI `android` job |
-| CV pipeline | 39 | The Python pipeline tests (standard library only) | CI `ai` job |
+| CV pipeline | 49 | The Python pipeline tests (standard library only) | CI `ai` job |
 
 CI also stops PostgreSQL under a running API and checks that `/health` answers
 503 naming the database while `/v1/ping` still answers 200, so a client can tell
@@ -526,7 +529,7 @@ CI also stops PostgreSQL under a running API and checks that `/health` answers
 
 ### What is not done (from `app/docs/SECURITY.md`)
 
-- **No external penetration test.** 106 self-written attacks is not the same thing.
+- **No external penetration test.** 108 self-written attacks is not the same thing.
 - **Rate limiting is per instance.** Several servers would each allow the full limit.
 - **No column-level encryption at rest** in Postgres; medical data is protected by
   access control and audit.

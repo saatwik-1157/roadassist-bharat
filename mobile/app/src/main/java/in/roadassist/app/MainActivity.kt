@@ -56,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -162,6 +163,23 @@ class MainActivity : ComponentActivity() {
                 putBoolean("apiBaseMigrated", true)
             }
         }
+        // The session survives a restart (SessionStore, Keystore-encrypted), so
+        // a cold start or a process death no longer lands on the sign-in screen
+        // with no data rung for an SOS. Restored before anything composes;
+        // RoadAssistApp checks it with /v1/me once, only when online.
+        // A rotation recreates the activity with the process (and Api) alive:
+        // the session in memory is the newer one then, and is kept.
+        val app = applicationContext
+        if (!Api.hasSession()) SessionStore.load(app)?.let { Api.restoreSession(it) }
+        Api.onSessionChanged = { s ->
+            // A refresh carries tokens only; keep the profile stored beside them.
+            val kept = s?.let { SessionStore.load(app) }
+            SessionStore.save(app, s?.copy(
+                msisdn = kept?.msisdn, vehicleId = kept?.vehicleId, vehicleLabel = kept?.vehicleLabel,
+            ))
+        }
+        // Queued SOS replay whenever a network returns, whatever screen is up.
+        SosReplay.start(app)
         setContent {
             val ctx = LocalContext.current
             val prefs = remember { ctx.getSharedPreferences("ra.ui", android.content.Context.MODE_PRIVATE) }
@@ -401,18 +419,33 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
     // definition, requestedMechanic is a JSONObject with no Saver, and the
     // photo fields are a base64 string and a Bitmap — saved state is a Binder
     // transaction, and putting an image through it risks TransactionTooLarge.
-    var signedIn by rememberSaveable { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    // A session restored from disk in onCreate starts the app signed in, with
+    // the number and vehicle that were stored beside it.
+    val stored = remember { if (Api.hasSession()) SessionStore.load(ctx) else null }
+    var signedIn by rememberSaveable { mutableStateOf(Api.hasSession()) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var toast by remember { mutableStateOf<String?>(null) }
-    var vehicleId by rememberSaveable { mutableStateOf<String?>(null) }
-    var vehicleLabel by rememberSaveable { mutableStateOf<String?>(null) }
+    var vehicleId by rememberSaveable { mutableStateOf(stored?.vehicleId) }
+    var vehicleLabel by rememberSaveable { mutableStateOf(stored?.vehicleLabel) }
     var bookingId by rememberSaveable { mutableStateOf<String?>(null) }
     // Its short reference ("RA4F2A9B1C"), as the booking flow learned it, so
     // Track can name the booking before its own first read lands. Display only.
     var bookingRef by rememberSaveable { mutableStateOf<String?>(null) }
+    // The booking being made on the Assist tab (BookingDraft): hoisted here,
+    // saveable, because that tab leaves the composition on every tab switch
+    // and a booking held there was lost, and then booked twice.
+    var draftKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var draftId by rememberSaveable { mutableStateOf<String?>(null) }
+    var draftRef by rememberSaveable { mutableStateOf<String?>(null) }
+    var draftOffers by rememberSaveable { mutableStateOf<String?>(null) }
+    val draft = BookingDraft.State(draftKey, draftId, draftRef, draftOffers)
+    val onDraft: (BookingDraft.State) -> Unit = { d ->
+        draftKey = d.key; draftId = d.id; draftRef = d.ref; draftOffers = d.offers
+    }
     // A number in the API's demo block (+91 70000 00000-09999), not one that
     // could belong to a real person. Still an ordinary editable field.
-    var msisdn by rememberSaveable { mutableStateOf("+917000009876") }
+    var msisdn by rememberSaveable { mutableStateOf(stored?.msisdn ?: "+917000009876") }
     // A mechanic tapped on the live map ("Request assistance"), handed to Book.
     var requestedMechanic by remember { mutableStateOf<JSONObject?>(null) }
     var showReport by rememberSaveable { mutableStateOf(false) }
@@ -420,6 +453,11 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
     // covers the whole shell and back returns here. Saveable so a rotation
     // while looking at the model does not drop the user back on Home.
     var showLayers by rememberSaveable { mutableStateOf(false) }
+    // "Scan road" (ScanRoad.kt), opened from a Home card the same way.
+    var showScan by rememberSaveable { mutableStateOf(false) }
+    // A hazard report started from a scan: the dialog opens filled in from
+    // the detection. Not saveable, like the photo it travels with.
+    var reportDraft by remember { mutableStateOf<ScanReport.Draft?>(null) }
 
     // A rotation keeps Api.token — the object lives in the process — but process
     // death does not, and Android still restores the flags above. A signed-in UI
@@ -431,18 +469,65 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
     // ended. Sign-in only overwrites vehicleId and vehicleLabel, so a stale
     // bookingId would outlive its owner and point the Track tab at somebody
     // else's rescue for the next person to sign in on this phone.
-    LaunchedEffect(Unit) {
-        if (signedIn && Api.currentToken().isBlank()) {
+    //
+    // The same applies whenever the session ends without a sign-out: a refresh
+    // the server rejected clears it (Api.sessionLive drops), and the screens
+    // follow it back to sign-in rather than staying up with nothing behind them.
+    val sessionLive by Api.sessionLive.collectAsState()
+    LaunchedEffect(sessionLive) {
+        if (signedIn && !sessionLive && !Api.hasSession()) {
             signedIn = false
             tab = 0
             bookingId = null
             bookingRef = null
             vehicleId = null
             vehicleLabel = null
+            onDraft(BookingDraft.State())
+            toast = ctx.getString(R.string.toast_session_lost)
         }
     }
 
-    val ctx = LocalContext.current
+    // A restored session is checked once, and only online: offline it is
+    // trusted, because a person in a dead zone needs the signed-in app and its
+    // SOS data rung the moment a bar returns (SessionRules.atLaunch). Only the
+    // server saying no ends it; no answer keeps it (SessionRules.verifyEndsSession).
+    var verified by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (verified || !signedIn) return@LaunchedEffect
+        if (SessionRules.atLaunch(stored, Emergency.hasData(ctx)) != SessionRules.Launch.VERIFY) return@LaunchedEffect
+        try {
+            val me = Api.get("/v1/me").getJSONObject("data")
+            verified = true
+            me.optJSONObject("user")?.let { u ->
+                u.optString("id").takeIf { it.isNotBlank() }?.let { Api.userId = it }
+                u.optString("msisdn").takeIf { it.isNotBlank() }?.let { msisdn = it }
+            }
+            val vehicles = me.optJSONArray("vehicles") ?: JSONArray()
+            if (vehicles.length() > 0) {
+                vehicleId = vehicles.getJSONObject(0).getString("id")
+                vehicleLabel = vehicles.getJSONObject(0).getString("registrationNo")
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: ApiException) {
+            if (SessionRules.verifyEndsSession(e.status)) Api.clear()
+        } catch (_: Exception) { /* no answer: keep the stored session */ }
+    }
+
+    // Keep the number and vehicle beside the stored session, for the next launch.
+    LaunchedEffect(signedIn, msisdn, vehicleId, vehicleLabel) {
+        if (signedIn) withContext(Dispatchers.IO) {
+            SessionStore.saveProfile(ctx, msisdn, vehicleId, vehicleLabel)
+        }
+    }
+
+    // Queued SOS sent by the app-wide replay (SosReplay), told on any screen.
+    LaunchedEffect(Unit) {
+        SosReplay.sent.collect { n ->
+            toast = ctx.resources.getQuantityString(R.plurals.toast_sos_synced, n, n)
+        }
+    }
+
     var online by remember { mutableStateOf(true) }
     LaunchedEffect(signedIn) {
         while (signedIn) { online = Emergency.hasData(ctx); kotlinx.coroutines.delay(4000) }
@@ -514,7 +599,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
             // Android; back from Home leaves the app as before. Layers in 3D
             // and every dialog register their own handlers above this one, so
             // they close first.
-            BackHandler(enabled = tab != 0 && !showLayers) { tab = 0 }
+            BackHandler(enabled = tab != 0 && !showLayers && !showScan) { tab = 0 }
             Scaffold(
                 containerColor = Bg,
                 topBar = {
@@ -680,6 +765,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                 onBook = { tab = 1 },
                                 onReport = { showReport = true },
                                 onLayers = { showLayers = true },
+                                onScan = { showScan = true },
                                 onToast = { toast = it },
                             )
                         }
@@ -687,9 +773,15 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                             BookScreen(
                                 vehicleId = vehicleId,
                                 requested = requestedMechanic,
+                                draft = draft,
+                                onDraft = onDraft,
                                 onConsumed = { requestedMechanic = null },
                                 onToast = { toast = it },
-                                onTracked = { id, ref -> bookingId = id; bookingRef = ref; tab = 3 },
+                                onTracked = { id, ref ->
+                                    bookingId = id; bookingRef = ref; tab = 3
+                                    // That booking is tracked now; the next one is a new draft.
+                                    onDraft(BookingDraft.State())
+                                },
                                 onNeedVehicle = { tab = 0 },
                             )
                         }
@@ -708,6 +800,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                     val access = Api.token
                                     val at = Api.base
                                     Api.clear(); signedIn = false; bookingId = null; bookingRef = null
+                                    onDraft(BookingDraft.State())
                                     sessionScope.launch { Api.logout(access, at) }
                                 },
                             )
@@ -716,11 +809,15 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
 
                     if (showReport) {
                         ReportHazardDialog(
+                            draft = reportDraft,
                             photoB64 = reportPhotoB64,
                             photoThumb = reportPhotoThumb,
                             onPickPhoto = { reportPhotoPicker.launch("image/*") },
                             onClearPhoto = { reportPhotoB64 = null; reportPhotoThumb = null },
-                            onClose = { showReport = false; reportPhotoB64 = null; reportPhotoThumb = null },
+                            onClose = {
+                                showReport = false; reportDraft = null
+                                reportPhotoB64 = null; reportPhotoThumb = null
+                            },
                             onToast = { toast = it },
                             onReported = {
                                 // Force the retained map to redraw with the new report.
@@ -731,6 +828,24 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                 }
             }
             if (showLayers) LayersScreen(isDark = isDark, onClose = { showLayers = false })
+            // Scan road covers the shell like Layers in 3D. Its "Report hazard"
+            // opens the same ReportHazardDialog as everywhere else, filled in
+            // from the detection with the analysed frame as the photo; the
+            // camera pauses while that dialog is up.
+            if (showScan) ScanRoadScreen(
+                online = online,
+                paused = showReport,
+                onClose = { showScan = false },
+                onReport = { hazard ->
+                    photoScope.launch {
+                        val r = withContext(Dispatchers.Default) { encodeReportPhoto(hazard.photo) }
+                        reportPhotoB64 = r?.first
+                        reportPhotoThumb = r?.second
+                        reportDraft = hazard.draft
+                        showReport = true
+                    }
+                },
+            )
         }
 
         // The toast rises on a spring and fades out. The last message is kept
@@ -886,6 +1001,21 @@ private fun processReportImage(ctx: android.content.Context, uri: android.net.Ur
             val scale = max.toFloat() / maxOf(bmp.width, bmp.height)
             bmp = bmp.scale((bmp.width * scale).toInt(), (bmp.height * scale).toInt(), filter = true)
         }
+        encodeReportPhoto(bmp)
+    } catch (_: Exception) { null }
+}
+
+/** JPEG-encode a bitmap for a hazard report under the server's photo cap:
+ *  (base64, the bitmap as shown). Used for a picked photo and for the frame
+ *  the road scanner reports. Null if it cannot be encoded. */
+internal fun encodeReportPhoto(source: android.graphics.Bitmap): Pair<String, android.graphics.Bitmap>? {
+    return try {
+        var bmp = source
+        val max = 1280
+        if (bmp.width > max || bmp.height > max) {
+            val scale = max.toFloat() / maxOf(bmp.width, bmp.height)
+            bmp = bmp.scale(maxOf(1, (bmp.width * scale).toInt()), maxOf(1, (bmp.height * scale).toInt()), filter = true)
+        }
         // 1280 px at quality 80 fits the cap for any ordinary photo; the rougher
         // rungs (the same ladder as apps/web/photo-shrink.js) are for a frame
         // that does not. If even the last is over, it is sent anyway and the
@@ -913,6 +1043,8 @@ private fun processReportImage(ctx: android.content.Context, uri: android.net.Ur
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ReportHazardDialog(
+    /** Filled in from the road scanner, or null for a report made by hand. */
+    draft: ScanReport.Draft?,
     photoB64: String?,
     photoThumb: android.graphics.Bitmap?,
     onPickPhoto: () -> Unit,
@@ -928,13 +1060,17 @@ private fun ReportHazardDialog(
     ) { /* if denied, a submit is refused with a message rather than sent somewhere made up */ }
     LaunchedEffect(Unit) { perms.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION)) }
 
-    var type by remember { mutableStateOf("pothole") }
-    var severity by remember { mutableIntStateOf(3) }
-    var note by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf(draft?.type ?: "pothole") }
+    var severity by remember { mutableIntStateOf(draft?.severity ?: 3) }
+    var note by remember { mutableStateOf(draft?.note ?: "") }
     var busy by remember { mutableStateOf(false) }
     // Why the last submit was not sent, shown in the dialog until the next try.
     var noFix by remember { mutableStateOf<String?>(null) }
-    val types = listOf("pothole" to "Pothole", "road_damage" to "Road damage", "obstruction" to "Obstruction")
+    val types = listOf(
+        "pothole" to stringResource(R.string.hazard_type_pothole),
+        "road_damage" to stringResource(R.string.hazard_type_road_damage),
+        "obstruction" to stringResource(R.string.hazard_type_obstruction),
+    )
 
     AlertDialog(
         onDismissRequest = { if (!busy) onClose() },
@@ -948,6 +1084,10 @@ private fun ReportHazardDialog(
             Column {
                 Text(stringResource(R.string.report_hazard_sub),
                     color = Muted, style = RaType.sub)
+                if (draft != null) {
+                    Text(stringResource(R.string.scan_report_prefilled), color = Gold, style = RaType.caption,
+                        lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
+                }
                 // The type as pill chips, the chosen one in lime. They wrap
                 // rather than scroll: the dialog is narrower than a screen, and
                 // a sideways row cut "Obstruction" off mid-word at its edge.
@@ -1049,9 +1189,24 @@ private fun ReportHazardDialog(
                                     .put("lat", at.lat).put("lng", at.lng)
                                     .apply { if (note.isNotBlank()) put("note", note.trim()) }
                                     .apply { photoB64?.let { put("photoBase64", it); put("photoMime", "image/jpeg") } })
-                                onToast("Hazard reported at your location — thank you")
+                                onToast(ctx.getString(R.string.toast_hazard_reported))
                                 onReported(); onClose()
-                            } catch (e: Exception) { onToast(e.message ?: "Failed to report") }
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (e: ApiException) {
+                                // The server answered, and said no: its own sentence.
+                                val msg = e.message ?: ctx.getString(R.string.report_failed)
+                                noFix = msg
+                                onToast(msg)
+                            } catch (_: Exception) {
+                                // No answer at all (no network, timeout). Hazard
+                                // reports have no offline queue (only SOS does), so
+                                // say plainly that nothing was sent; the dialog
+                                // stays open with everything in it for a retry.
+                                val msg = ctx.getString(R.string.report_not_sent_offline)
+                                noFix = msg
+                                onToast(msg)
+                            }
                         }
                         busy = false
                     }
@@ -1062,7 +1217,10 @@ private fun ReportHazardDialog(
                 ),
                 shape = RoundedCornerShape(RaRadius.full),
                 modifier = Modifier.heightIn(min = 48.dp),
-            ) { Text(if (busy) "Reporting…" else "Submit report", style = RaType.button) }
+            ) {
+                Text(stringResource(if (busy) R.string.action_reporting else R.string.action_submit_report),
+                    style = RaType.button)
+            }
         },
         dismissButton = {
             TextButton(onClick = { if (!busy) onClose() }, modifier = Modifier.heightIn(min = 48.dp)) {
@@ -1103,7 +1261,7 @@ private fun EmptyTrack(onBook: () -> Unit) {
         if (!loaded) {
             // Placeholders in the shape of the rows that are coming, under the
             // same word the screen always said while it waited.
-            Text("Loading…", color = Muted, style = RaType.label, modifier = Modifier.padding(top = RaSpace.s2))
+            Text(stringResource(R.string.loading), color = Muted, style = RaType.label, modifier = Modifier.padding(top = RaSpace.s2))
             repeat(3) { i ->
                 Reveal(i) {
                     RaCard(Modifier.fillMaxWidth().padding(top = RaSpace.s3)) {
@@ -1137,7 +1295,7 @@ private fun EmptyTrack(onBook: () -> Unit) {
                         Icon(Icons.AutoMirrored.Rounded.List, contentDescription = null, tint = Gold, modifier = Modifier.size(36.dp))
                     }
                 }
-                Text("No rescues yet", color = Cream, style = RaType.title, fontSize = 20.sp,
+                Text(stringResource(R.string.rescues_empty_title), color = Cream, style = RaType.title, fontSize = 20.sp,
                     modifier = Modifier.padding(top = RaSpace.s4))
                 Text(stringResource(R.string.bookings_empty), color = Muted, style = RaType.label,
                     modifier = Modifier.padding(top = RaSpace.s1))
@@ -1710,7 +1868,15 @@ private fun SignInScreen(
         Api.adoptSession(session)
         session.optJSONObject("user")?.optString("msisdn")
             ?.takeIf { it.isNotBlank() }?.let(onMsisdn)
-        val me = Api.get("/v1/me").getJSONObject("data")
+        // The session is persisted the moment it is adopted. A sign-in that
+        // then fails here must not leave it stored, or the next launch opens
+        // signed in to an account this screen never finished signing into.
+        val me = try {
+            Api.get("/v1/me").getJSONObject("data")
+        } catch (e: Exception) {
+            if (e !is kotlinx.coroutines.CancellationException) Api.clear()
+            throw e
+        }
         val vehicles = me.optJSONArray("vehicles") ?: JSONArray()
         if (vehicles.length() > 0) {
             val v = vehicles.getJSONObject(0)
@@ -1735,7 +1901,17 @@ private fun SignInScreen(
             color = Muted, style = RaType.caption, letterSpacing = 1.sp,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Spacer(Modifier.height(28.dp))
+
+        // SOS before the form. After a cold start this screen is what opens,
+        // and an emergency cannot wait for an OTP: the control works signed
+        // out (SMS if provisioned, then 112 and the offline queue; the data
+        // rung needs a session and is skipped).
+        Text(stringResource(R.string.sos_signed_out_note), color = Muted, style = RaType.caption,
+            modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        SosPanel(hasSession = false, onToast = onToast, onRaised = {})
+
+        Spacer(Modifier.height(20.dp))
         Heading(R.string.head_signin_plain, R.string.head_signin_italic)
         Sub(stringResource(R.string.signin_sub))
 
@@ -1866,6 +2042,9 @@ private fun SignInScreen(
                 color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 10.dp))
         }
         if (busy) Loading()
+        // The same static numbers as Home: they need no account and no network.
+        Spacer(Modifier.height(RaSpace.s5))
+        EmergencyNumbersCard()
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -1873,18 +2052,236 @@ private fun SignInScreen(
 // ── home: SOS + vehicle ────────────────────────────────────────────────────
 /** Seconds between arming SOS and the fallback ladder actually running. */
 private const val SOS_GRACE_S = 5
+
+/**
+ * The SOS control with its grace window, result line and offline note: on
+ * Home, and on the sign-in screen, because after a cold start or a sign-out
+ * that is the screen that opens and an emergency cannot wait for an OTP.
+ *
+ * The ladder in flight and its last outcome live in Emergency.gate, for the
+ * process, not here: a rotation or a tab switch mid-ladder used to bring the
+ * button back enabled (a second SOS one tap away) and lose the result.
+ * Signed out ([hasSession] false) the data rung is skipped and the grace
+ * dialog says so. [onActive] hears whether an SOS is armed or running, for
+ * the sections that pause meanwhile.
+ */
+@Composable
+private fun SosPanel(
+    hasSession: Boolean,
+    onToast: (String) -> Unit,
+    onRaised: () -> Unit,
+    onActive: (Boolean) -> Unit = {},
+) {
+    val ctx = LocalContext.current
+    val smsEnabled = SosLadder.smsRungEnabled(Emergency.smsNumber)
+    val running by Emergency.gate.active.collectAsState()
+    val outcome by Emergency.gate.last.collectAsState()
+
+    // Arm the location, SMS (only with a provisioned number) and, on Android
+    // 13+, notification rungs by asking for their permissions up front.
+    val perms = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { /* granted or not, the ladder degrades gracefully per rung */ }
+
+    // Saveable: an armed SOS is a decision the person has already made, and
+    // turning the phone during the countdown used to disarm it silently.
+    var sosArmed by rememberSaveable { mutableStateOf(false) }
+    var sosLeft by rememberSaveable { mutableIntStateOf(SOS_GRACE_S) }
+
+    // ── SOS grace window ────────────────────────────────────────────────
+    // A pocket press costs a responder a real journey, so the button arms a
+    // short countdown instead of escalating on contact. This wraps the
+    // fallback ladder rather than reaching into it. (The web app raises first
+    // and cancels server-side; here the window sits before the ladder,
+    // because the SMS and dialer rungs have no server incident to cancel.)
+    //
+    // The ladder's DECISIONS live in SosLadder.kt as pure functions, and
+    // Emergency.raise calls them rather than restating them; SosLadderTest
+    // pins all of them, which is what non-negotiable #1 actually asks for.
+    val fireSos: () -> Unit = fire@{
+        // One SOS at a time, across rotations, tabs and both screens.
+        val ref = SosLadder.newIncidentRef()
+        val run = Emergency.gate.tryStart(ref) ?: return@fire
+        // The process-wide ladder scope and the application context, not
+        // this screen's: leaving the screen or rotating the phone must never
+        // cancel an emergency already committed to (see Emergency.ladderScope).
+        val app = ctx.applicationContext
+        Emergency.ladderScope.launch {
+            var line: String? = null
+            try {
+                // Ask for a fix rather than hoping one is cached: an emergency
+                // is exactly when nothing else has recently used GPS.
+                // No fix is Unknown, said out loud on every rung — never a
+                // stand-in coordinate that would send a responder elsewhere.
+                val pos = SosPosition.from(Emergency.currentLocation(app))
+                val result = Emergency.raise(app, pos, ref, hasSession && Api.hasSession()) { r ->
+                    sosDataSummary(app, pos, r)
+                }
+                val shown = app.getString(
+                    when (result.rung) {
+                        SosLadder.Rung.DATA -> R.string.sos_line_online
+                        SosLadder.Rung.QUEUED -> R.string.sos_line_queued
+                        SosLadder.Rung.DIALER, SosLadder.Rung.SMS -> R.string.sos_line_dialer
+                    },
+                    result.detail,
+                )
+                // With no position, the person has to give it to 112 themselves.
+                val notice = SosPosition.unknownNoticeRes(pos, result.rung)?.let { app.getString(it) }
+                line = if (notice != null) "$notice\n$shown" else shown
+                onToast(app.getString(
+                    when (result.handoff) {
+                        null -> R.string.sos_toast_data
+                        SosLadder.Handoff.OPENED -> R.string.sos_toast_dialer
+                        SosLadder.Handoff.NOTIFIED -> R.string.sos_toast_notified
+                        SosLadder.Handoff.FAILED -> R.string.sos_toast_queued
+                    },
+                ))
+            } finally {
+                Emergency.gate.finish(run, line)
+            }
+            // Show (or refresh) the open-emergency card for what was just raised.
+            onRaised()
+        }
+    }
+
+    LaunchedEffect(sosArmed) {
+        if (!sosArmed) return@LaunchedEffect
+        while (sosLeft > 0 && sosArmed) {
+            kotlinx.coroutines.delay(1000)
+            sosLeft -= 1
+        }
+        if (sosArmed) { sosArmed = false; fireSos() }
+    }
+
+    if (sosArmed) {
+        AlertDialog(
+            // Modal on purpose: an emergency is dismissed by an explicit
+            // choice, never by a stray tap outside the dialog.
+            onDismissRequest = { },
+            containerColor = Panel,
+            shape = RoundedCornerShape(RaRadius.xl),
+            title = {
+                // The countdown as a draining ring around its number, as
+                // well as the sentence: the ring is what a glance catches.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    SosCountdownBadge(sosLeft, SOS_GRACE_S)
+                    Spacer(Modifier.width(RaSpace.s3))
+                    Text(stringResource(R.string.sos_alerting_in, sosLeft), color = Alarm,
+                        style = RaType.title, fontSize = 20.sp)
+                }
+            },
+            text = {
+                // Only what is true for this phone: signed in or not, with an
+                // SMS rung or not, and contacts texted only if the server's SMS
+                // is live (SosLadder.graceParts).
+                val parts = SosLadder.graceParts(hasSession, smsEnabled).map { stringResource(it) }
+                Text(
+                    parts.joinToString(" "),
+                    color = Muted, style = RaType.label, lineHeight = 19.sp,
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { sosArmed = false; fireSos() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = LocalRa.current.alarmFill, contentColor = LocalRa.current.onAlarm,
+                    ),
+                    modifier = Modifier.heightIn(min = 48.dp),
+                ) { Text(stringResource(R.string.sos_alert_now), style = RaType.button) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    sosArmed = false
+                    onToast(ctx.getString(R.string.toast_sos_cancelled))
+                }, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Text(stringResource(R.string.action_cancel), color = Muted, style = RaType.button)
+                }
+            },
+        )
+    }
+
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        // The SOS control (Ui.kt): depth, a slow breathing glow while it
+        // waits, and a ring that drains over the grace window once armed. The
+        // tap still only arms the countdown; nothing escalates on contact.
+        // Disabled while a ladder runs anywhere in the process.
+        Box(Modifier.fillMaxWidth().padding(vertical = RaSpace.s2), contentAlignment = Alignment.Center) {
+            SosControl(
+                armed = sosArmed,
+                secondsLeft = sosLeft,
+                totalSeconds = SOS_GRACE_S,
+                enabled = running == null && !sosArmed,
+                hint = stringResource(R.string.sos_5s_to_cancel),
+                onClick = {
+                    val wanted = buildList {
+                        add(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                        if (smsEnabled) add(android.Manifest.permission.SEND_SMS)
+                        if (android.os.Build.VERSION.SDK_INT >= 33) {
+                            add(android.Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                    perms.launch(wanted.toTypedArray())
+                    sosLeft = SOS_GRACE_S
+                    sosArmed = true
+                },
+            )
+        }
+        if (running != null) Loading()
+        outcome?.let {
+            Text(it, color = Alarm, style = RaType.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+        Text(
+            stringResource(if (smsEnabled) R.string.sos_offline_note_sms else R.string.sos_offline_note),
+            color = Muted, style = RaType.meta, lineHeight = 16.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+    val active = sosArmed || running != null
+    LaunchedEffect(active) { onActive(active) }
+}
+
+/**
+ * The data rung: raise and confirm on the API, and say what the server did.
+ *
+ * Worded like the web's step list: contacts are "alerted" only when the server
+ * says SMS is live (smsLive; the console provider only logs), and a unit is
+ * "alerted" only when respondersNotified > 0, otherwise it was located, not
+ * contacted.
+ */
+private suspend fun sosDataSummary(ctx: android.content.Context, pos: SosPosition, ref: String): String {
+    val raised = Api.post("/v1/sos", SosPosition.apiBody(pos, ref)).getJSONObject("data")
+    val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
+    val where = ctx.getString(
+        if (raised.optBoolean("locationKnown", pos is SosPosition.Located)) R.string.sos_where_gps
+        else R.string.sos_where_unknown,
+    )
+    val n = c.optInt("contactsAlerted")
+    val contacts = when {
+        n == 0 -> ctx.getString(R.string.sos_contacts_none)
+        c.optBoolean("smsLive", false) -> ctx.getString(R.string.sos_contacts_alerted, n)
+        else -> ctx.getString(R.string.sos_contacts_logged, n)
+    }
+    val unit = c.optJSONObject("nearestResponder")?.optString("name")
+    val responder = when {
+        unit == null -> ctx.getString(R.string.sos_unit_none)
+        c.optInt("respondersNotified") > 0 -> ctx.getString(R.string.sos_unit_alerted, unit)
+        else -> ctx.getString(R.string.sos_unit_located, unit)
+    }
+    return ctx.getString(R.string.sos_escalated, where, contacts, responder, c.optInt("elapsedMs"))
+}
 @Composable
 private fun HomeScreen(
     msisdn: String, vehicleId: String?, vehicleLabel: String?,
     online: Boolean,
     onVehicle: (String, String) -> Unit,
-    onBook: () -> Unit, onReport: () -> Unit, onLayers: () -> Unit, onToast: (String) -> Unit,
+    onBook: () -> Unit, onReport: () -> Unit, onLayers: () -> Unit, onScan: () -> Unit,
+    onToast: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var reg by remember { mutableStateOf("") }
     var vClass by remember { mutableStateOf("car") }
     var busy by remember { mutableStateOf(false) }
-    var sosResult by remember { mutableStateOf<String?>(null) }
     val classes = listOf("car", "motorcycle", "scooter", "auto_rickshaw", "truck", "bus", "tractor", "ev")
     val ctx = LocalContext.current
 
@@ -1994,175 +2391,12 @@ private fun HomeScreen(
             }
         }
 
-        // SOS — the fallback ladder: data → SMS → 112 → queue. Works with no net.
-        // Arm the no-data (SMS) and real-location rungs by requesting both perms.
-        val perms = rememberLauncherForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions(),
-        ) { /* granted or not, the ladder degrades gracefully per rung */ }
-
-        // Saveable: an armed SOS is a decision the person has already made, and
-        // turning the phone during the countdown used to disarm it silently.
-        var sosArmed by rememberSaveable { mutableStateOf(false) }
-        var sosLeft by rememberSaveable { mutableIntStateOf(SOS_GRACE_S) }
-
-        // Any queued SOS flushes automatically when data returns.
-        LaunchedEffect(Unit) {
-            val flushed = Emergency.flush(ctx)
-            if (flushed > 0) onToast(ctx.resources.getQuantityString(R.plurals.toast_sos_synced, flushed, flushed))
-        }
-
-        // ── SOS grace window ────────────────────────────────────────────────
-        // A pocket press costs a responder a real journey, so the button arms a
-        // short countdown instead of escalating on contact. This wraps the
-        // fallback ladder rather than reaching into it. (The web app raises first
-        // and cancels server-side; here the window sits before the ladder,
-        // because the SMS and dialer rungs have no server incident to cancel.)
-        //
-        // The ladder's DECISIONS now live in SosLadder.kt as pure functions, and
-        // Emergency.raise calls them rather than restating them. An earlier note
-        // here said the ladder was deliberately left unrestructured because it is
-        // the most safety-critical code in the app. That instinct was right about
-        // the stakes and wrong about the remedy: being untestable is not the same
-        // as being safe, and none of it could run off a device. The rearrangement
-        // is behaviour-preserving — every branch traced — and SosLadderTest now
-        // pins all of them, which is what non-negotiable #1 actually asks for.
-        val fireSos: () -> Unit = {
-            busy = true
-            // The process-wide ladder scope and the application context, not
-            // this screen's: leaving Home or rotating the phone must never
-            // cancel an emergency already committed to (see Emergency.ladderScope).
-            val app = ctx.applicationContext
-            Emergency.ladderScope.launch {
-                // Ask for a fix rather than hoping one is cached: an emergency
-                // is exactly when nothing else has recently used GPS.
-                // No fix is Unknown, said out loud on every rung — never a
-                // stand-in coordinate that would send a responder elsewhere.
-                val pos = SosPosition.from(Emergency.currentLocation(app))
-                val result = Emergency.raise(app, pos) { ref ->
-                    val raised = Api.post("/v1/sos", SosPosition.apiBody(pos, ref)).getJSONObject("data")
-                    val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
-                    val where = if (raised.optBoolean("locationKnown", pos is SosPosition.Located)) "real GPS" else "location unknown"
-                    // Worded like the web's step list: contacts are "alerted" only
-                    // when the server says SMS is live (smsLive; the console
-                    // provider only logs), and a unit is "alerted" only when
-                    // respondersNotified > 0 — otherwise it was located, not contacted.
-                    val n = c.optInt("contactsAlerted")
-                    val contacts = when {
-                        n == 0 -> "contacts 0 alerted"
-                        c.optBoolean("smsLive", false) -> "contacts $n alerted"
-                        else -> "contacts $n logged, not sent"
-                    }
-                    val unit = c.optJSONObject("nearestResponder")?.optString("name")
-                    val responder = when {
-                        unit == null -> "no unit in range"
-                        c.optInt("respondersNotified") > 0 -> "$unit alerted"
-                        else -> "$unit located, not contacted"
-                    }
-                    "Escalated ($where) · $contacts · $responder · ${c.optInt("elapsedMs")} ms"
-                }
-                val line = when (result.rung) {
-                    SosLadder.Rung.DATA -> "✓ ONLINE — ${result.detail}"
-                    SosLadder.Rung.SMS -> "✓ NO DATA → SMS — ${result.detail}"
-                    SosLadder.Rung.DIALER -> "→ ${result.detail}"
-                    SosLadder.Rung.QUEUED -> "◷ ${result.detail}"
-                }
-                // With no position, the person has to give it to 112 themselves.
-                val notice = SosPosition.unknownNoticeRes(pos, result.rung)?.let { app.getString(it) }
-                sosResult = if (notice != null) "$notice\n$line" else line
-                onToast("SOS via ${result.rung}")
-                busy = false
-                // Show (or refresh) the open-emergency card for what was just raised.
-                incidentsKey++
-            }
-        }
-
-        LaunchedEffect(sosArmed) {
-            if (!sosArmed) return@LaunchedEffect
-            while (sosLeft > 0 && sosArmed) {
-                kotlinx.coroutines.delay(1000)
-                sosLeft -= 1
-            }
-            if (sosArmed) { sosArmed = false; fireSos() }
-        }
-
-        if (sosArmed) {
-            AlertDialog(
-                // Modal on purpose: an emergency is dismissed by an explicit
-                // choice, never by a stray tap outside the dialog.
-                onDismissRequest = { },
-                containerColor = Panel,
-                shape = RoundedCornerShape(RaRadius.xl),
-                title = {
-                    // The countdown as a draining ring around its number, as
-                    // well as the sentence: the ring is what a glance catches.
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SosCountdownBadge(sosLeft, SOS_GRACE_S)
-                        Spacer(Modifier.width(RaSpace.s3))
-                        Text(stringResource(R.string.sos_alerting_in, sosLeft), color = Alarm,
-                            style = RaType.title, fontSize = 20.sp)
-                    }
-                },
-                text = {
-                    Text(
-                        // No smsLive yet: the countdown runs before anything is
-                        // raised, so this says what the server does, not that
-                        // anyone will be reached (the web's sos.grace.logged).
-                        "At zero, RoadAssist texts your emergency contacts and looks for the " +
-                            "nearest responder unit, with your location. On this demo server SMS " +
-                            "is only logged, not sent. Cancel now if this was a mistake.",
-                        color = Muted, style = RaType.label, lineHeight = 19.sp,
-                    )
-                },
-                confirmButton = {
-                    Button(
-                        onClick = { sosArmed = false; fireSos() },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = LocalRa.current.alarmFill, contentColor = LocalRa.current.onAlarm,
-                        ),
-                        modifier = Modifier.heightIn(min = 48.dp),
-                    ) { Text(stringResource(R.string.sos_alert_now), style = RaType.button) }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        sosArmed = false
-                        onToast(ctx.getString(R.string.toast_sos_cancelled))
-                    }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text(stringResource(R.string.action_cancel), color = Muted, style = RaType.button)
-                    }
-                },
-            )
-        }
-
-        // The SOS control (Ui.kt): depth, a slow breathing glow while it
-        // waits, and a ring that drains over the grace window once armed. The
-        // tap still only arms the countdown; nothing escalates on contact.
-        Box(Modifier.fillMaxWidth().padding(vertical = RaSpace.s2), contentAlignment = Alignment.Center) {
-            SosControl(
-                armed = sosArmed,
-                secondsLeft = sosLeft,
-                totalSeconds = SOS_GRACE_S,
-                enabled = !busy && !sosArmed,
-                hint = stringResource(R.string.sos_5s_to_cancel),
-                onClick = {
-                    // Arm the no-data + real-location rungs up front, so the
-                    // permission dialogs are out of the way before the window ends.
-                    perms.launch(arrayOf(
-                        android.Manifest.permission.SEND_SMS,
-                        android.Manifest.permission.ACCESS_FINE_LOCATION,
-                    ))
-                    sosLeft = SOS_GRACE_S
-                    sosArmed = true
-                },
-            )
-        }
-        sosResult?.let {
-            Text(it, color = Alarm, style = RaType.sub, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                modifier = Modifier.align(Alignment.CenterHorizontally))
-        }
-        Text(
-            stringResource(R.string.sos_offline_note),
-            color = Muted, style = RaType.meta, lineHeight = 16.sp,
-            modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
+        // SOS — the fallback ladder (SosPanel), the same control the sign-in
+        // screen shows. Raising one refreshes the open-emergency cards.
+        var sosActive by remember { mutableStateOf(false) }
+        SosPanel(
+            hasSession = true, onToast = onToast,
+            onRaised = { incidentsKey++ }, onActive = { sosActive = it },
         )
 
         // 112 first, then 1033 (NHAI), 108/102, 100, 101, then the national helplines
@@ -2175,7 +2409,7 @@ private fun HomeScreen(
         // Below the SOS area and in its own composable scope: it pauses while an
         // SOS is armed or being raised, and never touches Emergency.ladderScope.
         Spacer(Modifier.height(RaSpace.s4))
-        Reveal(1) { NearYouSection(online = online, sosActive = sosArmed || busy) }
+        Reveal(1) { NearYouSection(online = online, sosActive = sosActive) }
 
         Spacer(Modifier.height(RaSpace.s4))
         Reveal(2) {
@@ -2226,9 +2460,21 @@ private fun HomeScreen(
             ) { onReport() }
         }
 
+        // Scan road: the RAKSHA detector on this phone, over the camera or a
+        // photo, with no network (ScanRoad.kt). Next to the hazard card
+        // because that is where its "Report hazard" leads.
+        Reveal(4) {
+            ArrowCard(
+                title = stringResource(R.string.scan_card_title),
+                sub = stringResource(R.string.scan_card_sub),
+                actionLabel = stringResource(R.string.scan_card_action),
+                modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4),
+            ) { onScan() }
+        }
+
         // The platform in live 3D: layers.html from the configured server,
         // shown in a WebView the way the Map tab shows map.html.
-        Reveal(4) {
+        Reveal(5) {
             ArrowCard(
                 title = stringResource(R.string.layers_title),
                 sub = stringResource(R.string.layers_sub),
@@ -2312,6 +2558,9 @@ private fun OpenIncidentCard(
 private fun BookScreen(
     vehicleId: String?,
     requested: JSONObject?,
+    /** The booking being made, hoisted and saveable (BookingDraft). */
+    draft: BookingDraft.State,
+    onDraft: (BookingDraft.State) -> Unit,
     onConsumed: () -> Unit,
     onToast: (String) -> Unit,
     onTracked: (id: String, reference: String?) -> Unit,
@@ -2323,9 +2572,11 @@ private fun BookScreen(
     var service by remember { mutableStateOf<Pair<String, String>?>(null) }
     var svcOpen by remember { mutableStateOf(false) }
     var symptoms by remember { mutableStateOf("") }
-    var offers by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
-    var bookingId by remember { mutableStateOf<String?>(null) }
-    var bookingRef by remember { mutableStateOf<String?>(null) }
+    // The draft's offers, booking and reference come from app state: this
+    // screen leaves the composition on every tab switch (BookingDraft).
+    val offers = remember(draft.offers) { BookingDraft.loadOffers(draft.offers) }
+    val bookingId = draft.id
+    val bookingRef = draft.ref
     var busy by remember { mutableStateOf(false) }
     var loadError by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableIntStateOf(0) }
@@ -2387,6 +2638,26 @@ private fun BookScreen(
         } catch (_: Exception) {}
     }
 
+    // Back on the tab with a booking in progress: re-read it from the server
+    // and pick up where it is, rather than offering to book it again.
+    LaunchedEffect(Unit) {
+        val id = draft.id ?: return@LaunchedEffect
+        try {
+            val b = Api.get("/v1/bookings/$id").getJSONObject("data")
+            val hasMechanic = b.optJSONObject("mechanic") != null
+            when (BookingDraft.resume(b.optString("status"), hasMechanic)) {
+                BookingDraft.Resume.SHOW_OFFERS -> Unit
+                // Nobody is being asked: the offers are stale, and "Book &
+                // dispatch" dispatches THIS booking again.
+                BookingDraft.Resume.DISPATCH -> onDraft(draft.copy(offers = null))
+                BookingDraft.Resume.TRACK -> onTracked(id, BookingRef.of(b) ?: draft.ref)
+                BookingDraft.Resume.FINISHED -> onDraft(BookingDraft.State())
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) { /* offline: keep what is saved */ }
+    }
+
     // demoChosen is per tap: true only from the "Use the NH-48 demo point"
     // button, so a demo choice can never carry into a later booking.
     fun bookAndDispatch(demoChosen: Boolean) {
@@ -2404,28 +2675,36 @@ private fun BookScreen(
                     if (!permitted) perms.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION))
                 }
                 is BookingPosition.Decision.Send -> try {
-                    val note = symptoms.ifBlank {
-                        target?.let { "Requested ${it.optString("name")} from the live map" } ?: "reported from the Android app"
+                    // One key per draft, saved BEFORE the request leaves: a
+                    // retry, or a tap after coming back to the tab, is then the
+                    // same request to the server and returns the same booking.
+                    var d = draft.copy(key = BookingDraft.keyFor(draft.key))
+                    onDraft(d)
+                    if (d.id == null) {
+                        val note = symptoms.ifBlank {
+                            target?.let { "Requested ${it.optString("name")} from the live map" } ?: "reported from the Android app"
+                        }
+                        val b = Api.post(
+                            "/v1/bookings",
+                            JSONObject()
+                                .put("vehicleId", vehicleId)
+                                .put("serviceTypeCode", service!!.first)
+                                .put("lat", at.lat).put("lng", at.lng)
+                                .put("symptoms", note)
+                                .apply { at.marker?.let { put("highwayMarker", it) } }
+                                .put("idempotencyKey", d.key),
+                        ).getJSONObject("data")
+                        d = d.copy(id = b.getString("id"), ref = BookingRef.of(b))
+                        onDraft(d)
+                        onToast("Booking ${BookingRef.label(b)} — dispatching…")
                     }
-                    val b = Api.post(
-                        "/v1/bookings",
-                        JSONObject()
-                            .put("vehicleId", vehicleId)
-                            .put("serviceTypeCode", service!!.first)
-                            .put("lat", at.lat).put("lng", at.lng)
-                            .put("symptoms", note)
-                            .apply { at.marker?.let { put("highwayMarker", it) } }
-                            .put("idempotencyKey", "and-" + System.nanoTime()),
-                    ).getJSONObject("data")
-                    bookingId = b.getString("id")
-                    bookingRef = BookingRef.of(b)
                     notSent = null
-                    onToast("Booking ${BookingRef.label(b)} — dispatching…")
-                    val d = Api.post("/v1/bookings/${bookingId}/dispatch",
+                    val dispatched = Api.post("/v1/bookings/${d.id}/dispatch",
                         JSONObject().put("radiusKm", 30).put("limit", 5)).getJSONObject("data")
-                    val arr = d.optJSONArray("offers") ?: JSONArray()
-                    offers = (0 until arr.length()).map { arr.getJSONObject(it) }
-                    if (offers.isEmpty()) onToast(ctx.getString(R.string.toast_no_mechanic))
+                    val arr = dispatched.optJSONArray("offers") ?: JSONArray()
+                    val got = (0 until arr.length()).map { arr.getJSONObject(it) }
+                    onDraft(d.copy(offers = BookingDraft.saveOffers(got)))
+                    if (got.isEmpty()) onToast(ctx.getString(R.string.toast_no_mechanic))
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) { onToast(e.message ?: "Failed") }
@@ -2667,7 +2946,7 @@ private fun TrackScreen(bookingId: String, knownReference: String?, onToast: (St
     ScreenColumn {
         Spacer(Modifier.height(16.dp))
         Heading(R.string.head_track_plain, R.string.head_track_italic)
-        Sub("Booking " + BookingRef.label(reference ?: knownReference, bookingId))
+        Sub(stringResource(R.string.track_booking, BookingRef.label(reference ?: knownReference, bookingId)))
 
         RaCard(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
             Column(Modifier.padding(CardPad)) {

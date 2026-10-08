@@ -12,10 +12,10 @@
   app/docs/TESTING.md for what that means for the claim.
 -->
 <resources>
-    <string name="sos_sms_sent">RoadAssist-এ SMS দিয়ে SOS পাঠানো হয়েছে (%1$s)। ডেটা লাগে না — আপনার সিমই পরিচয়।</string>
-    <string name="sos_sms_unconfirmed">SOS SMS-এ পাঠানো হয়েছে (নিশ্চিত নয়) — ডেটা ফিরলে একটি ব্যাকআপও যাবে। সিমই পরিচয়।</string>
-    <string name="sos_dialer">RoadAssist-এ পৌঁছানো গেল না — 112 খোলা হচ্ছে, যা যেকোনো টাওয়ারে যুক্ত হয়। আপনার SOS জমা আছে, সিগন্যাল এলেই যাবে।</string>
-    <string name="sos_queued">একদম সিগন্যাল নেই। SOS এই ফোনেই সেভ আছে — সংযোগ ফিরলেই নিজে থেকে চলে যাবে। পারলে খোলা জায়গা বা হাইওয়ের দিকে এগোন।</string>
+    <string name="sos_sms_sent">RoadAssist-কে %1$s নম্বরে SMS-ও পাঠানো হয়েছে। SMS সাহায্য নিশ্চিত করে না, তাই 112 আর সেভ করা কপি থেকেই যায়।</string>
+    <string name="sos_sms_unconfirmed">RoadAssist-কে %1$s নম্বরে SMS পাঠানোর চেষ্টা হয়েছে; পৌঁছানো নিশ্চিত নয়।</string>
+    <string name="sos_dialer">112 খোলা হচ্ছে। এটি যেকোনো টাওয়ারে যুক্ত হয়। আপনার SOS এই ফোনেও সেভ আছে; আপনি অনলাইন হয়ে সাইন ইন করলে, অ্যাপ চলাকালীন RoadAssist-এ যাবে।</string>
+    <string name="sos_queued">এই ফোনে 112 খোলা গেল না: হাতের কাছে যেকোনো ফোন থেকে 112-এ কল করুন। আপনার SOS এখানে সেভ আছে; অনলাইন হয়ে সাইন ইন করলে, অ্যাপ চলাকালীন RoadAssist-এ যাবে।</string>
     <string name="report_hazard_short">⚠  বিপদ জানান</string>
     <string name="report_hazard_title">রাস্তার বিপদ জানান</string>
     <string name="report_hazard_sub">আপনার লোকেশন যুক্ত হবে, যাতে কর্তৃপক্ষ খুঁজে যাচাই করতে পারে।</string>
@@ -44,7 +44,7 @@
     <string name="field_contact_phone">তাঁদের মোবাইল (+91…)</string>
     <string name="server">সার্ভার</string>
     <string name="server_sub">এই ফোনটি যে ঠিকানায় কথা বলে। বদলালে সাইন আউট হয়ে যাবেন — সেশনটি যে সার্ভার দিয়েছে তারই।</string>
-    <string name="server_queued_warning">এই ফোনে না-পাঠানো জরুরি বার্তা: %1$dটি। এগুলি নতুন সার্ভারে যাবে।</string>
+    <string name="server_queued_warning">এই ফোনে না-পাঠানো জরুরি অবস্থা: %1$d। প্রতিটি কেবল তখনই পাঠানো হয় যখন যে অ্যাকাউন্ট থেকে তোলা হয়েছিল সেটি সাইন ইন থাকে।</string>
     <string name="action_use_server">এই সার্ভার ব্যবহার করুন</string>
     <string name="server_unreachable">ওই ঠিকানায় কোনো RoadAssist API সাড়া দেয়নি। কিছুই বদলায়নি — আপনি এখানেই সাইন ইন আছেন।</string>
     <string name="server_https_required">এই ঠিকানার জন্য HTTPS লাগবে: https:// দিয়ে লিখুন। সাধারণ http:// শুধু ডিবাগ বিল্ডে, আর শুধু এমুলেটর হোস্ট (10.0.2.2) বা localhost-এ চলে।</string>
@@ -110,7 +110,7 @@
     <string name="head_book_italic">অনুরোধ.</string>
     <string name="signed_in_suffix">· সাইন ইন</string>
     <string name="label_status">অবস্থা</string>
-    <string name="sos_offline_note">ইন্টারনেট ছাড়াও কাজ করে: SOS ডেটা → SMS → 112 → অফলাইন সারি ক্রমে চেষ্টা করে, সিগন্যাল ফিরলেই সিঙ্ক হয়। SMS নম্বরটি অস্থায়ী।</string>
+    <string name="sos_offline_note">ইন্টারনেট ছাড়াও কাজ করে: SOS প্রথমে অনলাইনে RoadAssist-এ চেষ্টা করে, তারপর 112 খোলে আর SOS এই ফোনে সেভ করে। সেভ করা SOS আপনি অনলাইন হয়ে সাইন ইন করলে, অ্যাপ চলাকালীন RoadAssist-এ যায়।</string>
     <string name="toast_image_unreadable">ছবিটি পড়া গেল না</string>
     <string name="toast_otp_sent">OTP SMS-এ পাঠানো হয়েছে</string>
     <string name="toast_signed_in">সাইন ইন হয়েছে</string>
@@ -192,4 +192,81 @@
     <string name="track_status_unavailable">স্ট্যাটাস পাওয়া যাচ্ছে না — আপনি অফলাইন, অথবা সার্ভার সাড়া দেয়নি</string>
     <string name="cd_theme_to_light">লাইট থিমে যান</string>
     <string name="cd_theme_to_dark">ডার্ক থিমে যান</string>
+
+    <!-- Scan road (ScanRoad.kt). Machine-translated and NOT yet reviewed by a
+         native speaker, like the rest of this file; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="scan_card_title">রাস্তা স্ক্যান করুন</string>
+    <string name="scan_card_sub">ক্যামেরা রাস্তার দিকে ধরুন, বা একটি ছবি বেছে নিন। গর্ত আর ফাটল এই ফোনেই খোঁজা হয়, ইন্টারনেট ছাড়াই।</string>
+    <string name="scan_card_action">স্ক্যানার খুলুন</string>
+    <string name="scan_title">রাস্তা স্ক্যান</string>
+    <string name="scan_info">বাক্সগুলো এই ফোনে ইন্টারনেট ছাড়া চলা %1$s মডেলের অনুমান। এগুলো ভুল হতে পারে: আলাদা রাখা রাস্তার ছবিতে এর mAP50 %2$s মাপা হয়েছে। তীব্রতা বাক্সের মাপের একটি নিয়ম, কোনো পরিমাপ নয়। রিপোর্ট করার আগে দেখে নিন।</string>
+    <string name="scan_use_camera">ক্যামেরা ব্যবহার করুন</string>
+    <string name="scan_pick_photo">ছবি বেছে নিন</string>
+    <string name="scan_start_hint">লাইভ স্ক্যানের জন্য ক্যামেরা ব্যবহার করুন, বা গ্যালারি থেকে একটি ছবি বেছে নিন।</string>
+    <string name="scan_loading_model">ডিটেক্টর লোড হচ্ছে…</string>
+    <string name="scan_model_failed">এই ফোনে অন-ডিভাইস শনাক্তকরণ শুরু হয়নি (%1$s)। হোম থেকে আপনি নিজেই বিপদের রিপোর্ট করতে পারেন।</string>
+    <string name="scan_camera_denied_title">ক্যামেরার অনুমতি বন্ধ</string>
+    <string name="scan_camera_denied_body">লাইভ স্ক্যানে রাস্তা দেখতে ক্যামেরা লাগে। ছবি এই ফোনেই থাকে; আপনি রিপোর্ট না পাঠালে কিছুই আপলোড হয় না। সেটিংসে অনুমতি চালু করুন, বা একটি ছবি বেছে নিন।</string>
+    <string name="scan_open_settings">সেটিংস খুলুন</string>
+    <string name="scan_camera_error">ক্যামেরা চালু হয়নি (%1$s)। বরং একটি ছবি বেছে নিন।</string>
+    <string name="scan_no_detections">এখানে কিছু পাওয়া যায়নি। এটি মডেলের অনুমান, রাস্তার পরীক্ষা নয়।</string>
+    <string name="scan_detection_line">%1$s · %2$d%% · তীব্রতা %3$d/5</string>
+    <string name="scan_stats_live">%1$s fps · %2$d ms</string>
+    <string name="scan_stats_photo">এই ফোনে %1$d ms</string>
+    <string name="scan_report">বিপদ রিপোর্ট করুন</string>
+    <string name="scan_not_reportable">ঝাপসা মার্কিং আর ম্যানহোল শুধু তথ্যের জন্য দেখানো হয়; RAKSHA রিপোর্টে কেবল গর্ত আর রাস্তার ক্ষতি নেওয়া হয়।</string>
+    <string name="scan_offline_note">অফলাইন: স্ক্যান চলে, কিন্তু রিপোর্টের জন্য সংযোগ লাগে। রিপোর্ট পরে পাঠানোর জন্য সেভ হয় না।</string>
+    <string name="scan_predictions_heading">মডেলের অনুমান</string>
+    <string name="scan_class_pothole">গর্ত</string>
+    <string name="scan_class_road_damage">রাস্তার ক্ষতি</string>
+    <string name="scan_class_faded_marking">ফিকে মার্কিং</string>
+    <string name="scan_class_manhole">ম্যানহোল</string>
+    <string name="scan_report_prefilled">অন-ডিভাইস স্ক্যান থেকে ভরা হয়েছে, যা মডেলের অনুমান। পাঠানোর আগে ধরন আর তীব্রতা দেখে নিন।</string>
+    <string name="report_not_sent_offline">পাঠানো হয়নি: সার্ভারে পৌঁছানো যায়নি। বিপদের রিপোর্ট এই ফোনে সেভ হয় না, তাই অনলাইন হলে আবার পাঠান।</string>
+    <string name="cd_scan_preview">ডিটেক্টরের বাক্সসহ ক্যামেরার দৃশ্য</string>
+    <string name="cd_scan_photo">ডিটেক্টরের বাক্সসহ বেছে নেওয়া ছবি</string>
+
+    <!-- 1.1.1 (SOS, session, hazard dialog, Track). Machine-translated and NOT
+         yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="sos_dialer_notified">Android ব্যাকগ্রাউন্ড থেকে ডায়ালার খুলতে দেয় না, তাই 112 খোলেনি। 112-এ কল করতে নোটিফিকেশনে ট্যাপ করুন। আপনার SOS এই ফোনে সেভ আছে; অনলাইন হয়ে সাইন ইন করলে RoadAssist-এ যাবে।</string>
+    <string name="sos_offline_note_sms">ইন্টারনেট ছাড়াও কাজ করে: SOS প্রথমে অনলাইনে RoadAssist-এ চেষ্টা করে, তারপর RoadAssist-কে SMS করে, তারপর 112 খোলে আর SOS এই ফোনে সেভ করে। সেভ করা SOS আপনি অনলাইন হয়ে সাইন ইন করলে, অ্যাপ চলাকালীন RoadAssist-এ যায়।</string>
+    <string name="sos_notify_channel">জরুরি অবস্থা</string>
+    <string name="sos_notify_title">এখনই 112-এ কল করুন</string>
+    <string name="sos_notify_body">RoadAssist ডায়ালার খুলতে পারেনি। 112-এ কল করতে ট্যাপ করুন।</string>
+    <string name="sos_notify_action">112-এ কল করুন</string>
+    <string name="sos_grace_online">শূন্যে পৌঁছালে RoadAssist আপনার SOS আর লোকেশন অনলাইনে পাঠায় এবং কাছের রেসপন্ডার ইউনিট খোঁজে।</string>
+    <string name="sos_grace_contacts">সার্ভারের SMS চালু থাকলেই শুধু আপনার জরুরি কন্ট্যাক্টদের SMS যায়।</string>
+    <string name="sos_grace_signed_out">আপনি সাইন ইন করেননি, তাই এই SOS এখনই অনলাইনে RoadAssist-এ যেতে পারবে না।</string>
+    <string name="sos_grace_sms">RoadAssist-কে অনলাইনে পাওয়া না গেলে, আপনার সিম থেকে তাকে SMS পাঠানো হয়।</string>
+    <string name="sos_grace_handoff">RoadAssist-কে অনলাইনে পাওয়া না গেলে, 112 খোলে এবং SOS এই ফোনে সেভ হয়।</string>
+    <string name="sos_grace_handoff_signed_out">শূন্যে পৌঁছালে 112 খোলে এবং SOS এই ফোনে সেভ হয়; আপনি সাইন ইন করার পরে RoadAssist-এ যাবে।</string>
+    <string name="sos_grace_cancel">ভুল করে হয়ে থাকলে এখনই বাতিল করুন।</string>
+    <string name="sos_line_online">✓ অনলাইন — %1$s</string>
+    <string name="sos_escalated">এগিয়ে পাঠানো হয়েছে (%1$s) · %2$s · %3$s · %4$d ms</string>
+    <string name="sos_where_gps">আসল GPS</string>
+    <string name="sos_where_unknown">লোকেশন অজানা</string>
+    <string name="sos_contacts_none">কোনো কন্ট্যাক্টকে জানানো হয়নি</string>
+    <string name="sos_contacts_alerted">জানানো কন্ট্যাক্ট: %1$d</string>
+    <string name="sos_contacts_logged">কন্ট্যাক্ট নথিভুক্ত, পাঠানো হয়নি: %1$d</string>
+    <string name="sos_unit_none">কাছে কোনো ইউনিট নেই</string>
+    <string name="sos_unit_alerted">%1$s-কে জানানো হয়েছে</string>
+    <string name="sos_unit_located">%1$s পাওয়া গেছে, যোগাযোগ করা হয়নি</string>
+    <string name="sos_toast_data">SOS অনলাইনে পাঠানো হয়েছে</string>
+    <string name="sos_toast_dialer">SOS: 112 খোলা হচ্ছে</string>
+    <string name="sos_toast_notified">SOS: 112-এ কল করতে নোটিফিকেশনে ট্যাপ করুন</string>
+    <string name="sos_toast_queued">SOS এই ফোনে সেভ আছে। 112-এ কল করুন।</string>
+    <string name="sos_signed_out_note">জরুরি অবস্থায় সাইন ইন না করেও SOS পাঠাতে পারেন।</string>
+    <string name="toast_session_lost">আপনার সেশন শেষ হয়েছে। আবার সাইন ইন করুন।</string>
+    <string name="hazard_type_pothole">গর্ত</string>
+    <string name="hazard_type_road_damage">রাস্তার ক্ষতি</string>
+    <string name="hazard_type_obstruction">বাধা</string>
+    <string name="toast_hazard_reported">আপনার লোকেশনে বিপদ রিপোর্ট হয়েছে — ধন্যবাদ</string>
+    <string name="report_failed">রিপোর্ট করা যায়নি</string>
+    <string name="action_reporting">রিপোর্ট হচ্ছে…</string>
+    <string name="action_submit_report">রিপোর্ট পাঠান</string>
+    <string name="loading">লোড হচ্ছে…</string>
+    <string name="rescues_empty_title">এখনও কোনো রেসকিউ নেই</string>
+    <string name="track_booking">বুকিং %1$s</string>
 </resources>

@@ -162,6 +162,8 @@ under-trained — all metrics REAL, measured on held-out val):
 | `yolo11s-multi-rich` | 4-country 3.2k | 4 | 13 | 0.472 | 0.226 |
 | `yolo11n-multi-edge` | 4-country 3.0k | 2 | 18 | 0.293 | 0.117 |
 
+(superseded 2026-10-08: see ai/README.md)
+
 Rich model per-class mAP50: pothole 0.242 · road_damage 0.431 ·
 faded_marking 0.425 (D44) · manhole 0.786 (D50). The rich mean is lifted by the
 easy manhole class; potholes remain hardest. The nano edge model matches the

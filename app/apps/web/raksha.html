@@ -849,7 +849,8 @@
 
   // ── offline cache: every good response is stored, so the corridor keeps
   //    showing (and stays downloadable) when connectivity disappears ──────
-  var CACHE = { seg: "raksha.cache.segments", det: "raksha.cache.detections", dev: "raksha.cache.devices" };
+  var CACHE = { seg: "raksha.cache.segments", det: "raksha.cache.detections", dev: "raksha.cache.devices",
+                stats: "raksha.cache.stats" };
   function cachePut(key, data) {
     try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data: data })); } catch (e) { /* storage full — live view unaffected */ }
   }
@@ -1191,8 +1192,14 @@
     });
 
     renderGallery();
-    $("n-open").textContent = open;
-    $("n-crit").textContent = crit;
+    // The tiles are corridor-wide totals. Counted from r.data they were the
+    // totals of whatever the filters and the 100-row page let through, so
+    // "Status: Rejected" read 0 open. /v1/raksha/stats counts in SQL; the page
+    // count stands in only when neither the server nor a cached copy answers.
+    var totals = null;
+    try { totals = await getData("/v1/raksha/stats", CACHE.stats); } catch (e) { /* offline, nothing cached */ }
+    $("n-open").textContent = totals && totals.open != null ? totals.open : open;
+    $("n-crit").textContent = totals && totals.open_critical != null ? totals.open_critical : crit;
     $("new-note").textContent = freshCount ? "+" + freshCount + " new" : "";
     drawCharts(r.data);
     return freshCount;

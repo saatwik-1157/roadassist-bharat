@@ -226,6 +226,37 @@ test("the integrity digest ignores key order and nothing else", async () => {
   assert.notEqual(a, changed, "a changed value must change the digest");
 });
 
+test("the plain-JS SHA-256 agrees with node:crypto across the padding boundaries", async () => {
+  // The fallback for a plain-http page with no WebCrypto (a phone opening the
+  // server by its LAN address). It used to import node:crypto, which a browser
+  // does not have, so every off-grid SOS on such a page failed to store.
+  const { createHash } = await import("node:crypto");
+  const lengths = [0, 1, 3, 55, 56, 57, 63, 64, 65, 119, 120, 127, 128, 129, 1000, 70000];
+  for (const n of lengths) {
+    const bytes = new Uint8Array(n);
+    for (let i = 0; i < n; i++) bytes[i] = (i * 31 + n) & 0xff;
+    assert.equal(engine.sha256Hex(bytes), createHash("sha256").update(bytes).digest("hex"), `length ${n}`);
+  }
+  // The FIPS 180-4 example, and text that is not ASCII.
+  assert.equal(engine.sha256Hex(new TextEncoder().encode("abc")),
+    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  const hindi = new TextEncoder().encode("आपात स्थिति · SOS");
+  assert.equal(engine.sha256Hex(hindi), createHash("sha256").update(hindi).digest("hex"));
+});
+
+test("with WebCrypto withheld, the digest is the same one WebCrypto gives", async () => {
+  const value = { clientIncidentId: "RA-ABCDEF", lat: 12.97, note: "पंक्चर", list: [1, { b: 2, a: 1 }] };
+  const native = await engine.integrityDigest(value);
+  const real = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+  Object.defineProperty(globalThis, "crypto", { value: undefined, configurable: true, writable: true });
+  try {
+    assert.equal(globalThis.crypto, undefined);
+    assert.equal(await engine.integrityDigest(value), native);
+  } finally {
+    if (real) Object.defineProperty(globalThis, "crypto", real);
+  }
+});
+
 test("the digest matches the server's accepted format", () => {
   // The endpoint validates `integrity` as 64 lowercase hex characters.
   assert.match("0".repeat(64), /^[0-9a-f]{64}$/);

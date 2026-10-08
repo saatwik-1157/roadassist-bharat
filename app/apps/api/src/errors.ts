@@ -98,3 +98,22 @@ export class ApiError extends Error {
 /** Shorthand for the common case. */
 export const fail = (code: ErrorCode, title?: string, detail?: Record<string, unknown>) =>
   new ApiError(code, { title, detail });
+
+/**
+ * Did Postgres refuse a write on this unique index?
+ *
+ * Drizzle wraps the driver's error, and the 23505 sits on its `cause`, so the
+ * chain is walked (the same reading routes/payments.ts does for settlements).
+ * A check-then-insert is a courtesy that gives the friendly answer in the
+ * ordinary case; under a race only the index decides, and its refusal is the
+ * caller's conflict, never a 500.
+ */
+export function isUniqueViolation(err: unknown, constraint: string): boolean {
+  type PgLike = { code?: string; constraint_name?: string; message?: string; cause?: unknown };
+  for (let e = err as PgLike | undefined, depth = 0; e && depth < 5; depth++) {
+    const named = e.constraint_name === constraint || (e.message ?? "").includes(constraint);
+    if (named && (e.code === "23505" || (e.message ?? "").includes("duplicate key value"))) return true;
+    e = e.cause as PgLike | undefined;
+  }
+  return false;
+}

@@ -166,26 +166,43 @@ console.log("\n8. Booking state machine");
 const illegal = await call("POST", `/v1/bookings/${bookingId}/transition`, { token, body: { command: "work.complete" } });
 ok("illegal transition rejected with 409", illegal.status === 409, illegal.error?.title?.slice(0, 60));
 
+// The customer chooses one of the offered mechanics (the citizen apps' Accept).
+// The seeded operator then reports the work done for that mechanic: a review
+// needs a completion the workforce reported, which §40 pins from the other side.
+const opsOtp = await call("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } });
+const opsSession = (await call("POST", "/v1/auth/otp/verify", {
+  body: { msisdn: "+919999900001", code: opsOtp.meta?.devOtp },
+})).data;
+const opsToken = opsSession?.accessToken;
 const accept = await call("POST", `/v1/offers/${first.id}/accept`, { token });
-ok("mechanic accepts", accept.status === 200 && accept.data.status === "ASSIGNED");
-const reAccept = await call("POST", `/v1/offers/${first.id}/accept`, { token });
+ok("the customer can choose an offered mechanic", accept.status === 200 && accept.data.status === "ASSIGNED",
+   `got ${accept.status} ${accept.data?.status ?? accept.error?.code ?? ""}`);
+const reAccept = await call("POST", `/v1/offers/${first.id}/accept`, { token: opsToken });
 ok("the same offer cannot be accepted twice", reAccept.status === 409);
 
 const jobsOf = async (mechanicId) =>
   (await call("GET", `/v1/mechanics/${mechanicId}/reviews`, { token })).data?.mechanic?.jobsCompleted;
 const jobsBefore = await jobsOf(accept.data?.mechanicId);
-for (const [command, expected] of [
-  ["mechanic.start_travel", "EN_ROUTE"], ["arrive", "ON_SITE"],
-  ["work.start", "IN_PROGRESS"], ["work.complete", "COMPLETED"],
+for (const [command, expected, who] of [
+  ["mechanic.start_travel", "EN_ROUTE", token], ["arrive", "ON_SITE", token],
+  ["work.start", "IN_PROGRESS", token], ["work.complete", "COMPLETED", opsToken],
 ]) {
-  const r = await call("POST", `/v1/bookings/${bookingId}/transition`, { token, body: { command } });
+  const r = await call("POST", `/v1/bookings/${bookingId}/transition`, { token: who, body: { command } });
   ok(`${command} → ${expected}`, r.data?.status === expected, `got ${r.data?.status}`);
 }
-// The customer just marked its own job done. That may drive a demo, but it
-// must not add a job to the mechanic's public record, which dispatch ranks by.
+// The workforce (here the operator) reported the job done, so it counts once.
+// A customer marking its own job done is pinned in §40 below: no count, no review.
 const jobsAfter = await jobsOf(accept.data?.mechanicId);
-ok("a customer completing its own job does not add to the mechanic's record",
-   typeof jobsBefore === "number" && jobsAfter === jobsBefore, `${jobsBefore} → ${jobsAfter}`);
+ok("a completion reported by the workforce adds exactly one job to the mechanic's record",
+   typeof jobsBefore === "number" && jobsAfter === jobsBefore + 1, `${jobsBefore} → ${jobsAfter}`);
+const acceptEvent = (await call("GET", `/v1/bookings/${bookingId}`, { token })).data?.events
+  ?.find((e) => e.command === "mechanic.accept");
+// It used to be written as the mechanic's own acceptance, with the mechanic
+// row's id standing in for a user.
+ok("a customer's choice is recorded as the customer's, not as the mechanic accepting",
+   acceptEvent?.actorId === verified.data?.user?.id && acceptEvent?.actorRole === "citizen" &&
+   acceptEvent?.meta?.acceptedBy === "customer" && acceptEvent?.meta?.mechanicId === accept.data?.mechanicId,
+   `actorRole=${acceptEvent?.actorRole} acceptedBy=${acceptEvent?.meta?.acceptedBy}`);
 
 const detail = await call("GET", `/v1/bookings/${bookingId}`, { token });
 ok("full event history recorded", (detail.data?.events?.length ?? 0) >= 6,
@@ -456,12 +473,22 @@ ok("unknown input returns the command list, not an error",
 const noVehicle = await sms("MADAD");
 ok("HELP with no vehicle asks which one", /Which vehicle/i.test(noVehicle.data?.reply ?? ""));
 const started = await sms("HELP TRACTOR");
-ok("HELP <type> creates a request", /received/i.test(started.data?.reply ?? ""),
+ok("HELP <type> creates a request", /Request RA\w+ recorded/i.test(started.data?.reply ?? ""),
    started.data?.reply?.slice(0, 46));
+// A texted request carries no location, so nothing can search for it: the
+// reply said "We are finding a mechanic near you" about a booking that would
+// never be dispatched. It now says so, and points at 112.
+ok("…and the reply says no search can start without a location, never that one is running",
+   /no location/i.test(started.data?.reply ?? "") && /112/.test(started.data?.reply ?? "") &&
+     !/finding a mechanic/i.test(started.data?.reply ?? ""),
+   started.data?.reply);
 const dupe = await sms("HELP CAR");
 ok("a second request is refused while one is open", /already have/i.test(dupe.data?.reply ?? ""));
 const status = await sms("STATUS");
-ok("STATUS reports the booking", /REQUESTED/.test(status.data?.reply ?? ""));
+ok("STATUS reports the booking, and does not claim a search is running",
+   (status.data?.reply ?? "").includes(started.data?.reply?.match(/RA\w+/)?.[0] ?? "?") &&
+     !/finding a mechanic/i.test(status.data?.reply ?? ""),
+   status.data?.reply);
 const cancelled = await sms("CANCEL");
 ok("CANCEL works over SMS", /cancelled/i.test(cancelled.data?.reply ?? ""));
 const afterCancel = await sms("STATUS");
@@ -576,7 +603,9 @@ const reJudge = await call("POST", `/v1/raksha/detections/${target.id}/verify`, 
 ok("a closed detection cannot be re-judged", reJudge.status === 409, `got ${reJudge.status}`);
 
 // Idempotency is scoped per device: another device reusing the same op ids
-// must never be silently censored by the first device's rows.
+// must never be silently censored by the first device's rows. Its readings are
+// its own (its clock is a second behind): a byte-identical reading from a
+// second device is a replay, which source_key rightly refuses (section 31).
 const devReg2 = await call("POST", "/v1/raksha/devices", {
   token: adminToken, body: { name: "E2E-EDGE-2 [SIMULATED]", lat: 28.41, lng: 76.99 },
 });
@@ -584,7 +613,8 @@ const devTok2 = await call("POST", "/v1/raksha/devices/token", {
   body: { deviceId: devReg2.data.id, deviceSecret: devReg2.data.deviceSecret },
 });
 const cross = await call("POST", "/v1/raksha/detections", {
-  token: devTok2.data.accessToken, body: edgeBatch,
+  token: devTok2.data.accessToken, body: { detections: edgeBatch.detections.map((d) => ({
+    ...d, capturedAt: new Date(new Date(d.capturedAt).getTime() - 1000).toISOString() })) },
 });
 ok("a second device reusing the same op ids is not censored (per-device idempotency)",
    cross.meta?.applied === 3, `applied=${cross.meta?.applied} duplicates=${cross.meta?.duplicates}`);
@@ -1326,6 +1356,295 @@ console.log("\n30. SOS with no GPS fix");
     for (const r of [unknown, located]) {
       if (r.data?.id) await call("POST", `/v1/sos/${r.data.id}/resolve`, { token, body: { outcome: "false_alarm" } });
     }
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+// ── 31. RAKSHA: one sighting, one review ──────────────────────────────────
+// A detection was unique only per device, so a second device re-sent the boot
+// seed (and a rejection came back as a new incident); dismissing an incident
+// left its detection open, and rejecting a detection left its incident queued.
+// The review queue read "?overdueOnly=false" as true and counted its own page.
+console.log("\n31. RAKSHA: one sighting, one review");
+{
+  const { default: postgres } = await import("postgres");
+  const sql = postgres(process.env.DATABASE_URL ??
+    "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+  try {
+    const t = Math.random().toString(36).slice(2, 8);
+    let n = 0;
+    const det = (o = {}) => ({
+      opId: `e2e-${t}-r${n++}`, type: "pothole", confidence: 0.81, severity: 3,
+      lat: 28.444, lng: 77.015, capturedAt: new Date().toISOString(), modelVersion: "e2e-yolo", ...o,
+    });
+    const ingest = (tok, ...ds) => call("POST", "/v1/raksha/detections", { token: tok, body: { detections: ds } });
+    const first = (r) => r.data?.results?.[0] ?? {};
+
+    for (const [label, o] of [
+      ["a null capturedAt", { capturedAt: null }], ["capturedAt: true", { capturedAt: true }],
+      ["a capturedAt in year 9999", { capturedAt: "9999-01-01T00:00:00Z" }],
+      ["a capturedAt without an offset", { capturedAt: "2026-10-07T09:30:00" }],
+      ["a capturedAt 40 days old", { capturedAt: new Date(Date.now() - 40 * 86_400_000).toISOString() }],
+      ["an empty modelVersion", { modelVersion: "" }],
+    ]) {
+      const r = await ingest(deviceToken, det(o));
+      ok(`a detection with ${label} is refused`, r.status === 400, `got ${r.status}`);
+    }
+    for (const path of ["/v1/raksha/detections?limit=2.5", "/v1/raksha/incidents/review-queue?limit=1.5"]) {
+      const r = await call("GET", path, { token: adminToken });
+      ok(`a fractional limit is a 400, not a 500 (${path.split("?")[0]})`, r.status === 400, `got ${r.status}`);
+    }
+
+    const reg = await call("POST", "/v1/raksha/devices", {
+      token: adminToken, body: { name: `E2E-EDGE-2 ${t} [SIMULATED]`, lat: 28.40, lng: 76.98 },
+    });
+    const dev2 = (await call("POST", "/v1/raksha/devices/token", {
+      body: { deviceId: reg.data?.id, deviceSecret: reg.data?.deviceSecret },
+    })).data?.accessToken;
+
+    // One frame's detection, sent by this device and then by another, with the
+    // other upload's own op id, position and clock - as the simulator re-sends
+    // the boot seed.
+    const frame = det({ imageRef: `e2e-${t}.jpg`, type: "road_damage", confidence: 0.777, severity: 4 });
+    const s0 = (await call("GET", "/v1/raksha/stats")).data?.detections;
+    const a = first(await ingest(deviceToken, frame));
+    const b = first(await ingest(dev2, { ...frame, opId: `e2e-${t}-other`, lat: 28.39, lng: 76.96,
+      capturedAt: new Date(Date.now() - 60_000).toISOString() }));
+    const s1 = (await call("GET", "/v1/raksha/stats")).data?.detections;
+    ok("one frame's detection sent by two devices is ingested once",
+       a.status === "applied" && b.status === "duplicate", `${a.status} then ${b.status}`);
+    ok("…so the corridor's count goes up by one, not two", s1 - s0 === 1, `${s0} → ${s1}`);
+
+    const ob = det({ type: "obstruction", severity: 5, confidence: 0.93, lat: 28.33, lng: 76.93 });
+    const raised = first(await ingest(deviceToken, ob));
+    ok("a severe obstruction raises an incident to review", Boolean(raised.incidentId), raised.status);
+    const rej = await call("POST", `/v1/raksha/detections/${raised.detectionId}/verify`, {
+      token: adminToken, body: { action: "reject", notes: "e2e: a shadow across the lane" },
+    });
+    const [inc1] = await sql`SELECT status FROM incidents WHERE id = ${raised.incidentId ?? null}`;
+    ok("rejecting the detection cancels the incident it alone raised",
+       rej.status === 200 && rej.data?.cancelledIncidents?.includes(raised.incidentId) && inc1?.status === "CANCELLED",
+       `${rej.status} ${inc1?.status}`);
+    const replay = first(await ingest(dev2, ob));
+    ok("a rejected detection re-sent by another device stays rejected and raises nothing",
+       replay.status === "duplicate" && !replay.incidentId, JSON.stringify(replay));
+
+    const ob2 = det({ type: "obstruction", severity: 5, confidence: 0.91, lat: 28.36, lng: 76.91 });
+    const r2 = first(await ingest(deviceToken, ob2));
+    const dis = await call("POST", `/v1/raksha/incidents/${r2.incidentId}/dismiss`, {
+      token: adminToken, body: { reason: "e2e: parked lorry on the shoulder" },
+    });
+    const [d2] = await sql`SELECT status FROM raksha_detections WHERE id = ${r2.detectionId ?? null}`;
+    ok("dismissing an incident rejects the detection behind it",
+       dis.status === 200 && d2?.status === "REJECTED" && dis.data?.rejectedDetections?.includes(r2.detectionId),
+       `${dis.status} ${d2?.status}`);
+    const seen = first(await ingest(deviceToken,
+      det({ type: "obstruction", severity: 5, confidence: 0.9, lat: 28.3601, lng: 76.9101 })));
+    const q0 = await call("GET", "/v1/raksha/incidents/review-queue?limit=200", { token: adminToken });
+    ok("seeing the dismissed hazard again corroborates that incident instead of re-raising it",
+       seen.incidentId === r2.incidentId && seen.incidentCorroborated === true &&
+       !q0.data?.some((i) => i.id === r2.incidentId), JSON.stringify(seen));
+
+    const pv = first(await ingest(deviceToken, det({ lat: 28.41, lng: 76.99 })));
+    const v = await call("POST", `/v1/raksha/detections/${pv.detectionId}/verify`, { token: adminToken, body: { action: "verify" } });
+    const c = await call("POST", `/v1/raksha/detections/${pv.detectionId}/close`, { token: adminToken });
+    const trail = await call("GET", "/v1/admin/audit?limit=50", { token: adminToken });
+    const has = (action, id) => Boolean(id) && trail.data?.some((r) => r.action === action && r.entityId === id);
+    ok("verifying, closing and rejecting a detection are in the audit chain",
+       v.status === 200 && c.status === 200 && has("detection.verified", pv.detectionId) &&
+       has("detection.closed", pv.detectionId) && has("detection.rejected", raised.detectionId),
+       `verify ${v.status} close ${c.status}`);
+    ok("…as is the incident a rejection cancelled, and the chain still verifies",
+       has("incident.dismissed", raised.incidentId) && trail.meta?.integrity?.ok === true);
+
+    // Two fresh HIGH incidents, inside their 15-minute window.
+    const f1 = first(await ingest(deviceToken, det({ type: "obstruction", severity: 4, confidence: 0.9, lat: 28.42, lng: 77.0 })));
+    const f2 = first(await ingest(deviceToken, det({ type: "obstruction", severity: 4, confidence: 0.9, lat: 28.452, lng: 77.03 })));
+    const all = await call("GET", "/v1/raksha/incidents/review-queue?limit=200", { token: adminToken });
+    for (const flag of ["false", "0"]) {
+      const r = await call("GET", `/v1/raksha/incidents/review-queue?overdueOnly=${flag}&limit=200`, { token: adminToken });
+      ok(`overdueOnly=${flag} returns every waiting incident, not only the overdue ones`,
+         r.status === 200 && r.data?.length === all.data?.length && r.data?.some((i) => i.id === f1.incidentId),
+         `${r.status}: ${r.data?.length} of ${all.data?.length}`);
+    }
+    const only = await call("GET", "/v1/raksha/incidents/review-queue?overdueOnly=true&limit=200", { token: adminToken });
+    ok("overdueOnly=true returns only overdue incidents",
+       only.status === 200 && only.data?.every((i) => i.overdue) && !only.data?.some((i) => i.id === f1.incidentId));
+    const one = await call("GET", "/v1/raksha/incidents/review-queue?limit=1", { token: adminToken });
+    ok("the queue's totals count every waiting incident, not the page",
+       one.data?.length === 1 && one.meta?.awaitingReview >= 2 &&
+       one.meta?.awaitingReview === all.meta?.awaitingReview && one.meta?.overdue === all.meta?.overdue,
+       `limit=1: ${one.meta?.awaitingReview}/${one.meta?.overdue}, all: ${all.meta?.awaitingReview}/${all.meta?.overdue}`);
+    for (const r of [f1, f2]) {
+      if (r.incidentId) {
+        await call("POST", `/v1/raksha/incidents/${r.incidentId}/dismiss`, { token: adminToken, body: { reason: "e2e: test incident" } });
+      }
+    }
+
+    const devBefore = (await call("GET", "/v1/raksha/stats")).data?.devices;
+    await sql`UPDATE edge_devices SET status = 'RETIRED' WHERE id = ${reg.data?.id ?? null}`;
+    const devAfter = (await call("GET", "/v1/raksha/stats")).data?.devices;
+    ok("a retired device is not counted among the corridor's devices", devBefore - devAfter === 1,
+       `${devBefore} → ${devAfter}`);
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
+// ── 40. Bookings, offers and sign-out: the API bug-hunt regressions ────────
+// Each check here failed before its fix (revert-checked). The sections that
+// need positions place seeded mechanics far out to sea through the database
+// and put them back afterwards, so no other section's supply is touched.
+console.log("\n40. Bookings, offers and sign-out (bug-hunt regressions)");
+{
+  const { default: postgres } = await import("postgres");
+  const sql = postgres(process.env.DATABASE_URL ??
+    "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+  const citizen = async () => {
+    const n = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+    const r = await call("POST", "/v1/auth/otp/request", { body: { msisdn: n } });
+    const v = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: n, code: r.meta?.devOtp } });
+    const t = v.data?.accessToken;
+    const veh = await call("POST", "/v1/vehicles", {
+      token: t, body: { registrationNo: "BH" + Math.floor(1000 + Math.random() * 8999) + Math.random().toString(36).slice(2, 5).toUpperCase(), vehicleClass: "car" },
+    });
+    return { token: t, refresh: v.data?.refreshToken, userId: v.data?.user?.id, vehicleId: veh.data?.id };
+  };
+  const book = async (c, lat, lng) => (await call("POST", "/v1/bookings", {
+    token: c.token, body: { vehicleId: c.vehicleId, serviceTypeCode: "battery_jumpstart", lat, lng },
+  })).data?.id;
+  try {
+    // ── a customer who finishes their own job cannot rate it ──
+    // The customer may still step a job through (the demo drives a simulated
+    // mechanic that way), but a rating of work only the customer says happened
+    // moved a real mechanic's score. The completion must be the mechanic's.
+    const rc = await citizen();
+    const rcId = await book(rc, 28.4595, 77.0266);
+    const rcOffer = (await call("POST", `/v1/bookings/${rcId}/dispatch`, { token: rc.token, body: { radiusKm: 60, limit: 1 } }))
+      .data?.offers?.[0];
+    const rcAccept = await call("POST", `/v1/offers/${rcOffer?.id}/accept`, { token: rc.token });
+    ok("the customer can accept (choose) an offered mechanic", rcAccept.status === 200,
+       `got ${rcAccept.status} ${rcAccept.error?.code ?? ""}`);
+    const rcMech = async () => (await call("GET", `/v1/mechanics/${rcOffer?.mechanicId}/reviews`, { token: rc.token }))
+      .data?.mechanic;
+    const rcJobs = async () => (await rcMech())?.jobsCompleted;
+    const rcRatingBefore = (await rcMech())?.rating;
+    const rcJobsBefore = await rcJobs();
+    for (const command of ["mechanic.start_travel", "arrive", "work.start", "work.complete"]) {
+      await call("POST", `/v1/bookings/${rcId}/transition`, { token: rc.token, body: { command } });
+    }
+    ok("a customer completing its own job does not add to the mechanic's record",
+       typeof rcJobsBefore === "number" && (await rcJobs()) === rcJobsBefore, `${rcJobsBefore}`);
+    const rcPaid = await call("POST", `/v1/bookings/${rcId}/pay`, { token: rc.token, body: { method: "upi" } });
+    const rcReview = await call("POST", `/v1/bookings/${rcId}/review`, { token: rc.token, body: { rating: 1, comment: "never came" } });
+    ok("…nor can it then rate that mechanic: only a completion the mechanic reported is reviewable",
+       rcPaid.data?.status === "PAID" && rcReview.status === 409 && rcReview.error?.code === "completion_not_confirmed",
+       `pay=${rcPaid.data?.status} review=${rcReview.status} ${rcReview.error?.code ?? ""}`);
+    const rcRatingAfter = (await rcMech())?.rating;
+    ok("…and the mechanic's rating is unchanged", typeof rcRatingBefore === "number" && rcRatingAfter === rcRatingBefore,
+       `${rcRatingBefore} → ${rcRatingAfter}`);
+
+    // ── a late cancel claims no fee it never records ──
+    const lc = await citizen();
+    const lcId = await book(lc, 28.4595, 77.0266);
+    const lcOffer = (await call("POST", `/v1/bookings/${lcId}/dispatch`, { token: lc.token, body: { radiusKm: 60, limit: 1 } }))
+      .data?.offers?.[0];
+    await call("POST", `/v1/offers/${lcOffer?.id}/accept`, { token: opsToken });
+    await call("POST", `/v1/bookings/${lcId}/transition`, { token: lc.token, body: { command: "mechanic.start_travel" } });
+    const lcCancel = await call("POST", `/v1/bookings/${lcId}/transition`, { token: lc.token, body: { command: "cancel" } });
+    const [lcInvoices] = await sql`SELECT count(*)::int AS n FROM invoices WHERE booking_id = ${lcId}`;
+    ok("cancelling with a mechanic on the way says so, and claims no fee the platform never records",
+       lcCancel.data?.status === "CANCELLED" && lcCancel.data?.lateCancellation === true &&
+         !("cancellationFee" in (lcCancel.data ?? {})) && lcInvoices?.n === 0,
+       `lateCancellation=${lcCancel.data?.lateCancellation} cancellationFee=${lcCancel.data?.cancellationFee} invoices=${lcInvoices?.n}`);
+
+    // ── the ladder keeps the radius the customer chose ──
+    // Escalation used to search the server default (25 km) whatever the
+    // customer had widened to, and then told them "every provider in range has
+    // been asked" with a free mechanic inside their radius.
+    const sea = { lat: 13.0, lng: 62.0 };   // open sea: nothing seeded within 300 km
+    const pair = await sql`
+      SELECT m.id, ST_Y(m.last_location) AS lat, ST_X(m.last_location) AS lng, m.is_available
+        FROM mechanics m
+       WHERE m.verified AND m.deleted_at IS NULL AND m.last_location IS NOT NULL
+         AND NOT ST_DWithin(m.last_location::geography, ST_SetSRID(ST_MakePoint(77.0266, 28.4595), 4326)::geography, 150000)
+         AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.mechanic_id = m.id
+                          AND b.status IN ('ASSIGNED','EN_ROUTE','ON_SITE','IN_PROGRESS','AWAITING_PARTS','ESCALATED'))
+       ORDER BY m.id LIMIT 2`;
+    try {
+      // ~30 km north and ~40 km south of the booking.
+      await sql`UPDATE mechanics SET is_available = true,
+                  last_location = ST_SetSRID(ST_MakePoint(${sea.lng}, ${sea.lat + 0.27}), 4326) WHERE id = ${pair[0].id}`;
+      await sql`UPDATE mechanics SET is_available = true,
+                  last_location = ST_SetSRID(ST_MakePoint(${sea.lng}, ${sea.lat - 0.36}), 4326) WHERE id = ${pair[1].id}`;
+      const rd = await citizen();
+      const rdId = await book(rd, sea.lat, sea.lng);
+      const rdFirst = (await call("POST", `/v1/bookings/${rdId}/dispatch`, { token: rd.token, body: { radiusKm: 50, limit: 1 } }))
+        .data?.offers?.[0];
+      const rdDecline = await call("POST", `/v1/offers/${rdFirst?.id}/decline`, { token: opsToken });
+      const [rdNext] = await sql`SELECT mechanic_id FROM dispatch_offers WHERE booking_id = ${rdId} AND status = 'SENT'`;
+      ok("after a decline, the next wave searches the customer's own 50 km, not the 25 km default",
+         rdDecline.meta?.escalated === true && rdNext?.mechanic_id && rdNext.mechanic_id !== rdFirst?.mechanicId &&
+           /50 km/.test(rdDecline.meta?.note ?? ""),
+         `${rdDecline.meta?.outcome}: ${rdDecline.meta?.note}`);
+      await call("POST", `/v1/bookings/${rdId}/transition`, { token: rd.token, body: { command: "cancel" } });
+    } finally {
+      for (const m of pair) {
+        await sql`UPDATE mechanics SET is_available = ${m.is_available},
+                    last_location = ST_SetSRID(ST_MakePoint(${m.lng}, ${m.lat}), 4326) WHERE id = ${m.id}`;
+      }
+    }
+
+    // ── a live stream ends with the sign-in that opened it ──
+    const st = await citizen();
+    const ctrl = new AbortController();
+    const res = await fetch(BASE + "/v1/events", { headers: { authorization: `Bearer ${st.token}` }, signal: ctrl.signal });
+    const reader = res.body.getReader();
+    let got = "";
+    const ended = (async () => {
+      const dec = new TextDecoder();
+      try { for (;;) { const { value, done } = await reader.read(); if (done) return true; got += dec.decode(value); } }
+      catch { return false; }
+    })();
+    await new Promise((r) => setTimeout(r, 300));
+    await call("POST", "/v1/auth/logout", { token: st.token });
+    const closed = await Promise.race([ended, new Promise((r) => setTimeout(() => r("open"), 4000))]);
+    ctrl.abort();
+    ok("signing out ends the live event stream opened under that session",
+       closed === true && /stream\.closed/.test(got) && /signed_out/.test(got), `stream: ${closed}`);
+
+    // ── a command named after an Object.prototype property ──
+    const pc = await citizen();
+    const pcId = await book(pc, 28.4595, 77.0266);
+    const proto = [];
+    for (const command of ["toString", "constructor", "__proto__"]) {
+      proto.push((await call("POST", `/v1/bookings/${pcId}/transition`, { token: pc.token, body: { command } })).status);
+    }
+    const pcAfter = await call("GET", `/v1/bookings/${pcId}`, { token: pc.token });
+    ok("\"toString\", \"constructor\" and \"__proto__\" are refused as unknown commands, not a 500",
+       proto.every((s) => s === 400) && pcAfter.data?.status === "REQUESTED", `${proto.join(",")} → ${pcAfter.data?.status}`);
+    await call("POST", `/v1/bookings/${pcId}/transition`, { token: pc.token, body: { command: "cancel" } });
+
+    // ── who confirmed an emergency nobody owns ──
+    // An admin confirming an ownerless RAKSHA signal was recorded as "user".
+    const [orphan] = await sql`
+      INSERT INTO incidents (status, severity, detected_by_model, model_confidence)
+      VALUES ('AWAITING_CONFIRMATION', 'HIGH', true, 0.8) RETURNING id`;
+    const orphanConfirm = await call("POST", `/v1/sos/${orphan.id}/confirm`, { token: opsToken });
+    const [orphanRow] = await sql`SELECT confirmed_by FROM incidents WHERE id = ${orphan.id}`;
+    const [orphanAudit] = await sql`SELECT actor_role FROM audit_log WHERE entity_id = ${orphan.id} AND action = 'sos.escalated'`;
+    ok("an operator's confirmation is recorded as the operator's, not the user's",
+       orphanConfirm.status === 200 && orphanRow?.confirmed_by === "admin" && orphanAudit?.actor_role === "admin",
+       `confirmed_by=${orphanRow?.confirmed_by} audit=${orphanAudit?.actor_role}`);
+    await call("POST", `/v1/sos/${orphan.id}/resolve`, { token: opsToken, body: { outcome: "false_alarm" } });
+
+    // ── a device token is not a citizen ──
+    const asDevice = await call("GET", "/v1/me", { token: deviceToken });
+    const deviceSos = await call("POST", "/v1/sos", { token: deviceToken, body: { lat: 28.45, lng: 77.02, source: "manual" } });
+    ok("a RAKSHA device token is refused on citizen routes",
+       asDevice.status === 403 && deviceSos.status === 403 && asDevice.error?.code === "device_token_not_allowed",
+       `me=${asDevice.status} sos=${deviceSos.status}`);
   } finally {
     await sql.end({ timeout: 5 });
   }

@@ -18,6 +18,7 @@
  * State:  scripts/.raksha-sim-state.json (gitignored — holds the device credential)
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -113,11 +114,22 @@ const queue = [];
 const runTag = Date.now().toString(36);
 let battery = 87;
 
+/** `cv-<model>-<sha1(imageRef) 12 hex>-<index>`, inside the server's 64-character op id. */
+function cvOpId(model, imageRef, i) {
+  const tail = `-${createHash("sha1").update(String(imageRef)).digest("hex").slice(0, 12)}-${i}`;
+  return `cv-${String(model).slice(0, 64 - 3 - tail.length)}${tail}`;
+}
+
 if (fromJsonIdx > -1) {
   // REAL-CV mode: detections come from ai/road_damage/detect.py (a genuine
   // YOLO model). Locations stay SIMULATED along NH-48 — RDD2022 images have
-  // no GPS — and op ids are deterministic per image+index so re-uploading the
-  // same detection file is idempotent.
+  // no GPS — and op ids are deterministic per model+image+index so re-uploading
+  // the same detection file is idempotent. The model is in the op id because
+  // two models' detection files share image names: without it the second
+  // model's detections were "duplicates" of the first's and never ingested.
+  // The image name is hashed rather than cut to its last 24 characters, which
+  // made two long names that differ early collide. Another DEVICE re-sending
+  // the file is caught by the server's source_key, not by the op id.
   const file = process.argv[fromJsonIdx + 1];
   if (!file) { console.error("✗ --from-json needs a path to detect.py output"); process.exit(1); }
   banner("REAL CV DETECTIONS (model output · locations SIMULATED)");
@@ -129,7 +141,7 @@ if (fromJsonIdx > -1) {
       const leg = Math.min(TRACK.length - 2, Math.floor(f * (TRACK.length - 1)));
       const t = f * (TRACK.length - 1) - leg;
       queue.push({
-        opId: `cv-${img.imageRef.replace(/[^a-zA-Z0-9]/g, "").slice(-24)}-${i}`,
+        opId: cvOpId(det.modelVersion, img.imageRef, i),
         type: det.type, severity: det.severity, confidence: det.confidence,
         lat: Number((TRACK[leg][1] + (TRACK[leg + 1][1] - TRACK[leg][1]) * t).toFixed(6)),
         lng: Number((TRACK[leg][0] + (TRACK[leg + 1][0] - TRACK[leg][0]) * t).toFixed(6)),
@@ -183,6 +195,14 @@ console.log(`→ patrol complete: ${queue.length} events in the local queue, bat
 banner("CONNECTIVITY RESTORED — SYNCING QUEUE");
 const first = await call("POST", "/v1/raksha/detections", { token: deviceToken, body: { detections: queue } });
 console.log(`→ first sync:  ${first.meta.applied} applied, ${first.meta.duplicates} duplicates`);
+// Nothing new is not a successful sync: the queue was already on the server
+// (another device, or the boot seed, sent the same detections), or every item
+// collided. Saying "applied" and exiting 0 hid exactly that.
+const firstSyncEmpty = queue.length > 0 && first.meta.applied === 0;
+if (firstSyncEmpty) {
+  console.warn(`⚠ first sync applied 0 of ${queue.length}: every detection was already on the server ` +
+    "(sent before by this or another device). Nothing new was ingested.");
+}
 const incidents = first.data.results.filter((r) => r.incidentId);
 if (incidents.length) {
   console.log(`→ ${incidents.length} severe obstruction(s) raised incident SIGNALS (AWAITING_CONFIRMATION — a human must confirm; nothing was dispatched)`);
@@ -210,7 +230,8 @@ if (fromEnv) {
   }
 }
 
-banner("DONE");
+banner(firstSyncEmpty ? "DONE — NOTHING NEW INGESTED" : "DONE");
 console.log(fromJsonIdx > -1
   ? `Dashboard: ${BASE}/raksha.html  ·  detections above are REAL model output; their GPS locations are SIMULATED\n`
   : `Dashboard: ${BASE}/raksha.html  ·  every event above is SIMULATED\n`);
+if (firstSyncEmpty) process.exit(1);

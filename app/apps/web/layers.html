@@ -394,7 +394,7 @@ async function loadThree() {
 const LAYERS = [
   { id: "people", name: "People & devices", tag: "Where every request starts", color: 0xe3b96a, comps: [
     ["Citizen app", "A web app that installs like a phone app: book help, raise an SOS, track the mechanic live. Offered in 8 languages."],
-    ["Android app", "Native Kotlin + Jetpack Compose client with 190 unit tests, pointed at the live API."],
+    ["Android app", "Native Kotlin + Jetpack Compose client with 304 unit tests, pointed at the live API."],
     ["Mechanic console", "The offers inbox: accept a job, drive it step by step, record a cash payment."],
     ["RAKSHA dashboard", "The road authority's view of road damage: verify a finding, then close it."],
     ["Feature phone", "No smartphone needed: a plain SMS reaches POST /v1/telecom/sms."],
@@ -406,7 +406,7 @@ const LAYERS = [
     ["Connectivity", "Detects online, weak and off-grid, and switches the app's behaviour to match."],
   ]},
   { id: "api", name: "API gateway", tag: "Checks every request at the door", color: 0x4c8dff, comps: [
-    ["Fastify API", "74 routes, 71 under /v1. One process, one entry point."],
+    ["Fastify API", "75 routes, 72 under /v1. One process, one entry point."],
     ["Validation", "A Zod schema checks every body and query; anything malformed stops here with a clear error."],
     ["Identity", "JWT access tokens and rotating refresh sessions. Admin, officer and listed mechanic accounts sign in by email code only."],
     ["Access & limits", "Roles are checked at the resource, not the route. Rate limits bound abuse and never block an SOS."],
@@ -421,20 +421,20 @@ const LAYERS = [
   ]},
   { id: "data", name: "Data", tag: "The single source of truth", color: 0x29b6c9, comps: [
     ["PostgreSQL + PostGIS", "Hosted on Neon in Singapore. Geography queries run inside the database."],
-    ["Schema", "58 tables and 142 indexes, built by 9 migrations."],
+    ["Schema", "58 tables and 143 indexes, built by 9 migrations."],
     ["Audit log", "An append-only record of sign-ins and state changes."],
     ["Idempotency keys", "Op ids are stored per device, so a replayed sync is counted as duplicates."],
   ]},
   { id: "ai", name: "AI", tag: "Raises signals — never makes the decision", color: 0xff7a59, comps: [
-    ["YOLO11 detector", "Trained on RDD2022 road-damage images. The YOLO11n model (mAP50 0.443) produced the live detections."],
-    ["Best model", "yolo11s-multi-rich: mAP50 0.472 on held-out validation, four damage classes."],
+    ["YOLO11 detector", "Trained on RDD2022 road-damage images. An earlier YOLO11n India model (mAP50 0.443) produced the recorded RAKSHA detections."],
+    ["Shipped model", "yolo11n-india-ft-gpu, four damage classes: mAP50 0.586 on held-out 4-country validation, 0.500 on a held-out India split. Runs on the device."],
     ["Diagnosis rules", "A deterministic rules engine suggests the likely fault from the symptoms. No LLM anywhere."],
     ["Human in the loop", "A model raises a finding; an authority verifies it. The model never dispatches anyone."],
   ]},
   { id: "cloud", name: "Cloud & delivery", tag: "How it runs and how it ships", color: 0x8a93a6, comps: [
     ["Render", "The API and these pages run as one Docker service in Singapore."],
     ["GitHub Pages", "The project site at roadassistbharat.online."],
-    ["CI", "GitHub Actions runs the gates and test suites on every push; 1162 assertions pass across six suites."],
+    ["CI", "GitHub Actions runs the gates and test suites on every push; 1336 assertions pass across six suites."],
     ["Resend email", "Sign-in codes and alerts, sent from send.roadassistbharat.online."],
   ]},
 ];

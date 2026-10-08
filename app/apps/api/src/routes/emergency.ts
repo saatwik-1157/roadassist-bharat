@@ -27,6 +27,7 @@ import * as S from "@roadassist/db";
 import { db } from "../db.js";
 import { ok } from "../http.js";
 import { audit } from "../audit.js";
+import { actorRole } from "../domain/actor-role.js";
 import { alerts } from "../alerts.js";
 import { hit, limit, LIMITS } from "../ratelimit.js";
 import { sms } from "../providers.js";
@@ -316,7 +317,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
     if (!closed.length) throw fail("CONFLICT", "This incident changed while the request was in flight");
 
     await audit({
-      actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
+      actorId: req.user!.sub, actorRole: actorRole(req.user!.roles),
       action: "sos.resolved", entity: "incident", entityId: id,
       before: { status: inc.status }, after: { status: to, outcome }, ip: req.ip,
     });
@@ -412,9 +413,12 @@ export async function emergencyRoutes(app: FastifyInstance) {
     // so a model-detected crash cannot reach RESPONDING without a human first.
     const { to: respondingTo } = applyIncident(confirmed, "escalate");
 
+    // Who confirmed: the person it happened to ("user"), or the operator who
+    // confirmed on their behalf, by role. An admin confirming an ownerless
+    // RAKSHA signal was recorded as the "user" there is none of.
     const claimed = await db.update(S.incidents).set({
       status: respondingTo,
-      confirmedBy: inc.confirmedBy ?? "user",
+      confirmedBy: inc.confirmedBy ?? (inc.userId === req.user!.sub ? "user" : actorRole(req.user!.roles)),
       confirmedAt: inc.confirmedAt ?? new Date(),
       updatedAt: new Date(),
     }).where(and(
@@ -543,7 +547,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
     });
 
     await audit({
-      actorId: req.user!.sub, actorRole: req.user!.roles[0] ?? "citizen",
+      actorId: req.user!.sub, actorRole: actorRole(req.user!.roles),
       action: "sos.escalated", entity: "incident", entityId: id,
       before: { status: inc.status },
       after: {

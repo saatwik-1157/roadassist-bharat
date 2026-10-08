@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RoadAssist — App</title>
-<meta name="description" content="The RoadAssist citizen app: request roadside help, raise an SOS that falls back to SMS, and find the nearest hospital, police or mechanic.">
+<meta name="description" content="The RoadAssist citizen app: request roadside help, raise an SOS that is kept on the phone and sent when signal returns, and find the nearest hospital, police or mechanic.">
 <link rel="canonical" href="https://app.roadassistbharat.online/app.html">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://app.roadassistbharat.online/app.html">
 <meta property="og:title" content="RoadAssist — App">
-<meta property="og:description" content="The RoadAssist citizen app: request roadside help, raise an SOS that falls back to SMS, and find the nearest hospital, police or mechanic.">
+<meta property="og:description" content="The RoadAssist citizen app: request roadside help, raise an SOS that is kept on the phone and sent when signal returns, and find the nearest hospital, police or mechanic.">
 <meta property="og:image" content="https://roadassistbharat.online/visuals/vis_products.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#f4f5ef" media="(prefers-color-scheme: light)">
@@ -155,6 +155,7 @@
             <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3.5-6 2.6v14l6-2.6 6 2.6 6-2.6v-14L15 6.1z"/><path d="M9 3.5v14m6-11.4v14"/></svg>
             <b>Live map</b><small>Mechanics, responders and hazards near you</small>
           </button>
+          <button id="q-scan" style="grid-column:1/-1"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></svg><b data-i18n="scan.tile">Live road scan</b><small>On-device pothole detection from the camera</small></button>
         </div>
 
         <div class="card" id="vehicle-card" hidden></div>
@@ -179,7 +180,7 @@
               <input id="v-odo" inputmode="numeric" placeholder="48210"></label>
           </div>
           <button class="btn" id="v-add" style="margin-top:16px">Add vehicle</button>
-          <button class="btn ghost" id="v-cancel" style="margin-top:9px" hidden>Cancel</button>
+          <button class="btn ghost" id="v-cancel" style="margin-top:9px" hidden data-i18n="action.cancel">Cancel</button>
         </div>
 
         <div class="card" id="queue-note" hidden></div>
@@ -286,8 +287,8 @@
         <p class="step-h"><span>Step 5</span>Find a mechanic</p>
         <button class="btn" id="b-book">Request assistance</button>
         <p class="hint" style="margin-top:9px">Sent only with your device's GPS position. With no fix nothing is
-          sent unless you choose the NH-48 demo point (demo only) in step 3, for this one booking. Offline? The
-          booking queues locally and replays when you reconnect — no duplicates.</p>
+          sent unless you choose the NH-48 demo point (demo only) in step 3, for this one booking. Offline? A
+          booking needs a connection — live dispatch does not work off-grid, so nothing is queued. SOS does.</p>
         <div id="b-offers"></div>
       </div>
     </section>
@@ -408,7 +409,7 @@
       <div class="stagger">
         <h1 class="display">Your <em>activity.</em></h1>
         <div class="seg" style="margin-top:16px" role="tablist">
-          <button role="tab" aria-selected="true"  data-act="bookings">Bookings</button>
+          <button role="tab" aria-selected="true"  data-act="bookings" data-i18n="nav.bookings">Bookings</button>
           <button role="tab" aria-selected="false" data-act="reports">Hazard reports</button>
         </div>
         <div id="act-body" class="reveal" style="margin-top:14px"></div>
@@ -425,7 +426,7 @@
             <h2 class="title grow">Emergency contacts</h2>
             <span class="pill gold bare" id="ec-count">—</span>
           </div>
-          <p class="meta" style="margin-top:4px">Texted automatically when you confirm an SOS, in priority order — on this demo server SMS is only logged, not sent.</p>
+          <p class="meta" style="margin-top:4px">Texted when you confirm an SOS, in priority order — if this server has a live SMS provider. The SOS screen says which happened; without one, the text is only logged.</p>
           <div id="ec-list" class="reveal" style="margin-top:10px"></div>
           <div class="field-row" style="margin-top:4px">
             <label class="field"><span>Name</span><input id="ec-name" placeholder="Amma"></label>
@@ -543,11 +544,11 @@
   </main>
 
   <nav class="tabs" id="tabs" hidden>
-    <button class="tab active" data-nav="home"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.4 12 4l9 7.4"/><path d="M5.6 9.6V20h12.8V9.6"/></svg>Home</button>
-    <button class="tab" data-nav="book"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg>Assist</button>
-    <button class="tab" data-nav="map"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3.5-6 2.6v14l6-2.6 6 2.6 6-2.6v-14L15 6.1z"/><path d="M9 3.5v14m6-11.4v14"/></svg>Map</button>
-    <button class="tab" data-nav="activity"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5 6 5-15L17 12h4"/></svg>Activity</button>
-    <button class="tab" data-nav="more"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>More</button>
+    <button class="tab active" data-nav="home"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.4 12 4l9 7.4"/><path d="M5.6 9.6V20h12.8V9.6"/></svg><span data-i18n="nav.home">Home</span></button>
+    <button class="tab" data-nav="book"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a4 4 0 0 1-5.2 5.06L4 16.86 7.14 20l5.3-5.3A4 4 0 0 0 17.5 9.5l-2.3 2.3-2.3-2.3z"/></svg><span data-i18n="nav.assist">Assist</span></button>
+    <button class="tab" data-nav="map"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m9 3.5-6 2.6v14l6-2.6 6 2.6 6-2.6v-14L15 6.1z"/><path d="M9 3.5v14m6-11.4v14"/></svg><span data-i18n="nav.map">Map</span></button>
+    <button class="tab" data-nav="activity"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5 6 5-15L17 12h4"/></svg><span data-i18n="nav.activity">Activity</span></button>
+    <button class="tab" data-nav="more"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg><span data-i18n="nav.more">More</span></button>
   </nav>
 </div>
 
@@ -613,7 +614,7 @@
   <img class="thumb" id="r-thumb" alt="Selected photo preview" hidden>
 
   <div class="btn-row" style="margin-top:18px">
-    <button class="btn ghost" id="r-cancel">Cancel</button>
+    <button class="btn ghost" id="r-cancel" data-i18n="action.cancel">Cancel</button>
     <button class="btn" id="r-send">Send report</button>
   </div>
   <p class="hint center" style="margin-top:10px">Location is taken from this device when permitted.</p>
@@ -678,6 +679,11 @@
     mapLoaded: false, act: "bookings",
     /** The off-grid incident raised in this session, if there is one. */
     offGridIncidentId: null,
+    /** The signed-in user's id. Queued work and off-grid incidents carry it: one
+        phone is often shared, and the next person must not send the last one's. */
+    userId: null,
+    /** Opened from storage with no server to ask: reload everything once there is one. */
+    stale: false,
   };
 
   /* Off-Grid Mode handles, populated by the module bootstrap above. Everything
@@ -704,7 +710,11 @@
   // is true for it, or a pre-cookie token until its one exchange (session.js).
   var SESSION_KEY = "ra.app.session", sess = window.RASession(SESSION_KEY, "app", API);
   function saveSession() {
-    sess.save(state.token, { msisdn: state.msisdn, vehicleId: state.vehicleId, bookingId: state.bookingId }, state.refresh);
+    // The vehicles too (no credential), so an off-grid launch can still name the car in an SOS.
+    sess.save(state.token, { msisdn: state.msisdn, vehicleId: state.vehicleId, bookingId: state.bookingId,
+      userId: state.userId, vehicles: state.vehicles.map(function (v) {
+        return { id: v.id, registrationNo: v.registrationNo, vehicleClass: v.vehicleClass, nickname: v.nickname || null };
+      }) }, state.refresh);
   }
   function clearSession() { sess.clear(); }
   function loadSession() { return sess.load(); }
@@ -722,6 +732,12 @@
   var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; }); };
   /** A catalogue string (i18n.js loads after this script, so it is looked up at call time). */
   var tr = function (key, fallback) { return window.I18N ? I18N.t(key, fallback) : fallback; };
+  /** 12 random hex characters. crypto.randomUUID exists only in a secure context, so on the
+      server's plain-http LAN address it threw; getRandomValues works on any origin. */
+  function randomId() {
+    return Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(6)),
+      function (b) { return (b + 256).toString(16).slice(1); }).join("");
+  }
 
   /** A short tap of haptic feedback where the device supports it. */
   // Only once the page has had a real tap: before that Chrome refuses vibrate() and logs an error for it.
@@ -853,10 +869,12 @@
   applyTheme(currentTheme());
 
   // ── offline queue ─────────────────────────────────────────────────────────
+  /** Whether the stored queue was written (false: storage blocked or full). */
   function saveQueue() {
+    var kept = true;
     try { localStorage.setItem("ra.app.queue", JSON.stringify(state.queue)); }
-    catch (e) { /* storage blocked — the queue lasts for this page only */ }
-    var n = state.queue.length;
+    catch (e) { kept = false; /* blocked or full — the queue lasts for this page only */ }
+    var n = state.queue.filter(ownQueued).length;
     var note = $("queue-note");
     note.hidden = n === 0;
     note.innerHTML = "<div style='display:flex;align-items:center;gap:10px'>" +
@@ -869,7 +887,12 @@
       if (!dot) { dot = document.createElement("span"); dot.className = "dot"; tab.appendChild(dot); }
       dot.textContent = n;
     } else if (dot) { dot.remove(); }
+    return kept;
   }
+  /** Queued by whoever is signed in now. The queue is device-wide; what the last
+      user left stays theirs and replays when they are back, never under someone
+      else's token. (An entry from before entries had owners is anyone's.) */
+  function ownQueued(q) { return !q.uid || q.uid === state.userId; }
 
   /**
    * Operations that must never be replayed from a queue.
@@ -886,6 +909,9 @@
    */
   function neverQueue(method, path) {
     if (method === "GET") return true;                       // nothing to replay
+    // A booking: replayed later it was created but never dispatched, and the
+    // screen never heard of it. Live dispatch is the off-grid "no" (OFFLINE.md).
+    if (method === "POST" && path === "/v1/bookings") return true;
     return /\/pay$|\/confirm$|\/transition$|\/dispatch$|\/accept$|\/review$/.test(path) ||
            path.indexOf("/v1/sos") === 0 ||
            path.indexOf("/v1/auth") === 0;
@@ -902,6 +928,10 @@
              "Nothing is transmitted until a connection returns; call 112 if you can.";
     }
     if (/\/pay$|\/confirm$/.test(path)) return "Payment needs a live connection. Nothing was charged.";
+    if (path === "/v1/bookings") {
+      return "Requesting a mechanic needs a connection — live dispatch does not work off-grid, so nothing " +
+             "was sent or queued. In an emergency, hold SOS: it is stored on this device.";
+    }
     if (/\/transition$|\/dispatch$|\/accept$/.test(path)) return "This needs a live connection — the booking's state is held by the server.";
     return "This action needs a connection.";
   }
@@ -920,7 +950,11 @@
     if (refreshing) return refreshing;
     if (!state.refresh) return Promise.resolve(false);
     refreshing = sess.refresh(state.refresh).then(function (token) {
-      if (!token) return false;
+      // No token: refused, or never answered. Only a refusal ends the session
+      // (false). Unreachable (null) is no signal, which is not a sign-out.
+      if (!token) {
+        return fetch(API + "/v1/ping", { cache: "no-store" }).then(function () { return false; }, function () { return null; });
+      }
       state.token = token;
       state.refresh = true;   // the cookie holds it now; a legacy token is dropped on this save
       saveSession();
@@ -933,10 +967,17 @@
     opts = opts || {};
     if (!state.online && !opts.force) {
       if (neverQueue(method, path)) throw new Error(offlineReason(path));
-      state.queue.push({ opId: "app-" + crypto.randomUUID().slice(0, 12), method: method, path: path,
+      state.queue.push({ opId: "app-" + randomId(), uid: state.userId, method: method, path: path,
         body: body, clientUpdatedAt: new Date().toISOString() });
-      saveQueue();
-      toast("Offline — queued (" + state.queue.length + " waiting)", "bad");
+      var note = "";
+      if (!saveQueue() && body && body.photoBase64) {
+        // Storage is full, and a queued photo is what fills it: the report
+        // keeps its place in the queue, the photo is dropped, and it says so.
+        delete body.photoBase64; delete body.photoMime;
+        note = " without its photo (too large to keep on this device)";
+        saveQueue();
+      }
+      toast("Offline — queued" + note + " (" + state.queue.filter(ownQueued).length + " waiting)", "bad");
       return null;
     }
 
@@ -970,8 +1011,11 @@
     // An expired access token is an ordinary event every ten minutes, not a
     // sign-out. Refresh once and replay the call before surfacing anything.
     if (res.status === 401 && state.refresh && !opts.noRetry) {
-      if (await refreshSession()) {
+      var renewed = await refreshSession();
+      if (renewed) {
         res = await send();
+      } else if (renewed === null) {
+        throw Object.assign(new Error("Network unavailable — check your connection and try again."), { transport: true });
       } else {
         signedOut();
         throw new Error("Your session has ended. Sign in again.");
@@ -999,12 +1043,16 @@
    * belongs to the next run rather than being dropped by the reset at the end.
    */
   var syncing = false;
-  async function flushQueue() {
-    if (syncing || !state.queue.length || !state.token) return;
+  /** After a replay the network dropped, automatic retries wait this long (Sync now does not). */
+  var flushRetryAt = 0;
+  async function flushQueue(manual) {
+    var batch = state.queue.filter(ownQueued);
+    if (syncing || !batch.length || !state.token) return;
+    // A failing link flips the tier back and forth, and each flip would replay again.
+    if (!manual && Date.now() < flushRetryAt) return;
     syncing = true;
     setSyncState("syncing");
-    var batch = state.queue.slice();
-    state.queue = [];
+    state.queue = state.queue.filter(function (q) { return !ownQueued(q); });
     saveQueue();
 
     var ops = batch.map(function (q) {
@@ -1039,15 +1087,21 @@
           " was already superseded — showing the server's version", "warn");
       }
       // The journal records intent; these calls are what actually apply it.
+      // One lost on the way (or a server error) goes back in the queue: it used
+      // to land in "rejected" and was gone, though the server never refused it.
+      var retry = [];
       for (var i = 0; i < batch.length; i++) {
         var q = batch[i];
         try { await api(q.method, q.path, q.body, { force: true }); }
-        catch (e) { failed.push(q.path + ": " + e.message); }
+        catch (e) { if (e.transport || e.status >= 500) retry.push(q); else failed.push(q.path + ": " + e.message); }
       }
-      setSyncState(failed.length ? "failed" : "synced");
+      if (retry.length) { state.queue = retry.concat(state.queue); saveQueue(); flushRetryAt = Date.now() + 20000; }
+      var short = failed.length || retry.length;
+      setSyncState(short ? "failed" : "synced");
       toast("Synced: " + applied + " journaled" + (dup ? ", " + dup + " already known" : "") +
-        (failed.length ? " · " + failed.length + " rejected by the server" : " — queue clear"),
-        failed.length ? "bad" : "ok");
+        (failed.length ? " · " + failed.length + " rejected by the server" : "") +
+        (retry.length ? " · " + retry.length + " still waiting for signal" : "") + (short ? "" : " — queue clear"),
+        short ? "bad" : "ok");
       if (failed.length) console.warn("replay rejections:", failed);
     } catch (e) {
       // The batch never reached the server, so it goes back at the front of the
@@ -1065,9 +1119,17 @@
   function signedOut() {
     stopBookingPoll();
     streamStop();
-    state.token = null; state.refresh = null; state.bookingId = null;
+    state.token = null; state.refresh = null; state.bookingId = null; state.userId = null; state.stale = false;
     clearSession();
     Object.keys(sosOpen).forEach(function (id) { trackIncident(id, null); });   // the next user's are not these
+    // Nor is anything else the last person left: the code they were sent, the
+    // places "Near you" found for them, their prepared trip.
+    $("a-code").value = ""; $("a-step2").hidden = true;
+    if (window.RANear && RANear.reset) RANear.reset();
+    $("home-near").hidden = true; $("home-near").innerHTML = "";
+    try { localStorage.removeItem("ra.trip"); } catch (e) { /* nothing kept */ }
+    $("g-out").innerHTML = ""; $("g-map-card").hidden = true; $("g-tilecount").textContent = "";
+    saveQueue();   // the badge now counts nobody's
     $("tabs").hidden = true;
     nav("auth");
   }
@@ -1080,22 +1142,23 @@
    * user reads from a red dot and a blind user previously could not read at all.
    */
   var SYNC_LABEL = {
-    online:  { text: "Online",      cls: "" },
-    limited: { text: "Limited",     cls: "is-limited" },
-    offline: { text: "Off-grid",    cls: "is-offgrid" },
-    syncing: { text: "Syncing",     cls: "is-syncing" },
-    synced:  { text: "Synced",      cls: "is-synced" },
-    failed:  { text: "Sync failed", cls: "is-failed" },
+    online:  { key: "net.online",        text: "Online",      cls: "" },
+    limited: { key: "net.limited.short", text: "Limited",     cls: "is-limited" },
+    offline: { key: "net.offline",       text: "Off-grid",    cls: "is-offgrid" },
+    syncing: { key: "net.syncing",       text: "Syncing",     cls: "is-syncing" },
+    synced:  { key: "net.synced",        text: "Synced",      cls: "is-synced" },
+    failed:  { key: "net.failed",        text: "Sync failed", cls: "is-failed" },
   };
   /** Tier → the label kind that represents it while nothing else is happening. */
   var TIER_LABEL = { ONLINE: "online", LIMITED: "limited", OFFLINE: "offline" };
-  var syncResetTimer;
+  var syncResetTimer, syncKind = "online";
   function setSyncState(kind) {
     var s = SYNC_LABEL[kind] || SYNC_LABEL.online;
     var el = $("net");
-    el.textContent = s.text;
+    syncKind = kind;
+    el.textContent = tr(s.key, s.text);
     el.className = "net " + s.cls;
-    el.setAttribute("aria-label", "Connection: " + s.text + ". Tap to simulate off-grid mode.");
+    el.setAttribute("aria-label", "Connection: " + el.textContent + ". Tap to simulate off-grid mode.");
     clearTimeout(syncResetTimer);
     // "Synced" and "Sync failed" are events, not states — they settle back to
     // the connection status rather than lingering as a stale claim.
@@ -1136,6 +1199,11 @@
       if (state.bookingId) startBookingPoll();
       streamOpen();
       flushQueue();
+      // Opened off-grid from what the device held: now load the real thing.
+      if (state.stale && state.refresh) {
+        state.stale = false;
+        enterApp(null, "back online").then(flushQueue, function () { if (state.refresh) state.stale = true; });
+      }
     }
 
     // Reconnection is the moment the whole feature exists for.
@@ -1180,11 +1248,11 @@
       el.innerHTML =
         "<div class='card' style='border-color:var(--red);background:var(--red-soft);box-shadow:none'>" +
           "<div style='display:flex;align-items:flex-start;gap:9px'>" +
-            "<span class='pill bad' style='flex:none'>Off-grid</span>" +
+            "<span class='pill bad' style='flex:none'>" + esc(tr("net.offline", "Off-grid")) + "</span>" +
             "<span class='grow'><b style='display:block;font-size:13.5px;font-weight:650'>No internet connection</b>" +
-            "<small style='color:var(--text-2);font-size:12px;line-height:1.5'>SOS still works: it creates " +
-            "an off-grid incident stored on this device, and sends it the moment a connection returns. " +
-            "Nothing is claimed to have been transmitted. Local diagnosis, your " +
+            "<small style='color:var(--text-2);font-size:12px;line-height:1.5'>" + esc(tr("net.offline.detail",
+            "No signal. An SOS is stored on this device with its own reference and sent the moment connectivity returns.")) +
+            " It is an off-grid incident: nothing is claimed to have been transmitted. Local diagnosis, your " +
             "saved trip and downloaded maps also work. Payments, booking changes and live tracking do not " +
             "— nothing that needs the cloud is pretended.</small>" +
             "<button class='btn ghost' data-nav='offgrid' style='margin-top:10px'>Open off-grid mode</button>" +
@@ -1194,8 +1262,9 @@
       el.innerHTML =
         "<div class='card' style='border-color:var(--amber);background:var(--amber-soft);box-shadow:none'>" +
           "<div style='display:flex;align-items:flex-start;gap:9px'>" +
-            "<span class='pill warn' style='flex:none'>Limited</span>" +
-            "<span class='grow'><b style='display:block;font-size:13.5px;font-weight:650'>Weak connection</b>" +
+            "<span class='pill warn' style='flex:none'>" + esc(tr("net.limited.short", "Limited")) + "</span>" +
+            "<span class='grow'><b style='display:block;font-size:13.5px;font-weight:650'>" +
+              esc(tr("net.limited", "Limited connection")) + "</b>" +
             "<small style='color:var(--text-2);font-size:12px;line-height:1.5'>Requests are reaching the " +
             "network slowly or failing. They are still being attempted — anything that does not get through " +
             "is stored on this device rather than lost.</small></span>" +
@@ -1455,6 +1524,16 @@
   // Timers do not survive the page, but a poll mid-flight during teardown can
   // still resolve and touch a dead DOM.
   window.addEventListener("pagehide", function () { stopBookingPoll(); streamStop(); });
+  // ...and a page restored from the back/forward cache came back without either:
+  // no stream and no poll, for good, behind a screen that still looked live.
+  window.addEventListener("pageshow", function (e) {
+    if (e.persisted && state.token && state.tier !== RA_OFFLINE) { streamOpen(); startBookingPoll(); }
+  });
+  // A language change redraws what script wrote (I18N.apply only reaches markup).
+  window.addEventListener("ra:locale", function () {
+    setSyncState(syncKind); updateOfflineBanner();
+    if (state.token) renderVehicles();
+  });
 
   // ── auth ──────────────────────────────────────────────────────────────────
   /**
@@ -1507,6 +1586,7 @@
         { msisdn: state.msisdn, code: code }, { force: true });
       state.token = r.data.accessToken;
       state.refresh = true;   // set as the page's HttpOnly cookie, not returned
+      state.userId = r.data.user ? r.data.user.id : null;
       saveSession();
       await enterApp(r.data.roles, r.meta.newAccount ? "new account" : "welcome back");
       toast("Signed in", "ok"); buzz([10, 40, 10]);
@@ -1516,6 +1596,7 @@
   // Email sign-in (email-signin.js) lands on the same path as the phone code.
   if (window.RAEmail) RAEmail.mount($("a-step2"), { api: API, headers: sess.headers, toast: toast, onSession: async function (d) {
     state.token = d.accessToken; state.refresh = d.refreshToken || true; state.msisdn = d.user.msisdn;
+    state.userId = d.user.id;
     saveSession();
     await enterApp(d.roles, "signed in by email");
     toast("Signed in", "ok");
@@ -1536,6 +1617,7 @@
     $("s-meta").textContent = state.msisdn + " · roles: " + ((roles || []).join(", ") || "citizen");
 
     var me = await api("GET", "/v1/me", null, { force: true });
+    state.userId = me.data.user.id;
     state.fullName = me.data.user.fullName || "";
     $("p-name").value = state.fullName;
     // Greet the person, not the phone number, once they have told us who they are.
@@ -1564,10 +1646,16 @@
     saveQueue();
     syncSteps();
     await resumeActiveBooking();
+    await reconcileSos();
     renderSosOpen();
+    renderOffGrid();   // this user's off-grid records, not whoever was here before
     // A shortcut target (from the installed app's long-press menu) wins over
     // the default landing screen; otherwise home.
     if (!routeFromHash()) nav("home");
+    // What this user left waiting on this device (theirs only) goes now, not at
+    // the next change of signal.
+    flushQueue();
+    if (Store) syncOffGrid({ quiet: true }).catch(function () { /* retried on its schedule */ });
   }
 
   /**
@@ -1608,8 +1696,34 @@
     return h < 5 ? "Still up." : h < 12 ? "Good morning." : h < 17 ? "Good afternoon." : "Good evening.";
   }
 
-  $("s-out").onclick = function () {
+  /**
+   * The app from what this device holds, when boot cannot reach the server.
+   *
+   * No signal used to be read as "signed out": a phone reopened in a dead zone
+   * wiped its session and landed on sign-in, with SOS out of reach, at the
+   * moment it mattered most. Now it opens off-grid on the stored session and
+   * reloads everything once a connection returns (applyTier).
+   */
+  function enterOffline() {
+    state.stale = true;
+    $("tabs").hidden = false;
+    $("home-title").textContent = greeting();
+    $("home-sub").textContent = state.msisdn + " · offline — showing what this device holds";
+    $("s-meta").textContent = state.msisdn + " · offline";
+    renderVehicles(); renderHomeTask(null); renderSosOpen(); saveQueue(); renderOffGrid();
+    if (!routeFromHash()) nav("home");
+  }
+
+  $("s-out").onclick = async function () {
     buzz(10);
+    // An SOS this device has not sent stays with its owner: kept here, sent the
+    // next time they sign in with signal, never under the next person's account.
+    var unsent = Store ? (await Store.listIncidents(state.userId)).filter(function (i) {
+      return i.status !== Store.STATUS_SYNCED; }).length : 0;
+    if (unsent && !confirm(unsent + (unsent === 1 ? " emergency record has" : " emergency records have") +
+        " not reached RoadAssist yet. Signing out keeps " + (unsent === 1 ? "it" : "them") + " on this " +
+        "device, to send when you sign in again with signal — nobody else's account will send " +
+        (unsent === 1 ? "it" : "them") + ". Sign out?")) return;
     sess.logout(state.token);   // ends the session server-side and clears the cookie
     signedOut();
     toast("Signed out", "ok");
@@ -1648,7 +1762,7 @@
             "<span class='grow'><h2 class='title'>Need roadside assistance?</h2>" +
             "<p class='meta' style='margin-top:4px'>Describe the fault and we will name a likely cause, " +
             "then dispatch the nearest verified mechanic.</p></span></div>" +
-          "<button class='btn' data-nav='book' style='margin-top:13px'>Request assistance</button>" +
+          "<button class='btn' data-nav='book' style='margin-top:13px'>" + esc(tr("action.book", "Book help")) + "</button>" +
         "</div>";
       return;
     }
@@ -1669,7 +1783,7 @@
             "<p class='meta' style='margin-top:4px'>" + esc(line) + "</p></span>" +
           "<span class='pill " + statusPill(b.status) + "'>" +
             esc(String(b.status).replace(/_/g, " ")) + "</span></div>" +
-        "<button class='btn' data-nav='track' style='margin-top:13px'>Open live tracking</button>" +
+        "<button class='btn' data-nav='track' style='margin-top:13px'>" + esc(tr("action.track", "Track")) + "</button>" +
       "</div>";
   }
 
@@ -1690,7 +1804,7 @@
     list.hidden = false;
     list.innerHTML =
       "<div style='display:flex;align-items:center;gap:10px'>" +
-        "<h2 class='title grow'>Your vehicles</h2>" +
+        "<h2 class='title grow'>" + esc(tr("nav.vehicles", "Vehicles")) + "</h2>" +
         "<span class='pill bare'>" + state.vehicles.length + "</span></div>" +
       state.vehicles.map(function (v) {
         var on = v.id === state.vehicleId;
@@ -1950,7 +2064,7 @@
       // cut off — one of the few honest sources of dead-zone data there is.
       if (Store && state.token) {
         Store.journalOperation({
-          opId: Engine.newOpId(), type: "diagnosis.offgrid",
+          opId: Engine.newOpId(), type: "diagnosis.offgrid", owner: state.userId,
           payload: { symptoms: input.symptoms || null, dtcCodes: input.dtcCodes || null,
                      cause: d.cause, confidence: d.confidence, severity: d.severity, engine: d.engine },
         }).catch(function () { /* journalling is best-effort; the answer is not */ });
@@ -2113,7 +2227,7 @@
         "<div class='card' style='margin-top:13px'>" +
           "<h2 class='title'>Could not analyse that</h2>" +
           "<p class='meta' style='margin-top:6px'>" + esc(e.message) + "</p>" +
-          "<button class='btn ghost' id='d-retry' style='margin-top:13px'>Try again</button></div>";
+          "<button class='btn ghost' id='d-retry' style='margin-top:13px'>" + esc(tr("action.retry", "Try again")) + "</button></div>";
       var dr = $("d-retry");
       if (dr) dr.onclick = function () { $("b-diagnose").click(); };
       toast(e.message, "bad");
@@ -2213,7 +2327,7 @@
       }
 
       bookingProgress("Creating your request…");
-      if (!bookingKey) bookingKey = "app-" + crypto.randomUUID().slice(0, 12);
+      if (!bookingKey) bookingKey = "app-" + randomId();
       var r = await api("POST", "/v1/bookings", {
         vehicleId: state.vehicleId,
         serviceTypeCode: $("b-service").value,
@@ -2247,7 +2361,7 @@
         "<div class='card' style='margin-top:13px'>" +
           "<h2 class='title'>Could not complete that</h2>" +
           "<p class='meta' style='margin-top:6px'>" + esc(e.message) + "</p>" +
-          "<button class='btn ghost' id='b-retry' style='margin-top:13px'>Try again</button></div>";
+          "<button class='btn ghost' id='b-retry' style='margin-top:13px'>" + esc(tr("action.retry", "Try again")) + "</button></div>";
       var retry = $("b-retry");
       // The same idempotency key is deliberately reused, so a retry after a
       // request that may already have landed resolves to the same booking.
@@ -2512,7 +2626,7 @@
       if (MECHANIC_ONLY[cmd]) return;
       var btn = document.createElement("button");
       btn.className = "chip" + (cmd === "cancel" ? " warn" : "");
-      btn.textContent = CMD_LABEL[cmd] || cmd;
+      btn.textContent = cmd === "payment.settled" ? tr("action.pay", "Pay") : CMD_LABEL[cmd] || cmd;
       btn.onclick = busy(btn, async function () {
         try {
           buzz(8);
@@ -2521,9 +2635,9 @@
           if (cmd === "payment.settled") { await payInvoice(); return; }
           var r = await api("POST", "/v1/bookings/" + state.bookingId + "/transition", { command: cmd });
           if (!r) return;
-          toast((STATUS_NEWS[r.data.status] || r.data.status) +
-            (r.data.cancellationFee ? " · cancellation fee applies" : ""),
-            r.data.cancellationFee ? "bad" : "ok");
+          // No fee is charged for a late cancel, so none is announced: this
+          // used to say "cancellation fee applies" with nothing ever recorded.
+          toast(STATUS_NEWS[r.data.status] || r.data.status, "ok");
           await refreshBooking();
         } catch (e) { toast(e.message, "bad"); }
       });
@@ -2884,14 +2998,14 @@
     if (e.button != null && e.button !== 0) return;
     e.preventDefault();
     sosEl.classList.add("holding");
-    $("sos-sub").textContent = "keep holding…";
+    $("sos-sub").textContent = tr("sos.holding", "keep holding…");
     buzz(14);
     holdTimer = setTimeout(fireSos, HOLD_MS);
   }
   function holdEnd() {
     if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
     sosEl.classList.remove("holding");
-    $("sos-sub").textContent = "hold 1.5s";
+    $("sos-sub").textContent = tr("sos.hold", "hold 1.5s");
   }
   sosEl.addEventListener("pointerdown", holdStart);
   sosEl.addEventListener("pointerup", holdEnd);
@@ -2921,31 +3035,56 @@
    */
   var firing = false;
 
+  /**
+   * This user's emergency that is still open, if any: one at a time.
+   *
+   * Closing the sheet released the only guard there was, so a second hold
+   * raised a second incident while the first was still escalated, or still
+   * waiting on this device to be sent. What this device remembers can be stale
+   * (closed from another phone), so the server is asked whenever it can be.
+   */
+  async function openEmergency() {
+    if (sosId) return { id: sosId };
+    if (state.offGridIncidentId) return { id: state.offGridIncidentId, local: true };
+    if (Store) {
+      var unsent = (await Store.listIncidents(state.userId)).filter(function (i) {
+        return i.status !== Store.STATUS_SYNCED; })[0];
+      if (unsent) return { id: unsent.incidentId, local: true };
+    }
+    if (Object.keys(sosOpen).length && state.tier !== RA_OFFLINE) await reconcileSos();
+    var open = Object.keys(sosOpen)[0];
+    return open ? { id: open } : null;
+  }
+
   async function fireSos() {
     holdEnd();
-    if (firing || sosId || state.offGridIncidentId) {
-      if (sosId || state.offGridIncidentId) toast("An emergency is already active", "warn");
-      return;
-    }
+    if (firing) return;
     firing = true;
-    $("sos-sub").textContent = "raising…";
-    buzz([30, 60, 30, 60, 30]);
+    $("sos-sub").textContent = tr("sos.raising", "raising…");
     try {
+      var open = await openEmergency();
+      if (open) {
+        toast(tr("sos.alreadyOpen", "An emergency is already open ({ref}). Stand it down there before raising another, or call 112.")
+          .replace("{ref}", open.local ? open.id : String(open.id).slice(0, 8)), "warn");
+        if (!sosId && !state.offGridIncidentId) nav(open.local ? "offgrid" : "home");
+        return;
+      }
+      buzz([30, 60, 30, 60, 30]);
       var pos = await locate();
       // An emergency with a fabricated location is worse than one that admits
       // it does not know where you are.
       // With no fix the SOS goes WITHOUT a position (locationUnknown), never at
       // the demo point: a made-up place sends a responder to the wrong road.
-      if (pos.demo) {
-        toast((pos.denied ? "Location permission is off" : "No GPS fix") +
-          " — SOS raised without a location. Call 112 and tell them where you are.", "warn");
-      }
+      // Said once the SOS exists, not before: it used to read "SOS raised" ahead
+      // of a request that could still fail.
+      var noFix = pos.demo ? (pos.denied ? "Location permission is off" : "No GPS fix") : null;
 
       // ── Tier 3: no connection at all (ADR-0009) ─────────────────────────
       // Nothing is attempted, because there is nothing to attempt. The
       // incident is created on this device and the user is told exactly that.
       if (state.tier === RA_OFFLINE) {
         await raiseOffGridSos(pos);
+        if (noFix) toast(noFix + " — SOS stored without a location. Call 112 and tell them where you are.", "warn");
         return;
       }
 
@@ -2958,6 +3097,7 @@
       { force: true });
       sosId = r.data.id;
       sosPos = pos;
+      if (noFix) toast(noFix + " — SOS raised without a location. Call 112 and tell them where you are.", "warn");
       trackIncident(sosId, r.data.status);
       openSos(r.data.status, r.data.smsLive === true);
       if (pos.demo || r.data.locationKnown === false) $("sos-out").innerHTML = sosNoFix();
@@ -2978,7 +3118,7 @@
       sosFailed("SOS failed: " + e.message + " — call 112 directly.");
     } finally {
       firing = false;
-      $("sos-sub").textContent = "hold 1.5s";
+      $("sos-sub").textContent = tr("sos.hold", "hold 1.5s");
     }
   }
   var sosPos = null;
@@ -3044,7 +3184,7 @@
     };
 
     var record = await Store.createIncident({
-      incidentId: incidentId, opId: opId, type: "sos.offgrid", payload: payload,
+      incidentId: incidentId, opId: opId, type: "sos.offgrid", payload: payload, owner: state.userId,
     });
     state.offGridIncidentId = incidentId;
     sosPos = pos;
@@ -3305,10 +3445,26 @@
     // An off-grid incident has no server id to cancel against — it is withdrawn
     // from this device, which is the only place it has ever existed.
     if (!sosId && state.offGridIncidentId) {
-      var gone = await Store.discardIncident(state.offGridIncidentId);
-      toast(gone
-        ? "Off-grid incident withdrawn — nothing was ever transmitted"
-        : "Already syncing — cancel it from the incident once it reaches the server", gone ? "ok" : "warn");
+      var ogId = state.offGridIncidentId;
+      var gone = await Store.discardIncident(ogId);
+      if (gone) toast("Off-grid incident withdrawn — nothing was ever transmitted", "ok");
+      else {
+        // On the wire, or already there: it cannot just vanish from this device.
+        // Sent: cancelled on the server now. Mid-upload: the sync cancels it as a
+        // false alarm the moment the server names it, instead of alerting anyone.
+        var row = await Store.getIncident(ogId);
+        if (row && row.serverId) {
+          try {
+            var cr = await api("POST", "/v1/sos/" + row.serverId + "/cancel", {}, { force: true });
+            trackIncident(row.serverId, cr.data.status);
+            toast("Cancelled — false alarm recorded", "ok");
+          } catch (e) { toast("Could not cancel: " + e.message, "bad"); }
+        } else {
+          ogCancel[ogId] = true;
+          toast("It is being sent right now — it will be cancelled as a false alarm, not alerted, " +
+            "as soon as the server has it", "warn");
+        }
+      }
       closeSos();
       return;
     }
@@ -3352,13 +3508,23 @@
       });
     });
   }
+  /** This user's open emergencies, from the server, replace what the device remembered. */
+  async function reconcileSos() {
+    try {
+      var r = await api("GET", "/v1/me/incidents", null, { force: true });
+      sosOpen = {};
+      (r.data || []).forEach(function (i) { if (RAJourney.sosActive(i.status)) sosOpen[i.id] = i.status; });
+      try { localStorage.setItem("ra.app.sos", JSON.stringify(sosOpen)); } catch (e) { /* this session only */ }
+      renderSosOpen();
+    } catch (e) { /* unreachable: what this device remembered stands */ }
+  }
   function renderSosOpen() {
     var box = $("home-sos"), ids = Object.keys(sosOpen);
     box.hidden = !ids.length;
     box.innerHTML = ids.map(function (id) {
       return "<div class='card' style='border-color:var(--red);margin-bottom:12px' data-sos='" + esc(id) + "'>" +
         "<p class='eyebrow'>Active emergency · " + esc(sosOpen[id].toLowerCase()) + "</p><p class='meta' " +
-        "style='margin-top:4px'>Incident " + esc(id.slice(0, 8)) + ". If you are safe, say so: it frees the responder.</p></div>";
+        "style='margin-top:4px'>Incident " + esc(id.slice(0, 8)) + ". If you are safe, say so: it closes the emergency.</p></div>";
     }).join("");
     ids.forEach(function (id) { sosExitButtons(box.querySelector("[data-sos='" + id + "']"), id); });
   }
@@ -3367,7 +3533,8 @@
   function openMap() {
     if (state.mapLoaded || !state.token) return;
     // map.html reads base + token from the hash, which never reaches server logs.
-    $("map-frame").src = "map.html#base=" + encodeURIComponent(API) + "&token=" + encodeURIComponent(state.token);
+    $("map-frame").src = "map.html#base=" + encodeURIComponent(API) + "&token=" + encodeURIComponent(state.token) +
+      "&slot=" + SESSION_KEY;   // which session to re-read as this page refreshes it
     state.mapLoaded = true;
   }
 
@@ -3449,13 +3616,18 @@
       };
       if (report.pending) await report.pending;   // a photo still shrinking goes with the report
       if (report.photo) { body.photoBase64 = report.photo; body.photoMime = report.mime; }
-      var r = await api("POST", "/v1/raksha/report", body, { force: true });
+      // Not forced: off-grid it joins the queue (OFFLINE.md: QUEUED) and goes on
+      // reconnect. Forced, it was sent even with "Off-grid" on the pill.
+      var r = await api("POST", "/v1/raksha/report", body);
       closeSheet();
-      toast("Reported — " + r.meta.note +
-        (r.data.position ? " (" + r.data.position.label + ")" : ""), "ok"); buzz([10, 40, 10]);
+      if (r) {
+        toast("Reported — " + r.meta.note +
+          (r.data.position ? " (" + r.data.position.label + ")" : ""), "ok"); buzz([10, 40, 10]);
+      }
       // Reset for the next report and refresh the map so the pin appears.
       $("r-note").value = ""; $("r-photo").value = ""; $("r-thumb").hidden = true;
       report.photo = null; report.mime = null; report.pending = null;
+      if (!r) return;   // queued: the toast says so, and the pin follows the replay
       try {
         var f = $("map-frame");
         if (f.contentWindow && f.contentWindow.__refresh) f.contentWindow.__refresh();
@@ -3664,8 +3836,10 @@
       var r = await api("GET", "/v1/me/emergency-contacts", null, { force: true });
       $("ec-count").textContent = r.data.length + (r.data.length === 1 ? " contact" : " contacts");
       if (!r.data.length) {
-        $("ec-list").innerHTML = "<p class='hint'>None yet. Without a contact an SOS still reaches " +
-          "responders, but nobody who knows you is told.</p>";
+        // It used to say an SOS "still reaches responders": the server contacts
+        // no responder (it locates the nearest unit and says so), so it does not.
+        $("ec-list").innerHTML = "<p class='hint'>None yet. Without a contact, an SOS reaches nobody " +
+          "automatically — call 112.</p>";
         return;
       }
       $("ec-list").innerHTML = r.data.map(function (c) {
@@ -3726,7 +3900,9 @@
     }
   };
 
-  $("q-flush").onclick = flushQueue;
+  $("q-flush").onclick = function () { flushQueue(true); };
+  // The live road scan is its own page (scan.html); same tab, so Back returns here.
+  $("q-scan").onclick = function () { buzz(8); location.href = "scan.html"; };
 
   /* ══════════════════════════════════════════════════════════════════════════
      OFF-GRID MODE — store, forward, and say only what is true (ADR-0009)
@@ -3780,7 +3956,7 @@
 
     var entries;
     try {
-      entries = await Store.dueEntries();
+      entries = await Store.dueEntries(undefined, state.userId);
     } catch (e) {
       ogSyncing = false;
       throw e;
@@ -3791,7 +3967,7 @@
     ogProgress("<b>Synchronizing emergency information…</b>");
     if (!opts.quiet) toast("Synchronizing emergency information…", "ok");
 
-    var sent = 0, duplicates = 0, failed = 0, escalated = 0;
+    var sent = 0, duplicates = 0, failed = 0, escalated = 0, alertFailed = 0, cancelled = 0;
     try {
       // ── AUTHENTICATE ──────────────────────────────────────────────────────
       // A token ten minutes old is normal after a spell without signal. The
@@ -3833,9 +4009,16 @@
             (i + 1) + " of " + sosEntries.length);
         }
 
-        for (var k = 0; k < sosEntries.length; k++) await Store.markSyncing(sosEntries[k].opId);
+        // Only what is still there once it is marked as on the wire: one
+        // withdrawn while its payload was being read must not be sent.
+        var sending = [];
+        for (var k = 0; k < sosEntries.length; k++) {
+          if (await Store.markSyncing(sosEntries[k].opId)) sending.push(payloads[k]);
+        }
 
-        var r = await api("POST", "/v1/sos/offline-sync", { incidents: payloads }, { force: true });
+        var r = sending.length
+          ? await api("POST", "/v1/sos/offline-sync", { incidents: sending }, { force: true })
+          : { data: { results: [] } };
         var results = (r.data && r.data.results) || [];
 
         for (var j = 0; j < results.length; j++) {
@@ -3853,14 +4036,17 @@
             // dispatch, and it reuses the same ladder an online SOS runs.
             if (out.id && out.status === "created") {
               trackIncident(out.id, out.incidentStatus);
-              try {
-                trackIncident(out.id, (await api("POST", "/v1/sos/" + out.id + "/confirm", {}, { force: true })).data.status);
-                escalated++;
-              } catch (e) {
-                // The incident is safely on the server; only the alerting
-                // failed, and the user is told exactly that.
-                console.warn("escalation after sync failed:", e.message);
+              // "Cancel — false alarm" was pressed while this was on the wire:
+              // it is cancelled on the server, and nobody is alerted.
+              if (ogCancel[out.clientIncidentId]) {
+                delete ogCancel[out.clientIncidentId];
+                try {
+                  trackIncident(out.id, (await api("POST", "/v1/sos/" + out.id + "/cancel", {}, { force: true })).data.status);
+                  cancelled++;
+                } catch (e) { console.warn("cancel after sync failed:", e.message); }
+                continue;
               }
+              if (await escalate(out.id)) escalated++; else alertFailed++;
             }
           } else {
             failed++;
@@ -3895,6 +4081,16 @@
         ogProgress("<b>Sync retry pending</b> — " + failed + " operation" + (failed === 1 ? "" : "s") +
           " did not go through. Nothing was lost; the next attempt is scheduled.");
         toast("Sync retry pending — " + failed + " still waiting", "bad");
+      } else if (alertFailed) {
+        // The incident is safely on the server; only the alerting failed. Saying
+        // "synchronized" alone read as success while nobody had been told.
+        setSyncState("synced");
+        ogProgress(ogAlertFailedHtml());
+        toast(tr("sos.alertFailed", "Recorded, but alerting failed — call 112."), "bad");
+      } else if (cancelled && !sent) {
+        setSyncState("synced");
+        ogProgress("<b>Cancelled as a false alarm.</b> It reached the server mid-cancel and was closed there; nobody was alerted.");
+        toast("Cancelled — false alarm recorded, nobody was alerted", "ok");
       } else {
         setSyncState("synced");
         ogProgress("<b>SOS synchronized.</b> RoadAssist dispatch can now process your incident." +
@@ -3905,7 +4101,7 @@
           : "Already synchronised — no duplicate was created", "ok");
         buzz([30, 60, 30]);
       }
-      return { sent: sent, duplicates: duplicates, failed: failed, escalated: escalated };
+      return { sent: sent, duplicates: duplicates, failed: failed, escalated: escalated, alertFailed: alertFailed };
     } catch (e) {
       // The batch never reached the server at all. Every entry goes back on the
       // schedule; the retry count and backoff are the store's job.
@@ -3923,11 +4119,48 @@
     }
   }
 
+  /** Off-grid incidents whose "Cancel — false alarm" came mid-upload, by local id. */
+  var ogCancel = {};
+  /** Synced incidents whose alerting (confirm) failed and is being retried, by server id. */
+  var confirmRetry = {};
+
+  function ogAlertFailedHtml() {
+    return "<b>" + esc(tr("sos.alertFailed", "Recorded, but alerting failed — call 112.")) + "</b> Your " +
+      "incident reached RoadAssist, but asking it to alert your contacts failed. It is being retried " +
+      "automatically; do not wait for it.";
+  }
+
+  /**
+   * Hand a synced incident to dispatch: the same confirm an online SOS runs.
+   * A failure is retried with backoff (a flaky link, a 503) until it lands or
+   * the incident is closed, and the screen says so meanwhile.
+   */
+  async function escalate(id, attempt) {
+    try {
+      trackIncident(id, (await api("POST", "/v1/sos/" + id + "/confirm", {}, { force: true })).data.status);
+      delete confirmRetry[id];
+      return true;
+    } catch (e) {
+      console.warn("escalation after sync failed:", e.message);
+      var n = (attempt || 0) + 1;
+      if (e.status === 409 || !sosOpen[id] || n > 8) { confirmRetry[id] = true; return false; }
+      clearTimeout(confirmRetry[id]);
+      confirmRetry[id] = setTimeout(function () {
+        escalate(id, n).then(function (done) {
+          if (!done) return;
+          toast("Your off-grid SOS has now been escalated", "ok");
+          renderOffGrid();
+        });
+      }, Math.min(60000, 4000 * Math.pow(2, n - 1)));
+      return false;
+    }
+  }
+
   /** Wake up when the next entry becomes eligible, and not before. */
   async function scheduleOffGridRetry() {
     clearTimeout(ogRetryTimer);
     if (!Store || state.tier === RA_OFFLINE) return;
-    var pending = await Store.allEntries();
+    var pending = await Store.allEntries(state.userId);
     if (!pending.length) return;
     var soonest = Infinity;
     for (var i = 0; i < pending.length; i++) {
@@ -3984,8 +4217,8 @@
       return;
     }
 
-    var incidents = await Store.listIncidents();
-    var journal = await Store.allEntries();
+    var incidents = await Store.listIncidents(state.userId);
+    var journal = await Store.allEntries(state.userId);
     var lastOnline = await Store.getLastOnlineAt();
 
     // ── the incident ───────────────────────────────────────────────────────
@@ -4049,7 +4282,8 @@
         "</div>";
 
       if (active.status === Store.STATUS_SYNCED) {
-        ogProgress("<b>SOS synchronized.</b> RoadAssist dispatch can now process your incident." +
+        ogProgress(active.serverId && confirmRetry[active.serverId] ? ogAlertFailedHtml() :
+          "<b>SOS synchronized.</b> RoadAssist dispatch can now process your incident." +
           (active.serverId ? " Platform reference " + esc(String(active.serverId).slice(0, 8)) + "." : ""));
         if (sosOpen[active.serverId]) sosExitButtons(body.querySelector(".og-hero"), active.serverId); // still open
       } else if (state.tier === RA_OFFLINE) {
@@ -4090,7 +4324,7 @@
     }
 
     // ── storage & retention ────────────────────────────────────────────────
-    var st = await Store.stats();
+    var st = await Store.stats(state.userId);
     var moreState = $("og-more-state");
     if (moreState) {
       moreState.textContent = st.pendingIncidents
@@ -4328,6 +4562,9 @@
       return Engine ? Engine.diagnose({ symptoms: symptoms, dtcCodes: dtcCodes }) : null;
     },
     classify: function (signal) { return Engine ? Engine.classifyConnectivity(signal) : null; },
+    // For the live map in this page's frame: on a 401 it asks the page to
+    // refresh ITS session (one rotation, the page's own), then re-reads it.
+    refreshSession: function () { return refreshSession(); },
     listOffGrid: function () { return Store ? Store.listIncidents() : Promise.resolve([]); },
     journal: function () { return Store ? Store.allEntries() : Promise.resolve([]); },
     syncOffGrid: function () { return syncOffGrid(); },
@@ -4414,6 +4651,8 @@
     state.refresh = saved.refresh;
     state.msisdn = saved.msisdn;
     state.vehicleId = saved.vehicleId || null;
+    state.userId = saved.userId || null;
+    state.vehicles = saved.vehicles || [];
 
     var restoring = $("auth-restoring");
     if (restoring) restoring.hidden = false;
@@ -4423,10 +4662,16 @@
       if (typeof state.refresh === "string") await refreshSession();
       await enterApp(null, "welcome back");
     } catch (e) {
-      // Anything unrecoverable — a revoked family, a wiped database — lands
-      // back at sign-in with the stale session cleared rather than half-loaded.
-      signedOut();
-      if (state.msisdn) $("a-msisdn").value = state.msisdn;
+      // No signal, or a server that is down, is not a sign-out: open off-grid
+      // from what this device holds (enterOffline). Anything unrecoverable — a
+      // revoked family, a wiped database — still lands back at sign-in with the
+      // stale session cleared rather than half-loaded (the 401 path in api()
+      // has already signed out when the refresh was refused).
+      if (state.refresh && (e.transport || e.status >= 500)) enterOffline();
+      else {
+        signedOut();
+        if (state.msisdn) $("a-msisdn").value = state.msisdn;
+      }
     } finally {
       if (restoring) restoring.hidden = true;
     }

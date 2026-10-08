@@ -28,6 +28,7 @@ import { db } from "../db.js";
 import { env } from "../env.js";
 import { ok } from "../http.js";
 import { audit } from "../audit.js";
+import { actorRole } from "../domain/actor-role.js";
 import { limit } from "../ratelimit.js";
 import { payments, PAYMENT_METHODS } from "../providers.js";
 import { authenticate, constantTimeEquals } from "../auth.js";
@@ -108,7 +109,7 @@ async function claimForSettlement(
 
   await tx.insert(S.bookingEvents).values({
     bookingId: booking.id, fromStatus: booking.status, toStatus: to,
-    command: "payment.settled", actorId: actor.sub, actorRole: actor.roles[0] ?? "citizen",
+    command: "payment.settled", actorId: actor.sub, actorRole: actorRole(actor.roles),
   });
   return true;
 }

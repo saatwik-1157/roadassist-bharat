@@ -47,7 +47,7 @@ for it joins the existing list in `migrate.ts`.
 The MVP detector described above was the simulated `sim-rules-0.1.0`, and the
 simulator still uses it. Real model output now also exists: a YOLO11n trained
 on RDD2022-India (mAP50 0.443, `ai/train-full.log`; best later run YOLO11s
-`yolo11s-multi-rich`, mAP50 0.472) produced 34 detections
+`yolo11s-multi-rich`, mAP50 0.472; superseded 2026-10-08: see ai/README.md) produced 34 detections
 (`ai/cv-detections-full.json`, model version `yolo-rdd2022in-best`). In demo
 mode (`SEED_DEMO_FLEET=true`, refused under `NODE_ENV=production`) they are
 seeded at boot through the same idempotent ingest route

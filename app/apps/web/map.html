@@ -53,7 +53,6 @@
   .badge .foot { display: block; color: var(--text-2); font-size: 11px; margin-top: 3px; }
   .legend { bottom: 14px; left: 12px; padding: 10px 14px; font-size: 11.5px; font-weight: 550; line-height: 1.95; color: var(--text-2); animation-delay: 80ms; }
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
-
   .ctrl {
     right: 12px; width: 44px; height: 44px; display: grid; place-items: center;
     cursor: pointer; color: var(--text-2);
@@ -141,33 +140,34 @@
   var hash = new URLSearchParams(location.hash.slice(1));
   var http = location.protocol === "http:" || location.protocol === "https:";
   var BASE = !http ? "http://localhost:4000" : location.origin;
-  var TOKEN = hash.get("token") || "";
+  var TOKEN = hash.get("token") || "", SLOT = hash.get("slot");
   if (hash.has("token")) {   // read once, then off the address bar and history
     hash.delete("token");
     var rest = hash.toString();
     try { history.replaceState(null, "", location.pathname + location.search + (rest ? "#" + rest : "")); } catch (e) {}
   }
-  // In the Android app a JS bridge hands us an always-current token and can
-  // silently rotate it — so the map self-heals instead of showing "expired".
+  // In the Android app a JS bridge hands an always-current token; in a browser the
+  // page's own session is re-read every call (the hash token expired in 10 minutes).
   function authToken() {
     try { if (window.AndroidAuth && AndroidAuth.token) return AndroidAuth.token() || TOKEN; } catch (e) {}
-    return TOKEN || sessionToken();
+    return sessionToken() || TOKEN;
   }
-  // In a browser, use the session of whichever surface signed in on this origin in
-  // this tab (the access token it keeps in sessionStorage - session.js).
+  // The session of the surface that signed in on this origin in this tab (the
+  // access token it keeps in sessionStorage - session.js); #slot= names which.
   var SESSION_KEYS = ["ra.raksha.session", "ra.mechanic.session", "ra.app.session"];
   function sessionToken() {
-    for (var i = 0; i < SESSION_KEYS.length; i++) {
+    for (var keys = SESSION_KEYS.indexOf(SLOT) >= 0 ? [SLOT] : SESSION_KEYS, i = 0; i < keys.length; i++) {
       try {
-        var s = JSON.parse(sessionStorage.getItem(SESSION_KEYS[i]) || "null");
+        var s = JSON.parse(sessionStorage.getItem(keys[i]) || "null");
         if (s && typeof s.token === "string" && s.token) return s.token;
       } catch (e) { /* storage blocked or corrupt - try the next one */ }
     }
     return "";
   }
-  function tryRefresh() {
+  async function tryRefresh(used) {
     try { if (window.AndroidAuth && AndroidAuth.refresh) return !!AndroidAuth.refresh(); } catch (e) {}
-    return false;
+    try { if (parent !== window && parent.__ra && parent.__ra.refreshSession) await parent.__ra.refreshSession(); } catch (e) {}
+    return authToken() !== used;   // the page in which this map is framed refreshed its own session
   }
   var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g,
     function (c) { return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]; }); };
@@ -354,7 +354,7 @@
       if (!tok) { signedOut = true; document.getElementById("badge").innerHTML = "⚠ " + esc(SIGN_IN); return; }
       var res = await fetch(url, { headers: tok ? { authorization: "Bearer " + tok } : {} });
       // On expiry, ask the app to rotate the token once, then retry silently.
-      if (res.status === 401 && tryRefresh()) {
+      if (res.status === 401 && await tryRefresh(tok)) {
         tok = authToken();
         res = await fetch(url, { headers: tok ? { authorization: "Bearer " + tok } : {} });
       }

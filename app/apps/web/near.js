@@ -150,5 +150,9 @@
       .catch(function () { /* the straight-line figure stays; nothing invented */ });
   }
 
-  window.RANear = { mount: mount, roadEta: roadEta };
+  /** Forget the last user's places and routes: called on sign-out, so the next
+   *  person on this phone is not shown them for the rest of the ten minutes. */
+  function reset() { last = null; etaSeen = {}; }
+
+  window.RANear = { mount: mount, roadEta: roadEta, reset: reset };
 })();
