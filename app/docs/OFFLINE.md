@@ -143,7 +143,7 @@ integrity digest.
 explicit `POST /v1/sos/:id/confirm`, called as a visible step of the reconnection
 flow. An incident that may be hours old must not silently SMS a family at 3am.
 `POST /v1/sos/offline-sync` sends nothing, and its answer says so
-(`apps/api/src/routes/emergency.ts:828`).
+(`apps/api/src/routes/emergency.ts:856`).
 
 ## Conflicts
 

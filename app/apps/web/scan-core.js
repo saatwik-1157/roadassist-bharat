@@ -282,9 +282,10 @@
 
   /**
    * The report's note: every detection in the frame, as the model's prediction
-   * with its confidence. The server stores a citizen report with confidence 1
-   * and modelVersion "citizen-report", so this note is the only place the
-   * model's own numbers travel - which is why they are spelled out here.
+   * with its confidence. The report itself carries only the reported
+   * detection's confidence and the model version (stored on the RAKSHA row),
+   * so this note is the only place the OTHER detections' numbers travel -
+   * which is why they are spelled out here.
    */
   function reportNote(detections, modelVersion) {
     var head = "Live road scan, on-device model " + modelVersion + " (predictions, not verified):";

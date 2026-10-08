@@ -216,14 +216,14 @@
     <string name="scan_stats_photo">এই ফোনে %1$d ms</string>
     <string name="scan_report">বিপদ রিপোর্ট করুন</string>
     <string name="scan_not_reportable">ঝাপসা মার্কিং আর ম্যানহোল শুধু তথ্যের জন্য দেখানো হয়; RAKSHA রিপোর্টে কেবল গর্ত আর রাস্তার ক্ষতি নেওয়া হয়।</string>
-    <string name="scan_offline_note">অফলাইন: স্ক্যান চলে, কিন্তু রিপোর্টের জন্য সংযোগ লাগে। রিপোর্ট পরে পাঠানোর জন্য সেভ হয় না।</string>
+    <string name="scan_offline_note">অফলাইন: স্ক্যান চলে, আর রিপোর্ট এই ফোনে সেভ হয়ে আবার অনলাইন হলেই নিজে থেকে পাঠানো হয়।</string>
     <string name="scan_predictions_heading">মডেলের অনুমান</string>
     <string name="scan_class_pothole">গর্ত</string>
     <string name="scan_class_road_damage">রাস্তার ক্ষতি</string>
     <string name="scan_class_faded_marking">ফিকে মার্কিং</string>
     <string name="scan_class_manhole">ম্যানহোল</string>
     <string name="scan_report_prefilled">অন-ডিভাইস স্ক্যান থেকে ভরা হয়েছে, যা মডেলের অনুমান। পাঠানোর আগে ধরন আর তীব্রতা দেখে নিন।</string>
-    <string name="report_not_sent_offline">পাঠানো হয়নি: সার্ভারে পৌঁছানো যায়নি। বিপদের রিপোর্ট এই ফোনে সেভ হয় না, তাই অনলাইন হলে আবার পাঠান।</string>
+    <string name="report_not_sent_offline">পাঠানো হয়নি: সার্ভারে পৌঁছানো যায়নি, আর এই ফোনে না-পাঠানো বিপদের রিপোর্টের সারি ভরে গেছে। অনলাইন হলে আবার পাঠান।</string>
     <string name="cd_scan_preview">ডিটেক্টরের বাক্সসহ ক্যামেরার দৃশ্য</string>
     <string name="cd_scan_photo">ডিটেক্টরের বাক্সসহ বেছে নেওয়া ছবি</string>
 
@@ -269,4 +269,13 @@
     <string name="loading">লোড হচ্ছে…</string>
     <string name="rescues_empty_title">এখনও কোনো রেসকিউ নেই</string>
     <string name="track_booking">বুকিং %1$s</string>
+
+    <!-- 1.1.2 (offline hazard-report queue). Machine-translated and NOT
+         yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="report_saved_offline">এই ফোনে সেভ হয়েছে — আবার অনলাইন হলেই নিজে থেকে পাঠানো হবে</string>
+    <plurals name="toast_hazard_synced">
+        <item quantity="one">অনলাইনে আসতেই সেভ করা %1$dটি বিপদের রিপোর্ট পাঠানো হয়েছে</item>
+        <item quantity="other">অনলাইনে আসতেই সেভ করা %1$dটি বিপদের রিপোর্ট পাঠানো হয়েছে</item>
+    </plurals>
 </resources>

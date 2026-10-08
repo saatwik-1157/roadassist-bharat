@@ -216,14 +216,14 @@
     <string name="scan_stats_photo">આ ફોન પર %1$d ms</string>
     <string name="scan_report">જોખમ જણાવો</string>
     <string name="scan_not_reportable">ઝાંખી માર્કિંગ અને મેનહોલ ફક્ત માહિતી માટે બતાવાય છે; RAKSHA રિપોર્ટમાં ફક્ત ખાડા અને રસ્તાનું નુકસાન લેવાય છે.</string>
-    <string name="scan_offline_note">ઑફલાઇન: સ્કેન ચાલે છે, પણ રિપોર્ટ માટે કનેક્શન જોઈએ. રિપોર્ટ પછીથી મોકલવા સાચવાતા નથી.</string>
+    <string name="scan_offline_note">ઑફલાઇન: સ્કેન ચાલે છે, અને રિપોર્ટ આ ફોનમાં સચવાઈને ફરી ઑનલાઇન થાઓ ત્યારે આપમેળે મોકલાય છે.</string>
     <string name="scan_predictions_heading">મૉડલના અનુમાન</string>
     <string name="scan_class_pothole">ખાડો</string>
     <string name="scan_class_road_damage">રસ્તાનું નુકસાન</string>
     <string name="scan_class_faded_marking">ઝાંખું માર્કિંગ</string>
     <string name="scan_class_manhole">મૅનહોલ</string>
     <string name="scan_report_prefilled">ઑન-ડિવાઇસ સ્કેનમાંથી ભર્યું છે, જે મૉડલનું અનુમાન છે. મોકલતાં પહેલાં પ્રકાર અને ગંભીરતા તપાસો.</string>
-    <string name="report_not_sent_offline">મોકલાયું નથી: સર્વર સુધી પહોંચી શકાયું નહીં. જોખમના રિપોર્ટ આ ફોન પર સચવાતા નથી, તેથી ઑનલાઇન થાઓ ત્યારે ફરી મોકલો.</string>
+    <string name="report_not_sent_offline">મોકલાયું નથી: સર્વર સુધી પહોંચી શકાયું નહીં, અને આ ફોનમાં ન મોકલાયેલા જોખમના રિપોર્ટની કતાર ભરાઈ ગઈ છે. ઑનલાઇન થાઓ ત્યારે ફરી મોકલો.</string>
     <string name="cd_scan_preview">ડિટેક્ટરના બૉક્સ સાથે કૅમેરા દૃશ્ય</string>
     <string name="cd_scan_photo">ડિટેક્ટરના બૉક્સ સાથે પસંદ કરેલો ફોટો</string>
 
@@ -269,4 +269,13 @@
     <string name="loading">લોડ થઈ રહ્યું છે…</string>
     <string name="rescues_empty_title">હજી કોઈ રેસ્ક્યૂ નથી</string>
     <string name="track_booking">બુકિંગ %1$s</string>
+
+    <!-- 1.1.2 (offline hazard-report queue). Machine-translated and NOT
+         yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="report_saved_offline">આ ફોનમાં સચવાયું — ફરી ઑનલાઇન થાઓ ત્યારે આપમેળે મોકલાશે</string>
+    <plurals name="toast_hazard_synced">
+        <item quantity="one">ઑનલાઇન થતાં જ સાચવેલો %1$d જોખમનો રિપોર્ટ મોકલાયો</item>
+        <item quantity="other">ઑનલાઇન થતાં જ સાચવેલા %1$d જોખમના રિપોર્ટ મોકલાયા</item>
+    </plurals>
 </resources>

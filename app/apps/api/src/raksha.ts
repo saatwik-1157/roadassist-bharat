@@ -529,9 +529,18 @@ export async function rakshaRoutes(app: FastifyInstance) {
       // dropped by normaliseAccuracyM, never allowed to sink the report - so
       // the schema accepts anything here; z.number() refused the whole report.
       accuracyM: z.unknown().optional(),
+      // What the reporter's on-device model said about this hazard (the web
+      // scan, the Android app). Both or neither are used: a confidence with no
+      // model to own it, or a model name with no number, is stored as a plain
+      // citizen report. Malformed values are refused, never coerced.
+      confidence: z.number().min(0).max(1).optional(),
+      modelVersion: z.string().min(1).max(40).regex(/^[A-Za-z0-9._-]+$/).optional(),
     }).parse(req.body);
 
     const userId = req.user!.sub;
+    const byModel = body.confidence !== undefined && body.modelVersion !== undefined;
+    const confidence = byModel ? body.confidence! : 1;
+    const modelVersion = byModel ? body.modelVersion! : "citizen-report";
     const accuracyM = normaliseAccuracyM(body.accuracyM);
 
     // Per-user rate limit: one account cannot flood the queue/map with reports.
@@ -589,9 +598,9 @@ export async function rakshaRoutes(app: FastifyInstance) {
     const { detectionId, imageRef } = await db.transaction(async (tx) => {
       const [ins] = await tx.insert(S.rakshaDetections).values({
         deviceId, opId, detectionType: body.type,
-        confidence: 1, severity: body.severity,
+        confidence, severity: body.severity,
         capturedAt: new Date(), ranOffline: false,
-        modelVersion: "citizen-report", usedFallback: false,
+        modelVersion, usedFallback: false,
         notes: body.note, locationAccuracyM: accuracyM,
         raw: { source: "citizen", reportedBy: userId },
       }).returning({ id: S.rakshaDetections.id });
@@ -624,7 +633,8 @@ export async function rakshaRoutes(app: FastifyInstance) {
     return reply.code(201).send(ok(
       {
         id: detectionId, status: "DETECTED", type: body.type, severity: body.severity, hasPhoto: Boolean(imageRef),
-        position: describePosition({ source: "citizen", simulated: null, modelVersion: "citizen-report", accuracyM }),
+        confidence, modelVersion,
+        position: describePosition({ source: "citizen", simulated: null, modelVersion, accuracyM }),
       },
       { source: "citizen", note: "Queued for authority verification; now visible on the live map.",
         ...(imageRef ? { photoStore: PHOTO_STORE } : {}) },

@@ -216,14 +216,14 @@
     <string name="scan_stats_photo">या फोनवर %1$d ms</string>
     <string name="scan_report">धोका कळवा</string>
     <string name="scan_not_reportable">धूसर मार्किंग आणि मॅनहोल फक्त माहितीसाठी दाखवले जातात; RAKSHA अहवालात फक्त खड्डे आणि रस्त्याचे नुकसान घेतले जाते.</string>
-    <string name="scan_offline_note">ऑफलाइन: स्कॅन चालतो, पण तक्रारीसाठी कनेक्शन लागते. तक्रारी नंतर पाठवण्यासाठी जतन होत नाहीत.</string>
+    <string name="scan_offline_note">ऑफलाइन: स्कॅन चालतो, आणि तक्रार या फोनवर जतन होऊन पुन्हा ऑनलाइन आल्यावर आपोआप पाठवली जाते.</string>
     <string name="scan_predictions_heading">मॉडेलचे अंदाज</string>
     <string name="scan_class_pothole">खड्डा</string>
     <string name="scan_class_road_damage">रस्त्याचे नुकसान</string>
     <string name="scan_class_faded_marking">फिकट मार्किंग</string>
     <string name="scan_class_manhole">मॅनहोल</string>
     <string name="scan_report_prefilled">ऑन-डिव्हाइस स्कॅनमधून भरले आहे, जो मॉडेलचा अंदाज आहे. पाठवण्यापूर्वी प्रकार आणि तीव्रता तपासा.</string>
-    <string name="report_not_sent_offline">पाठवले नाही: सर्व्हरपर्यंत पोहोचता आले नाही. धोक्याच्या तक्रारी या फोनवर जतन होत नाहीत, म्हणून ऑनलाइन आल्यावर पुन्हा पाठवा.</string>
+    <string name="report_not_sent_offline">पाठवले नाही: सर्व्हरपर्यंत पोहोचता आले नाही, आणि या फोनवर न पाठवलेल्या धोक्याच्या तक्रारींची रांग भरली आहे. ऑनलाइन आल्यावर पुन्हा पाठवा.</string>
     <string name="cd_scan_preview">डिटेक्टरच्या चौकटींसह कॅमेरा दृश्य</string>
     <string name="cd_scan_photo">डिटेक्टरच्या चौकटींसह निवडलेला फोटो</string>
 
@@ -269,4 +269,13 @@
     <string name="loading">लोड होत आहे…</string>
     <string name="rescues_empty_title">अजून कोणतीही मदत नाही</string>
     <string name="track_booking">बुकिंग %1$s</string>
+
+    <!-- 1.1.2 (offline hazard-report queue). Machine-translated and NOT
+         yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="report_saved_offline">या फोनवर जतन झाले — पुन्हा ऑनलाइन आल्यावर आपोआप पाठवले जाईल</string>
+    <plurals name="toast_hazard_synced">
+        <item quantity="one">ऑनलाइन होताच जतन केलेली %1$d धोक्याची तक्रार पाठवली</item>
+        <item quantity="other">ऑनलाइन होताच जतन केलेल्या %1$d धोक्याच्या तक्रारी पाठवल्या</item>
+    </plurals>
 </resources>

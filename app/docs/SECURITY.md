@@ -153,7 +153,7 @@ client save up an hour of allowance and spend it in one second.
 - a double tap is absorbed by **idempotency**, not throttling;
 - and `POST /v1/sos/:id/confirm` — the call that actually summons help — is
   **never rate limited at all**: its route carries `authenticate` and nothing
-  else (`apps/api/src/routes/emergency.ts:368`).
+  else (`apps/api/src/routes/emergency.ts:387`).
 
 Verified: ten genuine SOS in a row are all accepted; a booking flood is
 throttled; every 429 carries `retryAfterSeconds` so a client can back off
@@ -336,7 +336,7 @@ answers 404 on the live hosts. What changed:
 | Behind Cloudflare, the client address came from `X-Forwarded-For`, which the caller writes — every per-IP limit could be dodged | High | `CLIENT_IP_HEADER=cf-connecting-ip`: the address the edge saw, used only when it is a valid IP (`client-ip.ts`) | `route-limits.test.ts` |
 | No security headers | Medium | CSP (`object-src 'none'`, `frame-ancestors` limited to the showcase, `base-uri`/`form-action 'self'`, inline scripts by hash only), nosniff, Referrer-Policy, Permissions-Policy, COOP, CORP, HSTS over HTTPS; `no-store` on the API (CSP built at `apps/api/src/security-headers.ts:89`) | `security-headers.test.ts`, `e2e-journey.mjs` §25 |
 | No sign-out on the server — a stolen refresh token outlived "sign out" | Medium | `POST /v1/auth/logout` revokes the whole session family; its access tokens are refused as `AUTH_REVOKED` | `security-audit.mjs` (9 checks) |
-| A repeated SOS confirm re-texted every emergency contact | Medium | Confirm is idempotent per incident — a compare-and-swap into RESPONDING, `apps/api/src/routes/emergency.ts:422`; at most 10 alert batches an hour per account (the escalation itself is never limited); at most 5 contacts, each number once | Contacts: `e2e-journey.mjs` §25. Confirm idempotency and the alert cap: a manual probe (10 simultaneous confirms, one send) — **not yet in a counted suite** |
+| A repeated SOS confirm re-texted every emergency contact | Medium | Confirm is idempotent per incident — a compare-and-swap into RESPONDING, `apps/api/src/routes/emergency.ts:441`; at most 10 alert batches an hour per account (the escalation itself is never limited); at most 5 contacts, each number once | Contacts: `e2e-journey.mjs` §25. Confirm idempotency and the alert cap: a manual probe (10 simultaneous confirms, one send) — **not yet in a counted suite** |
 | The generic transition route let a non-admin issue `mechanic.accept` and other system commands | Medium | 409 `command_not_allowed`; only the customer or an admin may cancel | `e2e-journey.mjs` §25 |
 | Another user's idempotency key replayed *their* booking | Medium | 409 `idempotency_key_in_use` | `e2e-journey.mjs` §25 |
 | The tile proxies would fetch any tile, anywhere, unlimited | Low | Only tiles that exist, over the region, 1,200 a minute | `route-limits.test.ts` |

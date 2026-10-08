@@ -216,14 +216,14 @@
     <string name="scan_stats_photo">ಈ ಫೋನಿನಲ್ಲಿ %1$d ms</string>
     <string name="scan_report">ಅಪಾಯ ವರದಿ ಮಾಡಿ</string>
     <string name="scan_not_reportable">ಮಸುಕಾದ ಗುರುತುಗಳು ಮತ್ತು ಮ್ಯಾನ್‌ಹೋಲ್‌ಗಳನ್ನು ಮಾಹಿತಿಗಾಗಿ ಮಾತ್ರ ತೋರಿಸಲಾಗುತ್ತದೆ; RAKSHA ವರದಿಗಳು ಗುಂಡಿಗಳು ಮತ್ತು ರಸ್ತೆ ಹಾನಿಯನ್ನು ಮಾತ್ರ ಸ್ವೀಕರಿಸುತ್ತವೆ.</string>
-    <string name="scan_offline_note">ಆಫ್‌ಲೈನ್: ಸ್ಕ್ಯಾನ್ ಕೆಲಸ ಮಾಡುತ್ತದೆ, ಆದರೆ ವರದಿಗೆ ಸಂಪರ್ಕ ಬೇಕು. ವರದಿಗಳನ್ನು ನಂತರ ಕಳಿಸಲು ಉಳಿಸಲಾಗುವುದಿಲ್ಲ.</string>
+    <string name="scan_offline_note">ಆಫ್‌ಲೈನ್: ಸ್ಕ್ಯಾನ್ ಕೆಲಸ ಮಾಡುತ್ತದೆ, ಮತ್ತು ವರದಿ ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿದು ಮತ್ತೆ ಆನ್‌ಲೈನ್ ಆದಾಗ ತಾನಾಗಿಯೇ ಕಳಿಸಲಾಗುತ್ತದೆ.</string>
     <string name="scan_predictions_heading">ಮಾದರಿಯ ಊಹೆಗಳು</string>
     <string name="scan_class_pothole">ಗುಂಡಿ</string>
     <string name="scan_class_road_damage">ರಸ್ತೆ ಹಾನಿ</string>
     <string name="scan_class_faded_marking">ಮಸುಕಾದ ಗುರುತು</string>
     <string name="scan_class_manhole">ಮ್ಯಾನ್‌ಹೋಲ್</string>
     <string name="scan_report_prefilled">ಆನ್-ಡಿವೈಸ್ ಸ್ಕ್ಯಾನ್‌ನಿಂದ ತುಂಬಲಾಗಿದೆ, ಇದು ಮಾದರಿಯ ಊಹೆ. ಕಳಿಸುವ ಮೊದಲು ಪ್ರಕಾರ ಮತ್ತು ತೀವ್ರತೆ ಪರಿಶೀಲಿಸಿ.</string>
-    <string name="report_not_sent_offline">ಕಳಿಸಲಾಗಿಲ್ಲ: ಸರ್ವರ್ ತಲುಪಲಾಗಲಿಲ್ಲ. ಅಪಾಯದ ವರದಿಗಳನ್ನು ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗುವುದಿಲ್ಲ, ಆದ್ದರಿಂದ ಆನ್‌ಲೈನ್ ಆದಾಗ ಮತ್ತೆ ಕಳಿಸಿ.</string>
+    <string name="report_not_sent_offline">ಕಳಿಸಲಾಗಿಲ್ಲ: ಸರ್ವರ್ ತಲುಪಲಾಗಲಿಲ್ಲ, ಮತ್ತು ಈ ಫೋನಿನಲ್ಲಿ ಕಳಿಸದ ಅಪಾಯದ ವರದಿಗಳ ಸಾಲು ತುಂಬಿದೆ. ಆನ್‌ಲೈನ್ ಆದಾಗ ಮತ್ತೆ ಕಳಿಸಿ.</string>
     <string name="cd_scan_preview">ಡಿಟೆಕ್ಟರ್ ಚೌಕಗಳಿರುವ ಕ್ಯಾಮೆರಾ ನೋಟ</string>
     <string name="cd_scan_photo">ಡಿಟೆಕ್ಟರ್ ಚೌಕಗಳಿರುವ ಆಯ್ದ ಫೋಟೋ</string>
 
@@ -269,4 +269,13 @@
     <string name="loading">ಲೋಡ್ ಆಗುತ್ತಿದೆ…</string>
     <string name="rescues_empty_title">ಇನ್ನೂ ಯಾವುದೇ ರಕ್ಷಣೆಗಳಿಲ್ಲ</string>
     <string name="track_booking">ಬುಕಿಂಗ್ %1$s</string>
+
+    <!-- 1.1.2 (offline hazard-report queue). Machine-translated and NOT
+         yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="report_saved_offline">ಈ ಫೋನಿನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ — ಮತ್ತೆ ಆನ್‌ಲೈನ್ ಆದಾಗ ತಾನಾಗಿಯೇ ಕಳಿಸಲಾಗುತ್ತದೆ</string>
+    <plurals name="toast_hazard_synced">
+        <item quantity="one">ಆನ್‌ಲೈನ್ ಆದ ಕೂಡಲೆ ಉಳಿಸಿದ %1$d ಅಪಾಯದ ವರದಿ ಕಳಿಸಲಾಗಿದೆ</item>
+        <item quantity="other">ಆನ್‌ಲೈನ್ ಆದ ಕೂಡಲೆ ಉಳಿಸಿದ %1$d ಅಪಾಯದ ವರದಿಗಳನ್ನು ಕಳಿಸಲಾಗಿದೆ</item>
+    </plurals>
 </resources>

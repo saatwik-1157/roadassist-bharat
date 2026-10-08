@@ -12,21 +12,35 @@ object ScanReport {
     /** The server's cap on a report note (POST /v1/raksha/report, note max 280). */
     const val NOTE_MAX = 280
 
-    /** What the existing hazard dialog is opened with. */
-    data class Draft(val type: String, val severity: Int, val note: String)
+    /**
+     * What the existing hazard dialog is opened with. [confidence] and
+     * [modelVersion] are set only for a scan and travel in the report body
+     * (HazardReport.payload); a report made by hand has no draft, so neither.
+     */
+    data class Draft(
+        val type: String,
+        val severity: Int,
+        val note: String,
+        val confidence: Double? = null,
+        val modelVersion: String? = null,
+    )
 
     /**
      * The draft for [d], or null when its class is not one the server takes.
      *
-     * POST /v1/raksha/report has no confidence or model field (a citizen
-     * report is stored with confidence 1 and model "citizen-report"), so the
-     * prediction travels in the note, where the authority reviewing it reads
-     * it: class, confidence, the severity rule, and the model with its
-     * measured mAP50. It says "model prediction" in so many words.
+     * POST /v1/raksha/report takes the model's confidence and version as
+     * optional fields, and the scan sends both. The prediction also stays in
+     * the note, where the authority reviewing it reads it: class, confidence,
+     * the severity rule, and the model with its measured mAP50. It says
+     * "model prediction" in so many words.
      */
     fun draft(d: Detector.Detection, config: DetectorConfig): Draft? {
         val type = config.reportAs[d.label] ?: return null
-        return Draft(type, d.severity.coerceIn(RoadSeverity.MIN, RoadSeverity.MAX), note(d, config))
+        return Draft(
+            type, d.severity.coerceIn(RoadSeverity.MIN, RoadSeverity.MAX), note(d, config),
+            confidence = HazardReport.confidence(d.confidence),
+            modelVersion = HazardReport.modelVersion(config),
+        )
     }
 
     fun note(d: Detector.Detection, config: DetectorConfig): String {

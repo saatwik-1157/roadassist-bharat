@@ -1,0 +1,32 @@
+{
+  "_": "Written by ai/road_damage/web_model.py from the model's own metadata. Do not edit by hand.",
+  "model": "raksha-yolo11n-india-ft-gpu-416.onnx",
+  "sha256": "04a662853b947aeda372bc34695df7f7a4419cd291ec5ddf1c5777d1462c9381",
+  "bytes": 10509428,
+  "classes": [
+    "pothole",
+    "road_damage",
+    "faded_marking",
+    "manhole"
+  ],
+  "inputSize": [
+    416,
+    416
+  ],
+  "modelVersion": "yolo11n-india-ft-gpu-best-416-04a66285",
+  "architecture": "Ultralytics YOLO11n",
+  "exportedAt": "2026-10-08T13:16:19.105130+05:30",
+  "minConfidence": 0.3,
+  "iouThreshold": 0.7,
+  "metrics": {
+    "mAP50": 0.516,
+    "mAP50_95": 0.245,
+    "source": "ai/runs/yolo11n-india-ft-gpu/compare.json: held-out yolo-multi-rich val (4-country, 800 images, 4 classes) at 416; India-clean (392 images) 0.449 / 0.195",
+    "perClassMAP50": {
+      "pothole": 0.362,
+      "road_damage": 0.481,
+      "faded_marking": 0.55,
+      "manhole": 0.671
+    }
+  }
+}

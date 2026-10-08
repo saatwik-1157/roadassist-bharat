@@ -114,6 +114,14 @@ python run_record.py ../runs/yolo11n-india-ft-gpu --label india-ft     # metrics
 ../.venv-gpu/Scripts/python web_model.py reference \
     --weights ../../app/apps/web/assets/models/raksha-yolo11n-india-ft-gpu.onnx \
     --images ../../app/apps/web/assets/scan/*.jpg
+# web, WebAssembly fallback: the 416 export of the same weights (scan.js MODEL_SIDECAR_WASM)
+../.venv-gpu/Scripts/python web_model.py export --weights ../runs/yolo11n-india-ft-gpu/weights/best-416.onnx \
+    --name raksha-yolo11n-india-ft-gpu-416 --map50 0.516 --map50-95 0.245 \
+    --class-map50 pothole=0.362 road_damage=0.481 faded_marking=0.550 manhole=0.671 \
+    --metrics-source "ai/runs/yolo11n-india-ft-gpu/compare.json: ... at 416; India-clean (392 images) 0.449 / 0.195"
+../.venv-gpu/Scripts/python web_model.py reference \
+    --weights ../../app/apps/web/assets/models/raksha-yolo11n-india-ft-gpu-416.onnx \
+    --images ../../app/apps/web/assets/scan/*.jpg --out ../../app/scripts/scan-reference-416.json
 # Android: best-416.onnx into mobile/app/src/main/assets/detector/, named in detector.json, then
 ../.venv-gpu/Scripts/python ../../mobile/tools/detector_parity_reference.py
 ```

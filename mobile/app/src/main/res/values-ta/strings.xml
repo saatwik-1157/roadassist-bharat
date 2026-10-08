@@ -216,14 +216,14 @@
     <string name="scan_stats_photo">இந்த ஃபோனில் %1$d ms</string>
     <string name="scan_report">ஆபத்தைப் புகாரளி</string>
     <string name="scan_not_reportable">மங்கிய குறியீடுகளும் மேன்ஹோல்களும் தகவலுக்காக மட்டுமே காட்டப்படுகின்றன; RAKSHA புகார்கள் பள்ளங்களையும் சாலைச் சேதத்தையும் மட்டுமே ஏற்கும்.</string>
-    <string name="scan_offline_note">ஆஃப்லைன்: ஸ்கேன் வேலை செய்யும், ஆனால் புகாருக்கு இணைப்பு தேவை. புகார்கள் பின்னர் அனுப்ப சேமிக்கப்படாது.</string>
+    <string name="scan_offline_note">ஆஃப்லைன்: ஸ்கேன் வேலை செய்யும்; புகார் இந்த ஃபோனில் சேமிக்கப்பட்டு, மீண்டும் ஆன்லைனில் வந்ததும் தானாக அனுப்பப்படும்.</string>
     <string name="scan_predictions_heading">மாதிரியின் கணிப்புகள்</string>
     <string name="scan_class_pothole">குழி</string>
     <string name="scan_class_road_damage">சாலை சேதம்</string>
     <string name="scan_class_faded_marking">மங்கிய குறியீடு</string>
     <string name="scan_class_manhole">மேன்ஹோல்</string>
     <string name="scan_report_prefilled">சாதனத்திலேயே செய்த ஸ்கேனிலிருந்து நிரப்பப்பட்டது; இது மாதிரியின் கணிப்பு. அனுப்பும் முன் வகையையும் தீவிரத்தையும் சரிபார்க்கவும்.</string>
-    <string name="report_not_sent_offline">அனுப்பப்படவில்லை: சர்வரை அடைய முடியவில்லை. ஆபத்துப் புகார்கள் இந்த ஃபோனில் சேமிக்கப்படாது, எனவே இணைப்பு வந்ததும் மீண்டும் அனுப்புங்கள்.</string>
+    <string name="report_not_sent_offline">அனுப்பப்படவில்லை: சர்வரை அடைய முடியவில்லை, மேலும் இந்த ஃபோனில் அனுப்பாத ஆபத்துப் புகார்களின் வரிசை நிரம்பிவிட்டது. இணைப்பு வந்ததும் மீண்டும் அனுப்புங்கள்.</string>
     <string name="cd_scan_preview">கண்டறிதல் பெட்டிகளுடன் கேமரா காட்சி</string>
     <string name="cd_scan_photo">கண்டறிதல் பெட்டிகளுடன் தேர்ந்தெடுத்த படம்</string>
 
@@ -269,4 +269,13 @@
     <string name="loading">ஏற்றுகிறது…</string>
     <string name="rescues_empty_title">இன்னும் மீட்புகள் இல்லை</string>
     <string name="track_booking">முன்பதிவு %1$s</string>
+
+    <!-- 1.1.2 (offline hazard-report queue). Machine-translated and NOT
+         yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="report_saved_offline">இந்த ஃபோனில் சேமிக்கப்பட்டது — மீண்டும் ஆன்லைனில் வந்ததும் தானாக அனுப்பப்படும்</string>
+    <plurals name="toast_hazard_synced">
+        <item quantity="one">ஆன்லைனுக்கு வந்ததும் சேமித்த %1$d ஆபத்துப் புகார் அனுப்பப்பட்டது</item>
+        <item quantity="other">ஆன்லைனுக்கு வந்ததும் சேமித்த %1$d ஆபத்துப் புகார்கள் அனுப்பப்பட்டன</item>
+    </plurals>
 </resources>

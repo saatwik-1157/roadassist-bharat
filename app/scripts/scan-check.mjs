@@ -5,8 +5,10 @@
  *   1. the page loads the self-hosted detector with no third-party request,
  *      no console error and no horizontal overflow at 390 px;
  *   2. the in-browser detections match serve.py's on the same images
- *      (scripts/scan-reference.json: same class, box IoU > 0.9), on every
- *      engine this Chrome can run;
+ *      (same class, box IoU > 0.9), on every engine this Chrome can run,
+ *      each against the reference for the model THAT engine runs:
+ *      scripts/scan-reference.json for the 640 px GPU model,
+ *      scripts/scan-reference-416.json for the 416 px WebAssembly one;
  *   3. a fake camera (a .y4m made from a sample image) produces detections at
  *      a measured frame rate, per engine;
  *   4. "Report this hazard" posts the frame and its detections to
@@ -225,6 +227,25 @@ const run = async () => {
     await page.goto(`${BASE}/scan.html`);
     await page.waitFor(`window.__scan && window.__scan.ready()`, 90000, "the detector to start");
     ok("detector ready", `${Date.now() - t0} ms, engine ${await page.eval("return window.__scan.state.ep")}`);
+    // The sidecar each engine runs, read from scan.js's own lines, so a model
+    // swap cannot leave this check comparing against the old model.
+    const scanJs = readFileSync(join(WEB, "scan.js"), "utf8");
+    const sidecarOf = (name) => {
+      const path = new RegExp(`var ${name} = "([^"]+)";`).exec(scanJs)[1];
+      return JSON.parse(readFileSync(join(WEB, ...path.split("/")), "utf8"));
+    };
+    const sidecars = { gpu: sidecarOf("MODEL_SIDECAR_GPU"), wasm: sidecarOf("MODEL_SIDECAR_WASM") };
+    const sidecarFor = (ep) => (ep === "wasm" ? sidecars.wasm : sidecars.gpu);
+    const activeLine = async (ep) => {
+      const c = sidecarFor(ep);
+      const t = await page.text("#model-active");
+      const want = `${c.inputSize[0]} px`, map = `mAP50 ${c.metrics.mAP50.toFixed(3)}`;
+      return { t, good: t.includes(want) && t.includes(map) && (await page.text("#model-about")).includes(c.modelVersion) };
+    };
+    const startEp = await page.eval("return window.__scan.state.ep");
+    const firstActive = await activeLine(startEp);
+    check(startEp === "wasm" && sidecars.wasm.inputSize[0] === 416 && firstActive.good,
+      "it starts on WebAssembly with the 416 px model, and says so with that model's accuracy", firstActive.t.slice(0, 90) + "…");
     const iso = await page.eval("return window.crossOriginIsolated");
     check(iso === true, "the page is cross-origin isolated (multi-threaded WebAssembly)", String(iso));
     const overflow = await page.eval("return document.documentElement.scrollWidth - document.documentElement.clientWidth");
@@ -237,12 +258,12 @@ const run = async () => {
 
     // ══ JS vs Python parity, per engine ════════════════════════════════════
     section("3. In-browser detections match serve.py on the same images (IoU > 0.9)");
-    const ref = JSON.parse(readFileSync(join(HERE, "scan-reference.json"), "utf8"));
-    // The sidecar scan.js actually loads, read from its MODEL_SIDECAR line, so a
-    // model swap cannot leave this check comparing against the old model.
-    const sidecarPath = /var MODEL_SIDECAR = "([^"]+)";/.exec(readFileSync(join(WEB, "scan.js"), "utf8"))[1];
-    const sidecar = JSON.parse(readFileSync(join(WEB, ...sidecarPath.split("/")), "utf8"));
-    check(ref.sha256 === sidecar.sha256, "the reference was made with the model the page serves", ref.sha256.slice(0, 12));
+    const refs = {
+      gpu: JSON.parse(readFileSync(join(HERE, "scan-reference.json"), "utf8")),
+      wasm: JSON.parse(readFileSync(join(HERE, "scan-reference-416.json"), "utf8")),
+    };
+    check(refs.gpu.sha256 === sidecars.gpu.sha256, "the 640 px reference was made with the model WebGPU runs", refs.gpu.sha256.slice(0, 12));
+    check(refs.wasm.sha256 === sidecars.wasm.sha256, "the 416 px reference was made with the model WebAssembly runs", refs.wasm.sha256.slice(0, 12));
     const engines = [];
     for (const ep of ["webgpu", "webgl", "wasm"]) {
       await page.eval(`window.__scan.useEngine(${JSON.stringify(ep)}); return true;`);
@@ -252,6 +273,9 @@ const run = async () => {
       const got = await page.eval("return window.__scan.state.ep");
       if (got !== ep) { skip(`${ep} parity`, `this Chrome fell back to ${got}: ${await page.eval("return window.__scan.state.epTried.join('; ')")}`); continue; }
       engines.push(ep);
+      const ref = ep === "wasm" ? refs.wasm : refs.gpu;
+      const active = await activeLine(ep);
+      check(active.good, `${ep}: the page names the ${sidecarFor(ep).inputSize[0]} px model it runs and that model's accuracy`, active.t.slice(0, 70) + "…");
       let worst = 1, n = 0, extra = 0, maxDConf = 0, sevAll = true;
       for (const img of ref.images) {
         const js = await page.eval(`return await window.__scan.detectUrl("assets/scan/${img.image}");`);
@@ -356,6 +380,12 @@ const run = async () => {
     const rep = await page.eval("return window.__scan.lastReport");
     check(rep.status === 201 && rep.data?.status === "DETECTED", "the API answered 201, status DETECTED", JSON.stringify({ status: rep.status, s: rep.data?.status }));
     check(rep.data?.hasPhoto === true, "the frame went with it as the report's photo");
+    // The version must be the model that drew this frame's boxes: the one its note names.
+    check(typeof rep.data?.confidence === "number" && rep.data.confidence > 0 && rep.data.confidence < 1 &&
+          [sidecars.gpu.modelVersion, sidecars.wasm.modelVersion].includes(rep.data?.modelVersion) &&
+          note.includes(rep.data.modelVersion),
+      "the report carries the model's own confidence and version, not a fixed 100%",
+      JSON.stringify({ confidence: rep.data?.confidence, modelVersion: rep.data?.modelVersion }));
     const shown = await page.text("#r-result");
     check(/Queued for authority verification/.test(shown) && /No authority has verified it yet/.test(shown),
       "the page repeats the server's own words and claims no verification", shown.slice(0, 100) + "…");

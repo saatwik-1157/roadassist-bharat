@@ -3458,7 +3458,12 @@
             var cr = await api("POST", "/v1/sos/" + row.serverId + "/cancel", {}, { force: true });
             trackIncident(row.serverId, cr.data.status);
             toast("Cancelled — false alarm recorded", "ok");
-          } catch (e) { toast("Could not cancel: " + e.message, "bad"); }
+          } catch (e) {
+            // Refused only once it is closed (the server retries a cancel that
+            // races the escalation): show what the server holds, not a guess.
+            toast("Could not cancel: " + e.message, "bad");
+            if (e.status === 409) reconcileSos();
+          }
         } else {
           ogCancel[ogId] = true;
           toast("It is being sent right now — it will be cancelled as a false alarm, not alerted, " +

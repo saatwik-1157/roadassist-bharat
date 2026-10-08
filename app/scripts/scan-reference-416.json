@@ -1,0 +1,270 @@
+{
+  "_": "serve.py's Detector on these images. scan-check.mjs holds the browser to it.",
+  "weights": "raksha-yolo11n-india-ft-gpu-416.onnx",
+  "sha256": "04a662853b947aeda372bc34695df7f7a4419cd291ec5ddf1c5777d1462c9381",
+  "minConfidence": 0.3,
+  "iouThreshold": 0.7,
+  "images": [
+    {
+      "image": "India_002049.jpg",
+      "size": [
+        720,
+        720
+      ],
+      "detections": [
+        {
+          "type": "pothole",
+          "confidence": 0.5911,
+          "severity": 2,
+          "boxFraction": 0.00682,
+          "box": [
+            373.48,
+            519.23,
+            463.25,
+            558.62
+          ]
+        }
+      ]
+    },
+    {
+      "image": "India_006555.jpg",
+      "size": [
+        720,
+        720
+      ],
+      "detections": [
+        {
+          "type": "pothole",
+          "confidence": 0.6355,
+          "severity": 3,
+          "boxFraction": 0.01675,
+          "box": [
+            312.95,
+            429.88,
+            469.37,
+            485.38
+          ]
+        }
+      ]
+    },
+    {
+      "image": "India_006663.jpg",
+      "size": [
+        720,
+        720
+      ],
+      "detections": [
+        {
+          "type": "road_damage",
+          "confidence": 0.7957,
+          "severity": 5,
+          "boxFraction": 0.21445,
+          "box": [
+            190.63,
+            509.99,
+            720.0,
+            720.0
+          ]
+        },
+        {
+          "type": "faded_marking",
+          "confidence": 0.4007,
+          "severity": 2,
+          "boxFraction": 0.01968,
+          "box": [
+            474.82,
+            515.43,
+            578.0,
+            614.29
+          ]
+        }
+      ]
+    },
+    {
+      "image": "India_008826.jpg",
+      "size": [
+        720,
+        720
+      ],
+      "detections": [
+        {
+          "type": "pothole",
+          "confidence": 0.6796,
+          "severity": 3,
+          "boxFraction": 0.01522,
+          "box": [
+            142.93,
+            656.61,
+            268.43,
+            719.5
+          ]
+        },
+        {
+          "type": "pothole",
+          "confidence": 0.6628,
+          "severity": 2,
+          "boxFraction": 0.00316,
+          "box": [
+            298.64,
+            522.47,
+            349.95,
+            554.42
+          ]
+        },
+        {
+          "type": "road_damage",
+          "confidence": 0.613,
+          "severity": 3,
+          "boxFraction": 0.04806,
+          "box": [
+            293.91,
+            566.23,
+            520.29,
+            676.29
+          ]
+        },
+        {
+          "type": "pothole",
+          "confidence": 0.3724,
+          "severity": 2,
+          "boxFraction": 0.00976,
+          "box": [
+            116.75,
+            483.81,
+            220.9,
+            532.39
+          ]
+        },
+        {
+          "type": "pothole",
+          "confidence": 0.3686,
+          "severity": 2,
+          "boxFraction": 0.00423,
+          "box": [
+            159.31,
+            485.38,
+            218.74,
+            522.28
+          ]
+        },
+        {
+          "type": "road_damage",
+          "confidence": 0.357,
+          "severity": 1,
+          "boxFraction": 0.00525,
+          "box": [
+            465.17,
+            586.43,
+            507.68,
+            650.41
+          ]
+        },
+        {
+          "type": "pothole",
+          "confidence": 0.3501,
+          "severity": 2,
+          "boxFraction": 0.00708,
+          "box": [
+            137.81,
+            482.31,
+            220.08,
+            526.95
+          ]
+        }
+      ]
+    },
+    {
+      "image": "India_008826-wide.jpg",
+      "size": [
+        720,
+        405
+      ],
+      "detections": [
+        {
+          "type": "pothole",
+          "confidence": 0.7143,
+          "severity": 3,
+          "boxFraction": 0.02597,
+          "box": [
+            146.3,
+            340.69,
+            269.37,
+            402.23
+          ]
+        },
+        {
+          "type": "pothole",
+          "confidence": 0.602,
+          "severity": 2,
+          "boxFraction": 0.00446,
+          "box": [
+            300.77,
+            208.97,
+            348.95,
+            235.98
+          ]
+        },
+        {
+          "type": "road_damage",
+          "confidence": 0.5565,
+          "severity": 4,
+          "boxFraction": 0.0804,
+          "box": [
+            294.43,
+            258.62,
+            525.94,
+            359.9
+          ]
+        },
+        {
+          "type": "pothole",
+          "confidence": 0.3879,
+          "severity": 2,
+          "boxFraction": 0.00973,
+          "box": [
+            365.67,
+            289.6,
+            441.67,
+            326.91
+          ]
+        },
+        {
+          "type": "pothole",
+          "confidence": 0.3831,
+          "severity": 3,
+          "boxFraction": 0.01689,
+          "box": [
+            104.37,
+            172.07,
+            216.57,
+            215.97
+          ]
+        },
+        {
+          "type": "pothole",
+          "confidence": 0.3367,
+          "severity": 3,
+          "boxFraction": 0.01408,
+          "box": [
+            104.48,
+            180.86,
+            210.22,
+            219.69
+          ]
+        },
+        {
+          "type": "pothole",
+          "confidence": 0.3018,
+          "severity": 3,
+          "boxFraction": 0.0101,
+          "box": [
+            138.51,
+            172.81,
+            217.55,
+            210.08
+          ]
+        }
+      ]
+    }
+  ]
+}

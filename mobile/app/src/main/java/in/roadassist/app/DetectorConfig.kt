@@ -38,12 +38,16 @@ data class DetectorConfig(
     val reportAs: Map<String, String>,
     /** Measured mAP50 on held-out validation (ai/README.md), quoted on screen. */
     val map50: Double,
+    /** The .onnx file's SHA-256 (64 hex), when detector.json names it; a fallback model version. */
+    val modelSha256: String? = null,
 ) {
     companion object {
         /** The server's hazard enum (raksha.ts, POST /v1/raksha/report). */
         val SERVER_TYPES = setOf("pothole", "road_damage", "obstruction")
 
         const val ASSET = "detector/detector.json"
+
+        private val SHA256 = Regex("^[0-9a-fA-F]{64}$")
 
         fun parse(json: String): DetectorConfig {
             val o = try {
@@ -104,6 +108,11 @@ data class DetectorConfig(
                 }
             }
 
+            val sha = o.opt("modelSha256")?.let { v ->
+                require(v is String && SHA256.matches(v)) { "detector.json: \"modelSha256\" must be 64 hex characters" }
+                v.lowercase()
+            }
+
             return DetectorConfig(
                 modelAsset = asset,
                 modelName = str("modelName"),
@@ -114,6 +123,7 @@ data class DetectorConfig(
                 iouThreshold = iou,
                 reportAs = reportAs,
                 map50 = map50,
+                modelSha256 = sha,
             )
         }
     }

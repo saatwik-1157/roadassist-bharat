@@ -738,6 +738,50 @@ ok("authority can reject a photo report", rejectPhoto.data?.status === "REJECTED
 const reclaimed = await fetch(photoUrl, { headers: { authorization: `Bearer ${token}` } });
 ok("a rejected report's photo is reclaimed (now 404)", reclaimed.status === 404, `got ${reclaimed.status}`);
 
+// The on-device model's own confidence travels with a scan report (both
+// optional fields, both or neither); a plain report keeps the fixed 1 and
+// "citizen-report"; malformed values are refused rather than coerced.
+console.log("\n17b. Model confidence on a citizen report");
+const modelReport = await call("POST", "/v1/raksha/report", {
+  token, body: { type: "pothole", severity: 3, lat: 28.451, lng: 77.051,
+                 confidence: 0.54, modelVersion: "raksha-yolo11n-india-ft-gpu-416" },
+});
+ok("a report carrying the model's confidence and version is accepted",
+   modelReport.status === 201 && modelReport.data?.confidence === 0.54 &&
+   modelReport.data?.modelVersion === "raksha-yolo11n-india-ft-gpu-416",
+   `status=${modelReport.status} confidence=${modelReport.data?.confidence} model=${modelReport.data?.modelVersion}`);
+const loneField = await call("POST", "/v1/raksha/report", {
+  token, body: { type: "pothole", severity: 2, lat: 28.452, lng: 77.052, confidence: 0.7 },
+});
+const citizenRows = (await call("GET", "/v1/raksha/detections?source=citizen&limit=200", { token: adminToken })).data ?? [];
+const storedOf = (id) => citizenRows.find((d) => d.id === id);
+ok("the detection row stores the model's confidence and version",
+   storedOf(modelReport.data?.id)?.confidence === 0.54 &&
+   storedOf(modelReport.data?.id)?.model_version === "raksha-yolo11n-india-ft-gpu-416",
+   JSON.stringify({ c: storedOf(modelReport.data?.id)?.confidence, m: storedOf(modelReport.data?.id)?.model_version }));
+ok("a report without them keeps confidence 1 and \"citizen-report\"",
+   storedOf(reportId)?.confidence === 1 && storedOf(reportId)?.model_version === "citizen-report",
+   JSON.stringify({ c: storedOf(reportId)?.confidence, m: storedOf(reportId)?.model_version }));
+ok("a confidence with no model version is stored as a plain citizen report",
+   loneField.status === 201 && storedOf(loneField.data?.id)?.confidence === 1 &&
+   storedOf(loneField.data?.id)?.model_version === "citizen-report", `status=${loneField.status}`);
+const invalidModel = [
+  { confidence: 1.2, modelVersion: "m1" },
+  { confidence: -0.1, modelVersion: "m1" },
+  { confidence: "0.5", modelVersion: "m1" },
+  { confidence: 0.5, modelVersion: "" },
+  { confidence: 0.5, modelVersion: "x".repeat(41) },
+  { confidence: 0.5, modelVersion: "bad model!" },
+];
+const invalidStatuses = [];
+for (const extra of invalidModel) {
+  invalidStatuses.push((await call("POST", "/v1/raksha/report", {
+    token, body: { type: "pothole", severity: 2, lat: 28.453, lng: 77.053, ...extra },
+  })).status);
+}
+ok("out-of-range, non-numeric, empty, over-long or oddly-spelled values are refused with 400",
+   invalidStatuses.every((s) => s === 400), invalidStatuses.join(","));
+
 // per-user report rate limit — one account cannot flood the queue
 console.log("\n18. Report rate limiting");
 const floodMsisdn = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));

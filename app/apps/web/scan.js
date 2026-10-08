@@ -20,12 +20,24 @@
 (function () {
   "use strict";
 
-  /* ══ the one model setting ══════════════════════════════════════════════
-     The sidecar JSON names the .onnx beside it and carries its class list
+  /* ══ the model settings ═════════════════════════════════════════════════
+     Each sidecar JSON names the .onnx beside it and carries its class list
      (in output-index order), input size, thresholds and measured metrics,
      all written from the model's own metadata by ai/road_damage/web_model.py.
-     Swapping the detector is: run web_model.py export, change this line. */
-  var MODEL_SIDECAR = "assets/models/raksha-yolo11n-india-ft-gpu.json";
+     Swapping a detector is: run web_model.py export, change its line.
+
+     Two exports of the same weights. WebGPU runs the 640 px one. WebAssembly,
+     the engine a phone with no WebGPU is left with, runs the 416 px one: it
+     does about 2.4x less arithmetic and measured roughly half the time per
+     frame there (2026-10-08: 205-315 -> 107-187 ms a test frame; 767-908 ->
+     357-462 ms at 4x CPU throttle). Time to READY barely moved (2.7-3.2 s ->
+     2.4-3.9 s; ~11.9 -> 10.3-12.0 s throttled): start-up is spent compiling
+     ONNX Runtime's 28 MB wasm and building the session, not on input size.
+     The page says which model is active, with its own measured accuracy -
+     the 416 px model scores lower. */
+  var MODEL_SIDECAR_GPU = "assets/models/raksha-yolo11n-india-ft-gpu.json";
+  var MODEL_SIDECAR_WASM = "assets/models/raksha-yolo11n-india-ft-gpu-416.json";
+  function sidecarFor(ep) { return ep === "wasm" ? MODEL_SIDECAR_WASM : MODEL_SIDECAR_GPU; }
 
   var ORT_DIR = "vendor/ort/";               // onnxruntime-web 1.30.0, self-hosted (VERSION.txt)
   var MAX_FPS = 8;                           // the loop never runs faster than this
@@ -51,7 +63,7 @@
   var sess = window.RASession ? window.RASession("ra.app.session", "app", API) : null;
 
   var S = {
-    cfg: null, ort: null, modelBytes: null, session: null, ep: null, epTried: [],
+    cfg: null, ort: null, models: {}, session: null, ep: null, epTried: [],
     inputName: null, outputName: null,
     source: null, running: false, timer: 0, busy: false, gen: 0,
     stream: null, sampleIndex: 0, objectUrl: null,
@@ -59,7 +71,7 @@
     fps: new Core.FpsMeter(3000), fpsByEp: {},
     lastAnnounce: 0, lastCountSig: "",
     pending: null,   // a report that has not reached the server
-    locked: false, engineGen: 0, warmMs: {}, sessions: {},
+    locked: false, engineGen: 0, warmMs: {}, sessions: {}, starting: false,
   };
 
   // The frame is read at its own resolution (drawImage 1:1 does not resample)
@@ -112,18 +124,23 @@
     return Array.prototype.map.call(d, function (b) { return b.toString(16).padStart(2, "0"); }).join("");
   }
 
-  async function loadModel() {
-    placeholder("Loading the detector…", true);
-    var res = await fetch(MODEL_SIDECAR);
-    if (!res.ok) throw new Error("the model description is missing (" + MODEL_SIDECAR + ")");
+  /**
+   * A model's sidecar and bytes, fetched once per page. `quiet` is the
+   * background WebGPU try: it must not cover a scan that is already running
+   * with a progress bar.
+   */
+  async function loadModel(sidecar, quiet) {
+    if (S.models[sidecar]) return S.models[sidecar];
+    if (!quiet) placeholder("Loading the detector…", true);
+    var res = await fetch(sidecar);
+    if (!res.ok) throw new Error("the model description is missing (" + sidecar + ")");
     var cfg = await res.json();
     if (!Array.isArray(cfg.classes) || !cfg.classes.length || !cfg.inputSize) {
       throw new Error("the model description has no class list or input size");
     }
-    S.cfg = cfg;
-    describeModel();
-    var base = MODEL_SIDECAR.slice(0, MODEL_SIDECAR.lastIndexOf("/") + 1);
+    var base = sidecar.slice(0, sidecar.lastIndexOf("/") + 1);
     var bytes = await fetchBytes(base + cfg.model, cfg.bytes, function (f) {
+      if (quiet) return;
       var pct = Math.round(f * 100);
       $("load-bar").style.width = pct + "%";
       $("load-progress").setAttribute("aria-valuenow", String(pct));
@@ -135,14 +152,20 @@
     if (hash && cfg.sha256 && hash !== cfg.sha256) {
       throw new Error("the model file does not match its description (sha256) - reload the page");
     }
-    S.modelBytes = bytes;
+    return (S.models[sidecar] = { cfg: cfg, bytes: bytes });
   }
 
   function describeModel() {
     var c = S.cfg, m = c.metrics || {};
     var mb = c.bytes ? (c.bytes / 1e6).toFixed(1) + " MB" : "";
+    var px = c.inputSize[0] + " px";
+    $("model-active").textContent = "Active: the " + px + " model on " + EP_LABEL[S.ep] +
+      ", mAP50 " + (m.mAP50 != null ? m.mAP50.toFixed(3) : "n/a") + " on held-out validation images" +
+      (S.ep === "wasm"
+        ? ". This is the smaller, faster-starting model WebAssembly runs; with WebGPU the page runs the 640 px model, which scores higher."
+        : ". Without WebGPU the page runs a smaller 416 px model that starts faster and scores lower.");
     $("model-about").textContent =
-      "Model: " + (c.architecture || "YOLO") + " (" + c.modelVersion + ", " + mb + "), classes " +
+      "Model: " + (c.architecture || "YOLO") + " (" + c.modelVersion + ", " + px + ", " + mb + "), classes " +
       c.classes.join(", ") + ". Measured mAP50 " + (m.mAP50 != null ? m.mAP50.toFixed(3) : "n/a") +
       (m.mAP50_95 != null ? " (mAP50-95 " + m.mAP50_95.toFixed(3) + ")" : "") +
       " on held-out validation images" + (m.source ? " (" + m.source + ")" : "") + ". " +
@@ -215,28 +238,29 @@
    * backend cannot run YOLO11's Split), so a test run is part of "works". The
    * first run also compiles GPU shaders; the second is the one that is timed.
    */
-  async function makeSession(ep, timeoutMs) {
+  async function makeSession(ep, timeoutMs, quiet) {
     var ort = await loadOrt();
     if (!(await epAvailable(ep))) throw new Error("not available in this browser");
+    var model = await loadModel(sidecarFor(ep), quiet);
     // A GPU driver can hang instead of failing; a stuck engine must not leave
     // the page on "Starting…" forever, so every step is bounded.
-    var session = await withTimeout(ort.InferenceSession.create(S.modelBytes, {
+    var session = await withTimeout(ort.InferenceSession.create(model.bytes, {
       executionProviders: [ep], graphOptimizationLevel: "all",
       // Errors only: ORT's node-placement notice is a warning written with
       // console.error, which would read as a fault on a demo screen.
       logSeverityLevel: 3,
     }), timeoutMs, "did not start within " + timeoutMs / 1000 + " s");
     try {
-      var w = S.cfg.inputSize[0], h = S.cfg.inputSize[1], feeds = {};
+      var cfg = model.cfg, w = cfg.inputSize[0], h = cfg.inputSize[1], feeds = {};
       feeds[session.inputNames[0]] = new ort.Tensor("float32", new Float32Array(3 * w * h).fill(114 / 255), [1, 3, h, w]);
       var out = await withTimeout(session.run(feeds), timeoutMs, "did not finish a test frame within " + timeoutMs / 1000 + " s");
       var o = out[session.outputNames[0]];
-      if (!o || o.dims.length !== 3 || o.dims[1] !== 4 + S.cfg.classes.length) {
-        throw new Error("output shape " + (o && o.dims.join("x")) + " does not match " + S.cfg.classes.length + " classes");
+      if (!o || o.dims.length !== 3 || o.dims[1] !== 4 + cfg.classes.length) {
+        throw new Error("output shape " + (o && o.dims.join("x")) + " does not match " + cfg.classes.length + " classes");
       }
       var t0 = performance.now();
       await withTimeout(session.run(feeds), timeoutMs, "did not finish a second test frame");
-      return { session: session, ms: performance.now() - t0 };
+      return { session: session, cfg: cfg, ms: performance.now() - t0 };
     } catch (e) {
       try { await session.release(); } catch { /* nothing to release */ }
       throw e;
@@ -248,21 +272,24 @@
    * Releasing a WebGPU session corrupts the next one in ONNX Runtime 1.30
    * ("no GPU data for input"), so a working session is never released.
    */
-  async function sessionFor(ep, timeoutMs) {
-    if (S.sessions[ep]) return { session: S.sessions[ep], ms: S.warmMs[ep] };
-    var made = await makeSession(ep, timeoutMs);
-    S.sessions[ep] = made.session;
+  async function sessionFor(ep, timeoutMs, quiet) {
+    if (S.sessions[ep]) return { session: S.sessions[ep].session, cfg: S.sessions[ep].cfg, ms: S.warmMs[ep] };
+    var made = await makeSession(ep, timeoutMs, quiet);
+    S.sessions[ep] = { session: made.session, cfg: made.cfg };
     return made;
   }
 
+  /** The engine and its model change together, under the engine lock. */
   function adopt(ep, made) {
-    S.session = made.session; S.ep = ep;
+    S.session = made.session; S.ep = ep; S.cfg = made.cfg;
     S.inputName = made.session.inputNames[0]; S.outputName = made.session.outputNames[0];
     S.warmMs[ep] = made.ms;
     S.fps.reset();
-    $("hud-ep").textContent = EP_LABEL[ep];
+    $("hud-ep").textContent = hudLabel();
+    describeModel();
     describeEngine();
   }
+  function hudLabel() { return EP_LABEL[S.ep] + " · " + S.cfg.inputSize[0] + " px"; }
 
   function describeEngine() {
     var threads = S.ep === "wasm"
@@ -285,14 +312,19 @@
   }
 
   /**
-   * "auto" starts on WebAssembly, which works everywhere and is ready in
-   * seconds, then tries WebGPU and keeps it only if it runs a frame faster.
+   * "auto" starts on WebAssembly with the 416 px model, which works everywhere
+   * and is ready soonest, then tries WebGPU with the 640 px model and keeps it
+   * if it keeps up with the frame cap or beats WebAssembly. (The two run
+   * different models, so "faster" alone would trade accuracy for nothing.)
    * A named engine is used if it works, with WebAssembly as the fallback.
    */
   async function startEngine(pref) {
     var gen = ++S.engineGen;
     S.epTried = [];
     var first = pref === "auto" ? "wasm" : pref;
+    // Not ready while a switch is in flight: the old engine's session is still
+    // in S.session while the new engine's model downloads.
+    S.starting = true;
     var ep = await lockEngine(async function () {
       placeholder("Starting " + EP_LABEL[first] + "…", false);
       try {
@@ -304,7 +336,7 @@
       }
       placeholder(S.source ? null : "Choose Camera, Sample images, or a photo or video", false);
       return S.ep;
-    });
+    }).finally(function () { if (gen === S.engineGen) S.starting = false; });
     if (pref === "auto") upgrade(gen);
     return ep;
   }
@@ -315,11 +347,13 @@
       await lockEngine(async function () {
         if (gen !== S.engineGen) return;
         $("hud-ep").textContent = "WASM, trying WebGPU";
-        var made = await sessionFor("webgpu", UPGRADE_TIMEOUT_MS);
+        var made = await sessionFor("webgpu", UPGRADE_TIMEOUT_MS, true);
         if (gen !== S.engineGen) return;   // the person picked an engine meanwhile
-        if (made.ms < (S.warmMs.wasm || Infinity)) {
+        if (made.ms < Math.max(1000 / MAX_FPS, S.warmMs.wasm || 0)) {
           adopt("webgpu", made);
-          say("Switched to WebGPU: " + Math.round(made.ms) + " ms a frame against " + Math.round(S.warmMs.wasm) + " ms on WebAssembly.");
+          say("Switched to WebGPU and the " + made.cfg.inputSize[0] + " px model: " + Math.round(made.ms) +
+            " ms a frame (WebAssembly ran the " + S.sessions.wasm.cfg.inputSize[0] + " px model at " +
+            Math.round(S.warmMs.wasm) + " ms).");
         } else {
           S.epTried.push("WebGPU: works, but slower here (" + Math.round(made.ms) + " ms a frame)");
         }
@@ -327,7 +361,7 @@
     } catch (e) {
       S.epTried.push("WebGPU: " + msg(e));
     }
-    $("hud-ep").textContent = EP_LABEL[S.ep];
+    $("hud-ep").textContent = hudLabel();
     describeEngine();
   }
 
@@ -719,7 +753,10 @@
     var dets = S.dets.map(function (d) { return Object.assign({}, d); });
     var pick = Core.pickReport(dets);
     var blob = await snapshot();
-    R.snap = { blob: blob, dets: dets, pick: pick, note: Core.reportNote(dets, S.cfg.modelVersion) };
+    // The model that produced these boxes, held with them: the engine (and so
+    // the model) may change before the report is sent.
+    R.snap = { blob: blob, dets: dets, pick: pick, modelVersion: S.cfg.modelVersion,
+               note: Core.reportNote(dets, S.cfg.modelVersion) };
     S.pending = null;   // a new report replaces one that was never sent
     var thumb = $("r-thumb");
     if (thumb.dataset.url) URL.revokeObjectURL(thumb.dataset.url);
@@ -793,6 +830,9 @@
       lat: R.pos.lat, lng: R.pos.lng,
       accuracyM: isFinite(R.pos.accuracy) ? R.pos.accuracy : null,
       note: snap.note,
+      // The reported detection's own confidence and the model that gave it,
+      // stored on the RAKSHA row instead of a fixed 100% "citizen-report".
+      confidence: pick.confidence, modelVersion: snap.modelVersion,
     };
     // Shrunk to the server's photo cap exactly as the app's own report is.
     var photo = await window.RAPhotoShrink.shrink(snap.blob);
@@ -886,7 +926,7 @@
   /* ── hooks for scripts/scan-check.mjs (and a curious developer) ──────── */
   window.__scan = {
     state: S,
-    ready: function () { return Boolean(S.session); },
+    ready: function () { return Boolean(S.session) && !S.starting; },
     /** Run the model on an image URL; returns detections in source pixels. */
     detectUrl: async function (url) {
       var img = new Image();
@@ -909,7 +949,6 @@
     if (!EP_LABEL[pref]) pref = "auto";
     $("ep").value = pref;
     try {
-      await loadModel();
       await startEngine(pref);
       say("Detector ready on " + EP_LABEL[S.ep] + ". Choose Camera, Sample images, or a photo or video.");
       var want = params.get("source");

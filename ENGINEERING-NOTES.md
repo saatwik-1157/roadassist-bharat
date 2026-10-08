@@ -79,8 +79,8 @@ Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
 npm test                 # 526 unit — no I/O, the only ones that run standalone
-npm run test:e2e         # 283
-npm run test:concurrency # 107
+npm run test:e2e         # 288
+npm run test:concurrency # 112
 npm run test:gateway     # 58
 npm run test:security    # 108 attacks, every one must be refused
 npm run test:ui          # 254, drives real Chrome over CDP (--headed to watch)
@@ -111,9 +111,9 @@ they fail on their first sign-in there. The demo stack resets with
 local stub of the Orders API and signs webhooks with a stub secret — but it
 refuses to run (exit 2) unless the API was started with the variables in the
 script's header (`PAYMENTS_PROVIDER=razorpay`, `PAYMENTS_BASE_URL` at the stub).
-It is **not** part of the 1336 and must never be described as passing.
+It is **not** part of the 1346 and must never be described as passing.
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (304
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (323
 tests). AI: `python -m unittest discover -s ai/tests` (49, stdlib only).
 
 ## Toolchain traps

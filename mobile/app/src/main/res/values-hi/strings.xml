@@ -219,14 +219,14 @@
     <string name="scan_stats_photo">इस फ़ोन पर %1$d ms</string>
     <string name="scan_report">खतरा बताएं</string>
     <string name="scan_not_reportable">धुंधली मार्किंग और मैनहोल केवल जानकारी के लिए दिखाए जाते हैं; RAKSHA रिपोर्ट में गड्ढे और सड़क की टूट-फूट ही ली जाती है।</string>
-    <string name="scan_offline_note">ऑफ़लाइन: स्कैन चलता है, पर रिपोर्ट के लिए कनेक्शन चाहिए। रिपोर्ट बाद में भेजने के लिए सेव नहीं होतीं।</string>
+    <string name="scan_offline_note">ऑफ़लाइन: स्कैन चलता है, और रिपोर्ट इस फ़ोन पर सेव होकर ऑनलाइन होते ही अपने-आप भेजी जाती है।</string>
     <string name="scan_predictions_heading">मॉडल के अनुमान</string>
     <string name="scan_class_pothole">गड्ढा</string>
     <string name="scan_class_road_damage">सड़क की टूट-फूट</string>
     <string name="scan_class_faded_marking">धुंधली मार्किंग</string>
     <string name="scan_class_manhole">मैनहोल</string>
     <string name="scan_report_prefilled">ऑन-डिवाइस स्कैन से भरा गया, जो मॉडल का अनुमान है। भेजने से पहले प्रकार और गंभीरता जाँच लें।</string>
-    <string name="report_not_sent_offline">नहीं भेजा गया: सर्वर तक नहीं पहुँच सके। खतरे की रिपोर्ट इस फ़ोन पर सेव नहीं होती, इसलिए ऑनलाइन होने पर फिर भेजें।</string>
+    <string name="report_not_sent_offline">नहीं भेजा गया: सर्वर तक नहीं पहुँच सके, और इस फ़ोन पर बिना भेजी खतरे की रिपोर्टों की कतार भरी हुई है। ऑनलाइन होने पर फिर भेजें।</string>
     <string name="cd_scan_preview">डिटेक्टर के बॉक्स के साथ कैमरा दृश्य</string>
     <string name="cd_scan_photo">डिटेक्टर के बॉक्स के साथ चुनी गई फोटो</string>
 
@@ -272,4 +272,13 @@
     <string name="loading">लोड हो रहा है…</string>
     <string name="rescues_empty_title">अभी कोई रेस्क्यू नहीं</string>
     <string name="track_booking">बुकिंग %1$s</string>
+
+    <!-- 1.1.2 (offline hazard-report queue). Machine-translated and NOT
+         yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="report_saved_offline">इस फ़ोन पर सेव हो गया — ऑनलाइन होते ही अपने-आप भेजा जाएगा</string>
+    <plurals name="toast_hazard_synced">
+        <item quantity="one">ऑनलाइन होते ही सेव की गई %1$d खतरे की रिपोर्ट भेजी गई</item>
+        <item quantity="other">ऑनलाइन होते ही सेव की गई %1$d खतरे की रिपोर्टें भेजी गईं</item>
+    </plurals>
 </resources>

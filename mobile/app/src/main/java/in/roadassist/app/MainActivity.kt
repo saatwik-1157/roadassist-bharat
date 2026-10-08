@@ -527,6 +527,12 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
             toast = ctx.resources.getQuantityString(R.plurals.toast_sos_synced, n, n)
         }
     }
+    // Saved hazard reports the same replay has now actually delivered.
+    LaunchedEffect(Unit) {
+        SosReplay.hazardsSent.collect { n ->
+            toast = ctx.resources.getQuantityString(R.plurals.toast_hazard_synced, n, n)
+        }
+    }
 
     var online by remember { mutableStateOf(true) }
     LaunchedEffect(signedIn) {
@@ -1008,7 +1014,12 @@ private fun processReportImage(ctx: android.content.Context, uri: android.net.Ur
 /** JPEG-encode a bitmap for a hazard report under the server's photo cap:
  *  (base64, the bitmap as shown). Used for a picked photo and for the frame
  *  the road scanner reports. Null if it cannot be encoded. */
-internal fun encodeReportPhoto(source: android.graphics.Bitmap): Pair<String, android.graphics.Bitmap>? {
+internal fun encodeReportPhoto(
+    source: android.graphics.Bitmap,
+    /** The byte cap; a queued report uses HazardQueue's smaller one. */
+    maxBytes: Int = REPORT_PHOTO_MAX_BYTES,
+    ladder: List<Pair<Int, Int>> = listOf(1280 to 80, 1280 to 70, 1024 to 70, 1024 to 60, 800 to 60),
+): Pair<String, android.graphics.Bitmap>? {
     return try {
         var bmp = source
         val max = 1280
@@ -1021,7 +1032,7 @@ internal fun encodeReportPhoto(source: android.graphics.Bitmap): Pair<String, an
         // that does not. If even the last is over, it is sent anyway and the
         // server's 413 names the limit, rather than this saying "unreadable".
         var jpeg = ByteArray(0)
-        for ((side, quality) in listOf(1280 to 80, 1280 to 70, 1024 to 70, 1024 to 60, 800 to 60)) {
+        for ((side, quality) in ladder) {
             val s = if (maxOf(bmp.width, bmp.height) <= side) bmp else {
                 val k = side.toFloat() / maxOf(bmp.width, bmp.height)
                 bmp.scale(maxOf(1, (bmp.width * k).toInt()), maxOf(1, (bmp.height * k).toInt()), filter = true)
@@ -1029,7 +1040,7 @@ internal fun encodeReportPhoto(source: android.graphics.Bitmap): Pair<String, an
             val out = java.io.ByteArrayOutputStream()
             s.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
             jpeg = out.toByteArray()
-            if (jpeg.size <= REPORT_PHOTO_MAX_BYTES) break
+            if (jpeg.size <= maxBytes) break
         }
         android.util.Base64.encodeToString(jpeg, android.util.Base64.NO_WRAP) to bmp
     } catch (_: Exception) { null }
@@ -1183,29 +1194,66 @@ private fun ReportHazardDialog(
                                 onToast(msg)
                                 if (!permitted) perms.launch(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION))
                             }
-                            is HazardLocation.ReportPosition.Send -> try {
-                                Api.post("/v1/raksha/report", JSONObject()
-                                    .put("type", type).put("severity", severity)
-                                    .put("lat", at.lat).put("lng", at.lng)
-                                    .apply { if (note.isNotBlank()) put("note", note.trim()) }
-                                    .apply { photoB64?.let { put("photoBase64", it); put("photoMime", "image/jpeg") } })
-                                onToast(ctx.getString(R.string.toast_hazard_reported))
-                                onReported(); onClose()
-                            } catch (e: kotlinx.coroutines.CancellationException) {
-                                throw e
-                            } catch (e: ApiException) {
-                                // The server answered, and said no: its own sentence.
-                                val msg = e.message ?: ctx.getString(R.string.report_failed)
-                                noFix = msg
-                                onToast(msg)
-                            } catch (_: Exception) {
-                                // No answer at all (no network, timeout). Hazard
-                                // reports have no offline queue (only SOS does), so
-                                // say plainly that nothing was sent; the dialog
-                                // stays open with everything in it for a retry.
-                                val msg = ctx.getString(R.string.report_not_sent_offline)
-                                noFix = msg
-                                onToast(msg)
+                            is HazardLocation.ReportPosition.Send -> {
+                                // One body for the live post and the queue. A scan
+                                // draft adds the model's confidence and version; a
+                                // report made by hand has neither (HazardReport).
+                                fun body(photo: String?) = HazardReport.payload(
+                                    type, severity, at.lat, at.lng, note, photo,
+                                    confidence = draft?.confidence, modelVersion = draft?.modelVersion,
+                                )
+                                // With no network it is not tried at all: straight
+                                // to the queue, not a wait for a timeout.
+                                val failed: HazardQueue.Live? = if (!Emergency.hasData(ctx)) {
+                                    HazardQueue.Live.QUEUE
+                                } else try {
+                                    Api.post("/v1/raksha/report", body(photoB64))
+                                    null
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (e: ApiException) {
+                                    // A 4xx is the server saying no to THIS report:
+                                    // its own sentence, dialog kept for a fix. No
+                                    // answer, a 5xx, 401, 408, 429: saved for later.
+                                    HazardQueue.afterLiveFailure(e.status).also {
+                                        if (it == HazardQueue.Live.REFUSED) {
+                                            val msg = e.message ?: ctx.getString(R.string.report_failed)
+                                            noFix = msg
+                                            onToast(msg)
+                                        }
+                                    }
+                                } catch (_: Exception) {
+                                    HazardQueue.Live.QUEUE
+                                }
+                                when (failed) {
+                                    null -> {
+                                        onToast(ctx.getString(R.string.toast_hazard_reported))
+                                        onReported(); onClose()
+                                    }
+                                    HazardQueue.Live.QUEUE -> {
+                                        // Saved on the phone with the photo re-encoded
+                                        // small, and sent by the app-wide replay
+                                        // (SosReplay) when the network is back.
+                                        val saved = withContext(Dispatchers.Default) {
+                                            val small = photoThumb?.let {
+                                                encodeReportPhoto(it, HazardQueue.PHOTO_MAX_BYTES, HazardQueue.PHOTO_LADDER)?.first
+                                            } ?: photoB64
+                                            Hazards.queue(ctx, body(small))
+                                        }
+                                        if (saved) {
+                                            onToast(ctx.getString(R.string.report_saved_offline))
+                                            SosReplay.pokeHazards()
+                                            onClose()
+                                        } else {
+                                            // The outbox is full: nothing was saved, and
+                                            // the dialog keeps everything for a retry.
+                                            val msg = ctx.getString(R.string.report_not_sent_offline)
+                                            noFix = msg
+                                            onToast(msg)
+                                        }
+                                    }
+                                    HazardQueue.Live.REFUSED -> Unit
+                                }
                             }
                         }
                         busy = false

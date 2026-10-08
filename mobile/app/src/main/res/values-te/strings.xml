@@ -216,14 +216,14 @@
     <string name="scan_stats_photo">ఈ ఫోన్‌లో %1$d ms</string>
     <string name="scan_report">ప్రమాదం రిపోర్ట్ చేయండి</string>
     <string name="scan_not_reportable">మసకబారిన మార్కింగ్‌లు, మ్యాన్‌హోల్‌లు సమాచారం కోసం మాత్రమే చూపిస్తాం; RAKSHA రిపోర్ట్‌లు గుంతలు, రోడ్డు దెబ్బతినడం మాత్రమే తీసుకుంటాయి.</string>
-    <string name="scan_offline_note">ఆఫ్‌లైన్: స్కాన్ పనిచేస్తుంది, కానీ రిపోర్ట్‌కు కనెక్షన్ కావాలి. రిపోర్ట్‌లు తర్వాత పంపడానికి సేవ్ కావు.</string>
+    <string name="scan_offline_note">ఆఫ్‌లైన్: స్కాన్ పనిచేస్తుంది, మరియు రిపోర్ట్ ఈ ఫోన్‌లో సేవ్ అయి, మళ్లీ ఆన్‌లైన్‌కి రాగానే దానంతట అదే పంపబడుతుంది.</string>
     <string name="scan_predictions_heading">మోడల్ అంచనాలు</string>
     <string name="scan_class_pothole">గుంత</string>
     <string name="scan_class_road_damage">రోడ్డు దెబ్బతినడం</string>
     <string name="scan_class_faded_marking">మసకబారిన మార్కింగ్</string>
     <string name="scan_class_manhole">మ్యాన్‌హోల్</string>
     <string name="scan_report_prefilled">ఆన్-డివైస్ స్కాన్ నుండి నింపబడింది, ఇది మోడల్ అంచనా. పంపే ముందు రకం, తీవ్రత చూసుకోండి.</string>
-    <string name="report_not_sent_offline">పంపబడలేదు: సర్వర్‌ను చేరలేకపోయాం. ప్రమాద రిపోర్ట్‌లు ఈ ఫోన్‌లో సేవ్ కావు, కాబట్టి ఆన్‌లైన్‌కి వచ్చాక మళ్లీ పంపండి.</string>
+    <string name="report_not_sent_offline">పంపబడలేదు: సర్వర్‌ను చేరలేకపోయాం, మరియు ఈ ఫోన్‌లో పంపని ప్రమాద రిపోర్ట్‌ల వరుస నిండిపోయింది. ఆన్‌లైన్‌కి వచ్చాక మళ్లీ పంపండి.</string>
     <string name="cd_scan_preview">డిటెక్టర్ బాక్సులతో కెమెరా దృశ్యం</string>
     <string name="cd_scan_photo">డిటెక్టర్ బాక్సులతో ఎంచుకున్న ఫోటో</string>
 
@@ -269,4 +269,13 @@
     <string name="loading">లోడ్ అవుతోంది…</string>
     <string name="rescues_empty_title">ఇంకా రెస్క్యూలు లేవు</string>
     <string name="track_booking">బుకింగ్ %1$s</string>
+
+    <!-- 1.1.2 (offline hazard-report queue). Machine-translated and NOT
+         yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="report_saved_offline">ఈ ఫోన్‌లో సేవ్ అయింది — మళ్లీ ఆన్‌లైన్‌కి రాగానే దానంతట అదే పంపబడుతుంది</string>
+    <plurals name="toast_hazard_synced">
+        <item quantity="one">ఆన్‌లైన్‌కు రాగానే సేవ్ చేసిన %1$d ప్రమాద రిపోర్ట్ పంపబడింది</item>
+        <item quantity="other">ఆన్‌లైన్‌కు రాగానే సేవ్ చేసిన %1$d ప్రమాద రిపోర్ట్‌లు పంపబడ్డాయి</item>
+    </plurals>
 </resources>

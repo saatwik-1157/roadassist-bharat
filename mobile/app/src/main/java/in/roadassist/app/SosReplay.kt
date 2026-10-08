@@ -79,6 +79,17 @@ object SosReplay {
 
     @Volatile private var trigger: ReplayTrigger? = null
 
+    /** How many queued hazard reports each replay sent (Hazards), for their own toast. */
+    private val hazardsSentFlow = MutableSharedFlow<Int>(extraBufferCapacity = 4)
+    val hazardsSent: SharedFlow<Int> = hazardsSentFlow
+
+    /**
+     * The hazard queue's replay: the same callbacks poke it, but it is a
+     * separate trigger with its own single-flight flag, so a slow photo upload
+     * never makes an SOS replay wait behind it.
+     */
+    @Volatile private var hazardTrigger: ReplayTrigger? = null
+
     fun start(ctx: Context) {
         if (!started.compareAndSet(false, true)) return
         val app = ctx.applicationContext
@@ -89,22 +100,34 @@ object SosReplay {
             onSent = { sentFlow.tryEmit(it) },
         )
         trigger = t
+        val h = ReplayTrigger(
+            scope,
+            ready = { Api.hasSession() && Hazards.depth(app) > 0 },
+            flush = { Hazards.flush(app) },
+            onSent = { hazardsSentFlow.tryEmit(it) },
+        )
+        hazardTrigger = h
         val cm = app.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         try {
             cm.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) { t.poke() }
+                // SOS first, always; the hazard replay runs beside it, never ahead.
+                override fun onAvailable(network: Network) { t.poke(); h.poke() }
                 override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
-                    if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) t.poke()
+                    if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) { t.poke(); h.poke() }
                 }
             })
         } catch (_: Exception) {
             // Out of callbacks (the platform caps them per app): the launch
             // and sign-in pokes below still run.
         }
-        scope.launch { Api.sessionLive.filter { it }.collect { t.poke() } }
+        scope.launch { Api.sessionLive.filter { it }.collect { t.poke(); h.poke() } }
         t.poke()
+        h.poke()
     }
 
     /** Ask for a replay now (for example right after an SOS was queued). */
     fun poke() { trigger?.poke() }
+
+    /** Ask for a hazard-queue replay now (for example right after a report was saved). */
+    fun pokeHazards() { hazardTrigger?.poke() }
 }

@@ -259,14 +259,14 @@
     <string name="scan_stats_photo">%1$d ms on this phone</string>
     <string name="scan_report">Report hazard</string>
     <string name="scan_not_reportable">Faded markings and manholes are shown for information; RAKSHA reports take potholes and road damage.</string>
-    <string name="scan_offline_note">Offline: scanning works, but a report needs a connection. Reports are not saved to send later.</string>
+    <string name="scan_offline_note">Offline: scanning works, and a report is saved on this phone and sent automatically when you are back online.</string>
     <string name="scan_predictions_heading">Model predictions</string>
     <string name="scan_class_pothole">Pothole</string>
     <string name="scan_class_road_damage">Road damage</string>
     <string name="scan_class_faded_marking">Faded marking</string>
     <string name="scan_class_manhole">Manhole</string>
     <string name="scan_report_prefilled">Filled in from the on-device scan, which is a model prediction. Check the type and severity before you send it.</string>
-    <string name="report_not_sent_offline">Not sent: the server could not be reached. Hazard reports are not saved on this phone, so send it again when you are online.</string>
+    <string name="report_not_sent_offline">Not sent: the server could not be reached, and this phone\'s queue of unsent hazard reports is full. Send it again when you are online.</string>
     <string name="cd_scan_preview">Camera view with the detector boxes</string>
     <string name="cd_scan_photo">Picked photo with the detector boxes</string>
 
@@ -315,4 +315,12 @@
     <string name="track_booking">Booking %1$s</string>
     <string name="sos_line_dialer" translatable="false">→ %1$s</string>
     <string name="sos_line_queued" translatable="false">◷ %1$s</string>
+
+    <!-- 1.1.2: a hazard report made offline is saved on the phone (Hazards)
+         and sent by the app-wide replay (SosReplay) when the network is back. -->
+    <string name="report_saved_offline">Saved on this phone — sends automatically when you are back online</string>
+    <plurals name="toast_hazard_synced">
+        <item quantity="one">%1$d saved hazard report sent now that you are online</item>
+        <item quantity="other">%1$d saved hazard reports sent now that you are online</item>
+    </plurals>
 </resources>

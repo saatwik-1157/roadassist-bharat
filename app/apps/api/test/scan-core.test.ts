@@ -213,12 +213,17 @@ describe("scan-core.js decode is onnx_detector.decode", () => {
     assert.match(C.notReportableReason("faded_marking")!, /marking/);
     assert.match(C.notReportableReason("some_future_class")!, /pothole, road damage and obstruction/);
   });
-  it("can say something true about every class of the model the page serves", () => {
-    // The sidecar scan.js loads (its MODEL_SIDECAR line), not a copy of its class list.
+  it("can say something true about every class of every model the page serves", () => {
+    // The sidecars scan.js loads (its MODEL_SIDECAR_* lines: the WebGPU model
+    // and the WebAssembly one), not a copy of their class lists.
     const js = read("app/apps/web/scan.js");
-    const sidecar = JSON.parse(read("app/apps/web/" + /var MODEL_SIDECAR = "([^"]+)";/.exec(js)![1]));
-    for (const cls of sidecar.classes as string[]) {
-      assert.ok(C.INGESTABLE.includes(cls) || cls in C.NOT_REPORTABLE, `${cls} has no reason for not being reportable`);
+    const paths = [...js.matchAll(/var MODEL_SIDECAR_[A-Z]+ = "([^"]+)";/g)].map((m) => m[1]);
+    assert.equal(paths.length, 2, "scan.js names a WebGPU and a WebAssembly model");
+    for (const path of paths) {
+      const sidecar = JSON.parse(read("app/apps/web/" + path));
+      for (const cls of sidecar.classes as string[]) {
+        assert.ok(C.INGESTABLE.includes(cls) || cls in C.NOT_REPORTABLE, `${path}: ${cls} has no reason for not being reportable`);
+      }
     }
     // The report route's enum (raksha.ts) is what INGESTABLE may contain.
     const route = /app\.post\("\/v1\/raksha\/report"[\s\S]*?type: z\.enum\(\[([^\]]+)\]\)/.exec(read("app/apps/api/src/raksha.ts"))![1];

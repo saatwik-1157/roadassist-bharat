@@ -259,29 +259,48 @@ export async function emergencyRoutes(app: FastifyInstance) {
     if (inc.userId !== req.user!.sub) {
       return reply.code(403).send({ error: { code: "forbidden", title: "That incident is not yours", retryable: false } });
     }
-    // The state machine decides whether a cancel is legal at all — a resolved
-    // emergency cannot be un-resolved, and it throws rather than silently
-    // succeeding. The guarded UPDATE below then makes it safe under concurrency.
-    const { to: cancelTo } = applyIncident(inc.status as IncidentStatus, "cancel");
-    const cancelled = await db.update(S.incidents)
-      .set({ status: cancelTo, cancelledAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(S.incidents.id, id), eq(S.incidents.status, inc.status)))
-      .returning({ id: S.incidents.id });
-    if (!cancelled.length) {
+    /**
+     * The state machine decides whether a cancel is legal at all — a resolved
+     * emergency cannot be un-resolved, and it throws rather than silently
+     * succeeding. The guarded UPDATE then makes it safe under concurrency.
+     *
+     * A lost compare-and-swap is re-read and retried, not refused. A stand-down
+     * pressed while an off-grid SOS was being escalated read CONFIRMED, lost
+     * the swap to the confirm that had just written RESPONDING, and answered
+     * 409 — leaving the person's withdrawn emergency RESPONDING with no cancel
+     * in the audit chain (21 of 60 racing pairs, reproduced). RESPONDING is
+     * just as cancellable as CONFIRMED, so the cancel now wins whichever order
+     * they land in. Statuses only move forward, so this settles within a few
+     * rounds; it is refused only once the incident is closed.
+     */
+    let from = inc.status as IncidentStatus;
+    let cancelled = false;
+    for (let round = 0; round < 5 && !cancelled; round++) {
+      const { to: cancelTo } = applyIncident(from, "cancel");
+      const swapped = await db.update(S.incidents)
+        .set({ status: cancelTo, cancelledAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(S.incidents.id, id), eq(S.incidents.status, from)))
+        .returning({ id: S.incidents.id });
+      if (swapped.length) { cancelled = true; break; }
+      const [now] = await db.select({ status: S.incidents.status }).from(S.incidents)
+        .where(eq(S.incidents.id, id)).limit(1);
+      from = (now?.status ?? from) as IncidentStatus;
+    }
+    if (!cancelled) {
       return reply.code(409).send({ error: {
         code: "invalid_state", title: "This incident changed while the cancel was in flight. Reload it.",
         retryable: true, requestId: req.id } });
     }
     await audit({
       actorId: req.user!.sub, actorRole: "citizen", action: "sos.cancelled",
-      entity: "incident", entityId: id, before: { status: inc.status },
+      entity: "incident", entityId: id, before: { status: from },
       after: { status: "CANCELLED" }, ip: req.ip,
     });
     publish(inc.userId, {
       type: "sos.status", incidentId: id, status: "CANCELLED",
       stage: PUBLIC_STAGE.CANCELLED,
     });
-    logOp(req, { op: "sos.cancel", result: "ok", incidentId: id, from: inc.status });
+    logOp(req, { op: "sos.cancel", result: "ok", incidentId: id, from });
     return ok({ id, status: "CANCELLED", stage: PUBLIC_STAGE.CANCELLED },
       { note: "False alarm recorded — this feeds the false-positive dataset." });
   });
@@ -559,9 +578,18 @@ export async function emergencyRoutes(app: FastifyInstance) {
       },
       ip: req.ip,
     });
+    /**
+     * What the incident is NOW, not what this request made it. A stand-down
+     * that landed while the contacts were being texted has already cancelled
+     * it (the cancel wins any order); answering, or publishing, RESPONDING
+     * after that put a closed emergency back on the person's screen as open.
+     */
+    const [settled] = await db.select({ status: S.incidents.status }).from(S.incidents)
+      .where(eq(S.incidents.id, id)).limit(1);
+    const finalStatus = (settled?.status ?? respondingTo) as IncidentStatus;
     publish(inc.userId, {
-      type: "sos.status", incidentId: id, status: respondingTo,
-      stage: PUBLIC_STAGE[respondingTo],
+      type: "sos.status", incidentId: id, status: finalStatus,
+      stage: PUBLIC_STAGE[finalStatus],
       contactsAlerted, smsLive: sms.live, responderFound: Boolean(responders[0]),
       respondersNotified: RESPONDERS_NOTIFIED,
     });
@@ -573,7 +601,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
     alerts.sosConfirmed(id, contactsAlerted);
 
     return ok({
-      id, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
+      id, status: finalStatus, stage: PUBLIC_STAGE[finalStatus],
       contactsAlerted,
       ...(contactsFailed ? { contactsFailed } : {}),
       ...(withheld ? { contactsWithheld: contacts.length } : {}),

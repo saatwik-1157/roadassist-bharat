@@ -654,7 +654,7 @@
     var kind = String(d.detection_type).replace(/_/g, " ");
     var head = "<b>" + esc(kind) + "</b> · severity " + esc(d.severity) + " · " + esc(d.status);
     if (d.source === "citizen") {
-      return head + (d.notes ? "<br>“" + esc(d.notes) + "”" : "") +
+      return head + " · " + confidenceOf(d) + (d.notes ? "<br>“" + esc(d.notes) + "”" : "") +
         "<span class='lb-src'>Citizen photo · " + esc(new Date(d.created_at || d.captured_at).toLocaleString()) +
         " · " + esc(positionOf(d).label) + "</span>";
     }
@@ -1023,6 +1023,20 @@
   }
 
   /**
+   * The confidence line, by who produced the detection. A citizen report used
+   * to be stored at a fixed 100% under "citizen-report", and this page printed
+   * that as if a model had been certain. A report from the on-device scan now
+   * carries the model's own confidence and version, shown as the model's; a
+   * plain citizen report carries none, and says so.
+   */
+  function confidenceOf(d) {
+    var pct = Math.round(d.confidence * 100) + "%";
+    if (d.source !== "citizen") return pct + " · " + esc(d.model_version);
+    return d.model_version && d.model_version !== "citizen-report"
+      ? "citizen · model " + pct + " · " + esc(d.model_version)
+      : "citizen · no model confidence";
+  }
+  /**
    * Where a detection's point came from, as the API describes it
    * (domain/report-position.ts). The page never works this out itself — it
    * prints the server's sentence. The fallback only covers an offline snapshot
@@ -1085,8 +1099,8 @@
           // measured by a phone or placed by the simulator.
           "<span class='pos " + (pos.provenance === "simulated" ? "sim" : "gps") + "'>" + esc(pos.label) +
           (isCitizen ? " · " + esc(new Date(d.created_at || d.captured_at).toLocaleString()) : "") + "</span>" +
-          (isCitizen ? "" : "Confidence: " + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
-            (d.used_fallback ? " (fallback)" : "") + "<br>") +
+          (isCitizen ? "Confidence: " + confidenceOf(d) + "<br>"
+                     : "Confidence: " + confidenceOf(d) + (d.used_fallback ? " (fallback)" : "") + "<br>") +
           "Status: " + esc(d.status) +
           "<br>Source: " + (isCitizen ? "<b>Citizen report</b>" : "Edge device — " + deviceLabel(d)) +
           (d.notes ? "<br>Note: " + esc(d.notes) : "") +
@@ -1124,7 +1138,7 @@
         esc(String(d.detection_type).replace(/_/g, " ")) + " · s" + esc(d.severity) + "</span>" +
         (isCitizen ? '<span class="tag" style="background:#e3b96a">Citizen</span>' : "") +
         '<span class="st">' + esc(d.status) + "</span></div>" +
-        '<div class="meta">' + Math.round(d.confidence * 100) + "% · " + esc(d.model_version) +
+        '<div class="meta">' + confidenceOf(d) +
         " · " + esc(d.segment_code || "off-segment") + " · " +
         (isCitizen ? "crowdsourced" : deviceLabel(d)) +
         (isCitizen && d.notes ? "<br>“" + esc(d.notes) + "”" : "") + "<br>" +

@@ -40,7 +40,11 @@
 //      is not reportable (scan.html, scan.js, scan-core.js, the model sidecar).
 // v28: the live road scan's detector becomes yolo11n-india-ft-gpu (the same 4 classes and 640 px,
 //      fine-tuned on India; a new SCAN cache name, so the previous model is dropped): the sidecar.
-const VERSION = "ra-v28";
+// v29: the road scan runs a second, 416 px detector (the same yolo11n-india-ft-gpu weights) when
+//      it falls back to WebAssembly, which runs a frame in about half the time; WebGPU keeps the
+//      640 px model. Both are in SCAN (renamed, so the old cache is dropped) and both sidecars are in
+//      the shell; the off-grid SOS cancel re-reads after a 409 (scan.js, app.html, the 416 sidecar).
+const VERSION = "ra-v29";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -52,7 +56,8 @@ const TILES = "ra-tiles-v2";
 // no network. Named after the model and the engine build rather than VERSION, so
 // a shell bump keeps them and a new model or ORT drops them: change this name
 // whenever assets/models/ or vendor/ort/ changes.
-const SCAN = "ra-scan-yolo11n-india-ft-gpu-7b26bec8-ort-1.30.0";
+// Both detectors: the 640 px one WebGPU runs and the 416 px WebAssembly fallback.
+const SCAN = "ra-scan-yolo11n-india-ft-gpu-7b26bec8-416-04a66285-ort-1.30.0";
 const SCAN_DIRS = ["/assets/models/", "/vendor/ort/", "/assets/scan/"];
 
 // Everything needed to boot the app with no network at all.
@@ -69,6 +74,7 @@ const SHELL_ASSETS = [
   "/scan-core.js",
   "/scan.js",
   "/assets/models/raksha-yolo11n-india-ft-gpu.json",
+  "/assets/models/raksha-yolo11n-india-ft-gpu-416.json",
   "/ds.css",
   // app.html's own stylesheet; uncached, an off-grid launch would draw unstyled.
   "/app.css",

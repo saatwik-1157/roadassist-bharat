@@ -1158,6 +1158,60 @@ section("9f. Ten simultaneous confirms send one alert batch");
   if (incId) await call("POST", `/v1/sos/${incId}/resolve`, { token: cfActor.token, body: { outcome: "false_alarm" } });
 }
 
+// ══ 9g. A stand-down racing the escalation of a synced off-grid SOS ═══════
+// The reviewer's case, reproduced: an off-grid SOS syncs (CONFIRMED), the
+// client escalates it, and the person presses "Cancel — false alarm" while the
+// confirm is in flight. The cancel read CONFIRMED, lost its compare-and-swap to
+// the confirm's RESPONDING and answered 409 — 21 of 60 pairs stayed RESPONDING
+// with no cancel in the audit chain. Whatever the interleaving, the cancel must
+// win, be audited once, and the confirm must not report the incident as open.
+section("9g. A cancel racing an off-grid escalation always wins and is audited");
+{
+  const { default: postgres } = await import("postgres");
+  const rcSql = postgres(
+    process.env.DATABASE_URL ?? "postgres://roadassist:devpassword@localhost:5434/roadassist",
+    { max: 1, onnotice: () => {} },
+  );
+  const TRIALS = 30;
+  const outcomes = [];
+  try {
+    let actor = await signIn();
+    for (let i = 0; i < TRIALS; i++) {
+      if (i && i % 15 === 0) actor = await signIn();   // stay under the sync ceiling
+      const synced = await call("POST", "/v1/sos/offline-sync", { token: actor.token, body: { incidents: [{
+        clientIncidentId: clientId(), opId: "race-" + Math.random().toString(36).slice(2, 12),
+        occurredAt: new Date(Date.now() - 60_000).toISOString(), emergencyType: "breakdown",
+        lat: 28.46, lng: 77.03 }] } });
+      const id = synced.data?.results?.[0]?.id;
+      if (!id) { outcomes.push({ setup: synced.status }); continue; }
+      // Stagger the cancel by 0–5 ms so it lands before, inside and after the swap.
+      const [cf, cn] = await Promise.all([
+        call("POST", `/v1/sos/${id}/confirm`, { token: actor.token }),
+        new Promise((r) => setTimeout(r, i % 6))
+          .then(() => call("POST", `/v1/sos/${id}/cancel`, { token: actor.token })),
+      ]);
+      const [row] = await rcSql`
+        SELECT status, (SELECT count(*)::int FROM audit_log
+                         WHERE entity_id = ${id} AND action = 'sos.cancelled') AS cancels
+          FROM incidents WHERE id = ${id}`;
+      outcomes.push({ cf: cf.status, cfStatus: cf.data?.status, cn: cn.status, final: row?.status, cancels: row?.cancels });
+    }
+  } finally {
+    await rcSql.end({ timeout: 5 });
+  }
+  const show = (pick) => [...new Set(outcomes.map(pick))].join(",");
+  ok(`${TRIALS} off-grid incidents synced for the race`, outcomes.every((o) => !o.setup), show((o) => o.setup ?? "ok"));
+  ok("every cancel is accepted, whichever order it lands in", outcomes.every((o) => o.cn === 200),
+     `cancel statuses: ${show((o) => o.cn)}`);
+  ok("every incident ends CANCELLED, none left RESPONDING", outcomes.every((o) => o.final === "CANCELLED"),
+     `final: ${show((o) => o.final)}`);
+  ok("each cancel is in the audit chain exactly once", outcomes.every((o) => o.cancels === 1),
+     `sos.cancelled rows: ${show((o) => o.cancels)}`);
+  ok("the racing confirm is answered 200 or refused 409, never a server error",
+     outcomes.every((o) => o.cf === 200 || o.cf === 409),
+     `confirm: ${show((o) => o.cf + "/" + o.cfStatus)}`);
+}
+
 // ══ 10. Clean up after ourselves ═══════════════════════════════════════════
 section("10. The suite releases the providers it occupied");
 const released = await releaseBookings();
