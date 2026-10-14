@@ -1,16 +1,16 @@
-# RoadAssist Bharat 1.1.3 — installing the Android app
+# RoadAssist Bharat 1.1.4 — installing the Android app
 
 | File | What it is |
 |---|---|
-| `RoadAssist-Bharat-1.1.3.apk` | The app, ready to install on any phone (Android 8.0 / API 26 or newer). 48.0 MB: it carries the on-device detector for three CPU types. |
-| `RoadAssist-Bharat-1.1.3-arm64-v8a.apk` | The same build for 64-bit ARM only (most phones of recent years). 23.5 MB. Use it when you know the phone; it will not install on a 32-bit one. |
-| `RoadAssist-Bharat-1.1.3-armeabi-v7a.apk` | The same build for 32-bit ARM only (older and Android Go phones). 22.3 MB. |
-| `RoadAssist-Bharat-1.1.3.aab` | The same build as an Android App Bundle, the format Google Play takes. It cannot be installed on a phone directly. Play sends each phone only its own CPU's part. |
+| `RoadAssist-Bharat-1.1.4.apk` | The app, ready to install on any phone (Android 8.0 / API 26 or newer). 48.0 MB: it carries the on-device detector for three CPU types. |
+| `RoadAssist-Bharat-1.1.4-arm64-v8a.apk` | The same build for 64-bit ARM only (most phones of recent years). 23.5 MB. Use it when you know the phone; it will not install on a 32-bit one. |
+| `RoadAssist-Bharat-1.1.4-armeabi-v7a.apk` | The same build for 32-bit ARM only (older and Android Go phones). 22.3 MB. |
+| `RoadAssist-Bharat-1.1.4.aab` | The same build as an Android App Bundle, the format Google Play takes. It cannot be installed on a phone directly. Play sends each phone only its own CPU's part. |
 
 All four are built from `mobile/` with
 `gradlew.bat testDebugUnitTest lintDebug assembleDebug assembleRelease bundleRelease`
-(the per-CPU APKs with `gradlew.bat assembleRelease -PabiSplits`), version 1.1.3
-(versionCode 12), package `in.roadassist.app`, and signed with the RoadAssist
+(the per-CPU APKs with `gradlew.bat assembleRelease -PabiSplits`), version 1.1.4
+(versionCode 13), package `in.roadassist.app`, and signed with the RoadAssist
 Bharat release key (certificate `CN=RoadAssist Bharat, OU=SWE4004, O=VIT-AP
 University, C=IN`, SHA-256 `f602bb634f6e5dfc76752aec42ac36bf1a35c081a1f04b545e3ab107dcf84359`,
 APK Signature Scheme v2 + v3). The binaries are not in git; rebuild them from
@@ -18,10 +18,20 @@ source or take them from whoever holds this folder.
 
 | File | SHA-256 |
 |---|---|
-| `RoadAssist-Bharat-1.1.3.apk` | `c74196501cf97f0f3ae954e375b69b4c5c224eaf6586ee495744488a2e7dd315` |
-| `RoadAssist-Bharat-1.1.3-arm64-v8a.apk` | `64a2329c8382372ec901d3792bc64a8c73b2c688fd81669c8964721c640e150e` |
-| `RoadAssist-Bharat-1.1.3-armeabi-v7a.apk` | `01392ddeb66e47bb520364552f3a4afefcbc61f37d1ddecf3f43c5372f158b0a` |
-| `RoadAssist-Bharat-1.1.3.aab` | `e179e29ba08fca4b8787eed1ed9bfc615cd0a6ffd374e04ac4b287344e28bcb0` |
+| `RoadAssist-Bharat-1.1.4.apk` | `1d5d1b30636756f640b3383442912b6828f921f418185517bbb7fecd2fbe30ae` |
+| `RoadAssist-Bharat-1.1.4-arm64-v8a.apk` | `2cf3347f018bb889ebf371734e381f639a0e2b974282fe4f47f11ec6fc7024a6` |
+| `RoadAssist-Bharat-1.1.4-armeabi-v7a.apk` | `b17957ce67d7aeea96315473d1c6b26a4f9c3ed9b2de066078198c2cc7c6ac57` |
+| `RoadAssist-Bharat-1.1.4.aab` | `024380879673ed913c4a0c626cb3d0e4f4262fc9780a554bc13c48b9e5be6185` |
+
+**What changed in 1.1.4: Telegram alerts for emergency contacts (free).**
+
+- **Invite on Telegram.** Each emergency contact now has an *Invite on Telegram*
+  button that shares a single-use link. When the contact opens it and presses
+  Start, the contact shows *Linked on Telegram ✓*.
+- **A confirmed SOS also messages linked contacts on Telegram**, at no cost.
+  The SOS screen says how many were alerted this way; a contact who sends
+  /stop is unlinked. Telegram is only an extra channel: it never delays the
+  SOS, and the demo server still contacts no responder.
 
 **What changed in 1.1.3: four fixes from a review of the 1.1.x code.**
 
@@ -137,7 +147,7 @@ needs a debug build; see ENGINEERING-NOTES.md, "Reaching the API from the Androi
 
 ## 1. Install the APK on a phone
 
-1. Copy `RoadAssist-Bharat-1.1.3.apk` to the phone (USB cable, Google Drive,
+1. Copy `RoadAssist-Bharat-1.1.4.apk` to the phone (USB cable, Google Drive,
    a messaging app sent to yourself, or a download link).
 2. Allow the app you will open it with to install apps. Android asks the first
    time: tap **Settings** on the prompt, then turn on **Allow from this source**
@@ -199,7 +209,7 @@ Play takes the `.aab`, not the `.apk`.
    current "SMS and Call Log permissions" policy before submitting; if the
    declaration is not accepted, the SMS fallback has to be removed from the
    Play build.
-6. Upload `RoadAssist-Bharat-1.1.3.aab` to an **Internal testing** track first,
+6. Upload `RoadAssist-Bharat-1.1.4.aab` to an **Internal testing** track first,
    add testers by email, and install from the opt-in link. New personal
    developer accounts must also run a closed test with testers for a period
    before production access is granted; follow what Play Console asks for.
@@ -208,10 +218,10 @@ Play takes the `.aab`, not the `.apk`.
 ## 4. Checking a file before you share it
 
 ```
-apksigner verify --print-certs RoadAssist-Bharat-1.1.3.apk
+apksigner verify --print-certs RoadAssist-Bharat-1.1.4.apk
 ```
 
 (`apksigner` is in the Android SDK under `build-tools\<version>\`.) It must say
 `Verifies` and show the `CN=RoadAssist Bharat, OU=SWE4004, O=VIT-AP University, C=IN`
 certificate. Compare the SHA-256 of the file with the one published alongside it
-(`certutil -hashfile RoadAssist-Bharat-1.1.3.apk SHA256` on Windows).
+(`certutil -hashfile RoadAssist-Bharat-1.1.4.apk SHA256` on Windows).
