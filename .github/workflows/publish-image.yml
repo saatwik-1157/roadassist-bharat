@@ -25,13 +25,24 @@ jobs:
   image:
     name: build · smoke · publish
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # The arm64 build runs under QEMU emulation (npm ci and tsc), which is
+    # several times slower than the native amd64 one.
+    timeout-minutes: 50
     permissions:
       contents: read
       packages: write
 
     steps:
       - uses: actions/checkout@v5
+
+      # The image is published for linux/amd64 (Render) AND linux/arm64 (the
+      # OCI Always Free Ampere A1 VM, deploy/oci-india). QEMU lets this amd64
+      # runner build and run the arm64 one. Every dependency the runtime image
+      # installs is plain JavaScript, so nothing is compiled per architecture;
+      # the build stage's esbuild ships a prebuilt linux-arm64 binary.
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
       - uses: docker/setup-buildx-action@v3
 
@@ -147,6 +158,44 @@ jobs:
         if: failure()
         run: docker logs ra-api || true
 
+      # The suites above ran against the amd64 build. The arm64 one is built
+      # from the same source and cache, and has to earn publication too: it is
+      # booted (under QEMU) against the same PostGIS, must really be aarch64,
+      # must migrate - idempotently, the schema is already there - and must
+      # answer /health with the database reachable.
+      - name: Build the arm64 image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: app/Dockerfile
+          platforms: linux/arm64
+          load: true
+          tags: roadassist:candidate-arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max,scope=arm64
+
+      - name: The arm64 image boots and reaches the database
+        run: |
+          arch=$(docker run --rm --platform linux/arm64 --entrypoint uname roadassist:candidate-arm64 -m)
+          echo "image architecture: $arch"
+          [ "$arch" = "aarch64" ] || { echo "::error::expected aarch64, got $arch"; exit 1; }
+          docker run -d --name ra-api-arm64 --platform linux/arm64 --network ra-net -p 8098:8080 \
+            -e NODE_ENV=ci \
+            -e ALERT_EMAIL_TO=ops@example.com \
+            -e PORT=8080 \
+            -e JWT_SECRET="ci-only-not-a-secret-arm64-$GITHUB_RUN_ID" \
+            -e DATABASE_URL="postgres://roadassist:ci-only-not-a-secret@ra-db:5432/roadassist" \
+            roadassist:candidate-arm64 ./docker-start.sh
+          for i in $(seq 1 180); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8098/health)" = "200" ]; then
+              echo "arm64 up after ${i}s"
+              curl -s http://localhost:8098/health; echo
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::the arm64 image never became healthy"; docker logs ra-api-arm64; exit 1
+
       - name: Log in to the registry
         uses: docker/login-action@v3
         with:
@@ -165,11 +214,17 @@ jobs:
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
+      # One multi-arch manifest: each host pulls its own architecture by the
+      # same tag. Both builds are already in the cache, so this assembles
+      # rather than rebuilds.
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: app/Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
+          cache-from: |
+            type=gha
+            type=gha,scope=arm64

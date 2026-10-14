@@ -46,6 +46,13 @@
     <string name="emergency_contacts_sub">SOS पक्का करने पर इन्हें प्राथमिकता के क्रम में अपने-आप SMS जाता है। इस डेमो सर्वर पर SMS सिर्फ़ लॉग होता है, भेजा नहीं जाता।</string>
     <string name="emergency_contacts_empty">अभी कोई नहीं — एक जोड़ें ताकि SOS किसी तक पहुँचे।</string>
     <string name="action_add_contact">संपर्क जोड़ें</string>
+    <string name="tg_invite">Telegram पर आमंत्रित करें</string>
+    <string name="tg_linked">Telegram पर जुड़ा ✓</string>
+    <string name="tg_copy">लिंक कॉपी करें</string>
+    <string name="tg_copied">लिंक कॉपी हो गया</string>
+    <string name="tg_hint">यह लिंक %1$s को भेजें। यह एक बार काम करता है और 7 दिन में समाप्त हो जाता है।</string>
+    <string name="tg_invite_failed">आमंत्रण लिंक नहीं बन सका</string>
+    <string name="sos_contacts_telegram">Telegram पर सूचित: %1$d</string>
     <string name="field_contact_name">संपर्क का नाम</string>
     <string name="field_contact_phone">उनका मोबाइल (+91…)</string>
     <string name="server">सर्वर</string>

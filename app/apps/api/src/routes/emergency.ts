@@ -30,7 +30,8 @@ import { audit } from "../audit.js";
 import { actorRole } from "../domain/actor-role.js";
 import { alerts } from "../alerts.js";
 import { hit, limit, LIMITS } from "../ratelimit.js";
-import { sms } from "../providers.js";
+import { sms, telegram } from "../providers.js";
+import { alertContactsOnTelegram, NO_TELEGRAM } from "../telegram-alerts.js";
 import { publish } from "../realtime.js";
 import { authenticate } from "../auth.js";
 import { t, resolveLocale } from "../i18n.js";
@@ -495,7 +496,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
       logOp(req, { op: "sos.escalate", result: "ok", duplicate: true, incidentId: id, from: inc.status });
       return ok({
         id, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
-        contactsAlerted: 0, alreadyEscalated: true, smsLive: sms.live,
+        contactsAlerted: 0, contactsAlertedTelegram: 0, alreadyEscalated: true, smsLive: sms.live,
         respondersNotified: RESPONDERS_NOTIFIED,
         nearestResponder: again[0] ?? null,
         elapsedMs: Date.now() - t0,
@@ -530,13 +531,22 @@ export async function emergencyRoutes(app: FastifyInstance) {
      * "contacts" row is written then, so a retry after the window can still
      * alert them (see the lease above).
      */
-    const alertCeiling = contacts.length
+    // Contacts who linked a Telegram chat (routes/telegram.ts). That is its own
+    // opt-in, made in the contact's own chat and undone there with /stop, so it
+    // does not depend on the SMS opt-out above; the ceiling below covers both.
+    const telegramTargets = telegram.enabled ? listed.filter((c) => c.telegramChatId) : [];
+    const alertCeiling = contacts.length || telegramTargets.length
       ? hit(`sosAlerts:${inc.userId}`, LIMITS.sosAlerts.max, LIMITS.sosAlerts.windowMs)
       : null;
     const withheld = alertCeiling !== null && !alertCeiling.allowed;
 
-    let contactsAlerted = 0, contactsFailed = 0;
+    let contactsAlerted = 0, contactsFailed = 0, tg = NO_TELEGRAM;
     if (!withheld) {
+      // In parallel with the texts, with its own timeouts and a budget; it
+      // never throws, so it cannot fail or stall the escalation.
+      const telegramSends = alertContactsOnTelegram({
+        incidentId: id, ownerId: inc.userId!, contacts: telegramTargets, log: req.log,
+      });
       for (const c of contacts) {
         // One contact's failed send must not stop the next contact being texted,
         // nor the responder search below.
@@ -550,6 +560,7 @@ export async function emergencyRoutes(app: FastifyInstance) {
           req.log.error({ err, incidentId: id }, "emergency contact alert failed");
         }
       }
+      tg = await telegramSends;
       await db.insert(S.incidentResponses).values({
         incidentId: id, step: "contacts", latencyMs: Date.now() - t0, acknowledged: false,
       });
@@ -572,6 +583,8 @@ export async function emergencyRoutes(app: FastifyInstance) {
       after: {
         status: "RESPONDING", contactsAlerted,
         ...(contactsFailed ? { contactsFailed } : {}),
+        ...(telegramTargets.length ? { contactsAlertedTelegram: tg.sent } : {}),
+        ...(tg.failed ? { contactsFailedTelegram: tg.failed } : {}),
         ...(withheld ? { contactsWithheld: contacts.length } : {}),
         ...(optedOut.length ? { contactsOptedOut: optedOut.length } : {}),
         responderFound: Boolean(responders[0]), elapsedMs: Date.now() - t0,
@@ -590,12 +603,12 @@ export async function emergencyRoutes(app: FastifyInstance) {
     publish(inc.userId, {
       type: "sos.status", incidentId: id, status: finalStatus,
       stage: PUBLIC_STAGE[finalStatus],
-      contactsAlerted, smsLive: sms.live, responderFound: Boolean(responders[0]),
-      respondersNotified: RESPONDERS_NOTIFIED,
+      contactsAlerted, contactsAlertedTelegram: tg.sent, smsLive: sms.live,
+      responderFound: Boolean(responders[0]), respondersNotified: RESPONDERS_NOTIFIED,
     });
     logOp(req, {
       op: "sos.escalate", result: "ok", durationMs: Date.now() - t0, incidentId: id,
-      contactsAlerted, responderFound: Boolean(responders[0]),
+      contactsAlerted, contactsAlertedTelegram: tg.sent, responderFound: Boolean(responders[0]),
     });
 
     alerts.sosConfirmed(id, contactsAlerted);
@@ -610,13 +623,19 @@ export async function emergencyRoutes(app: FastifyInstance) {
       // provider (the hosted demo) that is a log line, not a text on a phone,
       // and smsLive: false says so, so no screen claims a contact was reached.
       smsLive: sms.live,
+      // Telegram messages Telegram accepted, to contacts who linked a chat. No
+      // console stand-in exists, so these are real; a send still in flight
+      // when the budget ran out is pending, not counted.
+      contactsAlertedTelegram: tg.sent,
+      ...(tg.failed ? { contactsFailedTelegram: tg.failed } : {}),
+      ...(tg.pending ? { contactsPendingTelegram: tg.pending } : {}),
       respondersNotified: RESPONDERS_NOTIFIED,
       nearestResponder: responders[0] ?? null,
       elapsedMs: Date.now() - t0,
     }, {
       note: "ERSS 112 handoff is stubbed in development — no real emergency service is contacted.",
       ...(withheld ? {
-        warning: "Emergency contacts were not texted: this account has reached the hourly ceiling on " +
+        warning: "Emergency contacts were not alerted: this account has reached the hourly ceiling on " +
                  "contact alerts. The emergency itself was escalated.",
       } : {}),
       ...(optedOut.length ? {

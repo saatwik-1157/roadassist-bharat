@@ -1389,6 +1389,11 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
     var cName by remember { mutableStateOf("") }
     var cPhone by remember { mutableStateOf("+91") }
     var cBusy by remember { mutableStateOf(false) }
+    // Telegram invites (TelegramInvite.kt): offered only when the server has a bot.
+    // A made link is kept per contact id so it stays on screen to be copied.
+    var telegramOn by remember { mutableStateOf(false) }
+    var tgLinks by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var tgFailed by remember { mutableStateOf<String?>(null) }
     // The address this phone talks to, editable here as well as at sign-in.
     // Read once on entry: queueDepth touches disk, and this is a warning line,
     // not a live counter.
@@ -1402,8 +1407,10 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
     var serverNeedsHttps by remember { mutableStateOf(false) }
     suspend fun loadContacts() {
         try {
-            val arr = Api.get("/v1/me/emergency-contacts").getJSONArray("data")
+            val resp = Api.get("/v1/me/emergency-contacts")
+            val arr = resp.getJSONArray("data")
             contacts = (0 until arr.length()).map { arr.getJSONObject(it) }
+            telegramOn = TelegramInvite.enabled(resp)
         } catch (_: Exception) {}
     }
     LaunchedEffect(Unit) { loadContacts() }
@@ -1535,6 +1542,51 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
                                 }
                             },
                         ) { Text(stringResource(R.string.action_remove), color = Alarm, style = RaType.button) }
+                    }
+                    if (telegramOn) {
+                        val id = c.optString("id")
+                        val made = tgLinks[id]
+                        when {
+                            TelegramInvite.linked(c) -> Text(stringResource(R.string.tg_linked),
+                                color = LocalRa.current.ok, style = RaType.caption)
+                            made == null -> {
+                                TextButton(
+                                    enabled = !cBusy,
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                    onClick = {
+                                        cBusy = true
+                                        tgFailed = null
+                                        scope.launch {
+                                            val link = try {
+                                                TelegramInvite.link(Api.post("/v1/me/emergency-contacts/$id/telegram-invite"))
+                                            } catch (_: Exception) { null }
+                                            if (link != null) tgLinks = tgLinks + (id to link) else tgFailed = id
+                                            cBusy = false
+                                        }
+                                    },
+                                ) { Text(stringResource(R.string.tg_invite), color = Gold, style = RaType.button) }
+                                if (tgFailed == id) {
+                                    Text(stringResource(R.string.tg_invite_failed), color = LocalRa.current.warn,
+                                        style = RaType.caption)
+                                }
+                            }
+                            else -> {
+                                // The link, and a copy button: the user sends it to the contact,
+                                // who opens it and presses Start in Telegram.
+                                Text(stringResource(R.string.tg_hint, c.optString("name")), color = Muted,
+                                    style = RaType.caption, modifier = Modifier.padding(top = 4.dp))
+                                Text(made, color = Cream, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+                                val copied = stringResource(R.string.tg_copied)
+                                TextButton(
+                                    modifier = Modifier.heightIn(min = 48.dp),
+                                    onClick = {
+                                        ctx.getSystemService(android.content.ClipboardManager::class.java)
+                                            ?.setPrimaryClip(android.content.ClipData.newPlainText("Telegram invite", made))
+                                        android.widget.Toast.makeText(ctx, copied, android.widget.Toast.LENGTH_SHORT).show()
+                                    },
+                                ) { Text(stringResource(R.string.tg_copy), color = Gold, style = RaType.button) }
+                            }
+                        }
                     }
                 }
 
@@ -2291,7 +2343,8 @@ private fun SosPanel(
  * The data rung: raise and confirm on the API, and say what the server did.
  *
  * Worded like the web's step list: contacts are "alerted" only when the server
- * says SMS is live (smsLive; the console provider only logs), and a unit is
+ * says SMS is live (smsLive; the console provider only logs) or counted a
+ * Telegram message as accepted (contactsAlertedTelegram), and a unit is
  * "alerted" only when respondersNotified > 0, otherwise it was located, not
  * contacted.
  */
@@ -2303,11 +2356,16 @@ private suspend fun sosDataSummary(ctx: android.content.Context, pos: SosPositio
         else R.string.sos_where_unknown,
     )
     val n = c.optInt("contactsAlerted")
-    val contacts = when {
+    // Telegram messages the server counted as accepted: real, unlike a logged SMS.
+    val tg = TelegramInvite.alerted(c)
+    val sms = when {
+        n == 0 && tg > 0 -> null
         n == 0 -> ctx.getString(R.string.sos_contacts_none)
         c.optBoolean("smsLive", false) -> ctx.getString(R.string.sos_contacts_alerted, n)
         else -> ctx.getString(R.string.sos_contacts_logged, n)
     }
+    val contacts = listOfNotNull(sms, if (tg > 0) ctx.getString(R.string.sos_contacts_telegram, tg) else null)
+        .joinToString(" · ")
     val unit = c.optJSONObject("nearestResponder")?.optString("name")
     val responder = when {
         unit == null -> ctx.getString(R.string.sos_unit_none)

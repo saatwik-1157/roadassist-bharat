@@ -40,6 +40,13 @@
     <string name="emergency_contacts_sub">ನೀವು SOS ದೃಢಪಡಿಸಿದಾಗ ಇವರಿಗೆ ಆದ್ಯತೆಯ ಕ್ರಮದಲ್ಲಿ ತಾನಾಗಿಯೇ SMS ಹೋಗುತ್ತದೆ. ಈ ಡೆಮೊ ಸರ್ವರ್‌ನಲ್ಲಿ SMS ಲಾಗ್ ಮಾತ್ರ ಆಗುತ್ತದೆ, ಕಳಿಸಲಾಗುವುದಿಲ್ಲ.</string>
     <string name="emergency_contacts_empty">ಇನ್ನೂ ಯಾರೂ ಇಲ್ಲ — SOS ಯಾರಿಗಾದರೂ ತಲುಪಲು ಒಬ್ಬರನ್ನು ಸೇರಿಸಿ.</string>
     <string name="action_add_contact">ಸಂಪರ್ಕ ಸೇರಿಸಿ</string>
+    <string name="tg_invite">Telegram ನಲ್ಲಿ ಆಹ್ವಾನಿಸಿ</string>
+    <string name="tg_linked">Telegram ನಲ್ಲಿ ಜೋಡಿಸಲಾಗಿದೆ ✓</string>
+    <string name="tg_copy">ಲಿಂಕ್ ನಕಲಿಸಿ</string>
+    <string name="tg_copied">ಲಿಂಕ್ ನಕಲಾಗಿದೆ</string>
+    <string name="tg_hint">ಈ ಲಿಂಕ್ ಅನ್ನು %1$s ಅವರಿಗೆ ಕಳಿಸಿ. ಇದು ಒಮ್ಮೆ ಮಾತ್ರ ಕೆಲಸ ಮಾಡುತ್ತದೆ ಮತ್ತು 7 ದಿನಗಳಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ.</string>
+    <string name="tg_invite_failed">ಆಹ್ವಾನ ಲಿಂಕ್ ಮಾಡಲಾಗಲಿಲ್ಲ</string>
+    <string name="sos_contacts_telegram">Telegram ನಲ್ಲಿ ತಿಳಿಸಲಾಗಿದೆ: %1$d</string>
     <string name="field_contact_name">ಸಂಪರ್ಕದ ಹೆಸರು</string>
     <string name="field_contact_phone">ಅವರ ಮೊಬೈಲ್ (+91…)</string>
     <string name="server">ಸರ್ವರ್</string>

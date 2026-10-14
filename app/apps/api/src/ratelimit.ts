@@ -117,6 +117,11 @@ export const LIMITS = {
    * through somebody's contact list does.
    */
   sosAlerts: { max: 10, windowMs: 60 * 60_000 },
+  /**
+   * Telegram invite links, per account. Five contacts at most, so twenty an
+   * hour is every contact re-invited four times; a script minting codes is not.
+   */
+  telegramInvite: { max: 20, windowMs: 60 * 60_000 },
 } as const;
 
 /**

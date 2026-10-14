@@ -71,6 +71,13 @@
       "when": 1791384777224,
       "tag": "0009_raksha_source_key",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791901626188,
+      "tag": "0010_telegram_contacts",
+      "breakpoints": true
     }
   ]
 }

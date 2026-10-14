@@ -13,14 +13,14 @@ this project does not have.
 |---|---|
 | Production Docker image builds | ✅ **Verified** — `docker build`, 321 MB, runs as `node` (uid 1000) |
 | Image runs and serves the whole platform | ✅ **Verified** — API, citizen app, mechanic console, authority dashboard, media |
-| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 292 e2e assertions and 106 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
+| Full test suite passes **against the image** | ✅ **Verified** — `publish-image.yml` runs the 312 e2e assertions and 106 security attacks against the built image before every publish; concurrency, gateway and browser run against source in CI |
 | Health check reports the database honestly | ✅ **Verified** — 503 with `database: "down"` when Postgres is unreachable |
 | Graceful shutdown | ✅ **Verified** — SIGTERM → exit code 0, no force kill |
 | Production CORS allowlist | ✅ **Verified** — allowed origin reflected, other origins refused |
 | Startup configuration validation | ✅ **Verified** — refuses to boot and names the variable |
 | Reference-only production seed | ✅ **Verified** — 0 demo rows, API boots and signs in against it |
 | Backup and restore | ✅ **Scheduled, verified and measured** — nightly `backup` sidecar that restores each dump before trusting it; rehearsal 8.4 s, audit hash chain intact across 639 entries |
-| **Deployed to a cloud provider** | ✅ **Demo deployment live** — one Render web service (Docker, free plan, region Singapore, [`render.yaml`](../../render.yaml)) over Neon Postgres + PostGIS (Singapore, `ap-southeast-1`); showcase on GitHub Pages. Steps in the root [`DEPLOYMENT.md`](../../DEPLOYMENT.md). Runs `NODE_ENV=demo`, single instance, sleeps when idle; free tiers offer no India region. |
+| **Deployed to a cloud provider** | ✅ **Demo deployment live** — one Render web service (Docker, free plan, region Singapore, [`render.yaml`](../../render.yaml)) over Neon Postgres + PostGIS (Singapore, `ap-southeast-1`); showcase on GitHub Pages. Steps in the root [`DEPLOYMENT.md`](../../DEPLOYMENT.md). Runs `NODE_ENV=demo`, single instance, sleeps when idle; Render's and Neon's free plans offer no India region. An India-region option is **prepared, not yet live**: [`deploy/oci-india`](../../deploy/oci-india/README.md), one Oracle Cloud Always Free VM in Mumbai/Hyderabad running the app, PostGIS and Caddy. |
 | **HTTPS / custom domain** | ✅ **Live** — `https://app.roadassistbharat.online`, TLS terminated by Render's proxy. The Caddy/nginx configuration in §4 below is the self-hosted path and has still never terminated a real certificate. |
 | **Live payment** | ❌ **Deliberately not enabled.** The demo runs the `mock` provider. The 22 Razorpay checks run against a local stub of Razorpay's API (no account), outside the counted total. Production keys must be a conscious act. |
 
@@ -123,7 +123,7 @@ docker compose -f docker-compose.prod.yml exec api \
   node packages/db/dist/src/seed.js --reference-only
 ```
 
-**Verified.** Run against a fresh database in this audit: 58 tables, 7 roles,
+**Verified.** Run against a fresh database in this audit: 59 tables, 7 roles,
 8 service types, 10 DTC codes, 12 vehicle models — and **0 users, 0 mechanics,
 0 bookings, 0 incidents**. The API was then started against it, `/health`
 returned 200, the service catalogue served, and a first account signed in and
@@ -319,7 +319,7 @@ the reliable order.
 
 ### Rehearsed in this audit — not a paper procedure
 
-Measured against the development database (58 tables, 666 users, 1,601 bookings,
+Measured against the development database (59 tables, 666 users, 1,601 bookings,
 638 audit entries):
 
 | Step | Result |
@@ -406,8 +406,12 @@ copy first, and verify the health check there.
 5. **No load test.** Latency figures in the reports are single-user
    measurements against a local database.
 6. **Hosted outside India.** The demo runs in Singapore (Render + Neon) because
-   the free tiers offer no Indian region; an Indian region (e.g. Mumbai) is the
-   production target. On Render's free plan the disk is ephemeral, so hazard
+   their free plans offer no Indian region; an Indian region (e.g. Mumbai) is the
+   production target. An India-region option is prepared but **not yet live**:
+   [`deploy/oci-india`](../../deploy/oci-india/README.md) runs the app, PostgreSQL
+   + PostGIS and Caddy on one Oracle Cloud Always Free VM in Mumbai or
+   Hyderabad. It is a single VM with on-VM nightly backups, not a managed or
+   replicated database. On Render's free plan the disk is ephemeral, so hazard
    photos are kept in the database instead (ADR-0013; the ones uploaded before
    that change were lost), and the service sleeps after 15 idle minutes.
 
@@ -428,7 +432,8 @@ Rows 1–3 and 7 are now in place for the **demo**: Render (host, Singapore),
 `app.roadassistbharat.online` (DNS at Hostinger), Neon Postgres + PostGIS
 (Singapore) and Resend (email alerts and sign-in codes, from
 `alerts@send.roadassistbharat.online`). A production deployment would need an
-Indian region for all of them. Rows 4–6 still need an account this project
+Indian region for all of them. For the host and the database, an India-region
+option is prepared but not yet live ([`deploy/oci-india`](../../deploy/oci-india/README.md)). Rows 4–6 still need an account this project
 does not have. **None of it has been guessed or stubbed.**
 
 | # | What | Why | Where it goes |

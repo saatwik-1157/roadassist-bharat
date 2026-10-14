@@ -40,6 +40,13 @@
     <string name="emergency_contacts_sub">SOS নিশ্চিত করলে এঁদের অগ্রাধিকার অনুযায়ী নিজে থেকেই SMS পাঠানো হয়। এই ডেমো সার্ভারে SMS শুধু লগ হয়, পাঠানো হয় না।</string>
     <string name="emergency_contacts_empty">এখনও কেউ নেই — একজন যোগ করুন যাতে SOS কারও কাছে পৌঁছায়।</string>
     <string name="action_add_contact">পরিচিতি যোগ করুন</string>
+    <string name="tg_invite">Telegram-এ আমন্ত্রণ জানান</string>
+    <string name="tg_linked">Telegram-এ যুক্ত ✓</string>
+    <string name="tg_copy">লিংক কপি করুন</string>
+    <string name="tg_copied">লিংক কপি হয়েছে</string>
+    <string name="tg_hint">এই লিংকটি %1$s-কে পাঠান। এটি একবারই কাজ করে এবং ৭ দিনে মেয়াদ শেষ হয়।</string>
+    <string name="tg_invite_failed">আমন্ত্রণ লিংক তৈরি করা যায়নি</string>
+    <string name="sos_contacts_telegram">Telegram-এ জানানো হয়েছে: %1$d</string>
     <string name="field_contact_name">পরিচিতির নাম</string>
     <string name="field_contact_phone">তাঁদের মোবাইল (+91…)</string>
     <string name="server">সার্ভার</string>

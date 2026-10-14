@@ -3,7 +3,7 @@
 Threat model: [`security/threat-model.md`](security/threat-model.md) — STRIDE,
 20 threats mapped to controls.
 Penetration suite: [`../scripts/security-audit.mjs`](../scripts/security-audit.mjs) —
-**108 attacks, every one refused.**
+**116 attacks, every one refused.**
 
 Everything below has been executed. A control described here without a test
 beside it says so.
@@ -12,7 +12,7 @@ beside it says so.
 
 ## The one-line summary
 
-`npm run test:security` fires 106 application-level attacks at a running server.
+`npm run test:security` fires 116 application-level attacks at a running server.
 The suite passes when the platform **refuses** — "we tried and could not get in"
 is a materially different claim from "the code looks right". It runs in CI.
 
@@ -97,6 +97,42 @@ failing provider cannot delay a sign-in or an SOS. Off unless `ALERT_EMAIL_TO`
 is set. Resend is therefore an email **processor** for alerts and for sign-in
 codes, which go to the listed address.
 
+### Telegram alerts for emergency contacts
+
+Free SOS alerts over the Telegram Bot API, off unless `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_BOT_USERNAME` and `TELEGRAM_WEBHOOK_SECRET` are all set
+(`apps/api/src/routes/telegram.ts`, rules in `apps/api/src/domain/telegram.ts`):
+
+- **Consent is the contact's own act.** The user gets a one-time invite link
+  per contact; nobody is messaged until that contact opens it and presses
+  Start in their own chat, and `/stop` there unlinks it. Group chats are
+  refused, so an emergency is never broadcast to a group.
+- **Invite codes** are 144 random bits, stored only as a SHA-256 hash, valid
+  7 days, and claimed by one conditional UPDATE (unused, unexpired, not
+  withdrawn), so a replayed, expired or replaced code links nothing and two
+  Starts cannot both win. A new invite withdraws the previous one; 20 invites
+  an hour per account.
+- **The webhook** believes only a request carrying our secret in
+  `X-Telegram-Bot-Api-Secret-Token` (set through `setWebhook`), compared in
+  constant time; anything else gets 401 before the body is read for a command.
+- **What a message carries**: the user's first name (letters only, so a number
+  typed as a name cannot leak) or "a RoadAssist user", the incident reference,
+  the time and a map link. Never a phone number. The chat id never leaves the
+  server: the contact list says only `telegramLinked`.
+- **The SOS is never held hostage.** Sends run in parallel with a 4-second
+  timeout per attempt, up to three attempts, and a 7-second budget; failures
+  are logged (without the chat id or the token) and the answer's
+  `contactsAlertedTelegram` counts only messages Telegram accepted. They share
+  the per-owner `sosAlerts` ceiling with SMS.
+
+**Verified by:** `telegram.test.ts` (hashing, expiry, single use, commands, the
+secret compare, the configuration gate, retries, no token in an error, no phone
+number in any message), `e2e-journey.mjs` §41 and `security-audit.mjs` §14
+(no secret or a wrong one: 401; replayed, expired, withdrawn and group-chat
+codes refused; `/stop` unlinks), both against a local stub of the Bot API —
+never `api.telegram.org`. Telegram is outside India and receives the first name
+and position in an alert: declared in `scripts/check-data-residency.mjs`.
+
 ## Authorization
 
 Two independent layers, and the second is the one that matters.
@@ -149,11 +185,11 @@ client save up an hour of allowance and spend it in one second.
 
 - the SOS ceiling sits far above any human rate — 30 in five minutes
   (`LIMITS.sos`), applied to `POST /v1/sos` at
-  `apps/api/src/routes/emergency.ts:63`;
+  `apps/api/src/routes/emergency.ts:65`;
 - a double tap is absorbed by **idempotency**, not throttling;
 - and `POST /v1/sos/:id/confirm` — the call that actually summons help — is
   **never rate limited at all**: its route carries `authenticate` and nothing
-  else (`apps/api/src/routes/emergency.ts:387`).
+  else (`apps/api/src/routes/emergency.ts:388`).
 
 Verified: ten genuine SOS in a row are all accepted; a booking flood is
 throttled; every 429 carries `retryAfterSeconds` so a client can back off
@@ -194,7 +230,7 @@ preserved for exactly that reason.
 
 The **inbound SMS** webhook can raise an SOS for any phone number it is handed,
 so when `TELECOM_WEBHOOK_SECRET` is unset it now **says so on every response**:
-`"UNSIGNED INTAKE — … Development only."` (`apps/api/src/routes/telecom.ts:277`).
+`"UNSIGNED INTAKE — … Development only."` (`apps/api/src/routes/telecom.ts:289`).
 Production cannot reach that state; `assertProductionSafe()` refuses to boot
 without the secret. *(This was a real
 finding: the code comment claimed the state was "flagged" and it was not.)*
@@ -217,7 +253,8 @@ Audited actions: `auth.login`, `sos.created`, `sos.cancelled`, `sos.escalated`,
 `dispatch.provider_offered`, `dispatch.provider_accepted`,
 `dispatch.provider_rejected`, `dispatch.escalated`, `booking.status_changed`,
 `payment.webhook.captured`, `sync.completed`, `medical.break_glass_read`,
-`mechanic.on_duty` / `off_duty`.
+`mechanic.on_duty` / `off_duty`, `telegram.invite_created`, `telegram.linked`,
+`telegram.unlinked`.
 
 ## Sensitive data
 
@@ -226,7 +263,7 @@ role, an incident that is **currently live**, and a written reason of 10–300
 characters. It writes a `break_glass_access` row and the subject is told it
 happened. There is no route to it for any other role. The role gate and the
 reason's length sit at the top of the route; the live-incident check is
-`apps/api/src/server.ts:1902`.
+`apps/api/src/server.ts:1908`.
 
 **Logging.** `observability.ts` redacts, at any depth (the field list is
 `apps/api/src/observability.ts:26`): tokens, authorization
@@ -252,13 +289,17 @@ screen**. No token, payment credential or server secret is ever stored there.
 ## Transport and origins
 
 Production requires an explicit `CORS_ORIGINS` allowlist and refuses to boot
-without one (`apps/api/src/env.ts:404`) — reflecting the caller's `Origin` is
+without one (`apps/api/src/env.ts:423`) — reflecting the caller's `Origin` is
 functionally "any website may call this API with your users' credentials". Verified: an allowed origin is
 reflected, any other gets no allow-origin header.
 
 `TRUST_PROXY` is **off by default and never inferred**. Trusting every hop lets
 any client forge `X-Forwarded-For` and walk through the per-IP OTP ceiling; the
-server logs a warning if it is set to `true`.
+server logs a warning if it is set to `true`. The prepared (not live) India VM
+in `deploy/oci-india` has no Cloudflare in front, so it does the opposite of
+Render: `CLIENT_IP_HEADER` is empty, `TRUST_PROXY` names only Caddy's fixed
+address on the compose network, and Caddy overwrites `X-Forwarded-For` and
+strips `CF-Connecting-IP`, `X-Real-IP` and `True-Client-IP` from callers.
 
 `/health` returns only liveness and readiness to anonymous callers. Provider
 names, environment, uptime and live stream counts moved behind `?detail=1` plus
@@ -295,7 +336,11 @@ and `earthquake.usgs.gov`. All five are outside India.
 position rounded to about 110 m is still personal data, sent outside India.
 That is a stated exception to non-negotiable #4, acceptable only because the
 demo already runs in Singapore. Self-hosted Nominatim and OSRM in an Indian
-region is the production answer, and is not built.
+region is the production answer, and is not built. An India-region option for
+the platform and its database is prepared but **not yet live**
+([`deploy/oci-india`](../../deploy/oci-india/README.md)); moving to it would end
+the "already in Singapore" premise, and this exception would then need its own
+justification or the coarsened look-ups turned off.
 
 ## Secrets
 
@@ -336,7 +381,7 @@ answers 404 on the live hosts. What changed:
 | Behind Cloudflare, the client address came from `X-Forwarded-For`, which the caller writes — every per-IP limit could be dodged | High | `CLIENT_IP_HEADER=cf-connecting-ip`: the address the edge saw, used only when it is a valid IP (`client-ip.ts`) | `route-limits.test.ts` |
 | No security headers | Medium | CSP (`object-src 'none'`, `frame-ancestors` limited to the showcase, `base-uri`/`form-action 'self'`, inline scripts by hash only), nosniff, Referrer-Policy, Permissions-Policy, COOP, CORP, HSTS over HTTPS; `no-store` on the API (CSP built at `apps/api/src/security-headers.ts:89`) | `security-headers.test.ts`, `e2e-journey.mjs` §25 |
 | No sign-out on the server — a stolen refresh token outlived "sign out" | Medium | `POST /v1/auth/logout` revokes the whole session family; its access tokens are refused as `AUTH_REVOKED` | `security-audit.mjs` (9 checks) |
-| A repeated SOS confirm re-texted every emergency contact | Medium | Confirm is idempotent per incident — a compare-and-swap into RESPONDING, `apps/api/src/routes/emergency.ts:441`; at most 10 alert batches an hour per account (the escalation itself is never limited); at most 5 contacts, each number once | Contacts: `e2e-journey.mjs` §25. Confirm idempotency and the alert cap: a manual probe (10 simultaneous confirms, one send) — **not yet in a counted suite** |
+| A repeated SOS confirm re-texted every emergency contact | Medium | Confirm is idempotent per incident — a compare-and-swap into RESPONDING, `apps/api/src/routes/emergency.ts:442`; at most 10 alert batches an hour per account (the escalation itself is never limited); at most 5 contacts, each number once | Contacts: `e2e-journey.mjs` §25. Confirm idempotency and the alert cap: a manual probe (10 simultaneous confirms, one send) — **not yet in a counted suite** |
 | The generic transition route let a non-admin issue `mechanic.accept` and other system commands | Medium | 409 `command_not_allowed`; only the customer or an admin may cancel | `e2e-journey.mjs` §25 |
 | Another user's idempotency key replayed *their* booking | Medium | 409 `idempotency_key_in_use` | `e2e-journey.mjs` §25 |
 | The tile proxies would fetch any tile, anywhere, unlimited | Low | Only tiles that exist, over the region, 1,200 a minute | `route-limits.test.ts` |
@@ -393,7 +438,7 @@ live database: `pg_stat_activity` shows the running service connected as
 
 ## Known gaps
 
-1. **No external penetration test.** 108 self-written attacks is not the same
+1. **No external penetration test.** 116 self-written attacks is not the same
    thing.
 2. **Rate limiting is per-instance.** See above.
 3. **No column-level encryption at rest in Postgres.** Medical data is protected
@@ -406,3 +451,6 @@ live database: `pg_stat_activity` shows the running service connected as
    `NODE_ENV=demo`, which is what the live demo and `docker-compose.demo.yml`
    run.
    See "Outbound calls for location services" above.
+7. **Telegram alerts, when turned on, send a first name and a position to
+   Telegram**, outside India. Off unless the three `TELEGRAM_*` variables are
+   set; see "Telegram alerts for emergency contacts" above.

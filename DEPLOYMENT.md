@@ -191,6 +191,68 @@ you@example.com=+919999900001, teammate@example.com=+919600000000
 The boot log prints `email sign-in: N account(s)`, and any malformed entry is
 logged as ignored rather than half-applied.
 
+## Optional · How to turn on Telegram alerts (free) — **YOU**
+
+The demo's SMS is only logged (`SMS_PROVIDER=console`, `smsLive: false`), and
+real SMS in India costs money per text. The Telegram Bot API is free, so with
+a bot configured an SOS can genuinely reach emergency contacts who opt in:
+
+- In the app, **More → Emergency contacts** shows **Invite on Telegram** beside
+  each contact. It makes a one-time link (`https://t.me/<bot>?start=<code>`,
+  valid 7 days, stored only as a hash) for the user to send to that contact.
+- The contact opens it and presses **Start**. Telegram calls the API's webhook,
+  which links that chat and replies "You are now an emergency contact for
+  <first name>…". Never the user's phone number. `/stop` in the chat unlinks.
+- Every confirmed SOS (app or SMS) then messages each linked contact: who, the
+  incident ref, the time and a map link. The SOS screen says "N contacts
+  alerted on Telegram", counting only messages Telegram accepted; the SMS
+  wording is unchanged.
+
+With the three variables below unset, all of this is off and the apps show no
+invite. Telegram is outside India and receives the first name and position in
+an alert (declared in `check-data-residency.mjs`; see app/docs/SECURITY.md).
+
+1. **Create the bot.** In Telegram, message [@BotFather](https://t.me/BotFather),
+   send `/newbot`, and pick a name and a username ending in `bot`. It replies
+   with a token. Treat the token like a password: never commit it or paste it
+   into a chat. This project's bot is `@RoadAssistBharatAlertsBot`, so its
+   `TELEGRAM_BOT_USERNAME` is `RoadAssistBharatAlertsBot`.
+2. **Make a webhook secret**: 24-256 random characters of `A-Z a-z 0-9 _ -`,
+   for example `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`.
+3. **Set three variables** in Render → **roadassist → Environment** (the
+   blueprint lists them, `sync: false`): `TELEGRAM_BOT_TOKEN` (the token),
+   `TELEGRAM_BOT_USERNAME` (the username, without `@`) and
+   `TELEGRAM_WEBHOOK_SECRET` (step 2). Save and deploy. The boot log prints
+   `telegram alerts: on, as @<bot>`, or `off (…unset)`.
+4. **Point the bot at the webhook, once**, from your own machine. The script reads
+   both values from the environment and never prints them:
+
+   ```bash
+   cd app
+   read -rsp 'Bot token: ' TELEGRAM_BOT_TOKEN && export TELEGRAM_BOT_TOKEN && echo
+   read -rsp 'Webhook secret: ' TELEGRAM_WEBHOOK_SECRET && export TELEGRAM_WEBHOOK_SECRET && echo
+   node scripts/telegram-set-webhook.mjs https://<your-api-host>
+   node scripts/telegram-set-webhook.mjs --info    # what Telegram has now
+   ```
+
+   or the same call with curl (this one leaves the token in your shell history):
+
+   ```bash
+   curl -s "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+     -d "url=https://<your-api-host>/v1/telegram/webhook" \
+     -d "secret_token=<WEBHOOK_SECRET>" \
+     -d 'allowed_updates=["message"]'
+   ```
+
+   Telegram then sends the secret in `X-Telegram-Bot-Api-Secret-Token` on every
+   update, and the API answers 401 to any request without it.
+5. **Try it**: add yourself as a contact from a second account, press **Invite
+   on Telegram**, open the link on your phone, press Start, then raise and
+   confirm an SOS. Send `/stop` afterwards.
+
+To turn it off, unset any of the three variables, or run
+`node scripts/telegram-set-webhook.mjs --delete`.
+
 ## Optional · Location services — on by default, **YOU** decide
 
 The citizen app's "Near you" card, the road ETA on a live rescue, the RAKSHA
@@ -370,7 +432,7 @@ The image is not trusted because it built. `.github/workflows/publish-image.yml`
 boots it against a real PostGIS and runs the suites **against the running
 container** before publishing:
 
-- 292 end-to-end assertions and 106 security attacks, `API=` pointed at the
+- 312 end-to-end assertions and 106 security attacks, `API=` pointed at the
   container
 - every surface answers 200: `/app.html`, `/mechanic.html`, `/raksha.html`,
   `/map.html`, `/health`, `/v1/ping`
@@ -418,6 +480,12 @@ deliberately keeps in one process, adding a CORS boundary and a second
 deployment unit in exchange for nothing — and the API would still need a home.
 
 The project deploys to Render (Docker, Singapore) over Neon, and nowhere else.
+An India-region option is **prepared, not yet live**:
+[`deploy/oci-india`](deploy/oci-india/README.md) runs the same image, PostgreSQL
++ PostGIS and Caddy (Let's Encrypt) on one Oracle Cloud Always Free VM in
+Mumbai or Hyderabad, because Neon's free plan has no India region. It is a
+single VM with on-VM nightly backups, and switching to it is a DNS change at
+Hostinger that one more DNS change undoes.
 An unused Fly.io config (`fly.toml`) was removed on 2026-10-05; see git history
 at 3d0340b.
 

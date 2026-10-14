@@ -99,7 +99,8 @@
    * not contacting it: the server reports `respondersNotified` separately, and
    * a missing field (an older server) counts as zero, never as "probably".
    *
-   *   lines   — i18n keys, in reading order; {n} is `contacts`, {ref} the caller's
+   *   lines   — i18n keys, in reading order; {n} is `contacts`, {t} is
+   *             `telegram`, {ref} the caller's
    *   call112 — no responder was reached, so Call 112 leads the screen
    *   reached — at least one person or unit was actually contacted
    */
@@ -114,6 +115,10 @@
     // only when the server says it is real.
     var smsLive = d.smsLive === true;
     var texted = smsLive ? contacts : 0;
+    // Telegram messages the Bot API accepted, to contacts who linked a chat
+    // (routes/telegram.ts). There is no "logged only" Telegram provider, so a
+    // count here is a real message; absent is zero.
+    var telegram = count(d.contactsAlertedTelegram);
     var lines = ["sos.done.recorded"];
     if (responders > 0) lines.push("sos.done.responders");
     if (contacts > 0) {
@@ -121,12 +126,13 @@
         ? (contacts === 1 ? "sos.done.contacts.one" : "sos.done.contacts")
         : (contacts === 1 ? "sos.done.contacts.logged.one" : "sos.done.contacts.logged"));
     }
+    if (telegram > 0) lines.push(telegram === 1 ? "sos.done.telegram.one" : "sos.done.telegram");
     // A repeat confirm texts nobody; whether the first one did is not in this answer.
     if (repeat) lines.push("sos.done.repeat");
-    if (responders === 0) lines.push(texted > 0 || repeat ? "sos.done.noResponder" : "sos.done.none");
+    if (responders === 0) lines.push(texted > 0 || telegram > 0 || repeat ? "sos.done.noResponder" : "sos.done.none");
     return {
-      contacts: contacts, responders: responders, repeat: repeat, smsLive: smsLive,
-      reached: texted > 0 || responders > 0, call112: responders === 0, lines: lines,
+      contacts: contacts, telegram: telegram, responders: responders, repeat: repeat, smsLive: smsLive,
+      reached: texted > 0 || telegram > 0 || responders > 0, call112: responders === 0, lines: lines,
     };
   }
 
@@ -134,7 +140,8 @@
   function sosHeadline(data, ref, t) {
     var o = sosOutcome(data);
     return o.lines.map(function (key) {
-      return String(t(key)).replace("{n}", String(o.contacts)).replace("{ref}", String(ref));
+      return String(t(key)).replace("{n}", String(o.contacts)).replace("{t}", String(o.telegram))
+        .replace("{ref}", String(ref));
     }).join(" ");
   }
 

@@ -79,6 +79,15 @@ const DECLARED_EGRESS = {
   "earthquake.usgs.gov":
     "OUTSIDE INDIA (USA) - recent earthquakes in and around India for the RAKSHA dashboard. " +
     "Carries nothing about any user: a fixed bounding box and a date.",
+  "api.telegram.org":
+    "OUTSIDE INDIA (Telegram FZ-LLC, Dubai; data centres outside India) - OPTIONAL, free SOS alerts " +
+    "to emergency contacts (providers.ts, routes/telegram.ts), off unless TELEGRAM_BOT_TOKEN, " +
+    "TELEGRAM_BOT_USERNAME and TELEGRAM_WEBHOOK_SECRET are all set. Sent SERVER-SIDE, so no visitor " +
+    "address reaches it, and only to a chat whose owner opened a one-time invite and pressed Start. " +
+    "An SOS alert carries the user's FIRST NAME, the incident reference, the time and the POSITION " +
+    "as a map link - personal data, in the same tension with non-negotiable #4 as Open-Meteo, and " +
+    "accepted because the alternative on the demo is that nobody is told. Never a phone number " +
+    "(apps/api/test/telegram.test.ts fails if one appears).",
   "api.twilio.com":
     "OUTSIDE INDIA (USA) - an OPTIONAL fallback SMS provider, selected only by setting " +
     "SMS_PROVIDER=twilio. Carries a phone number and message body, so enabling it for Indian " +

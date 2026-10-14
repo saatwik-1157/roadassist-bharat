@@ -40,6 +40,13 @@
     <string name="emergency_contacts_sub">તમે SOS પાકો કરો ત્યારે આમને પ્રાથમિકતાના ક્રમમાં આપમેળે SMS જાય છે. આ ડેમો સર્વર પર SMS ફક્ત લૉગ થાય છે, મોકલાતો નથી.</string>
     <string name="emergency_contacts_empty">હજી કોઈ નથી — એક ઉમેરો જેથી SOS કોઈ સુધી પહોંચે.</string>
     <string name="action_add_contact">સંપર્ક ઉમેરો</string>
+    <string name="tg_invite">Telegram પર આમંત્રણ આપો</string>
+    <string name="tg_linked">Telegram પર જોડાયેલ ✓</string>
+    <string name="tg_copy">લિંક કૉપી કરો</string>
+    <string name="tg_copied">લિંક કૉપી થઈ</string>
+    <string name="tg_hint">આ લિંક %1$sને મોકલો. તે એક જ વાર ચાલે છે અને 7 દિવસમાં સમાપ્ત થાય છે.</string>
+    <string name="tg_invite_failed">આમંત્રણ લિંક બનાવી શકાઈ નહીં</string>
+    <string name="sos_contacts_telegram">Telegram પર જાણ કરાઈ: %1$d</string>
     <string name="field_contact_name">સંપર્કનું નામ</string>
     <string name="field_contact_phone">તેમનો મોબાઈલ (+91…)</string>
     <string name="server">સર્વર</string>

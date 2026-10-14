@@ -427,6 +427,7 @@
             <span class="pill gold bare" id="ec-count">—</span>
           </div>
           <p class="meta" style="margin-top:4px">Texted when you confirm an SOS, in priority order — if this server has a live SMS provider. The SOS screen says which happened; without one, the text is only logged.</p>
+          <p class="meta" id="ec-tg-note" style="margin-top:4px" hidden>Free on Telegram: send a contact their invite link. Once they open it and press Start, every SOS you confirm also messages them there, and the SOS screen counts only the messages Telegram accepted.</p>
           <div id="ec-list" class="reveal" style="margin-top:10px"></div>
           <div class="field-row" style="margin-top:4px">
             <label class="field"><span>Name</span><input id="ec-name" placeholder="Amma"></label>
@@ -3357,11 +3358,17 @@
         ["Location shared", located, located ? "precise GPS" : "unknown — call 112"],
         // "none on file" only when that is why: a withheld, opted-out, failed
         // or repeated send also alerts nobody, and is not an empty list.
-        // Ticked only for texts a live provider sent; the console provider logs.
-        ["Contacts notified", outcome.contacts > 0 && outcome.smsLive,
-          outcome.contacts
-            ? (outcome.smsLive ? outcome.contacts + " alerted"
-              : tr("sos.contacts.logged", "{n} logged, not sent").replace("{n}", String(outcome.contacts)))
+        // Ticked only for texts a live provider sent (the console provider
+        // logs) or Telegram messages Telegram accepted.
+        ["Contacts notified", (outcome.contacts > 0 && outcome.smsLive) || outcome.telegram > 0,
+          outcome.contacts || outcome.telegram
+            ? [outcome.contacts
+                ? (outcome.smsLive ? outcome.contacts + " alerted"
+                  : tr("sos.contacts.logged", "{n} logged, not sent").replace("{n}", String(outcome.contacts)))
+                : "",
+               outcome.telegram
+                ? tr("sos.contacts.telegram", "{t} on Telegram").replace("{t}", String(outcome.telegram))
+                : ""].filter(Boolean).join(" · ")
             : c.data.alreadyEscalated || c.data.contactsWithheld || c.data.contactsOptedOut || c.data.contactsFailed
               ? "0 alerted" : "none on file"],
         ["Responder search", Boolean(resp), !resp ? "no unit in range"
@@ -3848,6 +3855,9 @@
     try {
       var r = await api("GET", "/v1/me/emergency-contacts", null, { force: true });
       $("ec-count").textContent = r.data.length + (r.data.length === 1 ? " contact" : " contacts");
+      // The invite is offered only when the server has a Telegram bot configured.
+      var tgOn = Boolean(r.meta && r.meta.telegram && r.meta.telegram.enabled);
+      $("ec-tg-note").hidden = !tgOn;
       if (!r.data.length) {
         // It used to say an SOS "still reaches responders": the server contacts
         // no responder (it locates the nearest unit and says so), so it does not.
@@ -3856,12 +3866,40 @@
         return;
       }
       $("ec-list").innerHTML = r.data.map(function (c) {
+        // Linked: a badge. Not linked: the invite button; its link appears below it (data-tg-out).
+        var tg = !tgOn ? "" : "<span style='display:block;margin-top:7px'>" + (c.telegramLinked
+          ? "<span class='pill ok bare'>" + esc(tr("ec.tg.linked", "Linked on Telegram ✓")) + "</span></span>"
+          : "<button class='chip' data-tg='" + esc(c.id) + "' data-name='" + esc(c.name) + "'>" +
+              esc(tr("ec.tg.invite", "Invite on Telegram")) + "</button></span><span data-tg-out hidden></span>");
         return "<div class='row' style='padding:11px 0'>" +
           "<span class='avatar' style='width:34px;height:34px;font-size:14px'>" + esc(c.name[0]) + "</span>" +
           "<span class='grow'><b>" + esc(c.name) + "</b><small>" + esc(c.msisdn) +
-          (c.relation ? " · " + esc(c.relation) : "") + " · priority " + esc(c.priority) + "</small></span>" +
+          (c.relation ? " · " + esc(c.relation) : "") + " · priority " + esc(c.priority) + "</small>" + tg + "</span>" +
           "<button class='chip warn' data-ec='" + esc(c.id) + "' aria-label='Remove " + esc(c.name) + "'>Remove</button></div>";
       }).join("");
+      $("ec-list").querySelectorAll("[data-tg]").forEach(function (b) {
+        b.onclick = busy(b, async function () {
+          try {
+            var inv = await api("POST", "/v1/me/emergency-contacts/" + b.getAttribute("data-tg") + "/telegram-invite", {}, { force: true });
+            var link = String(inv.data.link || ""), out = b.parentNode.nextSibling;
+            // Only ever a t.me link: it is the one thing this box may hand on.
+            if (link.indexOf("https://t.me/") !== 0) throw new Error("Unexpected invite link");
+            out.hidden = false; out.style.display = "block";
+            out.innerHTML = "<span class='hint' style='display:block;margin:7px 0 6px'>" + esc(tr("ec.tg.hint",
+                "Send this link to {name}. It works once and expires in 7 days.").replace("{name}", b.getAttribute("data-name"))) +
+              "</span><span style='display:flex;gap:6px;align-items:center'><input readonly value='" + esc(link) +
+              "' aria-label='Telegram invite link' style='flex:1;min-width:0;font-size:12px'><button class='chip'>" +
+              esc(tr("ec.tg.copy", "Copy link")) + "</button></span>";
+            var input = out.querySelector("input");
+            input.onfocus = function () { input.select(); };
+            out.querySelector("button").onclick = async function () {
+              // No clipboard (plain http, an old browser): the link is selected for a manual copy.
+              try { await navigator.clipboard.writeText(link); toast(tr("ec.tg.copied", "Link copied"), "ok"); buzz(8); }
+              catch (_) { input.focus(); input.select(); }
+            };
+          } catch (e) { toast(e.message, "bad"); }
+        });
+      });
       $("ec-list").querySelectorAll("[data-ec]").forEach(function (b) {
         b.onclick = async function () {
           try {

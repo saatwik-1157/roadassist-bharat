@@ -50,6 +50,14 @@
     <string name="emergency_contacts_sub">Texted automatically when you confirm an SOS, in priority order. On this demo server SMS is only logged, not sent.</string>
     <string name="emergency_contacts_empty">None yet — add one so SOS can reach someone.</string>
     <string name="action_add_contact">Add contact</string>
+    <!-- Telegram invites for emergency contacts (TelegramInvite.kt, server routes/telegram.ts). -->
+    <string name="tg_invite">Invite on Telegram</string>
+    <string name="tg_linked">Linked on Telegram ✓</string>
+    <string name="tg_copy">Copy link</string>
+    <string name="tg_copied">Link copied</string>
+    <string name="tg_hint">Send this link to %1$s. It works once and expires in 7 days.</string>
+    <string name="tg_invite_failed">Could not make an invite link</string>
+    <string name="sos_contacts_telegram">alerted on Telegram: %1$d</string>
     <string name="field_contact_name">Contact name</string>
     <string name="field_contact_phone">Their mobile (+91…)</string>
     <string name="server">Server</string>

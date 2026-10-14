@@ -1,0 +1,232 @@
+# RoadAssist Bharat on one OCI Always Free Ampere A1 VM (India region).
+#
+# Written to /opt/roadassist/compose.yml by cloud-init.yaml, which embeds this
+# file (after editing it, run node deploy/oci-india/build-cloud-init.mjs).
+# Every ${...} comes from /opt/roadassist/.env (see env.example).
+#
+#   cd /opt/roadassist && sudo docker compose up -d
+#
+# db       PostgreSQL 16 + PostGIS 3.4, on this VM. No host port.
+# app      the image Render runs (multi-arch, publish-image.yml)
+# caddy    HTTPS with a Let's Encrypt certificate, ports 80/443
+# backup   daily verified pg_dump into /opt/roadassist/backups, 7 kept
+# db-grants  one-shot: re-applies least-privilege-role.sql after migrations
+#
+# ONE VM: no managed backups, no replica, no failover. See README, "What this
+# setup is and is not".
+name: roadassist
+
+x-db-image: &db-image
+  # PostgreSQL 16 + PostGIS 3.4, as docker-compose.demo.yml runs it locally.
+  # NOT postgis/postgis:16-3.4 itself: that tag is published for amd64 only and
+  # this VM is arm64. imresamu/postgis is the multi-arch build of the same
+  # postgis/docker-postgis Dockerfiles (same entrypoint, same variables).
+  image: imresamu/postgis:16-3.4
+
+services:
+  db:
+    <<: *db-image
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: roadassist
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+      # Read once, by db-init/10-roadassist-roles.sh, on the very first start.
+      DB_OWNER_PASSWORD: ${DB_OWNER_PASSWORD:?set DB_OWNER_PASSWORD in .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?set DB_APP_PASSWORD in .env}
+    # NO `ports:`. The database is reachable only on the internal `data`
+    # network, by the name `db`, from the services below. Not from the
+    # internet, and not even from the VM's own shell except through Docker.
+    networks:
+      data: {}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+      - ./repo/app/packages/db/sql:/roadassist-sql:ro
+    healthcheck:
+      # -h 127.0.0.1: a TCP check, so the temporary init-time server (unix
+      # socket only) does not count as ready. Same reasoning as the demo file.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d roadassist"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 30s
+    stop_grace_period: 60s
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  app:
+    image: ghcr.io/saatwik-1157/roadassist-bharat:${IMAGE_TAG:-latest}
+    # Migrate as the owner, unset the owner's string, seed the demo fleet,
+    # then serve - exactly what Render runs.
+    command: ["./docker-start.sh"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # Listed one by one, NOT env_file: .env also holds the superuser's and the
+    # owner's passwords, and only what is listed here reaches the app.
+    environment:
+      NODE_ENV: ${NODE_ENV:-demo}
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      # `db` is a single-label container name, so the driver connects without
+      # TLS (packages/db/src/client.ts, requiredSsl); the traffic never leaves
+      # the internal network.
+      DATABASE_URL: postgres://roadassist_app:${DB_APP_PASSWORD}@db:5432/roadassist
+      # docker-start.sh migrates with this, then unsets it before the API and
+      # the seeds start.
+      MIGRATION_DATABASE_URL: postgres://roadassist_owner:${DB_OWNER_PASSWORD}@db:5432/roadassist
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      # Believe X-Forwarded-For / X-Forwarded-Proto only from Caddy's fixed
+      # address below. Caddy overwrites X-Forwarded-For with the address that
+      # really connected, so req.ip is the caller and the per-IP OTP ceiling
+      # counts each caller separately; X-Forwarded-Proto makes req.protocol
+      # "https", which is what turns HSTS on.
+      TRUST_PROXY: "172.30.53.10"
+      # EMPTY on purpose. On Render this is cf-connecting-ip, because
+      # Cloudflare overwrites that header. Nothing here does, so trusting it
+      # would let any caller pick their own address. (Caddy strips it too.)
+      CLIENT_IP_HEADER: ""
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS in .env}
+      SMS_PROVIDER: ${SMS_PROVIDER:-console}
+      PAYMENTS_PROVIDER: ${PAYMENTS_PROVIDER:-mock}
+      EXPOSE_DEV_OTP: ${EXPOSE_DEV_OTP:-true}
+      SEED_DEMO_FLEET: ${SEED_DEMO_FLEET:-true}
+      UPLOAD_DIR: /repo/app/var/uploads
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-console}
+      EMAIL_BASE_URL: ${EMAIL_BASE_URL:-}
+      EMAIL_FROM: "${EMAIL_FROM:-RoadAssist <no-reply@roadassist.in>}"
+      EMAIL_API_KEY: ${EMAIL_API_KEY:-}
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      ALERT_LABEL: "${ALERT_LABEL:-RoadAssist-Bharat on OCI India}"
+      EMAIL_SIGNIN: ${EMAIL_SIGNIN:-}
+      # Telegram alerts for emergency contacts: off unless all three are set.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+    # Not published on the host: only Caddy, on `edge`, reaches it.
+    expose:
+      - "8080"
+    networks:
+      edge: {}     # Caddy, and the way out (Resend, map and weather services)
+      data: {}     # the database
+    volumes:
+      # Only used with PHOTO_STORE=disk; demo mode keeps photos in the database.
+      - uploads:/repo/app/var
+    stop_grace_period: 30s
+    healthcheck:
+      # /health answers 503 when the database is unreachable: readiness, not
+      # merely "the process is alive".
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:8080/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    logging: *logging
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"         # ACME HTTP-01 challenge and the redirect to https
+      - "443:443"       # HTTPS
+      - "443:443/udp"   # HTTP/3
+    environment:
+      SITE_ADDRESSES: ${SITE_ADDRESSES:-app.roadassistbharat.online}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and the ACME account. Losing them means asking Let's
+      # Encrypt again, which is rate limited, so they live in a named volume.
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      edge:
+        ipv4_address: 172.30.53.10
+    depends_on:
+      - app
+    healthcheck:
+      # The admin API listens on localhost inside the container only.
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://127.0.0.1:2019/config/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging: *logging
+
+  # The repository's own nightly backup (app/scripts/backup.sh, also used by
+  # app/docker-compose.prod.yml): a dump at BACKUP_AT_HOUR UTC and one at
+  # start, each restored into a scratch database and checked (audit_log rows,
+  # append-only rules) before it is trusted; older dumps pruned only after a
+  # good one. 21 UTC is 02:30 IST. KEEP_DAYS=6 deletes dumps 7+ days old, so
+  # the last 7 daily dumps stay. They land in /opt/roadassist/backups on the
+  # VM: copy them OFF the VM yourself (README, "Backups").
+  backup:
+    <<: *db-image
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: postgres
+      POSTGRES_DB: roadassist
+      BACKUP_AT_HOUR: ${BACKUP_AT_HOUR:-21}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-6}
+      BACKUP_VERIFY: "1"
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup.sh"]
+    networks:
+      data: {}
+    volumes:
+      - ./backups:/backups
+      - ./repo/app/scripts/backup.sh:/usr/local/bin/backup.sh:ro
+    logging: *logging
+
+  # One-shot, after the app is healthy (so its migrations have run): the
+  # least-privilege file again, as the owner. It grants the app DML on tables
+  # that now exist and takes UPDATE/DELETE on audit_log away - the default
+  # privileges set at first start cannot express that exception.
+  db-grants:
+    <<: *db-image
+    restart: "no"
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${DB_OWNER_PASSWORD}
+    entrypoint:
+      - psql
+      - "--host=db"
+      - "--username=roadassist_owner"
+      - "--dbname=roadassist"
+      - "--no-psqlrc"
+      - "--quiet"
+      - "--set=ON_ERROR_STOP=1"
+      - "--file=/roadassist-sql/least-privilege-role.sql"
+    networks:
+      data: {}
+    volumes:
+      - ./repo/app/packages/db/sql:/roadassist-sql:ro
+    logging: *logging
+
+networks:
+  edge:
+    ipam:
+      config:
+        # Fixed, so Caddy's address (and therefore TRUST_PROXY) is fixed.
+        - subnet: 172.30.53.0/24
+  data:
+    # No route to the outside world at all: nothing on it can reach the
+    # internet, and nothing outside can reach it.
+    internal: true
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

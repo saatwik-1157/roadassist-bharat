@@ -31,10 +31,12 @@ def main() -> None:
     ap.add_argument("--imgsz", type=int, default=640)
     ap.add_argument("--epochs", type=int, default=100)
     ap.add_argument("--batch", type=int, default=16)
-    ap.add_argument("--hours", type=float, default=6.0,
+    ap.add_argument("--hours", type=float, default=None,
                     help="hard wall-clock cap. Ultralytics then RESIZES the epoch count (and the "
                          "LR schedule) to fit it, so --epochs is ignored. 0 = no cap, run exactly "
-                         "--epochs (reproducible; what the GPU runs use)")
+                         "--epochs (reproducible; what the GPU runs use). Default 6, except with --resume, "
+                         "where the default is no cap: ultralytics applies a cap given on resume "
+                         "and re-plans the remaining epochs and LR schedule around it")
     ap.add_argument("--patience", type=int, default=25)
     ap.add_argument("--threads", type=int, default=int(os.environ.get("RAKSHA_THREADS", "8")))
     ap.add_argument("--workers", type=int, default=8)
@@ -59,6 +61,8 @@ def main() -> None:
                          "from its weights with --model <best.pt> instead, and read the note "
                          "this flag prints before you rely on that.")
     args = ap.parse_args()
+    if args.hours is None:
+        args.hours = 0.0 if args.resume else 6.0
 
     # Pin CPU threads BEFORE importing torch-heavy code so the pools size right.
     os.environ.setdefault("OMP_NUM_THREADS", str(args.threads))

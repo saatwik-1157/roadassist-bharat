@@ -22,7 +22,8 @@ import * as S from "@roadassist/db";
 import { db } from "../db.js";
 import { env } from "../env.js";
 import { ok, msisdnSchema } from "../http.js";
-import { sms } from "../providers.js";
+import { sms, telegram } from "../providers.js";
+import { alertContactsOnTelegram, NO_TELEGRAM } from "../telegram-alerts.js";
 import { hit, limit, LIMITS } from "../ratelimit.js";
 import { audit } from "../audit.js";
 import { alerts } from "../alerts.js";
@@ -109,7 +110,9 @@ const MAX_CONTACTS_ALERTED = 5;
  *   · contacts who texted STOP are not texted (domain/sms-consent.ts) and are
  *     counted, never folded into "alerted";
  *   · the "contacts" row carries the measured latency, and the count goes in
- *     the audit record, as confirm records it.
+ *     the audit record, as confirm records it;
+ *   · contacts who linked a Telegram chat get the same alert there
+ *     (telegram-alerts.ts), counted only when Telegram accepted it.
  *
  * Duplicated from confirm rather than shared because the emergency module is
  * reviewed on its own (routes/emergency.ts header); keep the two in step.
@@ -117,9 +120,10 @@ const MAX_CONTACTS_ALERTED = 5;
 async function escalateSmsSos(
   incidentId: string, ownerId: string, locale: Locale, t0: number, log: FastifyRequest["log"],
 ): Promise<{ escalated: boolean; contactsAlerted: number; contactsFailed: number;
-             contactsWithheld: number; contactsOptedOut: number; responderFound: boolean }> {
+             contactsWithheld: number; contactsOptedOut: number; responderFound: boolean;
+             contactsAlertedTelegram: number; contactsFailedTelegram: number }> {
   const none = { escalated: false, contactsAlerted: 0, contactsFailed: 0, contactsWithheld: 0,
-                 contactsOptedOut: 0, responderFound: false };
+                 contactsOptedOut: 0, responderFound: false, contactsAlertedTelegram: 0, contactsFailedTelegram: 0 };
   const { to: respondingTo } = applyIncident("CONFIRMED", "escalate");
   const claimed = await db.update(S.incidents)
     .set({ status: respondingTo, updatedAt: new Date() })
@@ -132,13 +136,16 @@ async function escalateSmsSos(
     .orderBy(S.emergencyContacts.priority).limit(MAX_CONTACTS_ALERTED);
   const { reachable, optedOut } = partitionByOptOut(listed, await optedOutAmong(listed.map((c) => c.msisdn)));
 
-  const ceiling = reachable.length
+  // A Telegram link is its own opt-in, independent of SMS STOP (see confirm).
+  const telegramTargets = telegram.enabled ? listed.filter((c) => c.telegramChatId) : [];
+  const ceiling = reachable.length || telegramTargets.length
     ? hit(`sosAlerts:${ownerId}`, LIMITS.sosAlerts.max, LIMITS.sosAlerts.windowMs)
     : null;
   const withheld = ceiling !== null && !ceiling.allowed;
 
-  let contactsAlerted = 0, contactsFailed = 0;
+  let contactsAlerted = 0, contactsFailed = 0, tg = NO_TELEGRAM;
   if (!withheld) {
+    const telegramSends = alertContactsOnTelegram({ incidentId, ownerId, contacts: telegramTargets, log });
     for (const c of reachable) {
       try {
         await sms.send(c.msisdn, t(locale, "sos.contact.alert", { url: `https://roadassist.in/i/${incidentId}` }));
@@ -149,6 +156,7 @@ async function escalateSmsSos(
           "emergency contact alert failed");
       }
     }
+    tg = await telegramSends;
     await db.insert(S.incidentResponses).values({
       incidentId, step: "contacts", latencyMs: Date.now() - t0, acknowledged: false,
     });
@@ -174,6 +182,7 @@ async function escalateSmsSos(
     escalated: true, contactsAlerted, contactsFailed,
     contactsWithheld: withheld ? reachable.length : 0,
     contactsOptedOut: optedOut.length, responderFound: Boolean(responder),
+    contactsAlertedTelegram: tg.sent, contactsFailedTelegram: tg.failed,
   };
   await audit({
     actorId: ownerId, actorRole: "citizen", action: "sos.escalated", entity: "incident", entityId: incidentId,
@@ -181,6 +190,8 @@ async function escalateSmsSos(
     after: {
       status: respondingTo, channel: "sms", contactsAlerted,
       ...(contactsFailed ? { contactsFailed } : {}),
+      ...(telegramTargets.length ? { contactsAlertedTelegram: tg.sent } : {}),
+      ...(tg.failed ? { contactsFailedTelegram: tg.failed } : {}),
       ...(withheld ? { contactsWithheld: reachable.length } : {}),
       ...(optedOut.length ? { contactsOptedOut: optedOut.length } : {}),
       responderFound: Boolean(responder), elapsedMs: Date.now() - t0,
@@ -188,7 +199,8 @@ async function escalateSmsSos(
   });
   publish(ownerId, {
     type: "sos.status", incidentId, status: respondingTo, stage: PUBLIC_STAGE[respondingTo],
-    contactsAlerted, contactsOptedOut: optedOut.length, responderFound: Boolean(responder),
+    contactsAlerted, contactsAlertedTelegram: tg.sent, contactsOptedOut: optedOut.length,
+    responderFound: Boolean(responder),
   });
   alerts.sosConfirmed(incidentId, contactsAlerted);
   return outcome;
@@ -400,6 +412,8 @@ export async function telecomRoutes(app: FastifyInstance) {
         { ref: String(incident.id).slice(0, 8) });
       return { ...sent, meta: { ...sent.meta, incidentId: incident.id, escalated: escalation?.escalated ?? false,
         contactsAlerted: escalation?.contactsAlerted ?? 0, smsLive: sms.live,
+        contactsAlertedTelegram: escalation?.contactsAlertedTelegram ?? 0,
+        ...(escalation?.contactsFailedTelegram ? { contactsFailedTelegram: escalation.contactsFailedTelegram } : {}),
         ...(escalation?.contactsFailed ? { contactsFailed: escalation.contactsFailed } : {}),
         ...(escalation?.contactsWithheld ? { contactsWithheld: escalation.contactsWithheld } : {}),
         ...(escalation?.contactsOptedOut ? { contactsOptedOut: escalation.contactsOptedOut } : {}) } };

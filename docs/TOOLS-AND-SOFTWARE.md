@@ -87,8 +87,8 @@ in the live demo.*
   ([ADR-0002](../app/docs/adr/0002-boundaries-in-ci.md)).
 - **One database**: PostgreSQL 16 with the PostGIS extension
   ([ADR-0003](../app/docs/adr/0003-postgres-postgis.md)). The schema has
-  58 tables, 143 indexes and 9 migrations (`measured.json`).
-- **75 routes**, 72 of them under `/v1`; the other three are `/tiles`, `/basemap`
+  59 tables, 147 indexes and 9 migrations (`measured.json`).
+- **77 routes**, 74 of them under `/v1`; the other three are `/tiles`, `/basemap`
   and `/health`.
 - **Real-time updates** use server-sent events with a heartbeat, and polling
   underneath ([ADR-0010](../app/docs/adr/0010-realtime-and-concurrency.md)).
@@ -149,7 +149,7 @@ because each is attack surface (`app/Dockerfile` stage 3).
 | PostgreSQL | 16 | Stores everything: users, bookings, incidents, payments, RAKSHA detections, audit log | Transactions and row locks settle races (for example two mechanics accepting one job) |
 | PostGIS | 3.4 locally and in CI (image `postgis/postgis:16-3.4`); the PostGIS extension on Neon | Geometry columns, GiST spatial indexes, and `ST_DWithin` to rank the nearest mechanics | A hard requirement: the first migration runs `CREATE EXTENSION postgis`, which ruled out free hosts without it (DEPLOYMENT.md) |
 
-Database facts from `measured.json`: 58 tables, 63 foreign keys, 143 indexes
+Database facts from `measured.json`: 59 tables, 64 foreign keys, 147 indexes
 (88 unique, 5 GiST), 9 migrations. The audit log is append-only: Postgres
 `RULES` turn `UPDATE` and `DELETE` into no-ops, and each row is hash-chained to
 the one before it.
@@ -275,7 +275,10 @@ Redis as the fix for sharing them across several servers (`FUTURE SCOPE`).
 The platform lives on **Render**, a hosting company that runs our program in a
 **Docker container** (a sealed box holding the program and everything it needs).
 The data lives on **Neon**, a hosted PostgreSQL database. Both are in
-**Singapore**, the closest region to India that their free plans offer.
+**Singapore**, the closest region to India that their free plans offer. An
+India-region option is prepared but **not yet live**: `deploy/oci-india` runs
+the same Docker image, PostgreSQL + PostGIS and the Caddy web server on one
+**Oracle Cloud** Always Free virtual machine in Mumbai or Hyderabad.
 Render serves the platform through **Cloudflare**, which sits in front and
 handles secure (HTTPS) connections. A separate
 public showcase page is hosted free on **GitHub Pages**. **GitHub Actions**
@@ -301,6 +304,7 @@ tests every change automatically.
 | **GitHub Container Registry (GHCR)** | Stores the published image `ghcr.io/saatwik-1157/roadassist-bharat`, tagged by branch, version and commit SHA so a bad deploy can roll back to a known image | `.github/workflows/publish-image.yml` | `IMPLEMENTED` |
 | **GitHub Actions** | Runs the checks and publishing (table below) | `.github/workflows/*.yml` | `IMPLEMENTED` |
 | **UptimeRobot** | An uptime monitor that pings the platform. Its settings live in the UptimeRobot dashboard, not in the repository, and no file in the repository configures it | UptimeRobot dashboard | `IMPLEMENTED` (configured outside the repo) |
+| **Oracle Cloud (OCI) Always Free** | The India-region option: one Ampere A1 (arm64) VM in Mumbai or Hyderabad running the same image, PostgreSQL 16 + PostGIS (no public port, the same least-privilege roles, a verified nightly dump with 7 kept) and Caddy with a Let's Encrypt certificate. One VM, no managed backups or failover | `deploy/oci-india/` (cloud-init, compose, Caddyfile, `migrate-db.sh`); `publish-image.yml` builds the image for arm64 as well as amd64 | `PARTIAL`: prepared and rehearsed locally, **not live**; no account exists yet |
 | **Resend** | Sends operator alert emails and email sign-in codes from the verified domain `send.roadassistbharat.online` | `EMAIL_PROVIDER=http`, `EMAIL_BASE_URL=https://api.resend.com/emails` | `IMPLEMENTED` (live) |
 | **Google Search Console** | Both sites are verified URL-prefix properties and both sitemaps are submitted (done 2026-09-30). The verification files `googlee923ee0decf8e5e0.html` must not be deleted | DEPLOYMENT.md, "Search engines" | `IMPLEMENTED` |
 
@@ -347,9 +351,11 @@ then starts the server.
 - **Netlify, Vercel and other function-per-request hosts cannot run this API.**
   It holds open live-update streams, runs an offer-expiry timer and keeps a
   database pool, and all three need a long-lived process (DEPLOYMENT.md).
-- **Singapore, not India**: the free tiers offer no Indian region. The project's
-  rule "no personal data leaves India" is therefore the production target and
-  not yet true of the demo, and the README says so.
+- **Singapore, not India**: Render's and Neon's free plans offer no Indian
+  region. The project's rule "no personal data leaves India" is therefore the
+  production target and not yet true of the demo, and the README says so. An
+  India-region option (Oracle Cloud Always Free, `deploy/oci-india`) is
+  prepared, **not yet live**.
 - **`NODE_ENV=demo`, not `production`**: the production guard refuses to start
   without a real payment gateway, a real SMS provider and webhook secrets.
   Running as `demo` keeps that guard meaningful, and the screens say payments
@@ -494,15 +500,15 @@ database migrated from empty, then seeded).
 
 | Suite | Count | What it proves | Runs |
 |---|---|---|---|
-| Unit (`npm test`) | 527 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
-| End-to-end (`npm run test:e2e`) | 292 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
+| Unit (`npm test`) | 545 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
+| End-to-end (`npm run test:e2e`) | 312 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
 | Concurrency (`npm run test:concurrency`) | 112 | Races: two mechanics accepting one job, three SOS taps at once, live event delivery | CI |
 | Gateway security (`npm run test:gateway`) | 58 | Webhook signatures, append-only audit rules, sign-in code limits per number and per IP | CI |
-| Security audit (`npm run test:security`) | 108 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
+| Security audit (`npm run test:security`) | 116 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
 | Browser (`npm run test:ui`) | 272 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
-| **Total** | **1369** | Six suites, zero failures | |
-| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1369, and never described as passing | By hand only |
-| Android (Gradle) | 328 | Android unit tests, run with lint and both APK builds | CI `android` job |
+| **Total** | **1415** | Six suites, zero failures | |
+| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1415, and never described as passing | By hand only |
+| Android (Gradle) | 333 | Android unit tests, run with lint and both APK builds | CI `android` job |
 | SOS ladder | 21 | The subset of the Android tests over `SosLadder.kt`, the emergency fallback decisions | CI `android` job |
 | CV pipeline | 49 | The Python pipeline tests (standard library only) | CI `ai` job |
 
@@ -529,7 +535,7 @@ CI also stops PostgreSQL under a running API and checks that `/health` answers
 
 ### What is not done (from `app/docs/SECURITY.md`)
 
-- **No external penetration test.** 108 self-written attacks is not the same thing.
+- **No external penetration test.** 116 self-written attacks is not the same thing.
 - **Rate limiting is per instance.** Several servers would each allow the full limit.
 - **No column-level encryption at rest** in Postgres; medical data is protected by
   access control and audit.
@@ -602,6 +608,7 @@ which is fine for a demo but not for real emergencies.
 | GitHub (repository, Actions, Pages, GHCR) | No paid plan is referenced anywhere in the repository; the repository and the image are public | Scheduled runs may be delayed under load, so keep-awake means "usually awake" |
 | Resend | Free | The free sender delivers only to the account's own address; a verified domain (`send.roadassistbharat.online`) lifts that |
 | UptimeRobot | Not recorded in the repository | |
+| Oracle Cloud (prepared, not live) | Always Free | Ampere A1: 2 OCPUs and 12 GB RAM in total (1,500 OCPU-hours and 9,000 GB-hours a month), 200 GB block storage, only in the home region chosen at sign-up. Idle VMs may be reclaimed by Oracle, and A1 capacity is sometimes exhausted ([`deploy/oci-india/README.md`](../deploy/oci-india/README.md)) |
 | Open data services (OSM, Nominatim, Overpass, OSRM, Open-Meteo, USGS) | No account or key | Fair use: paced to about one request a second and cached. The OSRM server is a demo router |
 | Domain `roadassistbharat.online` | Registered and managed at Hostinger | The price is not recorded in the repository |
 

@@ -40,6 +40,13 @@
     <string name="emergency_contacts_sub">మీరు SOS ధృవీకరించినప్పుడు వీరికి ప్రాధాన్య క్రమంలో ఆటోమేటిక్‌గా SMS వెళ్తుంది. ఈ డెమో సర్వర్‌లో SMS లాగ్ మాత్రమే అవుతుంది, పంపబడదు.</string>
     <string name="emergency_contacts_empty">ఇంకా ఎవరూ లేరు — SOS ఎవరికైనా చేరేలా ఒకరిని జోడించండి.</string>
     <string name="action_add_contact">పరిచయం జోడించు</string>
+    <string name="tg_invite">Telegramలో ఆహ్వానించండి</string>
+    <string name="tg_linked">Telegramలో లింక్ అయింది ✓</string>
+    <string name="tg_copy">లింక్ కాపీ చేయండి</string>
+    <string name="tg_copied">లింక్ కాపీ అయింది</string>
+    <string name="tg_hint">ఈ లింక్‌ను %1$sకి పంపండి. ఇది ఒక్కసారే పనిచేస్తుంది, 7 రోజుల్లో గడువు ముగుస్తుంది.</string>
+    <string name="tg_invite_failed">ఆహ్వాన లింక్ సృష్టించలేకపోయాం</string>
+    <string name="sos_contacts_telegram">Telegramలో తెలియజేశాం: %1$d</string>
     <string name="field_contact_name">పరిచయం పేరు</string>
     <string name="field_contact_phone">వారి మొబైల్ (+91…)</string>
     <string name="server">సర్వర్</string>

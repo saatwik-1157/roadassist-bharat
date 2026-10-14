@@ -633,6 +633,84 @@ section("13. Web refresh cookie and the page script policy");
      `${(scriptSrc.match(/'sha256-/g) ?? []).length} hashes`);
 }
 
+// ══ 14. The Telegram bot webhook (routes/telegram.ts) ═════════════════════
+// Anyone can POST to the webhook URL; only Telegram knows the secret header.
+// A request without it could link an attacker's chat to somebody's contact
+// (and receive their SOS positions) or unlink a real one. Runs against a local
+// stub of the Bot API; skipped, and said so, when the server has Telegram off.
+section("14. Telegram webhook: secret header, single-use codes, /stop");
+{
+  const { telegramStub } = await import("./telegram-stub.mjs");
+  const owner = await signIn();
+  const probe = await call("GET", "/v1/me/emergency-contacts", { token: owner.token });
+  const stub = probe.meta?.telegram?.enabled ? await telegramStub() : { why: "this server has Telegram off" };
+  if (stub.why) {
+    for (const l of ["webhook without the secret", "webhook with a wrong secret", "unsigned /stop",
+                     "replayed code", "expired code", "withdrawn code", "group chat", "/stop unlinks"]) {
+      skipped(l, stub.why);
+    }
+  } else {
+    const { default: postgres } = await import("postgres");
+    const sql = postgres(process.env.DATABASE_URL ??
+      "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+    try {
+      const addContact = async (name) => (await call("POST", "/v1/me/emergency-contacts", {
+        token: owner.token, body: { name, msisdn: newMsisdn() } })).data;
+      const invite = async (contactId) => new URL((await call("POST",
+        `/v1/me/emergency-contacts/${contactId}/telegram-invite`, { token: owner.token })).data.link).searchParams.get("start");
+      const chatOf = async (contactId) =>
+        (await sql`SELECT telegram_chat_id AS c FROM emergency_contacts WHERE id = ${contactId}`)[0]?.c ?? null;
+
+      const victim = await addContact("Amma");
+      const code = await invite(victim.id);
+      const attacker = stub.newChatId();
+
+      const bare = await stub.deliver(BASE, attacker, `/start ${code}`, { secret: null });
+      ok("the webhook without Telegram's secret header is refused 401", bare.status === 401, `${bare.status}`);
+      const wrong = await stub.deliver(BASE, attacker, `/start ${code}`, { secret: stub.secret.slice(0, -1) + "x" });
+      ok("…and with a wrong secret, 401, and nothing was linked",
+         wrong.status === 401 && (await chatOf(victim.id)) === null, `${wrong.status}`);
+
+      const real = stub.newChatId();
+      const first = await stub.deliver(BASE, real, `/start ${code}`);
+      const replay = await stub.deliver(BASE, attacker, `/start ${code}`);
+      ok("a replayed invite code is refused: the contact stays linked to the first chat",
+         first.data?.outcome === "linked" && replay.data?.outcome === "refused" && (await chatOf(victim.id)) === real,
+         `${first.data?.outcome} then ${replay.data?.outcome}`);
+
+      const unsignedStop = await stub.deliver(BASE, real, "/stop", { secret: null });
+      ok("an unsigned /stop cannot unlink a real contact",
+         unsignedStop.status === 401 && (await chatOf(victim.id)) === real, `${unsignedStop.status}`);
+
+      const late = await addContact("Ravi");
+      const lateCode = await invite(late.id);
+      await sql`UPDATE telegram_link_codes SET expires_at = now() - interval '1 second'
+                 WHERE contact_id = ${late.id} AND deleted_at IS NULL`;
+      const expired = await stub.deliver(BASE, attacker, `/start ${lateCode}`);
+      ok("an expired invite code is refused", expired.data?.outcome === "refused" && (await chatOf(late.id)) === null,
+         `${expired.data?.outcome}`);
+
+      const oldCode = await invite(late.id);
+      await invite(late.id);   // a new invite withdraws the old one
+      const withdrawn = await stub.deliver(BASE, attacker, `/start ${oldCode}`);
+      ok("an invite replaced by a newer one is refused", withdrawn.data?.outcome === "refused" && (await chatOf(late.id)) === null,
+         `${withdrawn.data?.outcome}`);
+
+      const groupCode = await invite(late.id);
+      const group = await stub.deliver(BASE, attacker, `/start ${groupCode}`, { type: "group" });
+      ok("a group chat cannot become an emergency contact", group.data?.outcome === "not_private" && (await chatOf(late.id)) === null,
+         `${group.data?.outcome}`);
+
+      const stop = await stub.deliver(BASE, real, "/stop");
+      ok("/stop from the linked chat unlinks it", stop.data?.outcome === "unlinked" && (await chatOf(victim.id)) === null,
+         `${stop.data?.outcome}`);
+    } finally {
+      await sql.end({ timeout: 5 });
+      await stub.close();
+    }
+  }
+}
+
 // ── clean up anything still holding a provider ─────────────────────────────
 if (bookingId) await call("POST", `/v1/bookings/${bookingId}/transition`, { token: alice.token, body: { command: "cancel" } });
 if (bobBooking?.data?.id) await call("POST", `/v1/bookings/${bobBooking.data.id}/transition`, { token: bob.token, body: { command: "cancel" } });

@@ -170,3 +170,15 @@ services:
       # number stops accepting the on-screen demo code. Empty = phone only.
       - key: EMAIL_SIGNIN
         sync: false
+
+      # Free Telegram alerts for emergency contacts (apps/api/src/routes/telegram.ts).
+      # All three set by hand in the dashboard; with any of them empty the
+      # feature is off and the apps show no invite. After setting them, point
+      # the bot at the webhook once: app/scripts/telegram-set-webhook.mjs
+      # (DEPLOYMENT.md, "How to turn on Telegram alerts").
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false

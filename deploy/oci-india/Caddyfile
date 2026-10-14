@@ -1,0 +1,35 @@
+# RoadAssist Bharat on the OCI India VM: Caddy terminates HTTPS itself.
+#
+# There is no Cloudflare in front of this VM (the edge in front of the live
+# Render site is Render's own and does not follow the DNS record here), so the
+# certificate must be a real public one. Caddy gets it from Let's Encrypt by
+# itself on ports 80/443 once the name resolves to this VM, and renews it.
+# NOT `tls internal`: a browser rejects Caddy's internal CA (that was the
+# removed AWS kit's mistake, git history at 3d0340b:deploy/aws).
+#
+# cloud-init.yaml embeds this file: after editing it, run
+# node deploy/oci-india/build-cloud-init.mjs
+#
+# SITE_ADDRESSES comes from /opt/roadassist/.env through compose.yml. Unset, it
+# is the live name. While testing before the DNS switch it is the temporary
+# precheck name (README step e), so Caddy never asks Let's Encrypt for the live
+# name while that name still points at Render - those failures count against
+# Let's Encrypt's per-name limit and push Caddy's next retry back.
+{$SITE_ADDRESSES:app.roadassistbharat.online} {
+	encode zstd gzip
+
+	# The app listens on 8080 inside the compose network and is not published
+	# on the host, so Caddy is the only way in.
+	reverse_proxy app:8080 {
+		# Caddy REPLACES any X-Forwarded-For a client sends with the address
+		# that really connected (no trusted_proxies is configured here), and the
+		# app believes it only from Caddy's fixed address (TRUST_PROXY in
+		# compose.yml). These headers are passed through untouched by default,
+		# and nothing in front of Caddy sets them, so a client could write any
+		# address into them: strip them, so a stale CLIENT_IP_HEADER copied
+		# from Render (cf-connecting-ip) can never be fed a forged value.
+		header_up -CF-Connecting-IP
+		header_up -True-Client-IP
+		header_up -X-Real-IP
+	}
+}

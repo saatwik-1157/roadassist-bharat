@@ -116,7 +116,36 @@ export const emergencyContacts = pgTable("emergency_contacts", {
   msisdn: varchar("msisdn", { length: 16 }).notNull(),
   relation: varchar("relation", { length: 40 }),
   priority: integer("priority").notNull().default(1),
-}, (t) => ({ userIdx: index("emg_contacts_user_idx").on(t.userId) }));
+  /**
+   * The Telegram private chat this contact linked by pressing Start on an
+   * invite link (routes/telegram.ts). NULL until they do, and again after they
+   * send /stop. Text, not a number: Telegram chat ids are 64-bit and must not
+   * pass through a JavaScript number. Never returned to a client.
+   */
+  telegramChatId: varchar("telegram_chat_id", { length: 32 }),
+}, (t) => ({
+  userIdx: index("emg_contacts_user_idx").on(t.userId),
+  tgChatIdx: index("emg_contacts_tg_chat_idx").on(t.telegramChatId),
+}));
+
+/**
+ * One-time Telegram invite codes for an emergency contact.
+ *
+ * The code itself goes into the invite link (t.me/<bot>?start=<code>) and is
+ * shown once; only its SHA-256 is stored, so a copy of this table links
+ * nobody. A code is good for one Start (used_at is stamped by a conditional
+ * UPDATE, so two presses cannot both link) and for seven days (expires_at).
+ */
+export const telegramLinkCodes = pgTable("telegram_link_codes", {
+  ...base,
+  codeHash: varchar("code_hash", { length: 64 }).notNull(),
+  contactId: uuid("contact_id").notNull().references(() => emergencyContacts.id),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+}, (t) => ({
+  codeUq: uniqueIndex("telegram_link_codes_hash_uq").on(t.codeHash),
+  contactIdx: index("telegram_link_codes_contact_idx").on(t.contactId),
+}));
 
 /**
  * Numbers that texted STOP (or a synonym) to the SMS line.

@@ -10,6 +10,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { env } from "./env.js";
 import { diagnose, type Diagnosis } from "./domain/ai-rules.js";
 import { consoleEmailLine, consoleSmsLine } from "./domain/log-redaction.js";
+import { sendTelegramMessage, telegramEnabled, type SendOutcome } from "./domain/telegram.js";
 
 // ── SMS ───────────────────────────────────────────────────────────────────
 export interface SmsProvider {
@@ -274,6 +275,46 @@ const httpEmail: EmailProvider = {
 
 export const email: EmailProvider = env.email.provider === "console" ? consoleEmail : httpEmail;
 
+// ── TELEGRAM ──────────────────────────────────────────────────────────────
+/**
+ * Free emergency-contact alerts over the Telegram Bot API (domain/telegram.ts
+ * holds the rules, routes/telegram.ts the linking flow).
+ *
+ * Unlike SMS there is no console stand-in: a contact either linked a real chat
+ * or is not messaged, so `enabled` is the whole story, and a successful send()
+ * is a message Telegram accepted for a chat its owner opted into. send() never
+ * throws and carries its own timeouts and retries, so an SOS cannot be held
+ * open or failed by Telegram. TELEGRAM_API_BASE points it at a local stub in
+ * tests; the default host is declared in scripts/check-data-residency.mjs.
+ */
+export interface TelegramProvider {
+  readonly name: string;
+  readonly enabled: boolean;
+  readonly botUsername: string;
+  send(chatId: string, text: string, opts?: { deadlineMs?: number }): Promise<SendOutcome>;
+}
+
+const telegramBot: TelegramProvider = {
+  name: "telegram",
+  enabled: true,
+  botUsername: env.telegram.botUsername,
+  async send(chatId, text, opts) {
+    const base = env.telegram.apiBase || "https://api.telegram.org";
+    return sendTelegramMessage({
+      apiBase: base, token: env.telegram.botToken, chatId, text, deadlineMs: opts?.deadlineMs,
+    });
+  },
+};
+
+const telegramOff: TelegramProvider = {
+  name: "off",
+  enabled: false,
+  botUsername: "",
+  async send() { return { ok: false, attempts: 0, error: "telegram is not configured" }; },
+};
+
+export const telegram: TelegramProvider = telegramEnabled(env.telegram) ? telegramBot : telegramOff;
+
 // ── PAYMENTS ──────────────────────────────────────────────────────────────
 /**
  * Cash is settled by the platform, never by a gateway — the money changes hands
@@ -391,4 +432,5 @@ export const providerSummary = () => ({
   ai: env.ai.provider,
   payments: payments.name,
   email: email.name,
+  telegram: telegram.name,
 });

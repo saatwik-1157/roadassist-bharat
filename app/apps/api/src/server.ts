@@ -21,7 +21,7 @@ import {
 import { apply, allowedFrom, finishesJob, isCommand, IllegalTransition, type Command, type Status } from "./domain/booking-machine.js";
 import { ratingBaseline, ratingPrior, shrunkRating } from "./domain/ai-rules.js";
 import {
-  diagnoseWithFallback, email, maps, providerSummary, sms,
+  diagnoseWithFallback, email, maps, providerSummary, sms, telegram,
 } from "./providers.js";
 import { isoTimestamp, ok, msisdnSchema } from "./http.js";
 import { rakshaRoutes, describePosition } from "./raksha.js";
@@ -29,6 +29,7 @@ import { authRoutes } from "./routes/auth.js";
 import { emailAuthRoutes, emailSignin } from "./routes/email-auth.js";
 import { emergencyRoutes } from "./routes/emergency.js";
 import { telecomRoutes } from "./routes/telecom.js";
+import { telegramRoutes } from "./routes/telegram.js";
 import { mechanicRoutes } from "./routes/mechanic.js";
 import { geoRoutes } from "./routes/geo.js";
 import { optedOutAmong } from "./sms-opt-out.js";
@@ -1769,7 +1770,11 @@ app.get("/v1/me/emergency-contacts", { preHandler: authenticate }, async (req) =
   const rows = await db.select().from(S.emergencyContacts)
     .where(and(eq(S.emergencyContacts.userId, req.user!.sub), isNull(S.emergencyContacts.deletedAt)))
     .orderBy(S.emergencyContacts.priority);
-  return ok(rows);
+  // The Telegram chat id identifies the contact, not the user, so it stays on
+  // the server: a client learns only whether the contact linked a chat.
+  return ok(rows.map(({ telegramChatId, ...c }) => ({ ...c, telegramLinked: Boolean(telegramChatId) })), {
+    telegram: { enabled: telegram.enabled },
+  });
 });
 
 app.post("/v1/me/emergency-contacts", { preHandler: authenticate }, async (req, reply) => {
@@ -1802,7 +1807,8 @@ app.post("/v1/me/emergency-contacts", { preHandler: authenticate }, async (req, 
   if (outcome === "too_many_contacts") {
     return reply.code(409).send({ error: { code: "too_many_contacts", title: "You can list up to five emergency contacts. Remove one first.", retryable: false } });
   }
-  return reply.code(201).send(ok(outcome));
+  const { telegramChatId: _chat, ...created } = outcome;
+  return reply.code(201).send(ok({ ...created, telegramLinked: false }));
 });
 
 app.delete("/v1/me/emergency-contacts/:id", { preHandler: authenticate }, async (req, reply) => {
@@ -2220,6 +2226,7 @@ await app.register(authRoutes);
 await app.register(emailAuthRoutes);
 await app.register(emergencyRoutes);
 await app.register(telecomRoutes);
+await app.register(telegramRoutes);   // Telegram invites and the bot webhook (free contact alerts)
 await app.register(mechanicRoutes);
 await app.register(paymentRoutes);
 await app.register(rakshaRoutes);
@@ -2252,6 +2259,9 @@ app.log.info(emailSignin.accounts.size
   ? `email sign-in: ${emailSignin.accounts.size} account(s), via ${providerSummary().email}`
   : "email sign-in: off (EMAIL_SIGNIN unset)");
 for (const r of emailSignin.rejected) app.log.warn(`EMAIL_SIGNIN entry ignored: ${r}`);
+app.log.info(telegram.enabled
+  ? `telegram alerts: on, as @${telegram.botUsername}${env.telegram.apiBase ? " (TELEGRAM_API_BASE: a test stub)" : ""}`
+  : "telegram alerts: off (TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME and TELEGRAM_WEBHOOK_SECRET unset)");
 // Demo only: an empty RAKSHA receives the project's real detections through its
 // own ingest route (demo/raksha-demo-seed.ts). Imported here, at the end, so
 // nothing above moves; never awaited, so it cannot hold up or fail the boot.

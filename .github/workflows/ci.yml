@@ -134,6 +134,15 @@ jobs:
         run: SEED_USERS=80 SEED_MECHANICS=160 SEED_BOOKINGS=80 npm run db:seed
       - name: Seed RAKSHA corridor
         run: npm run db:seed:raksha
+      # Telegram alerts (routes/telegram.ts) against a LOCAL stub of the Bot API
+      # that e2e §41 and security §14 start themselves on this port. The token
+      # and secret are random per run, never real, and never reach Telegram.
+      - name: Test-only Telegram stub configuration
+        run: |
+          echo "TELEGRAM_BOT_TOKEN=000000:$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "TELEGRAM_WEBHOOK_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+          echo "TELEGRAM_BOT_USERNAME=RoadAssistStubBot" >> "$GITHUB_ENV"
+          echo "TELEGRAM_API_BASE=http://127.0.0.1:4697" >> "$GITHUB_ENV"
       - name: Start API
         run: |
           node --import tsx apps/api/src/server.ts &

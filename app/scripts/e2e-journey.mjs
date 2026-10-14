@@ -1730,6 +1730,149 @@ console.log("\n40. Bookings, offers and sign-out (bug-hunt regressions)");
   }
 }
 
+// ── 41. Telegram alerts for emergency contacts (routes/telegram.ts) ────────
+// Free alerts: a contact opens a one-time invite, presses Start, and every
+// confirmed SOS then messages them on Telegram, counted only when Telegram
+// accepted it. Runs against a LOCAL stub of the Bot API (scripts/telegram-stub.mjs)
+// and only when the server was started pointed at it; otherwise it skips and says so.
+console.log("\n41. Telegram alerts for emergency contacts");
+{
+  const { telegramStub } = await import("./telegram-stub.mjs");
+  const { createHash } = await import("node:crypto");
+  // Links the messages carry. Compared as text, never fetched.
+  const T_ME = "https://t.me/";
+  const GMAP = "https://www.google.com/maps?q=28.45950,77.02660";
+  const OSM = "https://www.openstreetmap.org/?mlat=28.45950&mlon=77.02660";
+  const probe = await call("GET", "/v1/me/emergency-contacts", { token });
+  const stub = probe.meta?.telegram?.enabled ? await telegramStub() : { why: "this server has Telegram off" };
+  if (stub.why) {
+    console.log(`  - skipped: ${stub.why}. Start the API and this suite with the TELEGRAM_* variables ` +
+      "and TELEGRAM_API_BASE=http://127.0.0.1:<port> to run it");
+  } else {
+    const { default: postgres } = await import("postgres");
+    const sql = postgres(process.env.DATABASE_URL ??
+      "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+    try {
+      const n = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+      const r = await call("POST", "/v1/auth/otp/request", { body: { msisdn: n } });
+      const u = (await call("POST", "/v1/auth/otp/verify", { body: { msisdn: n, code: r.meta?.devOtp } })).data;
+      const tk = u?.accessToken;
+      await call("PATCH", "/v1/me", { token: tk, body: { fullName: "Priya Sharma" } });
+      const digits = n.slice(3);
+      const noPhone = (text) => !text.includes(digits) && !text.includes(n);
+      const contactNo = () => "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+      const c1 = (await call("POST", "/v1/me/emergency-contacts", { token: tk, body: { name: "Amma", msisdn: contactNo() } })).data;
+      const c2 = (await call("POST", "/v1/me/emergency-contacts", { token: tk, body: { name: "Ravi", msisdn: contactNo() } })).data;
+
+      const list0 = await call("GET", "/v1/me/emergency-contacts", { token: tk });
+      const row0 = list0.data?.find((c) => c.id === c1?.id);
+      ok("the contact list says Telegram is on and the contact is not linked yet",
+         list0.meta?.telegram?.enabled === true && row0?.telegramLinked === false, JSON.stringify(list0.meta?.telegram));
+      ok("no Telegram chat id ever leaves the server in the contact list",
+         list0.data?.every((c) => !("telegramChatId" in c)), Object.keys(row0 ?? {}).join(","));
+
+      const inv = await call("POST", `/v1/me/emergency-contacts/${c1?.id}/telegram-invite`, { token: tk });
+      const code = new URL(inv.data?.link ?? "https://x.invalid").searchParams.get("start") ?? "";
+      ok("an invite is a t.me deep link to this bot with a one-time code",
+         inv.status === 201 && inv.data?.link === T_ME + stub.username + "?start=" + code && /^[A-Za-z0-9_-]{24}$/.test(code),
+         `${inv.status} ${inv.data?.link?.replace(code, "<code>")}`);
+      const [stored] = await sql`SELECT code_hash, expires_at, used_at FROM telegram_link_codes
+                                  WHERE contact_id = ${c1?.id} AND deleted_at IS NULL`;
+      const leaked = await sql`SELECT count(*)::int AS n FROM telegram_link_codes WHERE code_hash = ${code}`;
+      ok("only the code's SHA-256 is stored",
+         stored?.code_hash === createHash("sha256").update(code).digest("hex") && leaked[0].n === 0);
+      const days = (new Date(stored?.expires_at).getTime() - Date.now()) / 86_400_000;
+      ok("the invite expires in seven days", days > 6.99 && days <= 7, `${days.toFixed(3)} days`);
+
+      const other = await call("POST", `/v1/me/emergency-contacts/${c1?.id}/telegram-invite`, { token });
+      ok("nobody can make an invite for another account's contact", other.status === 404, `got ${other.status}`);
+
+      const chat1 = stub.newChatId(), chat2 = stub.newChatId();
+      const linked = await stub.deliver(BASE, chat1, `/start ${code}`);
+      const hello = stub.to(chat1).at(-1)?.text ?? "";
+      ok("pressing Start with the secret header links the chat",
+         linked.status === 200 && linked.data?.outcome === "linked", `${linked.status} ${linked.data?.outcome}`);
+      ok("the chat is told who it is a contact for, by first name and never by phone number",
+         hello.startsWith("You are now an emergency contact for Priya. You will get a message here if they raise an SOS.") &&
+         noPhone(hello), hello.slice(0, 70));
+      const list1 = await call("GET", "/v1/me/emergency-contacts", { token: tk });
+      ok("the contact list now shows the contact as linked",
+         list1.data?.find((c) => c.id === c1?.id)?.telegramLinked === true);
+
+      // Link the second contact too, to a chat that is about to fail.
+      const inv2 = await call("POST", `/v1/me/emergency-contacts/${c2?.id}/telegram-invite`, { token: tk });
+      await stub.deliver(BASE, chat2, `/start ${new URL(inv2.data.link).searchParams.get("start")}`);
+
+      // An SOS: the alert goes to the linked chats, and only accepted sends count.
+      stub.fail(chat2, Infinity);
+      const ref = "RA-" + Array.from({ length: 6 }, () => "ABCDEFGHJKMNPQRSTVWXYZ23456789"[Math.floor(Math.random() * 30)]).join("");
+      const sos = await call("POST", "/v1/sos", { token: tk, body: { lat: 28.4595, lng: 77.0266, source: "manual", clientIncidentId: ref } });
+      const before1 = stub.to(chat1).length, tries2 = stub.attemptsFor(chat2), got2 = stub.to(chat2).length;
+      const conf = await call("POST", `/v1/sos/${sos.data?.id}/confirm`, { token: tk });
+      const alert = stub.to(chat1).at(-1)?.text ?? "";
+      ok("a confirmed SOS counts the Telegram message Telegram accepted",
+         conf.status === 200 && conf.data?.status === "RESPONDING" && conf.data?.contactsAlertedTelegram === 1 &&
+         stub.to(chat1).length === before1 + 1,
+         `status=${conf.data?.status} telegram=${conf.data?.contactsAlertedTelegram}`);
+      ok("a chat Telegram kept refusing is retried, then reported as failed, and the SOS still escalates",
+         conf.data?.contactsFailedTelegram === 1 && stub.attemptsFor(chat2) - tries2 === 3 && stub.to(chat2).length === got2,
+         `failed=${conf.data?.contactsFailedTelegram} attempts=${stub.attemptsFor(chat2) - tries2}`);
+      ok("the SMS honesty flag is unchanged beside it", typeof conf.data?.smsLive === "boolean", `smsLive=${conf.data?.smsLive}`);
+      ok("the alert says who, the ref, the time and a map link to the position",
+         alert.startsWith("SOS: Priya has raised an emergency on RoadAssist.") && alert.includes(`Ref: ${ref}`) &&
+         / IST$/m.test(alert) && alert.includes(GMAP) &&
+         alert.includes(OSM), alert.split("\n")[0]);
+      ok("…says it is an automated demo alert, to call 112, and carries no phone number",
+         alert.includes("This is an automated RoadAssist demo alert; call 112 in an emergency.") && noPhone(alert));
+
+      const again = await call("POST", `/v1/sos/${sos.data?.id}/confirm`, { token: tk });
+      ok("a repeated confirm sends nothing on Telegram either",
+         again.data?.alreadyEscalated === true && again.data?.contactsAlertedTelegram === 0 &&
+         stub.to(chat1).length === before1 + 1, `telegram=${again.data?.contactsAlertedTelegram}`);
+      await call("POST", `/v1/sos/${sos.data?.id}/resolve`, { token: tk, body: { outcome: "false_alarm" } });
+
+      // One failure, then success: a retry that works is a message that counts.
+      stub.fail(chat2, 1);
+      const sos2 = await call("POST", "/v1/sos", { token: tk, body: { locationUnknown: true, source: "manual" } });
+      const conf2 = await call("POST", `/v1/sos/${sos2.data?.id}/confirm`, { token: tk });
+      ok("a send that fails once and succeeds on retry is counted",
+         conf2.data?.contactsAlertedTelegram === 2 && !conf2.data?.contactsFailedTelegram,
+         `telegram=${conf2.data?.contactsAlertedTelegram} failed=${conf2.data?.contactsFailedTelegram ?? 0}`);
+      ok("an SOS with no fix says the location is not known instead of guessing one",
+         /Location: not known/.test(stub.to(chat2).at(-1)?.text ?? "") && !/maps\?q=/.test(stub.to(chat2).at(-1)?.text ?? ""));
+      await call("POST", `/v1/sos/${sos2.data?.id}/resolve`, { token: tk, body: { outcome: "false_alarm" } });
+
+      // The feature-phone path alerts the same chats.
+      const before = stub.to(chat1).length;
+      const smsSos = await call("POST", "/v1/telecom/sms", { body: { from: n, text: "SOS 28.4595 77.0266 RoadAssist" } });
+      ok("an SOS texted from a feature phone also alerts the linked chats on Telegram",
+         smsSos.meta?.contactsAlertedTelegram === 2 && stub.to(chat1).length === before + 1 &&
+         noPhone(stub.to(chat1).at(-1)?.text ?? ""),
+         `${smsSos.status} telegram=${smsSos.meta?.contactsAlertedTelegram}`);
+      if (smsSos.meta?.incidentId) {
+        await call("POST", `/v1/sos/${smsSos.meta.incidentId}/resolve`, { token: tk, body: { outcome: "false_alarm" } });
+      }
+
+      // /stop in the chat unlinks it, and the next SOS leaves it alone.
+      const stop = await stub.deliver(BASE, chat1, "/stop");
+      const list2 = await call("GET", "/v1/me/emergency-contacts", { token: tk });
+      ok("/stop in the chat unlinks it",
+         stop.data?.outcome === "unlinked" && list2.data?.find((c) => c.id === c1?.id)?.telegramLinked === false &&
+         /^Unlinked\./.test(stub.to(chat1).at(-1)?.text ?? ""), stop.data?.outcome);
+      const quiet = stub.to(chat1).length;
+      const sos3 = await call("POST", "/v1/sos", { token: tk, body: { lat: 28.46, lng: 77.03, source: "manual" } });
+      const conf3 = await call("POST", `/v1/sos/${sos3.data?.id}/confirm`, { token: tk });
+      ok("…and the next SOS messages only the chats still linked",
+         conf3.data?.contactsAlertedTelegram === 1 && stub.to(chat1).length === quiet,
+         `telegram=${conf3.data?.contactsAlertedTelegram}`);
+      await call("POST", `/v1/sos/${sos3.data?.id}/resolve`, { token: tk, body: { outcome: "false_alarm" } });
+    } finally {
+      await sql.end({ timeout: 5 });
+      await stub.close();
+    }
+  }
+}
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

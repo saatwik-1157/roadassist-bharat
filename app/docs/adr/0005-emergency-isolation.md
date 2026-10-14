@@ -46,7 +46,9 @@ Paths from `app/`, checked by `npm run citations`.
   escalation ladder locates the nearest unit but sends it nothing, and the
   112 handoff is stubbed, so every escalation answer carries
   `respondersNotified` from a constant that is 0
-  (`apps/api/src/routes/emergency.ts:55`). Whether the emergency-contact texts
+  (`apps/api/src/routes/emergency.ts:57`). Whether the emergency-contact texts
   reached a phone is each SMS provider's `live` flag
-  (`apps/api/src/providers.ts:23`), returned as `smsLive`: false for the
-  console provider the hosted demo runs on.
+  (`apps/api/src/providers.ts:24`), returned as `smsLive`: false for the
+  console provider the hosted demo runs on. Telegram messages to contacts who
+  linked a chat are counted apart, as `contactsAlertedTelegram`, and only when
+  Telegram accepted them (`apps/api/src/telegram-alerts.ts`).

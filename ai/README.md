@@ -131,6 +131,52 @@ schedule). Only `pothole` and `road_damage` can be reported from either app:
 `faded_marking` and `manhole` are shown with the reason, never filed (see
 *Serving the model over HTTP* below).
 
+### Pothole fine-tune on free public data (`yolo11n-pothole-gpu`, 2026-10-14): not adopted
+
+An attempt to lift the weakest class with free, no-login data (sources,
+licences and citations under *Dataset* below and in `ai/data/EXTRA_SOURCES.md`).
+Built by `road_damage/build_pothole_ft.py`: `yolo-india-ft` train unchanged
+(8,373 files) plus 1,292 new pothole images written twice (IRDD, Iraq, 1,216;
+Pavdistress, Morocco, 76), 10,957 files; 290 new images held out by group as
+`data/yolo-pothole-test` (439 potholes, 161 cracks). Every new image was
+checked against all of RDD2022 on disk (India, Czech, Japan, United States,
+China_Drone, China_MotorBike; Norway's 10.6 GB was not fetched) by sha256 and
+by a 16x16-thumbnail cosine near-duplicate test (`road_damage/near_dup.py`,
+mirror too, cos >= 0.95; 10 dropped), and new train against new test the same
+way. Warm-started from `yolo11n-india-ft-gpu/best.pt`, AdamW lr0 0.0005, 25
+epochs, batch 16 (`ai/train-gpu-pothole.log`; the laptop rebooted at epoch 17
+and the run was resumed from `last.pt` with its optimizer state).
+
+| @640 | rich val mAP50 / 50-95 | rich pothole | India-clean mAP50 / 50-95 | India-clean pothole | India-clean-strict (249) | new-source test (290) pothole |
+|---|---|---|---|---|---|---|
+| `yolo11n-india-ft-gpu` (shipped) | **0.586** / **0.287** | **0.389** | 0.500 / **0.217** | 0.422 | **0.493** | 0.088 |
+| `yolo11n-pothole-gpu` | 0.583 / 0.281 | 0.387 | **0.502** / 0.213 | **0.429** | 0.492 | **0.512** |
+
+The adoption rule was India-clean pothole mAP50 up by at least 0.02 with
+neither rich val nor India-clean mAP50 down by more than 0.01. Pothole rose
+0.007, so the shipped model stays. What the extra data did buy is the new
+domain: potholes on the held-out Iraq/Morocco images go from 0.088 to 0.512
+(at 416: 0.117 to 0.497), with no measurable cost on the Indian splits.
+*India-clean-strict* (`data/yolo-india-clean-strict`) is India-clean minus the
+143 images that have a near-duplicate, mostly an adjacent frame of the same
+drive, anywhere in this train set: RDD2022's own train/val split is by image,
+not by drive, so 1,562 of the inherited `yolo-india-ft` files sit next to a
+held-out frame. Both models trained on those same files, so the comparison is
+like for like, and the strict subset ranks them the same way.
+
+```bash
+# from ai/road_damage; sources unpacked under ai/data/extra/<source>/ (EXTRA_SOURCES.md)
+../.venv-gpu/Scripts/python build_pothole_ft.py --skip kent,mwpd
+../.venv-gpu/Scripts/python train.py --data ../data/yolo-pothole-ft/dataset.yaml \
+    --model ../runs/yolo11n-india-ft-gpu/weights/best.pt --name yolo11n-pothole-gpu --device 0 \
+    --imgsz 640 --batch 16 --epochs 25 --hours 0 --workers 2 --save-period 5 \
+    --optimizer AdamW --lr0 0.0005 --warmup-epochs 1
+../.venv-gpu/Scripts/python eval_compare.py --device 0 --out ../runs/yolo11n-india-ft-gpu/compare.json \
+    --splits rich,india-clean,india-clean-strict,pothole-test \
+    --model pothole=../runs/yolo11n-pothole-gpu/weights/best.pt@640,416 \
+    --model india-ft=../runs/yolo11n-india-ft-gpu/weights/best.pt@640,416
+```
+
 ### Models trained (measured on held-out val)
 
 History: the CPU runs before the current edge model, each on its own val
@@ -199,6 +245,20 @@ clarified. Class mapping (skipped labels are counted, never folded in):
 | D40 (pothole) | `pothole` |
 | D00 / D10 / D20 (cracks) | `road_damage` |
 | D01, D11, D43, D44, D50, … | skipped — outside the MVP contract |
+
+**Extra pothole sources** (used only by the `yolo11n-pothole-gpu` experiment
+above; downloaded without an account, data files only; details and the QC
+record in `ai/data/EXTRA_SOURCES.md`):
+
+| Source | Licence | Used | Citation |
+|---|---|---|---|
+| IRDD v1.0, Iraq, smartphone dashcam, 8,479 images (D40 -> `pothole`, D00/D10/D20 -> `road_damage`) | CC BY 4.0, https://creativecommons.org/licenses/by/4.0/ | 1,453 pothole images | Ali (Wassit University), *IRDD: Iraqi Road Damage Dataset for Deep Learning-Based Road Damage Detection*, Zenodo 2026, doi:10.5281/zenodo.21167531 |
+| Pavdistress, Morocco, inspection vehicle, 8,696 images (Poth -> `pothole`, cracks -> `road_damage`, RoMar images dropped) | CC BY 4.0, https://creativecommons.org/licenses/by/4.0/ | 129 pothole images | Y. Aouni, *Pavdistress: A Dataset of Selected Images for the Detection and Recognition of Asphalt Pavement Distress Using Deep Learning*, Zenodo 2026, doi:10.5281/zenodo.18208073 |
+
+Downloaded and rejected at the 30-image box check: the Kent water-filled
+potholes set (doi:10.17632/tp95cdvgm8.1; misplaced boxes, stock-photo-like
+images) and MWPD (doi:10.17632/s5hx9n2jc3.2; Shutterstock-watermarked web
+images, augmented copies only).
 
 ## Tests
 

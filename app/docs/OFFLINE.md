@@ -143,14 +143,14 @@ integrity digest.
 explicit `POST /v1/sos/:id/confirm`, called as a visible step of the reconnection
 flow. An incident that may be hours old must not silently SMS a family at 3am.
 `POST /v1/sos/offline-sync` sends nothing, and its answer says so
-(`apps/api/src/routes/emergency.ts:856`).
+(`apps/api/src/routes/emergency.ts:875`).
 
 ## Conflicts
 
 Booking status is server-authoritative. A device that left the network at
 `EN_ROUTE` and reconnects after the mechanic marked `ARRIVED` does not overwrite
 the newer state: the operation is refused, written to `conflict_log` with the
-rule that fired (`server_wins`, `apps/api/src/server.ts:1569`), and the device
+rule that fired (`server_wins`, `apps/api/src/server.ts:1570`), and the device
 is handed the authoritative value in the same response.
 
 ---

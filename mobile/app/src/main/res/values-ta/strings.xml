@@ -40,6 +40,13 @@
     <string name="emergency_contacts_sub">SOS உறுதி செய்தால் இவர்களுக்கு முன்னுரிமை வரிசையில் தானாக SMS அனுப்பப்படும். இந்த டெமோ சர்வரில் SMS பதிவு மட்டுமே செய்யப்படுகிறது, அனுப்பப்படுவதில்லை.</string>
     <string name="emergency_contacts_empty">இன்னும் யாரும் இல்லை — SOS யாரையாவது சேர ஒருவரைச் சேர்க்கவும்.</string>
     <string name="action_add_contact">தொடர்பைச் சேர்</string>
+    <string name="tg_invite">Telegram-இல் அழைக்கவும்</string>
+    <string name="tg_linked">Telegram-இல் இணைக்கப்பட்டது ✓</string>
+    <string name="tg_copy">இணைப்பை நகலெடு</string>
+    <string name="tg_copied">இணைப்பு நகலெடுக்கப்பட்டது</string>
+    <string name="tg_hint">இந்த இணைப்பை %1$s-க்கு அனுப்புங்கள். இது ஒருமுறை மட்டுமே வேலை செய்யும், 7 நாட்களில் காலாவதியாகும்.</string>
+    <string name="tg_invite_failed">அழைப்பு இணைப்பை உருவாக்க முடியவில்லை</string>
+    <string name="sos_contacts_telegram">Telegram-இல் தெரிவிக்கப்பட்டது: %1$d</string>
     <string name="field_contact_name">தொடர்பின் பெயர்</string>
     <string name="field_contact_phone">அவர்களின் கைபேசி (+91…)</string>
     <string name="server">சேவையகம்</string>

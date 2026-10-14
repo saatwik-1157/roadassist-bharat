@@ -24,7 +24,7 @@ interface Journey {
   sosExits(status: string | null): Array<{ command: string; path: string; label: string; body: Record<string, unknown> }>;
   sosActive(status: string | null): boolean;
   sosOutcome(data: Record<string, unknown> | null): {
-    contacts: number; responders: number; repeat: boolean; smsLive: boolean; reached: boolean; call112: boolean;
+    contacts: number; telegram: number; responders: number; repeat: boolean; smsLive: boolean; reached: boolean; call112: boolean;
     lines: string[];
   };
   sosHeadline(data: Record<string, unknown> | null, ref: string, t: (key: string) => string): string;
@@ -250,6 +250,25 @@ describe("what an escalated SOS says happened", () => {
     }
   });
 
+  it("Telegram contacts are claimed only as counted, beside SMS that is only logged", () => {
+    // The hosted demo: SMS is a log line, but a contact who linked Telegram got
+    // a real message, so that one counts as reached and says where.
+    const o = J.sosOutcome(answer({ contactsAlerted: 2, smsLive: false, contactsAlertedTelegram: 1 }));
+    assert.deepEqual(o.lines, ["sos.done.recorded", "sos.done.contacts.logged", "sos.done.telegram.one",
+      "sos.done.noResponder"]);
+    assert.equal(o.telegram, 1);
+    assert.equal(o.reached, true);
+    assert.equal(o.call112, true, "a contact is not a responder: 112 still leads");
+    assert.deepEqual(J.sosOutcome(answer({ contactsAlertedTelegram: 3 })).lines,
+      ["sos.done.recorded", "sos.done.telegram", "sos.done.noResponder"]);
+    for (const v of [null, undefined, "2", -1, 0, NaN]) {
+      const n = J.sosOutcome(answer({ contactsAlertedTelegram: v }));
+      assert.equal(n.telegram, v === "2" ? 2 : 0, String(v));
+    }
+    // An older server sends no contactsAlertedTelegram: nothing is claimed.
+    assert.deepEqual(J.sosOutcome(answer()).lines, ["sos.done.recorded", "sos.done.none"]);
+  });
+
   it("reads as specified in English, every key exists in all 8 languages, and none says help is coming", () => {
     const web = loadWebI18n();
     assert.equal(web.locales.length, 8);
@@ -262,13 +281,18 @@ describe("what an escalated SOS says happened", () => {
     assert.equal(J.sosHeadline(answer({ contactsAlerted: 2, smsLive: false }), "ab12cd34", t),
       "Emergency recorded (ref ab12cd34). Your 2 emergency contacts would be texted. On this demo server SMS is " +
       "only logged, not sent. No responder or contact was reached. Call 112 now.");
+    assert.equal(J.sosHeadline(answer({ contactsAlerted: 2, smsLive: false, contactsAlertedTelegram: 2 }), "ab12cd34", t),
+      "Emergency recorded (ref ab12cd34). Your 2 emergency contacts would be texted. On this demo server SMS is " +
+      "only logged, not sent. 2 contacts alerted on Telegram. No responder was contacted. Call 112 now.");
 
     const cases = [answer(), answer({ contactsAlerted: 1 }), answer({ contactsAlerted: 4 }),
       answer({ respondersNotified: 1 }), answer({ alreadyEscalated: true }),
-      answer({ contactsAlerted: 1, smsLive: false }), answer({ contactsAlerted: 4, smsLive: false })];
+      answer({ contactsAlerted: 1, smsLive: false }), answer({ contactsAlerted: 4, smsLive: false }),
+      answer({ contactsAlertedTelegram: 1 }), answer({ contactsAlerted: 3, smsLive: false, contactsAlertedTelegram: 3 })];
     const keys = new Set(cases.flatMap((c) => J.sosOutcome(c).lines));
     keys.add("sos.grace"); keys.add("sos.call112"); keys.add("sos.unit.found"); keys.add("sos.unit.notContacted");
     keys.add("sos.grace.logged"); keys.add("sos.contacts.logged");
+    for (const k of ["sos.contacts.telegram", "ec.tg.invite", "ec.tg.linked", "ec.tg.copy", "ec.tg.copied", "ec.tg.hint"]) keys.add(k);
     for (const locale of web.locales) {
       web.set(locale);
       for (const k of keys) {

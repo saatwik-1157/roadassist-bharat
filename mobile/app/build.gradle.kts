@@ -82,8 +82,8 @@ android {
         applicationId = "in.roadassist.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "1.1.3"
+        versionCode = 13
+        versionName = "1.1.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // The on-device road-damage detector (ONNX Runtime) is native code, one

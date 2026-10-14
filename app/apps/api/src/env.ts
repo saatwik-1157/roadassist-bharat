@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { loadDotEnv } from "@roadassist/db";
 import { DEV_JWT_SECRET, jwtSecretProblem } from "./domain/jwt-secret.js";
 import { localDemoPrivilegedProblem } from "./domain/demo-numbers.js";
+import { telegramConfigProblems } from "./domain/telegram.js";
 
 // Shared with the migrator and the seeders so every entry point reads the same
 // file regardless of which workspace directory it was launched from.
@@ -205,6 +206,21 @@ export const env = {
     baseUrl: process.env.EMAIL_BASE_URL ?? "",
     from: process.env.EMAIL_FROM ?? "RoadAssist <no-reply@roadassist.in>",
   },
+  /**
+   * Free SOS alerts to emergency contacts over the Telegram Bot API
+   * (routes/telegram.ts, providers.ts). Off unless all three of TOKEN,
+   * USERNAME and WEBHOOK_SECRET are set: with any missing, no invite is
+   * offered, the webhook answers 404 and nothing is sent. The token and the
+   * secret arrive from the host's environment only — never from the
+   * repository. TELEGRAM_API_BASE replaces https://api.telegram.org for a local
+   * stub in tests; leave it unset everywhere else.
+   */
+  telegram: {
+    botToken: process.env.TELEGRAM_BOT_TOKEN ?? "",
+    botUsername: (process.env.TELEGRAM_BOT_USERNAME ?? "").replace(/^@/, ""),
+    webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? "",
+    apiBase: (process.env.TELEGRAM_API_BASE ?? "").replace(/\/+$/, ""),
+  },
   // Email sign-in (domain/email-signin.ts): "email=+91XXXXXXXXXX, ..." set in
   // the host's environment. Empty = no email sign-in, phone only.
   emailSignin: process.env.EMAIL_SIGNIN ?? "",
@@ -336,6 +352,9 @@ export function validateEnv(): void {
       );
     }
   }
+
+  // A half-configured Telegram bot boots and then fails on the first SOS.
+  problems.push(...telegramConfigProblems(env.telegram));
 
   // Outside development and tests the signing secret is the whole of
   // authentication: anyone who knows it mints admin tokens. The hosted demo is

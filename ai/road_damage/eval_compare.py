@@ -12,6 +12,14 @@ Two splits:
               folder would grade it partly on images it was trained on. The subset is
               built once into data/yolo-india-clean/ (gitignored, like all of data/).
 
+A third split, pothole-test (--splits rich,india-clean,pothole-test), is the ~15% of
+the free public pothole images (data/EXTRA_SOURCES.md) that build_pothole_ft.py held
+out of yolo-pothole-ft by group and checked against every training image: it shows
+the effect on that new domain separately. india-clean-strict is India-clean minus every
+image with a perceptual near-duplicate (mostly an adjacent frame of the same drive) in
+yolo-pothole-ft/train, which contains all of yolo-india-ft/train. 4-class names; potholes on every image,
+cracks (road_damage) on the IRDD and Pavdistress images.
+
 Only classes 0 (pothole) and 1 (road_damage) are labelled on india-clean, so a 4-class
 model's faded_marking / manhole predictions do not touch its India numbers: ultralytics
 averages AP over the classes that have ground truth.
@@ -110,9 +118,20 @@ def main() -> None:
                          "india-clean": f"data/yolo-india-clean ({n_india} images, "
                                         "yolo-full/val minus every training image)"},
               "models": {}}
+    if "india-clean-strict" in args.splits:
+        n_s = len(list((DATA / "yolo-india-clean-strict" / "images" / "val").iterdir()))
+        result["splits"]["india-clean-strict"] = (f"data/yolo-india-clean-strict ({n_s} images, "
+                                                  "India-clean minus near-duplicates of any "
+                                                  "yolo-pothole-ft train image)")
+    if "pothole-test" in args.splits:
+        n_pt = len(list((DATA / "yolo-pothole-test" / "images" / "val").iterdir()))
+        result["splits"]["pothole-test"] = (f"data/yolo-pothole-test ({n_pt} images, held-out "
+                                            "new-source potholes, build_pothole_ft.py)")
     out = Path(args.out)
     if out.exists():  # resume: keep results already measured (a crash loses one entry)
-        result["models"] = json.loads(out.read_text()).get("models", {})
+        prev = json.loads(out.read_text())
+        result["models"] = prev.get("models", {})
+        result["splits"] = {**prev.get("splits", {}), **result["splits"]}
     for spec in args.model:
         label, rest = spec.split("=", 1)
         path, sizes = rest.rsplit("@", 1)
@@ -123,10 +142,12 @@ def main() -> None:
         result["models"][label] = entry
         for imgsz in (int(s) for s in sizes.split(",")):
             for split in args.splits.split(","):
-                if split == "rich":
+                if split in ("rich", "pothole-test"):
                     if len(names) != 4:
                         continue  # a 2-class model cannot be scored on 4-class labels
-                    data = rich_yaml
+                    data = rich_yaml if split == "rich" else DATA / "yolo-pothole-test" / "dataset.yaml"
+                elif split == "india-clean-strict":
+                    data = yaml_for(DATA / "yolo-india-clean-strict", names, f"{len(names)}c")
                 else:
                     data = yaml_for(india, names, f"{len(names)}c")
                 key = f"{split}@{imgsz}"

@@ -49,7 +49,10 @@
 //      alarm is kept on the IndexedDB row across a reload (offline-store.js, app.html), a synced
 //      SOS answered "duplicate" is still escalated (app.html), and the scan sends a clientReportId
 //      per draft (scan.js).
-const VERSION = "ra-v30";
+// v31: emergency contacts can be invited on Telegram (a link with a copy button, a "Linked on
+//      Telegram ✓" badge), and the SOS sheet counts contacts alerted on Telegram (app.html,
+//      journey.js, i18n.js, index.html).
+const VERSION = "ra-v31";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
