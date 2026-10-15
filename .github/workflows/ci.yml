@@ -143,6 +143,18 @@ jobs:
           echo "TELEGRAM_WEBHOOK_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
           echo "TELEGRAM_BOT_USERNAME=RoadAssistStubBot" >> "$GITHUB_ENV"
           echo "TELEGRAM_API_BASE=http://127.0.0.1:4697" >> "$GITHUB_ENV"
+      # Sign in with Google (routes/google-auth.ts) against a LOCAL stub of
+      # Google's consent screen, token endpoint and keys (scripts/google-stub.mjs)
+      # that e2e §42 and security §15 start themselves on this port. The client
+      # ids and secret are random per run, shaped like Google's, never real, and
+      # nothing reaches Google: GOOGLE_API_BASE replaces all three of its hosts.
+      - name: Test-only Google sign-in stub configuration
+        run: |
+          echo "GOOGLE_CLIENT_ID=$(shuf -i 100000000000-999999999999 -n 1)-$(openssl rand -hex 12).apps.googleusercontent.com" >> "$GITHUB_ENV"
+          echo "GOOGLE_ANDROID_CLIENT_ID=$(shuf -i 100000000000-999999999999 -n 1)-$(openssl rand -hex 12).apps.googleusercontent.com" >> "$GITHUB_ENV"
+          echo "GOOGLE_CLIENT_SECRET=GOCSPX-$(openssl rand -hex 14)" >> "$GITHUB_ENV"
+          echo "GOOGLE_REDIRECT_URI=http://localhost:4000/v1/auth/google/callback" >> "$GITHUB_ENV"
+          echo "GOOGLE_API_BASE=http://127.0.0.1:4698" >> "$GITHUB_ENV"
       - name: Start API
         run: |
           node --import tsx apps/api/src/server.ts &

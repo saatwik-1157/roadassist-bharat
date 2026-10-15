@@ -87,8 +87,8 @@ in the live demo.*
   ([ADR-0002](../app/docs/adr/0002-boundaries-in-ci.md)).
 - **One database**: PostgreSQL 16 with the PostGIS extension
   ([ADR-0003](../app/docs/adr/0003-postgres-postgis.md)). The schema has
-  59 tables, 147 indexes and 9 migrations (`measured.json`).
-- **77 routes**, 74 of them under `/v1`; the other three are `/tiles`, `/basemap`
+  60 tables, 151 indexes and 12 migrations (`measured.json`).
+- **84 routes**, 81 of them under `/v1`; the other three are `/tiles`, `/basemap`
   and `/health`.
 - **Real-time updates** use server-sent events with a heartbeat, and polling
   underneath ([ADR-0010](../app/docs/adr/0010-realtime-and-concurrency.md)).
@@ -149,8 +149,8 @@ because each is attack surface (`app/Dockerfile` stage 3).
 | PostgreSQL | 16 | Stores everything: users, bookings, incidents, payments, RAKSHA detections, audit log | Transactions and row locks settle races (for example two mechanics accepting one job) |
 | PostGIS | 3.4 locally and in CI (image `postgis/postgis:16-3.4`); the PostGIS extension on Neon | Geometry columns, GiST spatial indexes, and `ST_DWithin` to rank the nearest mechanics | A hard requirement: the first migration runs `CREATE EXTENSION postgis`, which ruled out free hosts without it (DEPLOYMENT.md) |
 
-Database facts from `measured.json`: 59 tables, 64 foreign keys, 147 indexes
-(88 unique, 5 GiST), 9 migrations. The audit log is append-only: Postgres
+Database facts from `measured.json`: 60 tables, 65 foreign keys, 151 indexes
+(94 unique, 5 GiST), 12 migrations. The audit log is append-only: Postgres
 `RULES` turn `UPDATE` and `DELETE` into no-ops, and each row is hash-chained to
 the one before it.
 
@@ -159,7 +159,7 @@ the one before it.
 | Tool | Version | What it does here | Where |
 |---|---|---|---|
 | Plain HTML, CSS, JavaScript | n/a | Every page. No framework and no bundler | `app/apps/web/` |
-| Service worker | cache `ra-v28` | Keeps the app shell and map tiles available offline. API answers are never cached, because a stale booking status is worse than an honest failure ([ADR-0004](../app/docs/adr/0004-offline-conflict-rules.md)) | `app/apps/web/sw.js` |
+| Service worker | cache `ra-v32` | Keeps the app shell and map tiles available offline. API answers are never cached, because a stale booking status is worse than an honest failure ([ADR-0004](../app/docs/adr/0004-offline-conflict-rules.md)) | `app/apps/web/sw.js` |
 | IndexedDB + Web Crypto (AES-GCM-256) | Browser built-ins | The offline SOS and sync journal. Payloads are encrypted under a **non-extractable** key generated on the device | `app/apps/web/offline-store.js`, `offline-engine.js` |
 | Web app manifest | n/a | Lets the citizen app install to the home screen (`start_url` `/app.html`, standalone) | `app/apps/web/manifest.webmanifest` |
 | Leaflet | 1.9.4 (vendored) | The maps on the live map and the RAKSHA dashboard | `vendor/leaflet.js`, used by `map.html` and `raksha.html` |
@@ -181,21 +181,23 @@ page makes a visitor's browser contact a third party (enforced by
 | Gradle (wrapper) | 8.13 | The build tool. Must run on **JDK 21**: Gradle 8.13 rejects JDK 25 (ENGINEERING-NOTES.md) |
 | Java target | 17 (`sourceCompatibility`, `jvmTarget`) | Bytecode level of the app |
 | Android SDK | `compileSdk` 36, `targetSdk` 36, `minSdk` 26 | Runs on Android 8.0 and newer; built and targeted for Android 16 |
-| App version | `versionName` 1.1.3, `versionCode` 12 | The release published as `android-v1.1.3` on GitHub Releases |
+| App version | `versionName` 1.1.5, `versionCode` 14 | Adds Sign in with Google. The latest published release is `android-v1.1.4`; 1.1.5 is built and published by the release step |
 | Jetpack Compose | BOM 2024.09.03; `ui`, `foundation`, `material3` | The user interface |
 | androidx.activity:activity-compose | 1.9.2 | Hosts Compose in the activity |
 | androidx.lifecycle:lifecycle-runtime-ktx | 2.8.6 | Lifecycle-aware coroutines |
 | androidx.core:core-ktx | 1.13.1 | Status-bar and navigation-bar colours for the light/dark toggle |
 | kotlinx-coroutines-android | 1.8.1 | Background work (network, SOS ladder) |
 | androidx.profileinstaller | 1.4.1 | Installs a baseline profile so start-up and scrolling are compiled ahead of time |
+| androidx.credentials (+ `credentials-play-services-auth`) | 1.3.0 | Credential Manager: shows Google's account sheet for "Continue with Google" and "Link Google" (`GoogleSignIn.kt`) |
+| com.google.android.libraries.identity.googleid | 1.1.1 | The "Sign in with Google" option and the ID-token credential type. The token goes once to our server, which verifies it; no Firebase, no analytics |
 | R8 (release build) | via AGP | Shrinks and optimises the release APK. The build notes record about 25% janky frames on a debug build against about 4% on the R8 build |
 | JUnit | 4.13.2 (tests only) | Unit tests |
 | org.json | 20240303 (tests only) | A real JSON library for JVM tests; the Android SDK's copy is a stub off-device |
 
 **Why so few libraries:** networking uses the platform's own
-`HttpURLConnection` and `org.json`, so the app has no third-party runtime
-library at all ("zero third-party libraries, so the first build has the fewest
-possible failure modes", `mobile/app/build.gradle.kts`). Release builds are
+`HttpURLConnection` and `org.json`. The only runtime libraries from outside
+AndroidX are ONNX Runtime (the on-device road scan) and Google's `googleid`
+with the Play services bridge for Credential Manager (Sign in with Google). Release builds are
 signed with the RoadAssist Bharat release key, which is held outside the
 repository (`RA_SIGNING_PROPS`, or a folder beside the repository; neither the
 keystore nor its properties file is committed). Its certificate SHA-256 is
@@ -500,15 +502,15 @@ database migrated from empty, then seeded).
 
 | Suite | Count | What it proves | Runs |
 |---|---|---|---|
-| Unit (`npm test`) | 545 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
-| End-to-end (`npm run test:e2e`) | 312 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
+| Unit (`npm test`) | 579 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
+| End-to-end (`npm run test:e2e`) | 341 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
 | Concurrency (`npm run test:concurrency`) | 112 | Races: two mechanics accepting one job, three SOS taps at once, live event delivery | CI |
 | Gateway security (`npm run test:gateway`) | 58 | Webhook signatures, append-only audit rules, sign-in code limits per number and per IP | CI |
-| Security audit (`npm run test:security`) | 116 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
-| Browser (`npm run test:ui`) | 272 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
-| **Total** | **1415** | Six suites, zero failures | |
-| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1415, and never described as passing | By hand only |
-| Android (Gradle) | 333 | Android unit tests, run with lint and both APK builds | CI `android` job |
+| Security audit (`npm run test:security`) | 135 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
+| Browser (`npm run test:ui`) | 281 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
+| **Total** | **1506** | Six suites, zero failures | |
+| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1506, and never described as passing | By hand only |
+| Android (Gradle) | 342 | Android unit tests, run with lint and both APK builds | CI `android` job |
 | SOS ladder | 21 | The subset of the Android tests over `SosLadder.kt`, the emergency fallback decisions | CI `android` job |
 | CV pipeline | 49 | The Python pipeline tests (standard library only) | CI `ai` job |
 
@@ -535,7 +537,7 @@ CI also stops PostgreSQL under a running API and checks that `/health` answers
 
 ### What is not done (from `app/docs/SECURITY.md`)
 
-- **No external penetration test.** 116 self-written attacks is not the same thing.
+- **No external penetration test.** 135 self-written attacks is not the same thing.
 - **Rate limiting is per instance.** Several servers would each allow the full limit.
 - **No column-level encryption at rest** in Postgres; medical data is protected by
   access control and audit.

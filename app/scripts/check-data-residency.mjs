@@ -88,6 +88,17 @@ const DECLARED_EGRESS = {
     "as a map link - personal data, in the same tension with non-negotiable #4 as Open-Meteo, and " +
     "accepted because the alternative on the demo is that nobody is told. Never a phone number " +
     "(apps/api/test/telegram.test.ts fails if one appears).",
+  "oauth2.googleapis.com":
+    "OUTSIDE INDIA (Google LLC, USA; global infrastructure) - OPTIONAL Sign in with Google " +
+    "(routes/google-auth.ts), off unless GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI " +
+    "are all set. SERVER-SIDE: the authorization code a person's own browser brought back is exchanged " +
+    "here, with the PKCE verifier and the client secret, for an ID token. Carries no visitor address and " +
+    "nothing about the person beyond that one-time code; what comes back is Google's statement of the " +
+    "account the PERSON chose to sign in with, and only its subject id and verified email are stored.",
+  "www.googleapis.com":
+    "OUTSIDE INDIA (Google LLC, USA) - Google's public signing keys (/oauth2/v3/certs), fetched " +
+    "SERVER-SIDE to verify an ID token's signature and cached as long as Google's Cache-Control allows. " +
+    "Carries nothing at all: a GET of a public document.",
   "api.twilio.com":
     "OUTSIDE INDIA (USA) - an OPTIONAL fallback SMS provider, selected only by setting " +
     "SMS_PROVIDER=twilio. Carries a phone number and message body, so enabling it for Indian " +
@@ -105,6 +116,34 @@ const DECLARED_CLIENT_EGRESS = {
     "India - Razorpay Software Pvt Ltd, Bengaluru; card data must load from the gateway origin " +
     "and must never touch our servers",
 };
+
+/**
+ * Hosts the SERVER sends a visitor's browser to with a redirect, after the
+ * visitor clicked something that says where it goes. Neither of the two
+ * categories above fits these honestly: the server never fetches them (so they
+ * are not our egress), and no page loads them (so the page rule holds), but
+ * the visitor's own browser does reach them - because they chose to.
+ *
+ * "Continue with Google" is a plain link to this origin's /v1/auth/google/start,
+ * which answers 302 to Google's consent screen. Nothing reaches Google until
+ * that click; the page loads no Google script, iframe, font or image, and the
+ * gate below fails if one ever names a Google sign-in host at all.
+ */
+const DECLARED_NAVIGATION = {
+  "accounts.google.com":
+    "OUTSIDE INDIA (Google LLC) - Google's sign-in and consent screen. Reached only by a top-level " +
+    "NAVIGATION the visitor starts by pressing \"Continue with Google\" or \"Link Google\": their browser " +
+    "follows our 302 there, so their address reaches Google as it does on any visit to Google, by their " +
+    "choice. Off unless Google sign-in is configured. Never fetched by the server, never loaded by a page.",
+};
+
+/**
+ * Google sign-in hosts no page may name - not even as a link. The pages reach
+ * Google only through the server's redirect (DECLARED_NAVIGATION), so a page
+ * that mentions one of these is loading Google's sign-in script or button,
+ * which would contact Google on every page view, before anybody clicks.
+ */
+const SIGNIN_HOSTS_FORBIDDEN_IN_PAGES = /(accounts\.google\.com|apis\.google\.com|[a-z0-9.-]*gstatic\.com|gsi\/client)/i;
 
 /** Local, private and placeholder addresses are never third parties. */
 const NOT_THIRD_PARTY = [
@@ -152,6 +191,7 @@ const SERVER_EXT = new Set([".ts", ".kt", ".mjs", ".js", ".py"]);
 
 const violations = [];
 const seenDeclared = new Set();
+const seenNavigation = new Set();
 
 const URL_RE = /https?:\/\/([a-zA-Z0-9._-]+)/g;
 
@@ -210,6 +250,11 @@ function check(full, rel, client, vendored) {
     // A comment explaining why a host was REMOVED must not re-trip the gate.
     const isComment = /^\s*(\/\/|\*|#|<!--)/.test(line);
 
+    if (client && !vendored && !isComment && SIGNIN_HOSTS_FORBIDDEN_IN_PAGES.test(line)) {
+      violations.push(`${at}: a page names a Google sign-in host. Pages reach Google only by the ` +
+        `server's redirect from /v1/auth/google/start, never by loading or linking Google themselves.`);
+    }
+
     for (const m of line.matchAll(URL_RE)) {
       const host = m[1].replace(/\.$/, "");
       if (!isThirdParty(host)) continue;
@@ -234,6 +279,9 @@ function check(full, rel, client, vendored) {
           `Serve it from this origin instead.`);
       } else if (vendored) {
         // fall through: a vendored library's own URL is not our egress
+      } else if (host in DECLARED_NAVIGATION) {
+        // A redirect target the visitor's browser follows after their click, not a fetch of ours.
+        seenNavigation.add(host);
       } else if (!OUTBOUND_CALL.test(line)) {
         // a URL printed in help text or quoted in a message is not egress
       } else if (!(host in DECLARED_EGRESS)) {
@@ -306,4 +354,5 @@ console.log(
   // region), so "nothing leaves India" would be a claim this check cannot make.
   `✓ data residency: no page makes a visitor's browser contact a third party; ` +
   `${declared.length} declared server-side egress host${declared.length === 1 ? "" : "s"}` +
-  (declared.length ? ` (${declared.join(", ")})` : ""));
+  (declared.length ? ` (${declared.join(", ")})` : "") +
+  (seenNavigation.size ? `; ${seenNavigation.size} declared click-through navigation (${[...seenNavigation].join(", ")})` : ""));

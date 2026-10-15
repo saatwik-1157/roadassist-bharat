@@ -52,7 +52,10 @@
 // v31: emergency contacts can be invited on Telegram (a link with a copy button, a "Linked on
 //      Telegram ✓" badge), and the SOS sheet counts contacts alerted on Telegram (app.html,
 //      journey.js, i18n.js, index.html).
-const VERSION = "ra-v31";
+// v32: "Continue with Google" on sign-in, the add-your-number card a Google sign-up gets, and
+//      Link Google in Settings (app.html, app.css, i18n.js; google-signin.js and phone.js are new in the shell,
+//      and normalizeMsisdn moved from app.html into phone.js).
+const VERSION = "ra-v32";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -90,6 +93,8 @@ const SHELL_ASSETS = [
   // Sheet focus and the top-bar hairline on app.html.
   "/ui.js",
   "/email-signin.js",
+  "/google-signin.js",
+  "/phone.js",
   // The session and its refresh cookie; without it a cached page cannot sign in.
   "/session.js",
   // app.html runs on it before its own script does — uncached, no screen draws.

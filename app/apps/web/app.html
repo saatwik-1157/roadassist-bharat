@@ -93,6 +93,7 @@
           <button class="btn" id="a-verify" style="margin-top:14px"
                   data-i18n="auth.verify">Verify &amp; continue</button>
         </div>
+        <div id="a-google-wrap" hidden></div><!-- Continue with Google: a link to /v1/auth/google/start (google-signin.js) -->
       </div>
     </section>
 
@@ -106,6 +107,7 @@
           </div>
         </div>
 
+        <div class="card" id="phone-card" style="margin-top:16px" hidden></div><!-- a Google sign-up's number (phone.js) -->
         <!-- What still works with no signal, said where the user is. -->
         <div id="offline-banner" style="margin-top:16px" hidden></div>
 
@@ -538,6 +540,7 @@
         <div class="card">
           <h2 class="title">Session</h2>
           <p class="meta" id="s-meta" style="margin-top:4px">—</p>
+          <div id="g-account"></div><!-- add your number, Link Google (google-signin.js) -->
           <button class="btn ghost" id="s-out" style="margin-top:12px">Sign out</button>
         </div>
       </div>
@@ -622,6 +625,7 @@
 </div>
 
 <script src="email-signin.js"></script>
+<script src="phone.js"></script><script src="google-signin.js"></script>
 <script src="session.js"></script>
 <script src="journey.js"></script>
 <script src="near.js"></script>
@@ -733,6 +737,7 @@
   var esc = function (v) { return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) { return ESC_MAP[c]; }); };
   /** A catalogue string (i18n.js loads after this script, so it is looked up at call time). */
   var tr = function (key, fallback) { return window.I18N ? I18N.t(key, fallback) : fallback; };
+  function who() { return state.msisdn || state.googleEmail || tr("account.noPhone", "No phone yet"); }   // a Google sign-up may have no number yet
   /** 12 random hex characters. crypto.randomUUID exists only in a secure context, so on the
       server's plain-http LAN address it threw; getRandomValues works on any origin. */
   function randomId() {
@@ -1127,6 +1132,7 @@
     stopBookingPoll();
     streamStop();
     state.token = null; state.refresh = null; state.bookingId = null; state.userId = null; state.stale = false;
+    state.googleEmail = null; if (account) account.reset();
     clearSession();
     Object.keys(sosOpen).forEach(function (id) { trackIncident(id, null); });   // the next user's are not these
     // Nor is anything else the last person left: the code they were sent, the
@@ -1543,23 +1549,10 @@
   });
 
   // ── auth ──────────────────────────────────────────────────────────────────
-  /**
-   * Accept a phone number the way people actually write it.
-   *
-   * The API requires strict E.164 (+91XXXXXXXXXX) and is right to. But nobody
-   * in India types their own number that way — they type ten digits, or with
-   * spaces from a contact card, or with the STD leading zero. Rejecting those
-   * as invalid is the app being pedantic about a format it can work out for
-   * itself. Anything genuinely not an Indian mobile still fails, and says why.
-   */
-  function normalizeMsisdn(raw) {
-    var v = String(raw || "").replace(/[\s\-().]/g, "");
-    if (/^[6-9]\d{9}$/.test(v)) return "+91" + v;          // 7000009876
-    if (/^0[6-9]\d{9}$/.test(v)) return "+91" + v.slice(1); // 07000009876
-    if (/^91[6-9]\d{9}$/.test(v)) return "+" + v;           // 917000009876
-    if (/^\+91[6-9]\d{9}$/.test(v)) return v;               // already correct
-    return null;
-  }
+  var normalizeMsisdn = window.RAPhone.normalize;   // ten digits, a leading 0 or 91, read as E.164 (phone.js)
+  // Google sign-in, Link Google and the number a Google sign-up adds (google-signin.js, phone.js).
+  var account = window.RAGoogle && RAGoogle.mount({ api: API, headers: sess.headers, $: $, tr: tr, toast: toast, busy: busy, fieldError: fieldError, nav: nav, call: api,
+    refresh: refreshSession, token: function () { return state.token; }, onPhone: function (n) { state.msisdn = n; saveSession(); $("home-sub").textContent = $("s-meta").textContent = who(); } });
 
   $("a-send").onclick = busy($("a-send"), async function () {
     // Checked here as well as on the server so the answer is instant and lands
@@ -1619,23 +1612,24 @@
     // A session exists now, so the live stream can be opened. Fire and forget:
     // it reconnects on its own, and nothing below waits on it.
     streamOpen();
-    $("home-sub").textContent = state.msisdn + (note ? " · " + note : "");
+    $("home-sub").textContent = who() + (note ? " · " + note : "");
     $("home-title").textContent = greeting();
-    $("s-meta").textContent = state.msisdn + " · roles: " + ((roles || []).join(", ") || "citizen");
+    $("s-meta").textContent = who() + " · roles: " + ((roles || []).join(", ") || "citizen");
 
     var me = await api("GET", "/v1/me", null, { force: true });
     state.userId = me.data.user.id;
     state.fullName = me.data.user.fullName || "";
+    state.msisdn = me.data.user.msisdn || null; state.googleEmail = me.data.google && me.data.google.email; if (account) account.update(me.data);
     $("p-name").value = state.fullName;
     // Greet the person, not the phone number, once they have told us who they are.
     $("home-sub").textContent = (state.fullName ? state.fullName + " · " : "") +
-      state.msisdn + (note ? " · " + note : "");
+      who() + (note ? " · " + note : "");
     state.vehicles = me.data.vehicles || [];
     // A remembered selection survives the reload; otherwise fall to the first.
     if (!state.vehicles.some(function (v) { return v.id === state.vehicleId; })) {
       state.vehicleId = state.vehicles.length ? state.vehicles[0].id : null;
     }
-    if (!roles) $("s-meta").textContent = state.msisdn + " · roles: " + (me.data.roles || []).join(", ");
+    if (!roles) $("s-meta").textContent = who() + " · roles: " + (me.data.roles || []).join(", ");
     renderVehicles();
 
     var svc = await api("GET", "/v1/service-types", null, { force: true });
@@ -1715,8 +1709,8 @@
     state.stale = true;
     $("tabs").hidden = false;
     $("home-title").textContent = greeting();
-    $("home-sub").textContent = state.msisdn + " · offline — showing what this device holds";
-    $("s-meta").textContent = state.msisdn + " · offline";
+    $("home-sub").textContent = who() + " · offline — showing what this device holds";
+    $("s-meta").textContent = who() + " · offline";
     renderVehicles(); renderHomeTask(null); renderSosOpen(); saveQueue(); renderOffGrid();
     if (!routeFromHash()) nav("home");
   }
@@ -1744,7 +1738,7 @@
       state.fullName = r.data.fullName || "";
       // Greet by name once there is one — the whole point of asking.
       $("home-title").textContent = greeting();
-      $("home-sub").textContent = (state.fullName ? state.fullName + " · " : "") + state.msisdn;
+      $("home-sub").textContent = (state.fullName ? state.fullName + " · " : "") + who();
       toast(name ? "Saved — your mechanic will see this" : "Name cleared", "ok");
     } catch (e) { toast(e.message, "bad"); }
   });
@@ -2364,6 +2358,7 @@
       toast(d.data.offers.length === 1 ? "Mechanic found." : d.data.offers.length + " mechanics found.", "ok");
       renderOffers(d.data.offers);
     } catch (e) {
+      if (e.code === "phone_required" && account) { $("b-offers").innerHTML = ""; account.askPhone(); toast(tr("phone.required", e.message), "bad"); return; }
       $("b-offers").innerHTML =
         "<div class='card' style='margin-top:13px'>" +
           "<h2 class='title'>Could not complete that</h2>" +
@@ -4706,6 +4701,13 @@
    * the server also rejects sends the user back to sign-in.
    */
   (async function boot() {
+    // Back from Google: the server set this page's refresh cookie (signedin), or the outcome is said (google-signin.js).
+    if (account && account.back() === "signedin") {
+      clearSession(); state.refresh = true; state.msisdn = null; state.vehicleId = null; state.bookingId = null; state.vehicles = [];
+      try { if (!(await refreshSession())) throw new Error(RAGoogle.message("google_failed", tr)); await enterApp(null, tr("google.signedIn", "Signed in with Google")); }
+      catch (e) { state.refresh = null; signedOut(); toast(e.message, "bad"); }
+      return;
+    }
     var saved = loadSession();
     if (!saved || !saved.refresh) { updateOfflineBanner(); return; }
     state.token = saved.token;

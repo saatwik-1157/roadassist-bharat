@@ -383,7 +383,7 @@ object Api {
 
     private suspend fun request(method: String, path: String, body: JSONObject?): JSONObject {
         val (code, json) = raw(method, path, body)
-        if (code == 401 && refreshToken != null && !path.startsWith("/v1/auth/")) {
+        if (code == 401 && refreshToken != null && !path.startsWith("/v1/auth/") && !notASessionProblem(json)) {
             // One transparent rotation, then replay the original request.
             if (refresh()) {
                 val (code2, json2) = raw(method, path, body)
@@ -394,6 +394,22 @@ object Api {
         if (code !in 200..299) throw failure(code, json)
         return json
     }
+
+    /**
+     * A 401 that is about what was SENT, not about the session: a wrong or
+     * expired code (adding a phone, POST /v1/me/phone) or a Google token the
+     * server refused (POST /v1/me/google). Refreshing and replaying those would
+     * rotate the session for nothing and spend a second code attempt.
+     */
+    private fun notASessionProblem(json: JSONObject): Boolean {
+        val code = json.optJSONObject("error")?.optString("code").orEmpty()
+        return code.startsWith("otp_") || code in GOOGLE_TOKEN_REFUSALS
+    }
+
+    private val GOOGLE_TOKEN_REFUSALS = setOf(
+        "malformed", "bad_alg", "bad_signature", "bad_issuer", "bad_audience", "bad_azp", "expired",
+        "not_yet_valid", "nonce_mismatch", "nonce_replayed", "email_unverified", "no_subject",
+    )
 
     /**
      * The exception for a non-2xx answer: the server's own title, which is the

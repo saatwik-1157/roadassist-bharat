@@ -58,6 +58,25 @@
     <string name="tg_hint">Send this link to %1$s. It works once and expires in 7 days.</string>
     <string name="tg_invite_failed">Could not make an invite link</string>
     <string name="sos_contacts_telegram">alerted on Telegram: %1$d</string>
+    <!-- Sign in with Google and the number a Google sign-up adds (GoogleSignIn.kt) -->
+    <string name="or_divider">or</string>
+    <string name="google_continue">Continue with Google</string>
+    <string name="google_link">Link Google</string>
+    <string name="google_linked_as">Google account linked: %1$s</string>
+    <string name="google_linked">Google account linked</string>
+    <string name="google_err_cancelled">Google sign-in was cancelled.</string>
+    <string name="google_err_no_account">No Google account on this phone. Add one in the phone\'s settings, or sign in with your number.</string>
+    <string name="google_err_failed">Google sign-in did not complete. Try again.</string>
+    <string name="google_err_privileged">This account cannot use Google sign-in. Sign in with your phone number.</string>
+    <string name="google_err_in_use">That Google account is already linked to another RoadAssist account.</string>
+    <string name="google_err_unverified">Your Google account\'s email address is not verified with Google, so it cannot be used to sign in.</string>
+    <string name="phone_add_title">Add your mobile number</string>
+    <string name="phone_add_why">Mechanics call you on it. SOS works without it; booking a mechanic needs it.</string>
+    <string name="phone_later">Later</string>
+    <string name="phone_added">Mobile number verified</string>
+    <string name="phone_verify">Verify number</string>
+    <string name="phone_in_use">That number already has a RoadAssist account. Sign in with that number, then use Link Google in More.</string>
+    <string name="account_no_phone">No phone yet</string>
     <string name="field_contact_name">Contact name</string>
     <string name="field_contact_phone">Their mobile (+91…)</string>
     <string name="server">Server</string>

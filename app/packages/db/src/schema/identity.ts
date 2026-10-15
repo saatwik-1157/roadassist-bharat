@@ -10,15 +10,60 @@ export const roleEnum = pgEnum("role_name", [
 
 export const users = pgTable("users", {
   ...base,
-  msisdn: varchar("msisdn", { length: 16 }).notNull(),
+  /**
+   * The verified mobile number. NULL only for an account created by "Sign in
+   * with Google" whose owner has not yet verified a phone by OTP (routes/
+   * google-auth.ts, POST /v1/me/phone). Every account created by phone, SMS
+   * or email sign-in has one. Unique, so a number belongs to one account;
+   * Postgres lets any number of rows be NULL under the unique index.
+   */
+  msisdn: varchar("msisdn", { length: 16 }),
   fullName: varchar("full_name", { length: 120 }),
   email: varchar("email", { length: 160 }),
   preferredLanguage: varchar("preferred_language", { length: 8 }).notNull().default("en"),
   isVerified: boolean("is_verified").notNull().default(false),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  /**
+   * The Google account linked to this one: its stable subject id (`sub`),
+   * which is the ONLY key a Google sign-in is matched on - never the email,
+   * which Google lets an account change and which another provider could
+   * assert for anybody. Unique, so one Google account enters one RoadAssist
+   * account. Only citizen accounts ever carry one (domain/google-signin.ts).
+   */
+  googleSub: varchar("google_sub", { length: 255 }),
+  /**
+   * The address Google reported for that account, verified by Google, kept
+   * only so Settings can say which Google account is linked. Never used to
+   * find, link or sign in to an account, and never a contact channel.
+   */
+  googleEmail: varchar("google_email", { length: 160 }),
 }, (t) => ({
   msisdnUq: uniqueIndex("users_msisdn_uq").on(t.msisdn),
   emailIdx: index("users_email_idx").on(t.email),
+  googleSubUq: uniqueIndex("users_google_sub_uq").on(t.googleSub),
+}));
+
+/**
+ * One row per Google sign-in or link attempt: the nonce Google must echo in
+ * the ID token, stored as its SHA-256 only (routes/google-auth.ts).
+ *
+ * The web flow keeps the nonce itself in its sealed cookie; the Android app is
+ * handed it by POST /v1/auth/google/nonce. Either way an ID token is accepted
+ * once: `used_at` is stamped by a conditional UPDATE, so a replayed token -
+ * or two requests racing with one - finds the row already used. A row lives
+ * ten minutes. `purpose` is "signin" or "link"; a link row names the signed-in
+ * account it was issued to, so a link token cannot be spent by anybody else.
+ */
+export const googleAuthNonces = pgTable("google_auth_nonces", {
+  ...base,
+  nonceHash: varchar("nonce_hash", { length: 64 }).notNull(),
+  purpose: varchar("purpose", { length: 8 }).notNull(),
+  linkUserId: uuid("link_user_id").references(() => users.id),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+}, (t) => ({
+  nonceUq: uniqueIndex("google_auth_nonces_hash_uq").on(t.nonceHash),
+  expiresIdx: index("google_auth_nonces_expires_idx").on(t.expiresAt),
 }));
 
 export const otpChallenges = pgTable("otp_challenges", {

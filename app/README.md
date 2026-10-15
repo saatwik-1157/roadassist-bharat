@@ -22,12 +22,12 @@ npm run infra:up && npm run db:migrate && npm run db:seed   # once (Docker Deskt
 npm run db:seed:raksha                                      # demo admin + NH-48 corridor
 npm start                                                   # → http://localhost:4000
 npm run share                                               # → public HTTPS url, for real phones
-npm run verify && npm run test:e2e                          # 545 unit + 312 end-to-end
+npm run verify && npm run test:e2e                          # 579 unit + 341 end-to-end
 npm run test:gateway                                        # 58 gateway-security checks
 npm run test:concurrency                                    # 112 race / idempotency / real-time
-npm run test:security                                       # 116 attacks, all must be refused
-npm run test:ui                                             # 272 browser-journey checks
-npm run test:razorpay                                       # 22 payment-gateway checks: not in the 1415, see below
+npm run test:security                                       # 135 attacks, all must be refused
+npm run test:ui                                             # 281 browser-journey checks
+npm run test:razorpay                                       # 22 payment-gateway checks: not in the 1506, see below
 ```
 
 > `db:seed` is not idempotent — against an already-seeded database run
@@ -123,10 +123,10 @@ against a fresh PostGIS container on every push.
 | 0 · Research | Problem validation, integration feasibility, constraints | ✅ [`../docs/`](../docs/) |
 | 1 · Planning | Backlog, repo scaffold, CI pipeline, quality gates | ✅ |
 | 2 · Architecture | C4 diagrams, 13 ADRs, event catalogue, API style guide, failure matrix, threat model | ✅ [`docs/`](docs/) |
-| 3 · Database | 59 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
+| 3 · Database | 60 tables migrated, ~38k seeded rows, GiST + partial indexes | ✅ |
 | 4 · Auth | OTP → JWT, rotating refresh with reuse detection, RBAC + device identity (ADR-0008) | ✅ |
 | 5 · APIs | Booking state machine, PostGIS dispatch, diagnosis, sync, SOS, gateway-verified payments | ◐ slice complete, full surface pending |
-| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 333 tests); no React Native app |
+| 6 · Frontend | Demo client at `/`, citizen app at `/app.html`, RAKSHA map at `/raksha.html` | ◐ web surfaces + native Kotlin Android client (`mobile/`, 342 tests); no React Native app |
 | 7 · AI | Rules engine + trained CV model on RDD2022: shipped detector YOLO11n `yolo11n-india-ft-gpu` (4 classes; held-out 4-country val mAP50 0.586 · mAP50-95 0.287 at 640, 0.516 · 0.245 at 416 on Android and in the web scan when it falls back to WebAssembly; held-out India split 0.500 · 0.217); RAKSHA's 34 recorded detections come from an earlier YOLO11n India model (`yolo-rdd2022in-best`, mAP50 0.443) (see ai/) | ◐ GPU-trained; the detector runs on-device in the web Live road scan and the Android Scan road screen, not on a server; potholes remain the weakest class (0.422 on the India split) |
 | R · RAKSHA | Edge simulator → offline queue → idempotent sync → segments → road health → authority verify/close | ◐ MVP slice live. Demo detections are real YOLO11 output at SIMULATED NH-48 positions; the edge simulator's own detector (`sim-rules-0.1.0`) is SIMULATED (ADR-0007) |
 | O · Off-Grid | Connectivity manager (ONLINE/LIMITED/OFF-GRID), offline SOS, on-device diagnosis, encrypted sync journal, cached maps | ✅ (ADR-0009); satellite/mesh explicitly NOT implemented |
@@ -387,7 +387,7 @@ app/
 │       ├── connectivity.js     ONLINE · LIMITED · OFF-GRID manager
 │       └── sw.js               service worker (app shell + map tiles)
 ├── packages/
-│   └── db/                   Drizzle schema (6 modules, 59 tables)
+│   └── db/                   Drizzle schema (6 modules, 60 tables)
 ├── scripts/
 │   ├── check-boundaries.mjs  Architecture fitness function (ADR-0002)
 │   ├── check-claims.mjs      Documented numbers match docs/measured.json

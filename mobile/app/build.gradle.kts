@@ -82,8 +82,8 @@ android {
         applicationId = "in.roadassist.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.1.4"
+        versionCode = 14
+        versionName = "1.1.5"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // The on-device road-damage detector (ONNX Runtime) is native code, one
@@ -269,6 +269,16 @@ dependencies {
     // pulled in by CameraX at this version; named because ScanRoad uses it.
     implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:$onnxRuntime")
+
+    // ── Sign in with Google (GoogleSignIn.kt) ──────────────────────────────
+    // Credential Manager is AndroidX; the play-services-auth bridge is what lets
+    // it reach the Google accounts on the phone, and googleid supplies the
+    // "Sign in with Google" option and parses the ID token credential. No
+    // Firebase, no analytics: the token goes once to our server and nowhere else.
+    val credentials = "1.3.0"
+    implementation("androidx.credentials:credentials:$credentials")
+    implementation("androidx.credentials:credentials-play-services-auth:$credentials")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     // On-device parity test only (DetectorDeviceParityTest): runs the shipped
     // model through the app's own detector on a phone or emulator. Never shipped.

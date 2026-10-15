@@ -47,7 +47,7 @@ import {
 } from "../auth.js";
 
 /** Whether the code is real, and whether it may be shown — see otp-policy.ts. */
-const phonePolicy = (): OtpPolicy => otpPolicy({
+export const phonePolicy = (): OtpPolicy => otpPolicy({
   smsProvider: env.sms.provider,
   exposeDevOtp: env.exposeDevOtp,
 });
@@ -60,7 +60,7 @@ const phonePolicy = (): OtpPolicy => otpPolicy({
  * The role lookup runs only under the demo restrictions (never in development
  * or tests, whose suites sign the seeded admin in by phone on purpose).
  */
-async function phoneRefusal(msisdn: string, policy: OtpPolicy): Promise<PhoneSignInRefusal | null> {
+export async function phoneRefusal(msisdn: string, policy: OtpPolicy): Promise<PhoneSignInRefusal | null> {
   const restricted = demoRestrictionsApply({ nodeEnv: env.nodeEnv, policy });
   return phoneSignInRefusal({
     msisdn,
@@ -75,7 +75,7 @@ async function phoneRefusal(msisdn: string, policy: OtpPolicy): Promise<PhoneSig
   });
 }
 
-const refuse = (r: PhoneSignInRefusal) => ({
+export const refuse = (r: PhoneSignInRefusal) => ({
   error: { code: r.code, title: r.title, retryable: false },
 });
 

@@ -8,6 +8,8 @@ import { loadDotEnv } from "@roadassist/db";
 import { DEV_JWT_SECRET, jwtSecretProblem } from "./domain/jwt-secret.js";
 import { localDemoPrivilegedProblem } from "./domain/demo-numbers.js";
 import { telegramConfigProblems } from "./domain/telegram.js";
+import { googleConfigProblems } from "./domain/google-signin.js";
+import { isLocalEnv } from "./domain/local-env.js";
 
 // Shared with the migrator and the seeders so every entry point reads the same
 // file regardless of which workspace directory it was launched from.
@@ -221,6 +223,23 @@ export const env = {
     webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET ?? "",
     apiBase: (process.env.TELEGRAM_API_BASE ?? "").replace(/\/+$/, ""),
   },
+  /**
+   * Sign in with Google (routes/google-auth.ts, domain/google-signin.ts). Off
+   * unless GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI are
+   * all set; GOOGLE_ANDROID_CLIENT_ID additionally turns on the Android app's
+   * Credential Manager path. With any of the three missing the routes answer
+   * 404, /health says the feature is off and the apps show no button. The
+   * secret arrives from the host's environment only - never the repository.
+   * GOOGLE_API_BASE replaces Google's three hosts with a LOCAL stub in tests
+   * (scripts/google-stub.mjs); validateEnv refuses it anywhere but locally.
+   */
+  google: {
+    clientId: (process.env.GOOGLE_CLIENT_ID ?? "").trim(),
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+    redirectUri: (process.env.GOOGLE_REDIRECT_URI ?? "").trim(),
+    androidClientId: (process.env.GOOGLE_ANDROID_CLIENT_ID ?? "").trim(),
+    apiBase: (process.env.GOOGLE_API_BASE ?? "").replace(/\/+$/, ""),
+  },
   // Email sign-in (domain/email-signin.ts): "email=+91XXXXXXXXXX, ..." set in
   // the host's environment. Empty = no email sign-in, phone only.
   emailSignin: process.env.EMAIL_SIGNIN ?? "",
@@ -355,6 +374,8 @@ export function validateEnv(): void {
 
   // A half-configured Telegram bot boots and then fails on the first SOS.
   problems.push(...telegramConfigProblems(env.telegram));
+  // And a half-configured Google client shows a button that fails on the first press.
+  problems.push(...googleConfigProblems(env.google, { production: !isLocalEnv(env.nodeEnv) }));
 
   // Outside development and tests the signing secret is the whole of
   // authentication: anyone who knows it mints admin tokens. The hosted demo is

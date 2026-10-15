@@ -444,6 +444,35 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
     // A number in the API's demo block (+91 70000 00000-09999), not one that
     // could belong to a real person. Still an ordinary editable field.
     var msisdn by rememberSaveable { mutableStateOf(stored?.msisdn ?: "+917000009876") }
+    // Sign in with Google (GoogleSignIn.kt). A Google sign-up may have no phone
+    // yet: hasPhone says so and googleEmail names the account meanwhile.
+    // askPhone puts the add-your-number prompt up - once, after that first
+    // sign-in; More and a booking refused for want of a number bring it back.
+    var hasPhone by rememberSaveable { mutableStateOf(true) }
+    var googleEmail by rememberSaveable { mutableStateOf<String?>(null) }
+    var askPhone by rememberSaveable { mutableStateOf(false) }
+    var canLinkGoogle by rememberSaveable { mutableStateOf(false) }
+    // Whether this server has Google sign-in for the app, and its client id
+    // (/health). Asked once; no answer is "off" and the button is not drawn.
+    var googleFeature by remember { mutableStateOf(GoogleSignIn.Feature(false, null)) }
+    LaunchedEffect(Unit) {
+        googleFeature = try {
+            GoogleSignIn.feature(Api.get("/health"))
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) { GoogleSignIn.Feature(false, null) }
+    }
+    // What GET /v1/me says about the account, wherever it is read.
+    val adoptMe: (JSONObject) -> Unit = { me ->
+        GoogleSignIn.msisdnOf(me.optJSONObject("user"))?.let { msisdn = it }
+        hasPhone = GoogleSignIn.hasPhone(me)
+        googleEmail = GoogleSignIn.linkedEmail(me)
+        canLinkGoogle = GoogleSignIn.canLink(me.optJSONArray("roles"))
+    }
+    // Who is signed in, on screen: the number, or the Google address until one is added.
+    val who = if (hasPhone && msisdn.isNotBlank()) msisdn
+        else googleEmail ?: stringResource(R.string.account_no_phone)
+    val resetAccount = { hasPhone = true; googleEmail = null; askPhone = false; canLinkGoogle = false }
     // A mechanic tapped on the live map ("Request assistance"), handed to Book.
     var requestedMechanic by remember { mutableStateOf<JSONObject?>(null) }
     var showReport by rememberSaveable { mutableStateOf(false) }
@@ -481,6 +510,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
             vehicleId = null
             vehicleLabel = null
             onDraft(BookingDraft.State())
+            resetAccount()
             toast = ctx.getString(R.string.toast_session_lost)
         }
     }
@@ -496,10 +526,8 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
         try {
             val me = Api.get("/v1/me").getJSONObject("data")
             verified = true
-            me.optJSONObject("user")?.let { u ->
-                u.optString("id").takeIf { it.isNotBlank() }?.let { Api.userId = it }
-                u.optString("msisdn").takeIf { it.isNotBlank() }?.let { msisdn = it }
-            }
+            me.optJSONObject("user")?.optString("id")?.takeIf { it.isNotBlank() }?.let { Api.userId = it }
+            adoptMe(me)
             val vehicles = me.optJSONArray("vehicles") ?: JSONArray()
             if (vehicles.length() > 0) {
                 vehicleId = vehicles.getJSONObject(0).getString("id")
@@ -559,6 +587,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
         if (!signedIn) {
             SignInScreen(
                 msisdn = msisdn, onMsisdn = { msisdn = it },
+                google = googleFeature, onAccount = adoptMe, onAskPhone = { askPhone = true },
                 onToast = { toast = it },
                 onSignedIn = { vid, vlabel -> vehicleId = vid; vehicleLabel = vlabel; signedIn = true; tab = 0 },
             )
@@ -763,7 +792,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                     ) { shown -> when (shown) {
                         0 -> Box(Modifier.fillMaxSize().background(Bg)) {
                             HomeScreen(
-                                msisdn = msisdn, vehicleId = vehicleId, vehicleLabel = vehicleLabel,
+                                msisdn = who, vehicleId = vehicleId, vehicleLabel = vehicleLabel,
                                 online = online,
                                 onVehicle = { id, label -> vehicleId = id; vehicleLabel = label },
                                 onBook = { tab = 1 },
@@ -787,6 +816,7 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                     onDraft(BookingDraft.State())
                                 },
                                 onNeedVehicle = { tab = 0 },
+                                onNeedPhone = { askPhone = true; tab = 0 },
                             )
                         }
                         2 -> Unit  // map shown beneath
@@ -797,7 +827,12 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                         }
                         else -> Box(Modifier.fillMaxSize().background(Bg)) {
                             MoreScreen(
-                                msisdn = msisdn,
+                                msisdn = who,
+                                hasPhone = hasPhone, googleEmail = googleEmail, canLinkGoogle = canLinkGoogle,
+                                google = googleFeature,
+                                onAddPhone = { askPhone = true },
+                                onGoogleLinked = { email -> googleEmail = email },
+                                onToast = { toast = it },
                                 onSignOut = {
                                     // Snapshot first: a server switch has already
                                     // moved Api.base, and clear() drops the token.
@@ -805,12 +840,21 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                     val at = Api.base
                                     Api.clear(); signedIn = false; bookingId = null; bookingRef = null
                                     onDraft(BookingDraft.State())
+                                    resetAccount()
                                     sessionScope.launch { Api.logout(access, at) }
                                 },
                             )
                         }
                     } }
 
+                    // A Google sign-up's number: asked once, never in the way of SOS.
+                    if (askPhone && !hasPhone) {
+                        PhonePromptDialog(
+                            onAdded = { n -> msisdn = n; hasPhone = true; askPhone = false },
+                            onLater = { askPhone = false },
+                            onToast = { toast = it },
+                        )
+                    }
                     if (showReport) {
                         ReportHazardDialog(
                             draft = reportDraft,
@@ -1372,7 +1416,17 @@ private fun EmptyTrack(onBook: () -> Unit) {
 }
 
 @Composable
-private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
+private fun MoreScreen(
+    msisdn: String,
+    hasPhone: Boolean,
+    googleEmail: String?,
+    canLinkGoogle: Boolean,
+    google: GoogleSignIn.Feature,
+    onAddPhone: () -> Unit,
+    onGoogleLinked: (String?) -> Unit,
+    onToast: (String) -> Unit,
+    onSignOut: () -> Unit,
+) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
@@ -1425,6 +1479,47 @@ private fun MoreScreen(msisdn: String, onSignOut: () -> Unit) {
         Spacer(Modifier.height(16.dp))
         Heading(R.string.head_more_plain, R.string.head_more_italic)
         Sub("$msisdn " + stringResource(R.string.signed_in_suffix))
+
+        // The account: a number to add (a Google sign-up), and Link Google
+        // (a citizen account, on a server that has it on).
+        val showLink = google.enabled && canLinkGoogle
+        if (!hasPhone || showLink) {
+            var gBusy by remember { mutableStateOf(false) }
+            RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s5)) {
+                Column(Modifier.padding(CardPad)) {
+                    if (!hasPhone) {
+                        Text(stringResource(R.string.phone_add_title), color = Cream, style = RaType.title)
+                        Text(stringResource(R.string.phone_add_why),
+                            color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
+                        GoldButton(stringResource(R.string.phone_add_title)) { onAddPhone() }
+                    }
+                    if (showLink) {
+                        if (googleEmail != null) {
+                            Text(stringResource(R.string.google_linked_as, googleEmail), color = Muted,
+                                style = RaType.sub, modifier = Modifier.padding(top = if (hasPhone) 0.dp else RaSpace.s4))
+                        } else {
+                            GoogleButton(stringResource(R.string.google_link), enabled = !gBusy,
+                                modifier = Modifier.padding(top = if (hasPhone) 0.dp else RaSpace.s4)) {
+                                gBusy = true
+                                scope.launch {
+                                    try {
+                                        onGoogleLinked(GoogleSignIn.link(ctx, google))
+                                        onToast(ctx.getString(R.string.google_linked))
+                                    } catch (e: kotlinx.coroutines.CancellationException) {
+                                        throw e
+                                    } catch (e: GoogleSignIn.Failure) {
+                                        if (e.refusal != GoogleSignIn.Refusal.CANCELLED) {
+                                            onToast(ctx.getString(GoogleSignIn.message(e.refusal)))
+                                        }
+                                    } catch (e: Exception) { onToast(e.message ?: ctx.getString(R.string.google_err_failed)) }
+                                    gBusy = false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s5)) {
             Column(Modifier.padding(CardPad)) {
@@ -1900,10 +1995,82 @@ private fun LineButton(text: String, onClick: () -> Unit) {
     RaOutlineButton(text, color = Muted, modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3), onClick = onClick)
 }
 
+/**
+ * "Add your mobile number", for a Google sign-up. The ordinary sign-in code
+ * proves it (POST /v1/auth/otp/request), then POST /v1/me/phone attaches it.
+ * A number that already has an account of its own is refused by the server
+ * and nothing changes; the sentence says how to join the two instead.
+ */
+@Composable
+private fun PhonePromptDialog(onAdded: (String) -> Unit, onLater: () -> Unit, onToast: (String) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var number by rememberSaveable { mutableStateOf("+91") }
+    var sent by rememberSaveable { mutableStateOf(false) }
+    // The code is a credential: not saved into the activity's bundle.
+    var code by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = onLater,
+        containerColor = Panel,
+        title = { Text(stringResource(R.string.phone_add_title), color = Cream, style = RaType.title) },
+        text = {
+            Column {
+                Text(stringResource(R.string.phone_add_why), color = Muted, style = RaType.sub)
+                Field(number, { number = it; sent = false; code = ""; error = null },
+                    stringResource(R.string.field_mobile_number),
+                    keyboard = androidx.compose.ui.text.input.KeyboardType.Phone)
+                if (sent) {
+                    Field(code, { code = it.filter(Char::isDigit).take(6); error = null },
+                        stringResource(R.string.field_otp_code),
+                        keyboard = androidx.compose.ui.text.input.KeyboardType.NumberPassword)
+                }
+                error?.let { Text(it, color = Alarm, style = RaType.caption, modifier = Modifier.padding(top = 10.dp)) }
+                if (busy) Loading()
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy && (!sent || code.length == 6), onClick = {
+                busy = true; error = null
+                scope.launch {
+                    try {
+                        if (!sent) {
+                            val r = Api.post("/v1/auth/otp/request", JSONObject().put("msisdn", number.trim()))
+                            val dev = r.optJSONObject("meta")?.optString("devOtp").orEmpty()
+                            if (dev.isNotBlank()) { code = dev; onToast("Dev OTP auto-filled ($dev)") }
+                            else onToast(ctx.getString(R.string.toast_otp_sent))
+                            sent = true
+                        } else {
+                            Api.post("/v1/me/phone", JSONObject().put("msisdn", number.trim()).put("code", code.trim()))
+                            onToast(ctx.getString(R.string.phone_added))
+                            onAdded(number.trim())
+                        }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: ApiException) {
+                        error = if (e.code == "phone_in_use") ctx.getString(R.string.phone_in_use) else e.message
+                    } catch (e: Exception) { error = e.message }
+                    busy = false
+                }
+            }) {
+                Text(stringResource(if (sent) R.string.phone_verify else R.string.action_send_otp),
+                    color = Gold, style = RaType.button)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onLater) { Text(stringResource(R.string.phone_later), color = Muted, style = RaType.button) }
+        },
+    )
+}
+
 // ── sign in ────────────────────────────────────────────────────────────────
 @Composable
 private fun SignInScreen(
     msisdn: String, onMsisdn: (String) -> Unit,
+    google: GoogleSignIn.Feature,
+    onAccount: (JSONObject) -> Unit,
+    onAskPhone: () -> Unit,
     onToast: (String) -> Unit,
     onSignedIn: (vehicleId: String?, vehicleLabel: String?) -> Unit,
 ) {
@@ -1964,8 +2131,9 @@ private fun SignInScreen(
     // the number the account belongs to, which the user never typed at all.
     suspend fun completeSignIn(session: JSONObject) {
         Api.adoptSession(session)
-        session.optJSONObject("user")?.optString("msisdn")
-            ?.takeIf { it.isNotBlank() }?.let(onMsisdn)
+        // A Google sign-up has no number yet: "" rather than leaving the last
+        // one typed here on screen as if it were theirs (JSON null is no number).
+        onMsisdn(GoogleSignIn.msisdnOf(session.optJSONObject("user")) ?: "")
         // The session is persisted the moment it is adopted. A sign-in that
         // then fails here must not leave it stored, or the next launch opens
         // signed in to an account this screen never finished signing into.
@@ -1975,6 +2143,7 @@ private fun SignInScreen(
             if (e !is kotlinx.coroutines.CancellationException) Api.clear()
             throw e
         }
+        onAccount(me)
         val vehicles = me.optJSONArray("vehicles") ?: JSONArray()
         if (vehicles.length() > 0) {
             val v = vehicles.getJSONObject(0)
@@ -2071,6 +2240,38 @@ private fun SignInScreen(
         }
         phoneError?.let {
             Text(it, color = Alarm, style = RaType.caption, modifier = Modifier.padding(top = 10.dp))
+        }
+
+        // ── continue with Google (GoogleSignIn.kt) ────────────────────────
+        // Only when the server says it has Google sign-in for the app. Google's
+        // own account sheet; the ID token goes once to our server, which
+        // answers like a phone sign-in, plus whether a number is still needed.
+        if (google.enabled) {
+            Text(stringResource(R.string.or_divider), color = Muted, style = RaType.caption,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s4))
+            GoogleButton(stringResource(R.string.google_continue), enabled = !busy,
+                modifier = Modifier.padding(top = RaSpace.s3)) {
+                phoneError = null
+                busy = true
+                scope.launch {
+                    try {
+                        val r = GoogleSignIn.signIn(ctx, google)
+                        // Before the session lands: adopting it replaces this
+                        // screen, and nothing after that line is sure to run.
+                        if (GoogleSignIn.phoneRequired(r)) onAskPhone()
+                        completeSignIn(r.getJSONObject("data"))
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: GoogleSignIn.Failure) {
+                        if (e.refusal != GoogleSignIn.Refusal.CANCELLED) {
+                            phoneError = ctx.getString(GoogleSignIn.message(e.refusal))
+                            onToast(phoneError ?: "")
+                        }
+                    } catch (e: Exception) { onToast(e.message ?: ctx.getString(R.string.google_err_failed)) }
+                    busy = false
+                }
+            }
         }
 
         // ── sign in with email ────────────────────────────────────────────
@@ -2669,6 +2870,8 @@ private fun BookScreen(
     onToast: (String) -> Unit,
     onTracked: (id: String, reference: String?) -> Unit,
     onNeedVehicle: () -> Unit,
+    /** A Google sign-up with no number yet: a mechanic must be able to call (409 phone_required). */
+    onNeedPhone: () -> Unit,
 ) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -2811,7 +3014,10 @@ private fun BookScreen(
                     if (got.isEmpty()) onToast(ctx.getString(R.string.toast_no_mechanic))
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
-                } catch (e: Exception) { onToast(e.message ?: "Failed") }
+                } catch (e: Exception) {
+                    if ((e as? ApiException)?.code == "phone_required") onNeedPhone()
+                    onToast(e.message ?: "Failed")
+                }
             }
             busy = false
         }

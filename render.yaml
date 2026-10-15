@@ -182,3 +182,18 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         sync: false
+
+      # Sign in with Google (apps/api/src/routes/google-auth.ts). The first
+      # three set by hand in the dashboard, all or none: with any of them empty
+      # the feature is off and the apps show no button. GOOGLE_ANDROID_CLIENT_ID
+      # adds the Android app's button. DEPLOYMENT.md, "How to turn on Google
+      # sign-in (free)", has the Google Cloud Console steps. Never GOOGLE_API_BASE
+      # here: that is the test stub, and the server refuses it outside development.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: GOOGLE_ANDROID_CLIENT_ID
+        sync: false

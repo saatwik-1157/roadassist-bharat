@@ -1873,6 +1873,183 @@ console.log("\n41. Telegram alerts for emergency contacts");
   }
 }
 
+// ── 42. Sign in with Google (routes/google-auth.ts) ─────────────────────────
+// The web's server-side code flow (PKCE, state, nonce) driven by a pretend
+// browser, the Android token path, the phone a Google sign-up adds, and Link
+// Google - against a LOCAL stub of Google (scripts/google-stub.mjs), only when
+// the server was started pointed at it; otherwise it skips and says so.
+console.log("\n42. Sign in with Google");
+{
+  const { googleStub, cookieJar, webGoogleFlow } = await import("./google-stub.mjs");
+  const health = await fetch(`${BASE}/health`).then((r) => r.json()).catch(() => ({}));
+  const feature = health.data?.features?.googleSignin;
+  const stub = feature?.web && feature?.android ? await googleStub() : { why: "this server has Google sign-in off" };
+  if (stub.why) {
+    console.log(`  - skipped: ${stub.why}. Start the API and this suite with the GOOGLE_* variables ` +
+      "and GOOGLE_API_BASE=http://127.0.0.1:<port> to run it");
+  } else {
+    const otpSignIn = async (n) => {
+      const r = await call("POST", "/v1/auth/otp/request", { body: { msisdn: n } });
+      return (await call("POST", "/v1/auth/otp/verify", { body: { msisdn: n, code: r.meta?.devOtp } })).data;
+    };
+    const newNumber = () => "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+    /** The pretend browser's citizen session, as app.html gets it after the redirect. */
+    const pageRefresh = async (jar) => {
+      const res = await fetch(`${BASE}/v1/auth/refresh`, {
+        method: "POST", headers: { "content-type": "application/json", "x-ra-client": "web-app", cookie: jar.header(BASE) ?? "" },
+        body: "{}",
+      });
+      jar.store(BASE, res);
+      return { status: res.status, ...(await res.json().catch(() => ({}))) };
+    };
+    const androidSignIn = async (claims, { purpose = "signin", token: bearer } = {}) => {
+      const n = await call("POST", "/v1/auth/google/nonce", { token: bearer, body: { purpose } });
+      const idToken = stub.mint({ nonce: n.data?.nonce, ...claims });
+      return { nonce: n, idToken, res: await call("POST", purpose === "link" ? "/v1/me/google" : "/v1/auth/google/token",
+        { token: bearer, body: { idToken, nonce: n.data?.nonce } }) };
+    };
+    try {
+      ok("/health tells a signed-out app the feature is on, with the web client id for Android",
+         feature.web === true && feature.android === true && feature.serverClientId === stub.clientId);
+
+      // ── the web flow, hop by hop ──────────────────────────────────────
+      const jar = cookieJar();
+      const sub = stub.newSub();
+      stub.nextIdentity({ sub, email: "Asha.Rao@example.com" });
+      const flow = await webGoogleFlow(BASE, jar);
+      const auth = flow.start.location ? new URL(flow.start.location) : null;
+      ok("the button's link answers with a 302 to Google's consent screen (here: the stub)",
+         flow.start.status === 302 && auth?.origin === stub.base && auth?.pathname === "/o/oauth2/v2/auth",
+         `${flow.start.status} ${auth?.origin ?? ""}`);
+      ok("…carrying PKCE S256, a state, a nonce, openid+email and our redirect URI",
+         auth?.searchParams.get("code_challenge_method") === "S256" && /^[\w-]{43}$/.test(auth?.searchParams.get("code_challenge") ?? "") &&
+         /^[\w-]{43}$/.test(auth?.searchParams.get("state") ?? "") && /^[\w-]{43}$/.test(auth?.searchParams.get("nonce") ?? "") &&
+         auth?.searchParams.get("scope") === "openid email" && auth?.searchParams.get("redirect_uri") === stub.redirectUri);
+      const flowCookie = flow.start.setCookies.find((c) => c.startsWith("ra_g_flow="));
+      ok("…and sets one sealed flow cookie: HttpOnly, SameSite=Lax, path /v1/auth/google, ten minutes",
+         /HttpOnly/.test(flowCookie ?? "") && /SameSite=Lax/.test(flowCookie ?? "") &&
+         /Path=\/v1\/auth\/google/.test(flowCookie ?? "") && /Max-Age=600/.test(flowCookie ?? "") &&
+         !(flowCookie ?? "").includes(auth?.searchParams.get("state") ?? "§"), flowCookie?.slice(0, 40));
+      ok("the callback lands the page on app.html#google=signedin&new=1",
+         flow.landed?.pathname === "/app.html" && flow.landed?.hash === "#google=signedin&new=1", flow.landed?.href);
+      ok("…with the citizen app's normal refresh cookie and the flow cookie spent",
+         Boolean(jar.get(BASE, "ra_rt_app")) && !jar.get(BASE, "ra_g_flow") &&
+         flow.callback.setCookies.some((c) => /^ra_rt_app=.+HttpOnly/.test(c)));
+      ok("the code was exchanged server-side with the verifier and the secret (the stub checks both)",
+         stub.stats.token === 1 && stub.stats.tokenRefused === 0, JSON.stringify(stub.stats));
+      const page = await pageRefresh(jar);
+      ok("app.html trades that cookie for an access token as after any sign-in: a citizen",
+         page.status === 200 && Boolean(page.data?.accessToken) && JSON.stringify(page.data?.roles) === '["citizen"]',
+         `${page.status} ${JSON.stringify(page.data?.roles ?? [])}`);
+      const gTok = page.data?.accessToken;
+      const gMe = await call("GET", "/v1/me", { token: gTok });
+      ok("a Google sign-up has no phone yet, and says so",
+         gMe.status === 200 && gMe.data?.user?.msisdn === null && gMe.data?.hasPhone === false);
+      ok("…and names the linked Google account by its verified address, never its subject id",
+         gMe.data?.google?.linked === true && gMe.data?.google?.email === "asha.rao@example.com" && !JSON.stringify(gMe).includes(sub));
+
+      // ── what works before a phone is verified ─────────────────────────
+      const gVeh = await call("POST", "/v1/vehicles", { token: gTok, body: {
+        registrationNo: "KA05G" + Math.floor(1000 + Math.random() * 8999), vehicleClass: "car" } });
+      const noPhoneBooking = await call("POST", "/v1/bookings", { token: gTok, body: {
+        vehicleId: gVeh.data?.id, serviceTypeCode: "battery_jumpstart", lat: 12.97, lng: 77.59 } });
+      ok("before a phone is verified, booking a mechanic asks for one (409 phone_required)",
+         gVeh.status === 201 && noPhoneBooking.status === 409 && noPhoneBooking.error?.code === "phone_required",
+         `${noPhoneBooking.status} ${noPhoneBooking.error?.code ?? ""}`);
+      const gSos = await call("POST", "/v1/sos", { token: gTok, body: { lat: 12.97, lng: 77.59, source: "manual" } });
+      const gConf = await call("POST", `/v1/sos/${gSos.data?.id}/confirm`, { token: gTok });
+      ok("…but SOS is never blocked: raised and confirmed with no phone on the account",
+         gSos.status === 201 && gConf.status === 200, `${gSos.status} ${gConf.status}`);
+      await call("POST", `/v1/sos/${gSos.data?.id}/resolve`, { token: gTok, body: { outcome: "false_alarm" } });
+
+      // ── the same Google account again ─────────────────────────────────
+      const jar2 = cookieJar();
+      stub.nextIdentity({ sub, email: "asha.rao@example.com" });
+      const again = await webGoogleFlow(BASE, jar2);
+      const page2 = await pageRefresh(jar2);
+      const me2 = await call("GET", "/v1/me", { token: page2.data?.accessToken });
+      ok("signing in with the same Google account again enters the same account",
+         again.landed?.hash === "#google=signedin" && me2.data?.user?.id === gMe.data?.user?.id, again.landed?.hash);
+
+      // ── adding the phone ──────────────────────────────────────────────
+      const gNumber = newNumber();
+      const sent = await call("POST", "/v1/auth/otp/request", { body: { msisdn: gNumber } });
+      const wrongCode = sent.meta?.devOtp === "111111" ? "222222" : "111111";
+      const wrong = await call("POST", "/v1/me/phone", { token: gTok, body: { msisdn: gNumber, code: wrongCode } });
+      ok("adding a phone takes the ordinary OTP: a wrong code is refused", wrong.status === 401 && wrong.error?.code === "otp_invalid");
+      const added = await call("POST", "/v1/me/phone", { token: gTok, body: { msisdn: gNumber, code: sent.meta?.devOtp } });
+      const gMe3 = await call("GET", "/v1/me", { token: gTok });
+      ok("the right code adds it, verified", added.status === 200 && added.data?.added === true &&
+         gMe3.data?.hasPhone === true && gMe3.data?.user?.msisdn === gNumber, `${added.status}`);
+      const booked = await call("POST", "/v1/bookings", { token: gTok, body: {
+        vehicleId: gVeh.data?.id, serviceTypeCode: "battery_jumpstart", lat: 12.97, lng: 77.59 } });
+      ok("…and now a mechanic can be booked", booked.status === 201, `${booked.status} ${booked.error?.code ?? ""}`);
+      if (booked.data?.id) await call("POST", `/v1/bookings/${booked.data.id}/transition`, { token: gTok, body: { command: "cancel" } });
+      const byPhone = await otpSignIn(gNumber);
+      ok("that number now signs in to the same account by OTP", byPhone?.user?.id === gMe.data?.user?.id);
+      const twice = await call("POST", "/v1/me/phone", { token: gTok, body: { msisdn: newNumber(), code: "123456" } });
+      ok("a second, different number is refused: this route only fills an empty phone",
+         twice.status === 409 && twice.error?.code === "phone_already_set", `${twice.status} ${twice.error?.code ?? ""}`);
+
+      // ── Android ───────────────────────────────────────────────────────
+      const a1 = await androidSignIn({ sub, email: "asha.rao@example.com" });
+      ok("Android: a nonce from the server, the ID token from Credential Manager, a normal session back",
+         a1.nonce.status === 200 && /^[\w-]{43}$/.test(a1.nonce.data?.nonce ?? "") && a1.res.status === 200 &&
+         Boolean(a1.res.data?.accessToken && a1.res.data?.refreshToken) && a1.res.data?.user?.id === gMe.data?.user?.id,
+         `${a1.res.status} ${a1.res.error?.code ?? ""}`);
+      ok("…the same account as the web, its phone already there", a1.res.meta?.phoneRequired === false && a1.res.meta?.channel === "google");
+      const a2 = await androidSignIn({ email: "new.android@example.com" });
+      ok("a new Google account on Android is a new citizen that still needs a phone",
+         a2.res.status === 200 && a2.res.meta?.newAccount === true && a2.res.meta?.phoneRequired === true &&
+         JSON.stringify(a2.res.data?.roles) === '["citizen"]');
+      const rt = await call("POST", "/v1/auth/refresh", { body: { refreshToken: a2.res.data?.refreshToken } });
+      ok("…whose refresh token rotates like any other session's", rt.status === 200 && rt.data?.refreshToken !== a2.res.data?.refreshToken);
+
+      // ── Link Google from a phone account (web) ────────────────────────
+      const pNumber = newNumber();
+      const p = await otpSignIn(pNumber);
+      const linkSub = stub.newSub();
+      const ljar = cookieJar();
+      const intentRes = await fetch(`${BASE}/v1/me/google/web-link`, {
+        method: "POST", headers: { authorization: `Bearer ${p.accessToken}`, "x-ra-client": "web-app", "content-type": "application/json" }, body: "{}",
+      });
+      ljar.store(BASE, intentRes);
+      const intent = await intentRes.json();
+      ok("Link Google (web): the signed-in page gets a five-minute link cookie and where to go next",
+         intentRes.status === 200 && intent.data?.next === "/v1/auth/google/start?link=1" && Boolean(ljar.get(BASE, "ra_g_link")));
+      stub.nextIdentity({ sub: linkSub, email: "phone.owner@example.com" });
+      const lflow = await webGoogleFlow(BASE, ljar, { link: true });
+      const pMe = await call("GET", "/v1/me", { token: p.accessToken });
+      ok("…the round trip links that Google account to the phone account, and issues no new session",
+         lflow.landed?.hash === "#google=linked" && pMe.data?.google?.linked === true && !ljar.get(BASE, "ra_rt_app"),
+         lflow.landed?.hash);
+      const viaGoogle = await androidSignIn({ sub: linkSub, email: "phone.owner@example.com" });
+      ok("…after which Google enters the phone account", viaGoogle.res.data?.user?.id === p.user?.id && viaGoogle.res.meta?.newAccount === false);
+
+      // ── Link Google on Android, and the empty sign-up it replaces ─────
+      const strandedSub = stub.newSub();
+      const stranded = await androidSignIn({ sub: strandedSub, email: "two.accounts@example.com" });
+      const q = await otpSignIn(newNumber());
+      const alink = await androidSignIn({ sub: strandedSub, email: "two.accounts@example.com" }, { purpose: "link", token: q.accessToken });
+      ok("Link Google (Android) into a phone account moves the Google account off an empty Google-only sign-up",
+         alink.res.status === 200 && alink.res.data?.linked === true && alink.res.data?.moved === true, `${alink.res.status} ${alink.res.error?.code ?? ""}`);
+      const strandedMe = await call("GET", "/v1/me", { token: stranded.res.data?.accessToken });
+      ok("…that empty account's session ends", strandedMe.status === 401, `${strandedMe.status} ${strandedMe.error?.code ?? ""}`);
+      const back = await androidSignIn({ sub: strandedSub, email: "two.accounts@example.com" });
+      ok("…and Google now enters the phone account", back.res.data?.user?.id === q.user?.id);
+
+      // ── the person says no ────────────────────────────────────────────
+      const djar = cookieJar();
+      stub.denyNext();
+      const denied = await webGoogleFlow(BASE, djar);
+      ok("cancelling on Google's screen lands back on the app with nothing signed in",
+         denied.landed?.hash === "#google=error&reason=google_cancelled" && !djar.get(BASE, "ra_rt_app"), denied.landed?.hash);
+    } finally {
+      await stub.close();
+    }
+  }
+}
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

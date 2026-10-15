@@ -57,3 +57,18 @@ export function consoleSmsLine(to: string, body: string, nodeEnv: string): strin
   const shownBody = isDeveloperConsole(nodeEnv) ? body : redactCodes(body);
   return `[sms:console] → ${shownTo}\n            ${shownBody.replace(/\n/g, "\n            ")}`;
 }
+
+/**
+ * A request URL as the access log may record it.
+ *
+ * Google's redirect back carries a single-use authorization code and the
+ * flow's state in the query string. The code is worthless without the PKCE
+ * verifier sealed in the browser's cookie, but a log is still the wrong place
+ * for a credential, however short-lived, so the query of that one route is
+ * dropped. Every other URL is logged as it was.
+ */
+export function urlForLog(url: string): string {
+  const q = url.indexOf("?");
+  const path = q === -1 ? url : url.slice(0, q);
+  return q !== -1 && path === "/v1/auth/google/callback" ? `${path}?[redacted]` : url;
+}

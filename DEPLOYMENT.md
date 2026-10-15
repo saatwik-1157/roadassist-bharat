@@ -253,6 +253,92 @@ an alert (declared in `check-data-residency.mjs`; see app/docs/SECURITY.md).
 To turn it off, unset any of the three variables, or run
 `node scripts/telegram-set-webhook.mjs --delete`.
 
+## Optional · How to turn on Google sign-in (free) — **YOU**
+
+With it on, the sign-in screen on the web and in the Android app shows
+**Continue with Google** under the phone form:
+
+- **Anyone** can sign up with Google. It always makes, or enters, a **citizen**
+  account, matched on Google's account id (`sub`), never on the email. Only the
+  `sub` and the address Google verified are stored. Admin, officer, mechanic,
+  fleet and support accounts, and any account listed in `EMAIL_SIGNIN`, can
+  never be entered or linked with Google, whatever their email is.
+- After the first Google sign-in the app asks once for a mobile number, proved
+  by the ordinary OTP. Until then **everything works except booking a
+  mechanic** (the mechanic has to be able to call). **SOS always works**, as it
+  does signed out. A number that already has an account is refused and neither
+  account changes: sign in with that number and use **Link Google** instead.
+- **Link Google** (web: More → Session; Android: More) adds Google to an
+  existing phone account, only while signed in to it.
+- The web page never loads Google code. The button is a link to
+  `/v1/auth/google/start`, which redirects to Google's sign-in page. The server
+  exchanges the code itself (PKCE, state, nonce) and checks the ID token
+  against Google's published keys. See app/docs/SECURITY.md, "Sign in with
+  Google".
+
+Google charges nothing for this. The scopes `openid` and `email` (plus
+`profile` on the consent screen) are non-sensitive, so the app needs **no
+Google verification review**.
+
+1. **Project.** Open <https://console.cloud.google.com/>, sign in with the
+   project's Google account, and create a project (top bar → project picker →
+   **New project**, e.g. `roadassist-bharat`). No billing account is needed.
+2. **OAuth consent screen.** **APIs & Services → OAuth consent screen** (newer
+   consoles: **Google Auth Platform → Branding / Audience / Data access**):
+   - User type / audience: **External**.
+   - App name `RoadAssist Bharat`, a support email, and the developer contact
+     email. Optionally the home page `https://app.roadassistbharat.online` and
+     authorised domain `roadassistbharat.online`.
+   - Scopes / data access: add only `openid`, `.../auth/userinfo.email` and
+     `.../auth/userinfo.profile`. Nothing else. The app asks for `openid email`.
+   - Publishing status: press **Publish app** so it is **In production**. With
+     only these scopes Google does not require verification, and anyone with a
+     Google account can sign in. (In **Testing**, only the test users you list
+     can, and their sign-ins expire after 7 days.)
+3. **Web client.** **APIs & Services → Credentials → Create credentials →
+   OAuth client ID**:
+   - Application type **Web application**, name `RoadAssist web`.
+   - Authorised JavaScript origins: none needed. The browser never runs Google code.
+   - Authorised redirect URIs: exactly
+     `https://app.roadassistbharat.online/v1/auth/google/callback`
+   - **Create**. Copy the **Client ID** (`…apps.googleusercontent.com`) and the
+     **Client secret** (`GOCSPX-…`). The secret is a password: put it only in
+     Render, never in the repository or a chat.
+4. **Android client.** **Create credentials → OAuth client ID** again:
+   - Application type **Android**, name `RoadAssist Android`.
+   - Package name `in.roadassist.app`.
+   - SHA-1 certificate fingerprint of the **release** signing key:
+     `C4:88:B3:5E:30:04:F4:48:12:DF:C0:E3:6D:6A:E0:D3:6C:6C:D0:15`
+     (from `apksigner verify --print-certs release/RoadAssist-Bharat-1.1.4-arm64-v8a.apk`,
+     signer DN `CN=RoadAssist Bharat, OU=SWE4004, O=VIT-AP University, C=IN`).
+     A certificate fingerprint is public. Read it from a signed APK like this,
+     never from the keystore.
+     For a debug build on an emulator, add a second Android client with the
+     debug key's SHA-1, because Credential Manager checks the signature of the
+     app that asks.
+   - **Create**. Copy its **Client ID**. An Android client has no secret.
+5. **Render.** **roadassist → Environment** (the blueprint lists them, `sync: false`):
+   - `GOOGLE_CLIENT_ID`: the web client id (step 3)
+   - `GOOGLE_CLIENT_SECRET`: the web client secret (step 3)
+   - `GOOGLE_REDIRECT_URI`: `https://app.roadassistbharat.online/v1/auth/google/callback`
+   - `GOOGLE_ANDROID_CLIENT_ID`: the Android client id (step 4). Optional:
+     without it only the web gets the button.
+
+   Save and deploy. The first three are all or none: a partial set **refuses to
+   boot** and names what is missing. The boot log prints
+   `google sign-in: on (web + android)`, or `off (…unset)`. Public `/health`
+   then reports `features.googleSignin`, which the apps read to show the
+   button. Never set `GOOGLE_API_BASE` on a real host: it points at the test
+   stub, and the server refuses it outside development.
+6. **Try it**: open the app in a private window and press **Continue with
+   Google**, choose an account, add a number when asked, then sign out and sign
+   in with Google again. On Android 1.1.5 or later, the same button appears on
+   the sign-in screen.
+
+To turn it off, unset `GOOGLE_CLIENT_ID` (and the other three). Existing
+Google-linked accounts keep their data. One that never added a phone can then
+only come back once Google sign-in is on again.
+
 ## Optional · Location services — on by default, **YOU** decide
 
 The citizen app's "Near you" card, the road ETA on a live rescue, the RAKSHA
@@ -432,7 +518,7 @@ The image is not trusted because it built. `.github/workflows/publish-image.yml`
 boots it against a real PostGIS and runs the suites **against the running
 container** before publishing:
 
-- 312 end-to-end assertions and 106 security attacks, `API=` pointed at the
+- 341 end-to-end assertions and 106 security attacks, `API=` pointed at the
   container
 - every surface answers 200: `/app.html`, `/mechanic.html`, `/raksha.html`,
   `/map.html`, `/health`, `/v1/ping`

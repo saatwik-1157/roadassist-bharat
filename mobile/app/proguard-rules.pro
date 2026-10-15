@@ -24,3 +24,12 @@
 # and a renamed or stripped class fails at the first inference as a
 # NoSuchMethodError from native code rather than at build time.
 -keep class ai.onnxruntime.** { *; }
+
+# Credential Manager finds its Play services provider by class name through
+# reflection (CredentialProviderFactory), so R8 cannot see it is used. Stripped,
+# "Continue with Google" fails in the release build only, with "no provider
+# dependencies found". The rule androidx documents for exactly this.
+-if class androidx.credentials.CredentialManager
+-keep class androidx.credentials.playservices.** {
+  *;
+}

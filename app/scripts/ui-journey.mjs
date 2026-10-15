@@ -2580,6 +2580,97 @@ const run = async () => {
       await page.eval(`await window.__ra.clearOffGrid(); return true;`);
     });
 
+    // ══ 41. Continue with Google, in a real browser ══════════════════════════
+    // The button is a plain link: Chrome follows the server's redirect to a
+    // LOCAL stub of Google's consent screen (scripts/google-stub.mjs), comes
+    // back through the callback, and app.html finishes the sign-in from the
+    // cookie the server set. Skipped, and said so, when the server has it off.
+    await part("41. Continue with Google: no Google code on the page, a phone asked once, Link Google", async () => {
+      const { googleStub } = await import("./google-stub.mjs");
+      const health = await fetch(`${BASE}/health`).then((r) => r.json()).catch(() => ({}));
+      const stub = health.data?.features?.googleSignin?.web ? await googleStub() : { why: "this server has Google sign-in off" };
+      if (stub.why) { console.log(`  - skipped: ${stub.why}`); return; }
+      try {
+        const signOutIfIn = async () => {
+          await page.goto(APP);
+          await page.waitFor(settled, 25000, "the app to settle");
+          if (await page.eval(`return document.getElementById("tabs").hidden === false;`)) {
+            await page.eval(`document.getElementById("s-out").click(); return true;`);
+            await page.waitFor(`document.getElementById("tabs").hidden === true`, 10000, "sign-out");
+          }
+        };
+        await signOutIfIn();
+        await page.waitFor(`document.getElementById("a-google-wrap").hidden === false`, 10000, "the Google button");
+        const pageState = await page.eval(`
+          const a = document.getElementById("a-google");
+          const google = /google(apis|usercontent)?\\.com|gstatic/;
+          return {
+            href: a.href, text: a.textContent.trim(), mark: Boolean(a.querySelector("svg path[fill='#4285F4']")),
+            loads: performance.getEntriesByType("resource").map((e) => e.name).filter((n) => google.test(new URL(n).host)),
+            scripts: [...document.scripts].map((s) => s.src).filter((s) => google.test(s)),
+            // The live-map frame is this origin's own map.html; any frame elsewhere is a finding.
+            frames: [...document.querySelectorAll("iframe")].map((f) => f.src).filter((u) => u && new URL(u, location.href).origin !== location.origin),
+          };`);
+        check(pageState.href === `${BASE}/v1/auth/google/start` && pageState.text === "Continue with Google" && pageState.mark,
+          "the button is a link to this server's start route, with Google's G mark", pageState.href);
+        check(!pageState.loads.length && !pageState.scripts.length && !pageState.frames.length,
+          "…and the page has loaded nothing from Google: no script, no iframe, no request", JSON.stringify(pageState));
+
+        const sub = stub.newSub(), email = `ui.${RUN}@example.com`;
+        stub.nextIdentity({ sub, email });
+        await page.click("#a-google");
+        await page.waitFor(`location.pathname === "/app.html" && document.getElementById("scr-home").classList.contains("active") && !document.getElementById("tabs").hidden`,
+          25000, "home after Google");
+        await page.waitFor(`document.getElementById("phone-card").hidden === false`, 10000, "the add-your-number card");
+        const landed = await page.eval(`return { hash: location.hash, sub: document.getElementById("home-sub").textContent,
+          sphone: document.getElementById("s-phone").hidden, linked: document.getElementById("g-link-state").textContent };`);
+        check(landed.hash === "" && landed.sub.includes(email),
+          "back from Google: signed in, the fragment gone from the address bar, the account named by its Google address", landed.sub);
+        check(landed.sphone === false && landed.linked.includes(email),
+          "…Settings offers 'Add your mobile number' and shows the linked Google account", landed.linked);
+
+        const number = "+91700005" + RUN;
+        await page.setValue("#ph-msisdn", number);
+        await page.click("#ph-send");
+        await page.waitFor(`/^\\d{6}$/.test(document.getElementById("ph-code").value)`, 15000, "the dev code");
+        await page.click("#ph-verify");
+        await page.waitFor(`document.getElementById("phone-card").hidden === true`, 15000, "the card to close");
+        const after = await page.eval(`return { sub: document.getElementById("home-sub").textContent,
+          sphone: document.getElementById("s-phone").hidden };`);
+        check(after.sub.includes(number) && after.sphone === true, "the number is added by the ordinary OTP, and the card goes", after.sub);
+
+        await signOutIfIn();
+        stub.nextIdentity({ sub, email });
+        await page.click("#a-google");
+        await page.waitFor(`document.getElementById("scr-home").classList.contains("active") && !document.getElementById("tabs").hidden`, 25000, "home again");
+        await sleep(800);
+        const second = await page.eval(`return { card: document.getElementById("phone-card").hidden, sub: document.getElementById("home-sub").textContent };`);
+        check(second.card === true && second.sub.includes(number), "the next Google sign-in enters the same account and asks nothing", second.sub);
+
+        // Link Google from an account made by phone.
+        await signInAs("+91700006" + RUN);
+        await page.waitFor(`document.getElementById("g-link-row").hidden === false && document.getElementById("g-link").hidden === false`, 10000, "Link Google");
+        const linkEmail = `link.${RUN}@example.com`;
+        stub.nextIdentity({ sub: stub.newSub(), email: linkEmail });
+        await page.click("#g-link");
+        await page.waitFor(`location.pathname === "/app.html" && document.getElementById("g-link-state").textContent.includes(${JSON.stringify(linkEmail)})`,
+          25000, "linked");
+        check(await page.eval(`return document.getElementById("g-link").hidden === true && location.hash === "";`),
+          "Link Google from a phone account: round trip, linked, the button replaced by the address");
+
+        await signOutIfIn();
+        stub.denyNext();
+        await page.click("#a-google");
+        await page.waitFor(`document.getElementById("scr-auth").classList.contains("active") && /cancelled/.test(document.getElementById("toast").textContent)`,
+          20000, "the cancelled message");
+        check(await page.eval(`return document.getElementById("tabs").hidden === true;`),
+          "cancelling on Google's screen leaves the page signed out and says so");
+        check(!page.errors.some((e) => /Content Security Policy|Refused to/.test(e)), "…and no CSP violation anywhere in the flow");
+      } finally {
+        await stub.close();
+      }
+    });
+
   } catch (e) {
     bad("journey aborted", e.message);
     console.error(e.stack?.split("\n").slice(0, 4).join("\n"));

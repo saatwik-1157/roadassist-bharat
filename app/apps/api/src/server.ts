@@ -30,6 +30,8 @@ import { emailAuthRoutes, emailSignin } from "./routes/email-auth.js";
 import { emergencyRoutes } from "./routes/emergency.js";
 import { telecomRoutes } from "./routes/telecom.js";
 import { telegramRoutes } from "./routes/telegram.js";
+import { googleAuthRoutes, googleFeature } from "./routes/google-auth.js";
+import { urlForLog } from "./domain/log-redaction.js";
 import { mechanicRoutes } from "./routes/mechanic.js";
 import { geoRoutes } from "./routes/geo.js";
 import { optedOutAmong } from "./sms-opt-out.js";
@@ -64,7 +66,17 @@ validateEnv();
 assertProductionSafe();
 
 const app = Fastify({
-  logger: { level: env.nodeEnv === "test" ? "silent" : "info" },
+  logger: {
+    level: env.nodeEnv === "test" ? "silent" : "info",
+    // Fastify's own request line, with the Google callback's one-time code
+    // and state left out of it (log-redaction.ts urlForLog).
+    serializers: {
+      req: (req) => ({
+        method: req.method, url: urlForLog(req.url), host: req.host,
+        remoteAddress: req.ip, remotePort: req.socket?.remotePort,
+      }),
+    },
+  },
   genReqId: () => randomUUID(),
   // Off unless TRUST_PROXY says otherwise — see env.ts. Without it every
   // request behind a tunnel or load balancer reports the proxy's address, and
@@ -444,6 +456,9 @@ app.get("/health", async (req, reply) => {
     database: database.status,
     dbLatencyMs: database.latencyMs,
     ...(database.error ? { databaseError: database.error } : {}),
+    // What a signed-out app needs to decide which buttons to draw. Static:
+    // read from the configuration, never from the database.
+    features: { googleSignin: googleFeature() },
     ...(operator ? {
       providers: providerSummary(),
       realtime: realtimeStats(),
@@ -528,7 +543,16 @@ app.get("/v1/me", { preHandler: authenticate }, async (req) => {
   }).from(S.userVehicles)
     .innerJoin(S.vehicles, eq(S.vehicles.id, S.userVehicles.vehicleId))
     .where(and(eq(S.userVehicles.userId, req.user!.sub), isNull(S.userVehicles.deletedAt)));
-  return ok({ user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName }, roles: req.user!.roles, vehicles });
+  // msisdn is null only for a Google sign-up that has not verified a phone
+  // yet; hasPhone says so explicitly, and the apps ask for one (google-auth.ts).
+  // The Google subject id never leaves the server: a client learns only
+  // whether one is linked, and the address Google verified for it.
+  return ok({
+    user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName },
+    hasPhone: Boolean(user.msisdn),
+    google: { linked: Boolean(user.googleSub), email: user.googleSub ? user.googleEmail : null },
+    roles: req.user!.roles, vehicles,
+  });
 });
 
 /**
@@ -718,6 +742,19 @@ app.post("/v1/bookings", { preHandler: [authenticate, limit("booking")] }, async
     createdOffline: z.boolean().optional(),
     idempotencyKey: z.string().max(80).optional(),
   }).parse(req.body);
+
+  // A mechanic driving to a breakdown has to be able to call the customer, so
+  // a booking needs a verified phone. Only a Google sign-up can lack one; SOS
+  // never asks (routes/emergency.ts), and the app offers to add the number.
+  const [booker] = await db.select({ msisdn: S.users.msisdn }).from(S.users)
+    .where(eq(S.users.id, req.user!.sub)).limit(1);
+  if (!booker?.msisdn) {
+    return reply.code(409).send({ error: {
+      code: "phone_required",
+      title: "Add and verify your mobile number first, so the mechanic can call you. SOS works without it.",
+      retryable: false,
+    } });
+  }
 
   const idemKey = body.idempotencyKey ?? (req.headers["idempotency-key"] as string | undefined);
   if (idemKey) {
@@ -2227,6 +2264,7 @@ await app.register(emailAuthRoutes);
 await app.register(emergencyRoutes);
 await app.register(telecomRoutes);
 await app.register(telegramRoutes);   // Telegram invites and the bot webhook (free contact alerts)
+await app.register(googleAuthRoutes); // Sign in with Google (web + Android) and adding a phone afterwards
 await app.register(mechanicRoutes);
 await app.register(paymentRoutes);
 await app.register(rakshaRoutes);
@@ -2262,6 +2300,12 @@ for (const r of emailSignin.rejected) app.log.warn(`EMAIL_SIGNIN entry ignored: 
 app.log.info(telegram.enabled
   ? `telegram alerts: on, as @${telegram.botUsername}${env.telegram.apiBase ? " (TELEGRAM_API_BASE: a test stub)" : ""}`
   : "telegram alerts: off (TELEGRAM_BOT_TOKEN, TELEGRAM_BOT_USERNAME and TELEGRAM_WEBHOOK_SECRET unset)");
+{
+  const g = googleFeature();
+  app.log.info(g.web
+    ? `google sign-in: on (web${g.android ? " + android" : ""})${env.google.apiBase ? " (GOOGLE_API_BASE: a test stub)" : ""}`
+    : "google sign-in: off (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET and GOOGLE_REDIRECT_URI unset)");
+}
 // Demo only: an empty RAKSHA receives the project's real detections through its
 // own ingest route (demo/raksha-demo-seed.ts). Imported here, at the end, so
 // nothing above moves; never awaited, so it cannot hold up or fail the boot.

@@ -87,7 +87,7 @@ The last lines of a good run:
 
 ```
 ==> Comparing exact row counts (every application table) and the audit rules
-MATCH: 59 tables, every row count identical. Audit rules:
+MATCH: 60 tables, every row count identical. Audit rules:
 rule audit_log.audit_log_no_delete
 rule audit_log.audit_log_no_update
 ```
@@ -102,7 +102,7 @@ once a newer migration has shipped. Neon's own PostGIS rules
 On 14 Oct 2026, locally with Docker (amd64): a PostGIS 16 standing in for Neon,
 migrated and seeded by the published image (58 application tables in
 `public`, 25 users, 24 mechanics) and given `roadassist_app` exactly as on
-Neon; then this script into the VM stack. First run: MATCH on 59 tables (those
+Neon; then this script into the VM stack. First run: MATCH on 60 tables (those
 58 plus `drizzle.__drizzle_migrations`, which the script also counts), app role `SELECT, INSERT`
 on `audit_log` and DML elsewhere. A run while the app was up was refused. The
 `REPLACE_TARGET=1` re-run: MATCH again, the app came back healthy

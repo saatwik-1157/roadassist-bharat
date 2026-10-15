@@ -3,7 +3,7 @@
 Threat model: [`security/threat-model.md`](security/threat-model.md) — STRIDE,
 20 threats mapped to controls.
 Penetration suite: [`../scripts/security-audit.mjs`](../scripts/security-audit.mjs) —
-**116 attacks, every one refused.**
+**135 attacks, every one refused.**
 
 Everything below has been executed. A control described here without a test
 beside it says so.
@@ -12,7 +12,7 @@ beside it says so.
 
 ## The one-line summary
 
-`npm run test:security` fires 116 application-level attacks at a running server.
+`npm run test:security` fires 135 application-level attacks at a running server.
 The suite passes when the platform **refuses** — "we tried and could not get in"
 is a materially different claim from "the code looks right". It runs in CI.
 
@@ -132,6 +132,63 @@ number in any message), `e2e-journey.mjs` §41 and `security-audit.mjs` §14
 codes refused; `/stop` unlinks), both against a local stub of the Bot API —
 never `api.telegram.org`. Telegram is outside India and receives the first name
 and position in an alert: declared in `scripts/check-data-residency.mjs`.
+
+### Sign in with Google
+
+Off unless `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_REDIRECT_URI`
+are all set; a partial set refuses to boot (`GOOGLE_ANDROID_CLIENT_ID` adds the
+Android path). Routes: `apps/api/src/routes/google-auth.ts`. Rules, with no
+database or network of their own: `apps/api/src/domain/google-signin.ts`.
+
+**Threat model.** What we defend, against whom:
+
+| Threat | Defence |
+|---|---|
+| **Login CSRF.** An attacker's own callback URL (their code, their state) is opened in the victim's browser, so the victim works in the attacker's account and their SOS data goes there. | The `state` is sealed in the browser's own cookie at `/start` and compared in constant time at `/callback`. A callback without that browser's cookie is refused. PKCE backs it: the code only redeems with the verifier sealed in the cookie of the browser that started the flow, and the nonce in the token must be the one sealed in that cookie. |
+| **Code interception or replay.** The callback URL leaks through a log, history or Referer. | PKCE S256: the code is useless without the verifier, which never leaves the server and the sealed cookie. The code works once at Google. The nonce row is spent once. The callback's query is dropped from the access log (`urlForLog`). Every hop sends `Referrer-Policy: no-referrer` and `Cache-Control: no-store`, and the outcome goes in the fragment, which is never sent to a server. |
+| **Forged or misaddressed ID token.** A token from another key, issuer or app, or one we did not request. | RS256 only (`none` and HS256 refused). The signature is checked against Google's JWKS, cached as long as its `Cache-Control` allows, with unknown `kid`s refetched at most every 30 s. `iss` must be Google. `aud` must be **our** web client. `azp` must be our client (on Android it must be present and name the Android client, so a web token is not an app token). `exp`/`iat`/`nbf` are checked with 60 s of skew. The `nonce` must be one this server issued for this purpose (and, for a link, this account). It is spent last, by one conditional UPDATE, so a forged token cannot burn a real nonce and two racing requests cannot both use one. |
+| **Unverified address.** A Google account whose email Google has not verified. | `email_verified` must be true. The email is still never used to find an account. |
+| **Account takeover by email.** A Google account with the same address as an existing account, including an `EMAIL_SIGNIN` one. | Accounts are keyed on `sub` only (`users.google_sub`, unique index). There is no lookup by email anywhere in the flow. An unknown `sub` always creates a **new** citizen account. |
+| **Privilege escalation.** A Google identity reaching an admin, officer, mechanic, fleet, support or `EMAIL_SIGNIN` account. | `googleAccountRefusal`: a Google sign-in or link is refused (403 `privileged_account` / `email_signin_account`) for any account holding a role other than `citizen`, or whose number is in `EMAIL_SIGNIN`. This also covers an account that gained a role after Google was linked. Sign-up only ever grants `citizen`. |
+| **Linking somebody else's account.** | Link needs the account's own session (Bearer) **and** a fresh Google token carrying a nonce issued to that account. The web hands that account id to `/start` only in a five-minute sealed cookie that the Bearer-authenticated `/v1/me/google/web-link` sets. A Google account already linked to another account that has a phone is refused (`google_in_use`). It may only move off an empty Google-only sign-up with no phone, which the same person has just proven by the token. That empty account is then closed and its sessions ended. |
+| **Phone collision.** A Google sign-up "adds" a number that belongs to someone else's account. | The number must be proven by the ordinary OTP (same limits and attempt cap, consumed once). If it belongs to another account, the answer is 409 `phone_in_use` and **neither account changes**: no merge, no hand-over, no sign-in. The unique index on `users.msisdn` decides a race. The refusal comes only after the OTP is proven, so the route cannot be used to test which numbers are registered. To join the two, sign in with the number and use Link Google. |
+| **Feature off, half-configured, or pointed at a stub.** | All or none at boot. `GOOGLE_API_BASE` (the test stub) is refused outside development, test and CI. The secret is never echoed in a configuration error, and `/health` shows the public client id, never the secret. |
+
+**What is stored.** `users.google_sub` and `users.google_email`, nothing else
+from Google: no name, photo, access token or refresh token. Only the ID token's
+claims are read; the access token Google returns is discarded unused. Nonces
+are kept only as SHA-256 hashes, for ten minutes, and removed a day later.
+
+**What a phone-less account can do.** Everything except booking a mechanic
+(409 `phone_required`): SOS, emergency contacts, medical details, vehicles,
+reports and the map all work. **SOS is never gated.** It works signed out, so
+it works here.
+
+**The browser and residency.** No page loads Google script, iframe, font or
+image. The button is a link to our own `/start`, and the visitor's browser
+reaches `accounts.google.com` only by following our 302 after they click. The
+CSP is unchanged. `scripts/check-data-residency.mjs` declares that host as a
+click-through **navigation** (neither page egress nor server egress), declares
+`oauth2.googleapis.com` and `www.googleapis.com` as server-side egress, and
+fails the build if any page so much as names a Google sign-in host.
+
+**Verified by:** `google-signin.test.ts` (configuration gate, RFC 7636 PKCE
+vector, sealed cookies, JWKS cache, every token check including replay and
+`email_verified`, privileged and `EMAIL_SIGNIN` refusals, phone collision, the
+web page's fragment parser), `e2e-journey.mjs` §42 and `security-audit.mjs` §15
+(planted callback, replayed callback, tampered cookie, token replay, invented
+nonce, forged signature, wrong aud/iss/azp, expired, unverified, admin and
+mechanic refused, email never the key, phone collision, link nonce bound to its
+account, link cookie required, Google account in use), the browser suite §41
+(the page loads nothing from Google; round trip, phone, Link Google, cancel),
+and `GoogleSignInTest.kt` on Android. All of them run against a local stub of
+Google (`scripts/google-stub.mjs`), never Google. The security cases were
+proven by reverting their guards: with nonce single-use, signature, `aud`,
+`iss`, `azp`, `email_verified`, the role and `EMAIL_SIGNIN` refusal, and the
+phone-owner check removed, 11 of §15's cases fail. The planted callback is
+refused by the state, PKCE and the nonce **each on its own**: with any one of
+them in place the case still passes, and with all three removed the victim is
+signed in to the attacker's account and the case fails.
 
 ## Authorization
 
@@ -438,7 +495,7 @@ live database: `pg_stat_activity` shows the running service connected as
 
 ## Known gaps
 
-1. **No external penetration test.** 116 self-written attacks is not the same
+1. **No external penetration test.** 135 self-written attacks is not the same
    thing.
 2. **Rate limiting is per-instance.** See above.
 3. **No column-level encryption at rest in Postgres.** Medical data is protected
@@ -454,3 +511,9 @@ live database: `pg_stat_activity` shows the running service connected as
 7. **Telegram alerts, when turned on, send a first name and a position to
    Telegram**, outside India. Off unless the three `TELEGRAM_*` variables are
    set; see "Telegram alerts for emergency contacts" above.
+8. **Google sign-in, when turned on, is Google's account system.** The
+   visitor's browser goes to Google's sign-in page (outside India) when they
+   press the button, and the server fetches Google's token endpoint and keys.
+   A Google account compromised at Google is a compromised citizen account
+   here. That is why Google can never reach a privileged account. Off unless
+   the `GOOGLE_*` variables are set; see "Sign in with Google" above.

@@ -78,12 +78,12 @@ powershell -NoProfile -Command "Stop-Process -Id <pid> -Force"
 Six in `app/`, and the last five need a live server **and** a seeded database:
 
 ```bash
-npm test                 # 545 unit — no I/O, the only ones that run standalone
-npm run test:e2e         # 312
+npm test                 # 579 unit — no I/O, the only ones that run standalone
+npm run test:e2e         # 341
 npm run test:concurrency # 112
 npm run test:gateway     # 58
-npm run test:security    # 116 attacks, every one must be refused
-npm run test:ui          # 272, drives real Chrome over CDP (--headed to watch)
+npm run test:security    # 135 attacks, every one must be refused
+npm run test:ui          # 281, drives real Chrome over CDP (--headed to watch)
 ```
 
 **The concurrency suite degrades on a database it has already run against.**
@@ -111,9 +111,9 @@ they fail on their first sign-in there. The demo stack resets with
 local stub of the Orders API and signs webhooks with a stub secret — but it
 refuses to run (exit 2) unless the API was started with the variables in the
 script's header (`PAYMENTS_PROVIDER=razorpay`, `PAYMENTS_BASE_URL` at the stub).
-It is **not** part of the 1415 and must never be described as passing.
+It is **not** part of the 1506 and must never be described as passing.
 
-Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (333
+Android: `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease` (342
 tests). AI: `python -m unittest discover -s ai/tests` (49, stdlib only).
 
 ## Toolchain traps

@@ -11,25 +11,25 @@
     "file. Dated evidence (a record of what was true for a past build) is exempt,",
     "because correcting it would falsify the record."
   ],
-  "measuredOn": "2026-10-14",
+  "measuredOn": "2026-10-15",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 1415,
+    "total": 1506,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 545,
-      "e2e": 312,
+      "unit": 579,
+      "e2e": 341,
       "concurrency": 112,
       "gatewaySecurity": 58,
-      "securityAudit": 116,
-      "browser": 272
+      "securityAudit": 135,
+      "browser": 281
     },
     "notExecuted": {
       "paymentSandbox": 22,
       "why": "scripts/razorpay-test.mjs needs NO Razorpay account: it starts its own local stub of the Orders API and signs webhooks with a stub secret. It refuses to run (exit 2) unless the API was started separately with PAYMENTS_PROVIDER=razorpay and PAYMENTS_BASE_URL pointed at that stub, so it is outside every npm test run and was not re-run for this measurement. Never counted in the total, never described as passing"
     },
     "otherRunners": {
-      "android": 333,
+      "android": 342,
       "sosLadder": 21,
       "ai": 49,
       "why": "separate toolchains with their own runners; not part of the six-suite total",
@@ -45,14 +45,14 @@
     }
   },
   "schema": {
-    "tables": 59,
-    "primaryKeys": 59,
-    "foreignKeys": 64,
-    "indexes": 147,
-    "uniqueIndexes": 91,
+    "tables": 60,
+    "primaryKeys": 60,
+    "foreignKeys": 65,
+    "indexes": 151,
+    "uniqueIndexes": 94,
     "gistIndexes": 5,
     "checkConstraints": 7,
-    "migrations": 11,
+    "migrations": 12,
     "how": [
       "Count through pg_depend, NEVER bare information_schema.",
       "CREATE EXTENSION postgis installs spatial_ref_sys into public, which",
@@ -82,17 +82,17 @@
     ]
   },
   "api": {
-    "routes": 77,
-    "underV1": 74,
+    "routes": 84,
+    "underV1": 81,
     "how": [
       "Count app.get/post/patch/put/delete call sites across apps/api/src:",
       "34 in server.ts + 17 in raksha.ts + 4 in routes/auth.ts",
       "+ 2 in routes/email-auth.ts + 6 in routes/emergency.ts",
-      "+ 1 in routes/telecom.ts + 2 in routes/telegram.ts + 3 in routes/mechanic.ts + 3 in routes/payments.ts + 4 in routes/geo.ts + 1 in routes/impact.ts.",
+      "+ 1 in routes/telecom.ts + 2 in routes/telegram.ts + 7 in routes/google-auth.ts + 3 in routes/mechanic.ts + 3 in routes/payments.ts + 4 in routes/geo.ts + 1 in routes/impact.ts.",
       "",
       "  grep -rnE 'app[.](get|post|put|patch|delete)[(]' apps/api/src | wc -l",
       "",
-      "74 of the 77 are under /v1. The other three are infrastructure, all in",
+      "81 of the 84 are under /v1. The other three are infrastructure, all in",
       "server.ts: GET /tiles/:z/:x/:file, GET /basemap/:z/:x/:file and GET /health.",
       "",
       "The SPLIT moves whenever a route group is lifted out of server.ts — it was",
@@ -117,8 +117,8 @@
       "gu"
     ],
     "serverKeys": 20,
-    "androidKeys": 255,
-    "webKeys": 62,
+    "androidKeys": 273,
+    "webKeys": 81,
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."
   },

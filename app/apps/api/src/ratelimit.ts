@@ -122,6 +122,14 @@ export const LIMITS = {
    * hour is every contact re-invited four times; a script minting codes is not.
    */
   telegramInvite: { max: 20, windowMs: 60 * 60_000 },
+  /**
+   * Starting a Google sign-in (web start, Android nonce, Link Google), per IP
+   * when signed out and per account when signed in. Each start writes a nonce
+   * row; a person needs a handful, a script filling the table needs thousands.
+   */
+  googleSignin: { max: 60, windowMs: 10 * 60_000 },
+  /** Redeeming a Google ID token or a phone code, per IP / account. */
+  googleRedeem: { max: 60, windowMs: 10 * 60_000 },
 } as const;
 
 /**

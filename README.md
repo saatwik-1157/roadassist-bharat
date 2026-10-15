@@ -13,7 +13,7 @@ built for the roads where coverage is worst.
 [![CI](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/ci.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/ci.yml)
 [![Image](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/publish-image.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/publish-image.yml)
 [![Pages](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/pages.yml/badge.svg)](https://github.com/saatwik-1157/roadassist-bharat/actions/workflows/pages.yml)
-![Assertions](https://img.shields.io/badge/assertions-1415%20passing-2ea44f)
+![Assertions](https://img.shields.io/badge/assertions-1506%20passing-2ea44f)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522-339933?logo=node.js&logoColor=white)
 ![PostGIS](https://img.shields.io/badge/PostgreSQL%2016-PostGIS-336791?logo=postgresql&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-Kotlin%20%2B%20Compose-3DDC84?logo=android&logoColor=white)
@@ -103,6 +103,7 @@ how the work was split.
 | Native Android client | [`mobile/`](mobile/) | Ships. Kotlin + Compose, release APK under R8 |
 | Feature phone over SMS | `POST /v1/telecom/sms` | Ships. A complete booking with no app at all |
 | "Near you" card in the citizen app | `/app.html` home screen | Ships. Nearest address and help from OpenStreetMap, [below](#location-services) |
+| Sign in with Google | `/app.html` and Android 1.1.5 | **Built, off until configured.** A citizen sign-up keyed on Google's account id, a phone asked once by OTP, Link Google for phone accounts; never for admin, officer or mechanic accounts. Turned on per [DEPLOYMENT.md](DEPLOYMENT.md#optional--how-to-turn-on-google-sign-in-free--you) |
 | iOS · Android Auto · IVR · USSD | n/a | **Designed, not built** |
 
 <table>
@@ -197,12 +198,12 @@ flowchart LR
   end
 
   subgraph Render["Render · Docker · Singapore"]
-    API["Fastify API · 77 routes<br/>zod validation · JWT + rotating refresh<br/>CSP & security headers · rate limits"]
+    API["Fastify API · 84 routes<br/>zod validation · JWT + rotating refresh<br/>CSP & security headers · rate limits"]
     MOD["Modules: auth · bookings · dispatch<br/>emergency · telecom · payments · RAKSHA"]
     API --> MOD
   end
 
-  DB[("Neon PostgreSQL 16 + PostGIS<br/>59 tables · hash-chained audit log")]
+  DB[("Neon PostgreSQL 16 + PostGIS<br/>60 tables · hash-chained audit log")]
   X["Resend (email) · OpenStreetMap tiles<br/>Nominatim · Overpass · OSRM · USGS<br/>Open-Meteo · SMS / payment gateways"]
 
   W & A & F & E --> CF --> API
@@ -213,7 +214,7 @@ flowchart LR
 | Layer | Technology |
 |---|---|
 | API | Node 22, TypeScript, Fastify 5, zod, jose (JWT) |
-| Data | PostgreSQL 16 + PostGIS 3.4, Drizzle ORM, 9 migrations |
+| Data | PostgreSQL 16 + PostGIS 3.4, Drizzle ORM, 12 migrations |
 | Realtime | Server-sent events with a heartbeat and a per-user cap, and polling underneath |
 | Web | Plain HTML, CSS and JavaScript served by the API. No bundler, so there is no second deploy unit and no CORS boundary |
 | Offline | Service worker, plus IndexedDB encrypted with AES-GCM-256 under a non-extractable key |
@@ -261,12 +262,12 @@ with it.
 
 | | |
 |---|---|
-| **1415 assertions**, six suites, zero failures | 545 unit · 312 e2e · 112 concurrency · 116 attacks · 58 gateway security · 272 browser |
-| Android | 333 tests, zero lint errors, release APK under R8 |
+| **1506 assertions**, six suites, zero failures | 579 unit · 341 e2e · 112 concurrency · 135 attacks · 58 gateway security · 281 browser |
+| Android | 342 tests, zero lint errors, release APK under R8 |
 | AI pipeline | 39 tests, standard library only |
 | **Not in the total** | 22 Razorpay checks (`npm run test:razorpay`), run against a local stub of Razorpay's Orders API. They need an API started with `PAYMENTS_PROVIDER=razorpay` pointed at that stub, so they sit outside the six suites and are never described as passing |
-| Schema | 59 tables · 147 indexes · 9 migrations |
-| API | 77 routes: 74 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
+| Schema | 60 tables · 151 indexes · 12 migrations |
+| API | 84 routes: 81 under `/v1`, plus `/tiles`, `/basemap` and `/health` |
 | Localisation | 8 languages, **not native-reviewed** |
 
 CI also kills PostgreSQL under a running API and checks that the platform is
@@ -279,7 +280,7 @@ re-verifies the audit hash chain on the restored copy.
 
 ## Security
 
-The security suite fires **116 attacks that must every one be refused**:
+The security suite fires **135 attacks that must every one be refused**:
 - cross-tenant reads and writes;
 - role escalation and id manipulation;
 - SQL injection;
@@ -341,7 +342,7 @@ npm run verify               # typecheck · lint · boundaries · claims · cita
 ```
 
 **Android:** `cd mobile && ./gradlew lint testDebugUnitTest assembleRelease`
-(333 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
+(342 tests). Build on **JDK 21**, because Gradle 8.13 rejects 25. A fresh
 install talks to the live platform. To use a local API instead, install a debug
 build (a release build is HTTPS only), long-press the wordmark on the sign-in
 screen and enter its address, for example `10.0.2.2:4000` from the emulator.
@@ -417,7 +418,7 @@ idempotently.
 
 | Path | What | Toolchain |
 |---|---|---|
-| [`app/apps/api`](app/apps/api) | Fastify API: 77 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
+| [`app/apps/api`](app/apps/api) | Fastify API: 84 routes, modular monolith (ADR-0001) | Node 22+, TypeScript |
 | [`app/apps/web`](app/apps/web) | Citizen, mechanic, authority, map and 3D surfaces | Plain HTML/CSS/JS |
 | [`app/packages/db`](app/packages/db) | Drizzle schema, migrations, seeds | PostgreSQL 16 + PostGIS |
 | [`app/scripts`](app/scripts) | Six test runners, the claims and citation gates, the RAKSHA simulator | Node |

@@ -666,6 +666,10 @@ const demoApi = spawn(process.execPath, ["--import", "tsx", "src/server.ts"], {
     DATABASE_URL,
     // Present but empty, so an app/.env that sets one cannot leak in.
     TELECOM_WEBHOOK_SECRET: "",
+    // Google sign-in off here: the run's GOOGLE_API_BASE is a local test stub,
+    // which a NODE_ENV=demo server rightly refuses to boot with (env.ts).
+    GOOGLE_CLIENT_ID: "", GOOGLE_CLIENT_SECRET: "", GOOGLE_REDIRECT_URI: "",
+    GOOGLE_ANDROID_CLIENT_ID: "", GOOGLE_API_BASE: "",
     JWT_SECRET: "gw-demo-" + createHmac("sha256", String(Date.now())).update("jwt").digest("hex").slice(0, 32),
     SMS_PROVIDER: "console",
     PAYMENTS_PROVIDER: "mock",

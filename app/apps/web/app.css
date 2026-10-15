@@ -896,3 +896,31 @@ body {
 
 /* ── sheets: the plain surface, a hairline edge ────────────────────────── */
 .sheet { background: var(--surface); border-color: var(--line-2); }
+
+/* ── Continue with Google (google-signin.js) ──────────────────────────────
+   Google's sign-in branding guidelines, exactly: the full-colour G on a white
+   (light) or #131314 (dark) pill with Google's own stroke and text colours,
+   "Roboto Medium 14/20" (Roboto where the device has it - Android does; the
+   page loads no Google font), 12px before the mark, 10px between mark and text.
+   The colours are Google's, not the theme's, so they are not tokens. */
+.gsi-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; min-height: 44px; padding: 0 12px; border-radius: 22px;
+  background: #ffffff; border: 1px solid #747775; color: #1f1f1f;
+  font: 500 14px/20px Roboto, "Segoe UI", system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.25px; text-decoration: none; cursor: pointer;
+  transition: background-color .18s ease, box-shadow .18s ease;
+}
+.gsi-btn:hover { background: #f8f9fa; box-shadow: 0 1px 2px rgba(60, 64, 67, .3), 0 1px 3px 1px rgba(60, 64, 67, .15); }
+.gsi-btn:focus-visible { outline: 2px solid #0b57d0; outline-offset: 2px; }
+.gsi-btn.is-busy { opacity: .6; pointer-events: none; }
+.gsi-mark { display: inline-flex; width: 20px; height: 20px; flex: none; }
+.gsi-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .gsi-btn { background: #131314; border-color: #8e918f; color: #e3e3e3; }
+  :root:not([data-theme="light"]) .gsi-btn:hover { background: #1f1f20; }
+}
+:root[data-theme="dark"] .gsi-btn { background: #131314; border-color: #8e918f; color: #e3e3e3; }
+:root[data-theme="dark"] .gsi-btn:hover { background: #1f1f20; }
+.or-rule { display: flex; align-items: center; gap: 12px; margin: 18px 0 14px; color: var(--text-3); font-size: 12.5px; }
+.or-rule::before, .or-rule::after { content: ""; flex: 1; height: 1px; background: var(--line-2); }

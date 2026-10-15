@@ -711,6 +711,223 @@ section("14. Telegram webhook: secret header, single-use codes, /stop");
   }
 }
 
+// ══ 15. Sign in with Google (routes/google-auth.ts) ═══════════════════════
+// Every way a Google sign-in could become somebody else's session: a callback
+// planted on another browser (login CSRF), a replayed code or token, a forged,
+// misaddressed, expired or unverified token, a Google identity aimed at an
+// admin or mechanic, an email that happens to match, a phone that belongs to
+// somebody else, a link nonce spent by another account. Runs against a LOCAL
+// stub of Google (scripts/google-stub.mjs); skipped, and said so, when off.
+section("15. Google sign-in: CSRF, replay, forged tokens, privileged accounts, collisions");
+{
+  const { googleStub, cookieJar, hop, webGoogleFlow } = await import("./google-stub.mjs");
+  const health = await call("GET", "/health");
+  const feature = health.data?.features?.googleSignin;
+  const stub = feature?.web && feature?.android ? await googleStub() : { why: "this server has Google sign-in off" };
+  const LABELS = ["planted callback (login CSRF)", "replayed callback", "tampered flow cookie", "token replay", "invented nonce",
+    "forged signature", "wrong audience", "wrong issuer", "expired token", "unverified email", "web token on Android",
+    "privileged account by Google", "privileged account linking", "email is never the key", "phone collision",
+    "link nonce bound to its account", "link cookie required", "Google account in use", "no secret in /health"];
+  if (stub.why) {
+    for (const l of LABELS) skipped(l, stub.why);
+  } else {
+    const { default: postgres } = await import("postgres");
+    const sql = postgres(process.env.DATABASE_URL ??
+      "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+    const android = async (claims, { purpose = "signin", token, nonce } = {}) => {
+      const n = nonce ?? (await call("POST", "/v1/auth/google/nonce", { token, body: { purpose } })).data?.nonce;
+      const idToken = claims.idToken ?? stub.mint({ nonce: n, ...claims });
+      const res = await call("POST", purpose === "link" ? "/v1/me/google" : "/v1/auth/google/token",
+        { token, body: { idToken, nonce: n } });
+      return { nonce: n, idToken, res };
+    };
+    const sessionIssued = (r) => Boolean(r.data?.accessToken || r.data?.refreshToken);
+    const googleSubOf = async (id) => (await sql`SELECT google_sub AS s FROM users WHERE id = ${id}`)[0]?.s ?? null;
+    try {
+      // ── login CSRF: an attacker's callback opened in the victim's browser ──
+      const attacker = cookieJar();
+      const aStart = await hop(attacker, `${BASE}/v1/auth/google/start`);
+      const aConsent = await hop(attacker, aStart.location);
+      const planted = aConsent.location;      // the attacker's code + state, never redeemed by them
+      const victim = cookieJar();
+      const v1 = await hop(victim, planted);
+      const victimOwn = cookieJar();
+      await hop(victimOwn, `${BASE}/v1/auth/google/start`);   // the victim has a flow of their own going
+      const v2 = await hop(victimOwn, planted);
+      // Three bindings refuse it, each on its own: the sealed state, PKCE, and the nonce.
+      ok("a callback planted on another browser signs nobody in (state, PKCE and nonce bind it to the browser that started it)",
+         /#google=error/.test(v1.location ?? "") && !victim.get(BASE, "ra_rt_app") &&
+         /#google=error/.test(v2.location ?? "") && !victimOwn.get(BASE, "ra_rt_app"),
+         `${v1.location?.split("#")[1]} / ${v2.location?.split("#")[1]}`);
+
+      // ── a replayed callback ───────────────────────────────────────────
+      const r = cookieJar();
+      const rStart = await hop(r, `${BASE}/v1/auth/google/start`);
+      const sealed = r.get(BASE, "ra_g_flow");
+      const rConsent = await hop(r, rStart.location);
+      const first = await hop(r, rConsent.location);
+      const r2 = cookieJar();
+      r2.set(BASE, "ra_g_flow", sealed);
+      const replay = await hop(r2, rConsent.location);
+      ok("a callback replayed with its own flow cookie is refused: the code and the nonce work once",
+         /#google=signedin/.test(first.location ?? "") && /google=error/.test(replay.location ?? "") && !r2.get(BASE, "ra_rt_app"),
+         replay.location?.split("#")[1]);
+
+      // ── a tampered flow cookie ────────────────────────────────────────
+      const t = cookieJar();
+      const tStart = await hop(t, `${BASE}/v1/auth/google/start`);
+      const tc = t.get(BASE, "ra_g_flow");
+      t.set(BASE, "ra_g_flow", tc.slice(0, -2) + (tc.at(-2) === "A" ? "B" : "A") + tc.at(-1));
+      const tConsent = await hop(t, tStart.location);
+      const tCb = await hop(t, tConsent.location);
+      ok("a flow cookie altered in the browser is refused", /reason=google_failed/.test(tCb.location ?? "") && !t.get(BASE, "ra_rt_app"),
+         tCb.location?.split("#")[1]);
+
+      // ── the Android token path ────────────────────────────────────────
+      const good = await android({ email: "replay@example.com" });
+      const again = await call("POST", "/v1/auth/google/token", { body: { idToken: good.idToken, nonce: good.nonce } });
+      ok("an ID token replayed on Android is refused (its nonce was spent)",
+         good.res.status === 200 && again.status === 401 && again.error?.code === "nonce_replayed" && !sessionIssued(again),
+         `${good.res.status} then ${again.status} ${again.error?.code ?? ""}`);
+
+      const invented = "x".repeat(43);
+      const inv = await call("POST", "/v1/auth/google/token", { body: { idToken: stub.mint({ nonce: invented }), nonce: invented } });
+      ok("a validly signed token for a nonce this server never issued is refused",
+         inv.status === 401 && !sessionIssued(inv), `${inv.status} ${inv.error?.code ?? ""}`);
+
+      const fNonce = (await call("POST", "/v1/auth/google/nonce", { body: {} })).data?.nonce;
+      const forged = await call("POST", "/v1/auth/google/token", { body: { idToken: stub.mint({ nonce: fNonce }, { rogue: true }), nonce: fNonce } });
+      const afterForgery = await android({ email: "after.forgery@example.com" }, { nonce: fNonce });
+      ok("a token signed by a key Google never published is refused - and does not burn the real nonce",
+         forged.status === 401 && forged.error?.code === "bad_signature" && afterForgery.res.status === 200,
+         `${forged.status} ${forged.error?.code ?? ""}, then ${afterForgery.res.status}`);
+
+      const aud = await android({ aud: "999999999999-someoneelsesapp.apps.googleusercontent.com" });
+      ok("a token issued to another app (wrong aud) is refused", aud.res.status === 401 && aud.res.error?.code === "bad_audience",
+         `${aud.res.status} ${aud.res.error?.code ?? ""}`);
+      const iss = await android({ iss: "https://accounts.example.com" });
+      ok("a token from another issuer is refused", iss.res.status === 401 && iss.res.error?.code === "bad_issuer",
+         `${iss.res.status} ${iss.res.error?.code ?? ""}`);
+      const nowS = Math.floor(Date.now() / 1000);
+      const old = await android({ iat: nowS - 7200, exp: nowS - 3600 });
+      ok("an expired token is refused", old.res.status === 401 && old.res.error?.code === "expired", `${old.res.status} ${old.res.error?.code ?? ""}`);
+      const unverified = await android({ email_verified: false });
+      const uj = cookieJar();
+      stub.nextIdentity({ email_verified: false });
+      const uFlow = await webGoogleFlow(BASE, uj);
+      ok("an address Google has not verified signs in nowhere, on Android or the web",
+         unverified.res.status === 401 && unverified.res.error?.code === "email_unverified" &&
+         uFlow.landed?.hash === "#google=error&reason=email_unverified" && !uj.get(BASE, "ra_rt_app"),
+         `${unverified.res.error?.code ?? ""} / ${uFlow.landed?.hash}`);
+      const webAzp = await android({ azp: stub.clientId });
+      ok("a token minted for the web client is not accepted as the Android app's (azp)",
+         webAzp.res.status === 401 && webAzp.res.error?.code === "bad_azp", `${webAzp.res.status} ${webAzp.res.error?.code ?? ""}`);
+
+      // ── privileged accounts ───────────────────────────────────────────
+      const [admin] = await sql`SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id = u.id JOIN roles ro ON ro.id = ur.role_id
+                                 WHERE ro.name = 'admin' AND ur.deleted_at IS NULL AND u.msisdn = '+919999900001' LIMIT 1`;
+      const [mech] = await sql`SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id = u.id JOIN roles ro ON ro.id = ur.role_id
+                                WHERE ro.name = 'mechanic' AND ur.deleted_at IS NULL AND u.google_sub IS NULL LIMIT 1`;
+      if (!admin || !mech) {
+        skipped("privileged account by Google", "no seeded admin and mechanic in this database");
+      } else {
+        const adminSub = stub.newSub(), mechSub = stub.newSub();
+        // As if each had somehow been given a Google identity: a sign-in with it must still be refused.
+        await sql`UPDATE users SET google_sub = ${adminSub} WHERE id = ${admin.id}`;
+        await sql`UPDATE users SET google_sub = ${mechSub} WHERE id = ${mech.id}`;
+        try {
+          const a = await android({ sub: adminSub, email: "owner@example.com" });
+          const m = await android({ sub: mechSub, email: "mechanic@example.com" });
+          const wj = cookieJar();
+          stub.nextIdentity({ sub: adminSub, email: "owner@example.com" });
+          const w = await webGoogleFlow(BASE, wj);
+          ok("a Google identity can never sign in to an admin or a mechanic account, on Android or the web",
+             a.res.status === 403 && a.res.error?.code === "privileged_account" && !sessionIssued(a.res) &&
+             m.res.status === 403 && m.res.error?.code === "privileged_account" && !sessionIssued(m.res) &&
+             w.landed?.hash === "#google=error&reason=privileged_account" && !wj.get(BASE, "ra_rt_app"),
+             `${a.res.status} ${m.res.status} ${w.landed?.hash}`);
+        } finally {
+          await sql`UPDATE users SET google_sub = NULL WHERE id IN (${admin.id}, ${mech.id})`;
+        }
+      }
+      const opReq = await call("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } });
+      const op = opReq.meta?.devOtp
+        ? (await call("POST", "/v1/auth/otp/verify", { body: { msisdn: "+919999900001", code: opReq.meta.devOtp } })).data : null;
+      if (!op?.roles?.includes("admin")) {
+        skipped("privileged account linking", "the seeded admin could not sign in by phone here");
+      } else {
+        const webLink = await call("POST", "/v1/me/google/web-link", { token: op.accessToken });
+        const nonceLink = await call("POST", "/v1/auth/google/nonce", { token: op.accessToken, body: { purpose: "link" } });
+        ok("an admin cannot link a Google account at all (web or Android)",
+           webLink.status === 403 && webLink.error?.code === "privileged_account" && !webLink.headers.get("set-cookie") &&
+           nonceLink.status === 403 && nonceLink.error?.code === "privileged_account" && !(await googleSubOf(admin?.id ?? op.user?.id)),
+           `${webLink.status} ${nonceLink.status}`);
+      }
+
+      // ── the email is never the key ────────────────────────────────────
+      const v = await signIn();
+      const victimEmail = `victim.${Math.random().toString(36).slice(2, 8)}@example.com`;
+      await sql`UPDATE users SET email = ${victimEmail} WHERE id = ${v.userId}`;
+      const same = await android({ email: victimEmail });
+      ok("a Google account with the same email as an existing account gets its OWN new account",
+         same.res.status === 200 && same.res.data?.user?.id !== v.userId && same.res.meta?.newAccount === true &&
+         !(await googleSubOf(v.userId)), `${same.res.data?.user?.id} vs ${v.userId}`);
+
+      // ── phone collision ───────────────────────────────────────────────
+      const owner = await signIn();
+      const g = await android({ email: "collision@example.com" });
+      const code = (await call("POST", "/v1/auth/otp/request", { body: { msisdn: owner.msisdn } })).meta?.devOtp;
+      const take = await call("POST", "/v1/me/phone", { token: g.res.data?.accessToken, body: { msisdn: owner.msisdn, code } });
+      const [ownerRow] = await sql`SELECT msisdn, google_sub FROM users WHERE id = ${owner.userId}`;
+      const [gRow] = await sql`SELECT msisdn FROM users WHERE id = ${g.res.data?.user?.id}`;
+      const reOtp = (await call("POST", "/v1/auth/otp/request", { body: { msisdn: owner.msisdn } })).meta?.devOtp;
+      const ownerBack = await call("POST", "/v1/auth/otp/verify", { body: { msisdn: owner.msisdn, code: reOtp } });
+      ok("verifying a number that belongs to another account takes nothing over: 409, and both accounts unchanged",
+         take.status === 409 && take.error?.code === "phone_in_use" && !sessionIssued(take) &&
+         ownerRow?.msisdn === owner.msisdn && ownerRow?.google_sub === null && gRow?.msisdn === null &&
+         ownerBack.data?.user?.id === owner.userId,
+         `${take.status} ${take.error?.code ?? ""}`);
+
+      // ── a link nonce belongs to the account it was issued to ──────────
+      const A = await signIn(), B = await signIn();
+      const aNonce = (await call("POST", "/v1/auth/google/nonce", { token: A.token, body: { purpose: "link" } })).data?.nonce;
+      const stolen = await android({ email: "stolen.link@example.com" }, { purpose: "link", token: B.token, nonce: aNonce });
+      const asSignin = await android({ email: "wrong.purpose@example.com" }, { nonce: aNonce });
+      const sNonce = (await call("POST", "/v1/auth/google/nonce", { body: {} })).data?.nonce;
+      const signinAsLink = await android({ email: "wrong.purpose2@example.com" }, { purpose: "link", token: B.token, nonce: sNonce });
+      ok("a link nonce cannot be spent by another account, or to sign in; a sign-in nonce cannot link",
+         stolen.res.status === 401 && !(await googleSubOf(B.userId)) &&
+         asSignin.res.status === 401 && !sessionIssued(asSignin.res) && signinAsLink.res.status === 401,
+         `${stolen.res.status} ${asSignin.res.status} ${signinAsLink.res.status}`);
+
+      // ── the web link cookie ───────────────────────────────────────────
+      const bare = cookieJar();
+      const noCookie = await hop(bare, `${BASE}/v1/auth/google/start?link=1`);
+      bare.set(BASE, "ra_g_link", "A".repeat(80));
+      const fakeCookie = await hop(bare, `${BASE}/v1/auth/google/start?link=1`);
+      const anon = await call("POST", "/v1/me/google/web-link");
+      ok("Link Google on the web needs the signed-in page's sealed cookie; it cannot be forged or skipped",
+         /reason=link_expired/.test(noCookie.location ?? "") && /reason=link_expired/.test(fakeCookie.location ?? "") &&
+         anon.status === 401, `${noCookie.location?.split("#")[1]} ${fakeCookie.location?.split("#")[1]} ${anon.status}`);
+
+      // ── a Google account another proven account uses ──────────────────
+      const P = await signIn(), P2 = await signIn();
+      const heldSub = stub.newSub();
+      await android({ sub: heldSub, email: "held@example.com" }, { purpose: "link", token: P.token });
+      const grab = await android({ sub: heldSub, email: "held@example.com" }, { purpose: "link", token: P2.token });
+      ok("a Google account linked to an account with a phone cannot be linked away from it",
+         grab.res.status === 409 && grab.res.error?.code === "google_in_use" && (await googleSubOf(P.userId)) === heldSub &&
+         !(await googleSubOf(P2.userId)), `${grab.res.status} ${grab.res.error?.code ?? ""}`);
+
+      ok("/health names the feature, never the client secret",
+         !health.raw.includes(stub.secret) && feature.serverClientId === stub.clientId);
+    } finally {
+      await sql.end({ timeout: 5 });
+      await stub.close();
+    }
+  }
+}
+
 // ── clean up anything still holding a provider ─────────────────────────────
 if (bookingId) await call("POST", `/v1/bookings/${bookingId}/transition`, { token: alice.token, body: { command: "cancel" } });
 if (bobBooking?.data?.id) await call("POST", `/v1/bookings/${bobBooking.data.id}/transition`, { token: bob.token, body: { command: "cancel" } });
