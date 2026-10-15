@@ -170,15 +170,28 @@ async function launch() {
   // one place it is safe to drop: the browser only ever visits localhost.
   if (process.env.CI) args.push("--no-sandbox", "--disable-dev-shm-usage");
 
-  const proc = spawn(exe, [...args, "about:blank"], { stdio: "ignore", detached: false });
+  // The browser gets none of the API's test secrets: Chrome reads GOOGLE_*
+  // variables as its own API keys, and the stub values are not for it.
+  const env = Object.fromEntries(Object.entries(process.env)
+    .filter(([k]) => !/^(GOOGLE_|TELEGRAM_)/.test(k)));
+  const proc = spawn(exe, [...args, "about:blank"], { stdio: ["ignore", "ignore", "pipe"], detached: false, env });
+  let stderr = "";
+  proc.stderr.on("data", (d) => { stderr = (stderr + d).slice(-4000); });
+  let exited = null;
+  proc.on("exit", (code, signal) => { exited = signal ?? code; });
 
   // Wait for the debugging endpoint.
-  for (let i = 0; i < 60; i++) {
+  let up = false;
+  for (let i = 0; i < 120 && exited === null; i++) {
     try {
       const res = await fetch(`http://127.0.0.1:${PORT}/json/version`);
-      if (res.ok) break;
+      if (res.ok) { up = true; break; }
     } catch { /* not up yet */ }
     await sleep(250);
+  }
+  if (!up) {
+    throw new Error(`Chrome's debugging endpoint never came up (${exited === null ? "still running" : "exited: " + exited}). ` +
+      `Chrome said:\n${stderr || "(nothing)"}`);
   }
 
   const targets = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
