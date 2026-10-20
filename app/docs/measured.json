@@ -11,18 +11,18 @@
     "file. Dated evidence (a record of what was true for a past build) is exempt,",
     "because correcting it would falsify the record."
   ],
-  "measuredOn": "2026-10-15",
+  "measuredOn": "2026-10-20",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 1506,
+    "total": 1527,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 579,
-      "e2e": 341,
+      "unit": 584,
+      "e2e": 352,
       "concurrency": 112,
       "gatewaySecurity": 58,
       "securityAudit": 135,
-      "browser": 281
+      "browser": 286
     },
     "notExecuted": {
       "paymentSandbox": 22,
@@ -117,8 +117,8 @@
       "gu"
     ],
     "serverKeys": 20,
-    "androidKeys": 273,
-    "webKeys": 81,
+    "androidKeys": 275,
+    "webKeys": 83,
     "how": "LOCALES in apps/api/src/i18n.ts; res/values-*/ for Android",
     "caveat": "Seven of the eight are machine-translated and NOT native-reviewed. The strings exist; the quality is unverified. Never quote the count without this."
   },

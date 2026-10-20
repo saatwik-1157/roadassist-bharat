@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en" class="volt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoadAssist — Privacy policy</title>
+<meta name="description" content="What RoadAssist Bharat collects, why, where it is stored, who receives it, how long it is kept and how to have it corrected or deleted. A working student demo, not an emergency service: call 112.">
+<link rel="canonical" href="https://app.roadassistbharat.online/privacy.html">
+<!-- Theme boot: the same key the other pages write, so the choice carries over. -->
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("ra.theme"); } catch (e) { /* storage blocked */ }
+    if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<!-- Everything is served by the platform itself: no font CDN, no script from anywhere else. -->
+<link rel="stylesheet" href="vendor/fonts.css">
+<link rel="stylesheet" href="ds.css">
+<style>
+  /* The citizen app's tokens (ds.css, which app.css builds on): near-black and lime
+     in the dark theme, paper and olive in the light one. A document, so one column. */
+  body { --text-3: var(--aa-text-3); min-height: 100dvh; }
+  .skip { position: absolute; left: 12px; top: -60px; z-index: 50; padding: 10px 14px; border-radius: var(--r-sm);
+    background: var(--ink); color: var(--ink-on); font-weight: 650; }
+  .skip:focus { top: 12px; }
+  .bar { position: sticky; top: 0; z-index: 30; background: var(--glass-strong); border-bottom: 1px solid var(--line); }
+  .bar-in { max-width: 760px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: calc(10px + var(--safe-t)) 16px 10px; }
+  .brand .mark { width: 28px; height: 28px; }
+  .brand .wordmark { font-family: var(--display); font-weight: 650; font-size: 17px; letter-spacing: -0.02em; }
+  .bar nav { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .bar nav a { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0 10px; border-radius: var(--r-full);
+    font-size: 13px; font-weight: 600; color: var(--text-2); }
+  .bar nav a[aria-current="page"] { color: var(--brand); background: var(--brand-soft); }
+  .doc { max-width: 760px; margin: 0 auto; padding: 28px 16px 64px; overflow-wrap: anywhere; }
+  .doc h1 { font-family: var(--display); font-size: clamp(30px, 7vw, 42px); letter-spacing: -0.03em; line-height: 1.08; }
+  .doc h1 em { font-style: normal; color: var(--brand); }
+  .doc .dates { margin-top: 10px; color: var(--text-2); font-size: 13px; }
+  .doc h2 { font-family: var(--display); font-size: 22px; margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .doc h3 { font-size: 15.5px; margin-top: 22px; }
+  .doc p, .doc li { font-size: 15px; line-height: 1.7; color: var(--text); }
+  .doc p { margin-top: 10px; }
+  .doc ul { margin-top: 8px; padding-left: 20px; }
+  .doc li + li { margin-top: 6px; }
+  .doc a { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+  .doc code { font-family: var(--mono); font-size: 13px; padding: 1px 5px; border-radius: 5px; background: var(--surface-2); }
+  .doc .muted { color: var(--text-2); }
+  .alert { margin-top: 22px; padding: 16px 18px; border-radius: var(--r-lg); border: 1px solid var(--red);
+    background: var(--red-soft); }
+  .alert p { margin-top: 0; }
+  .alert p + p { margin-top: 8px; }
+  .alert strong { color: var(--text); }
+  .short { margin-top: 18px; padding: 16px 18px; border-radius: var(--r-lg); background: var(--surface);
+    border: 1px solid var(--line-brand); }
+  .short h2 { margin-top: 0; padding-top: 0; border-top: 0; font-size: 18px; }
+  .item { margin-top: 14px; padding: 14px 16px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+  .item h3 { margin-top: 0; }
+  .item p { font-size: 14.5px; }
+  .item .k { color: var(--text-2); font-weight: 650; }
+  .toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13.5px; }
+  .foot { max-width: 760px; margin: 0 auto; padding: 22px 16px 40px; border-top: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--text-2); }
+  .foot a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the policy</a>
+<header class="bar">
+  <div class="bar-in">
+    <a class="brand" href="/" aria-label="RoadAssist home"><img class="mark" src="icon.svg" alt=""><span class="wordmark">Road<i>Assist</i></span></a>
+    <nav aria-label="Legal">
+      <a href="/privacy.html" aria-current="page">Privacy</a>
+      <a href="/terms.html">Terms</a>
+      <a href="/app.html">Open the app</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc" id="main">
+  <h1>Privacy <em>policy.</em></h1>
+  <p class="dates">Effective 15 October 2026 · RoadAssist Bharat</p>
+
+  <div class="alert" role="note" id="not-emergency">
+    <p><strong>This is a working demo, not an emergency service.</strong> In an emergency in India, call
+      <strong>112</strong>. The live demo does not contact the police, an ambulance or any responder, and its
+      SMS alerts are only written to a log, not sent.</p>
+  </div>
+
+  <p>RoadAssist Bharat is a student project: a roadside-assistance and road-safety platform built for a
+    university course and run as a public demo. This policy covers the web app and the consoles at
+    <a href="https://app.roadassistbharat.online/">app.roadassistbharat.online</a>, the RoadAssist Bharat
+    Android app, the RoadAssist Telegram bot, and the project page at roadassistbharat.online. Everything
+    below describes what the code actually does. Where a feature is off on the live demo, it says so.</p>
+
+  <section class="short" aria-labelledby="short-h">
+    <h2 id="short-h">The short version</h2>
+    <ul>
+      <li>We collect what the app needs to work: your phone number or Google account id, what you choose to
+        enter (name, vehicles, emergency contacts, medical notes), and your location when you raise an SOS,
+        book help or report a hazard.</li>
+      <li>It is stored in Singapore (Render and Neon), not in India.</li>
+      <li>We never sell it, show no ads and use no analytics or trackers. Our pages load nothing from any
+        other website.</li>
+      <li>Most records are kept until someone deletes them by hand: there is no automatic deletion yet.
+        To have your data deleted, ask us (see <a href="#rights">Your rights</a>).</li>
+      <li>On the live demo, phone sign-in works only for published demo numbers, and the sign-in code is
+        shown on screen, so anyone can open those accounts. Do not put real personal details into one.</li>
+    </ul>
+  </section>
+
+  <nav class="toc" aria-label="On this page">
+    <a href="#collect">What we collect</a><a href="#where">Where it is stored</a><a href="#share">Who receives it</a>
+    <a href="#keep">How long it is kept</a><a href="#rights">Your rights</a><a href="#children">Children</a>
+    <a href="#security">Security</a><a href="#changes">Changes</a><a href="#contact">Contact</a>
+  </nav>
+
+  <section aria-labelledby="who-h">
+    <h2 id="who-h">Who runs it</h2>
+    <p>The RoadAssist Bharat project team, a group of students (see the
+      <a href="https://roadassistbharat.online/#team">team on the project page</a>). There is no company behind
+      it. We decide what the platform collects and why, so we are responsible for your data under India's
+      Digital Personal Data Protection Act, 2023. The way to reach us is in <a href="#contact">Contact</a>.</p>
+  </section>
+
+  <section id="collect" aria-labelledby="collect-h">
+    <h2 id="collect-h">What we collect, from whom, and why</h2>
+
+    <div class="item" id="phone">
+      <h3>Your phone number</h3>
+      <p><span class="k">From you,</span> when you sign in with a one-time code, or when you add a number after
+        signing in with Google. <span class="k">Why:</span> it identifies your account, and once a mechanic is
+        assigned to your booking, it lets them call you (and you them). The sign-in code is stored only as a
+        hash, together with the number and the IP address that asked for it, so repeated attempts can be
+        limited.</p>
+      <p><span class="k">On the live demo</span> only the published demo numbers can sign in by phone, and the
+        code appears on screen because no SMS gateway is connected. A demo-number account is therefore shared
+        with anyone who types the same number. Your own number is refused there.</p>
+    </div>
+
+    <div class="item" id="google">
+      <h3>Your Google account id and verified email, only if you use Google</h3>
+      <p><span class="k">From Google, at your request,</span> when you press <em>Continue with Google</em> or
+        <em>Link Google</em>. We ask Google only for <code>openid</code> and <code>email</code>. We store two
+        things: the account's permanent id (Google calls it <code>sub</code>) and the email address Google says
+        it has verified. Google's screen may mention your name and profile picture; we do not store them, and we
+        never see your password, contacts, files or anything else in your Google account.</p>
+      <p><span class="k">Why:</span> the id is how a later Google sign-in finds your account, and the email is
+        shown in Settings so you can see which Google account is linked. The email is never used to contact
+        you, never used to find or merge accounts, and never shared. Information received from Google is used
+        only for signing in, as the
+        <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User
+        Data Policy</a> requires, including its Limited Use requirements.</p>
+    </div>
+
+    <div class="item" id="profile">
+      <h3>Your name, language and vehicles, if you give them</h3>
+      <p><span class="k">From you.</span> A name (optional) is shown to the mechanic who comes to help, and
+        the first word of it is used in Telegram alerts to your contacts. Your app language is kept on your
+        device; a language you choose by text message is stored with your account. For a vehicle: its registration number, type, an optional nickname and odometer reading, and,
+        if you add them, the type and expiry date of its documents (for example insurance), so the app can
+        remind you before they expire. <span class="k">Why:</span> to book the right kind of help for the
+        right vehicle.</p>
+    </div>
+
+    <div class="item" id="location">
+      <h3>Your location</h3>
+      <p>Only when you use a feature that needs it, and only with your browser's or phone's location
+        permission. The app does not track you in the background.</p>
+      <ul>
+        <li><span class="k">SOS:</span> the position your device reports at that moment, at the precision it
+          reports, is stored with the emergency record. If there is no fix, the SOS is sent and stored without
+          one rather than with a guess.</li>
+        <li><span class="k">Booking help:</span> the position (or an address you type) is stored with the
+          booking, so a mechanic can find you.</li>
+        <li><span class="k">Hazard report:</span> the position and the accuracy radius your device gives are
+          stored with the report.</li>
+        <li><span class="k">"Near you", addresses and road distances:</span> your position is sent to our
+          server, which rounds it before asking a map service (see <a href="#share">Who receives it</a>). It is
+          not saved in our database, but the server's access log records the request address, which contains
+          the position that was asked about (see <a href="#logs">Logs</a>).</li>
+        <li><span class="k">Mechanic accounts:</span> a mechanic's position is stored while they are on duty,
+          so jobs can be offered to the nearest one.</li>
+      </ul>
+    </div>
+
+    <div class="item" id="contacts">
+      <h3>Emergency contacts</h3>
+      <p><span class="k">From you, about other people:</span> up to five contacts, each with a name, a phone
+        number and an optional relation. Please tell them before you add them. <span class="k">Why:</span> when
+        you confirm an SOS they are sent a text with a link. On the live demo that text is only logged, not
+        sent, and the app says so.</p>
+    </div>
+
+    <div class="item" id="telegram">
+      <h3>Telegram chat ids of contacts who opt in</h3>
+      <p>When Telegram alerts are switched on, you can send a contact a one-time invite link. Only if they open
+        it and press <em>Start</em> do we store their Telegram chat id against that contact. We never receive
+        their Telegram phone number. Invite codes are stored only as a hash and expire after seven days.
+        <span class="k">Why:</span> to send that contact a free alert when you confirm an SOS: your first name,
+        the incident reference, the time and your position as a map link. Sending <code>/stop</code> to the bot
+        removes the chat id from every contact entry it is on.</p>
+    </div>
+
+    <div class="item" id="medical">
+      <h3>Medical notes, if you add them</h3>
+      <p>Blood group, allergies, conditions and medications, all optional. Only you can read them, plus an
+        administrator or officer during your own live emergency, who must write down a reason; every such read
+        is recorded, shown in your own access log, and texted to you where SMS is connected. They are protected by these access rules and the record, not by
+        a separate layer of encryption in our database.</p>
+    </div>
+
+    <div class="item" id="hazards">
+      <h3>Photos and hazard reports</h3>
+      <p>A report holds the hazard type, a severity, an optional note (up to 280 characters), the position, an
+        optional photo (shrunk on your device before upload), and the name and confidence of the on-device
+        detector if one suggested it. <span class="k">Why:</span> so road authorities can verify and fix the
+        hazard. The type, severity, status and position appear on the live map to signed-in users, without
+        your name, number or photo. The photo is visible only to you and to administrator and officer
+        accounts.</p>
+      <p>The road scan runs its detector on your device. Camera frames do not leave your device unless you
+        attach one to a report. Photos you send are not used to train the detection models, which were trained
+        on public road-damage datasets.</p>
+    </div>
+
+    <div class="item" id="bookings">
+      <h3>Bookings, payments and mechanics</h3>
+      <p>A booking stores the service, the vehicle, the location and address, the problem you describe, its
+        status history, the quote, the invoice and any rating or review you give. The assigned mechanic sees
+        your name, your number, the vehicle, the problem and where you are. <span class="k">On the live demo
+        the mechanics are simulated accounts</span>, so nobody will come, and payments are simulated: no money
+        moves. If a real payment gateway is configured, card and UPI details are entered on the gateway's own
+        page and never reach our server.</p>
+      <p>For mechanic accounts we store a display name, phone number, availability, skills, position while on
+        duty, completed jobs and ratings.</p>
+    </div>
+
+    <div class="item" id="device">
+      <h3>Device and session data</h3>
+      <p>Each sign-in session stores the IP address and browser or app description (user agent) it started
+        from, a hash of its refresh token and its expiry. <span class="k">Why:</span> to keep you signed in, to
+        make signing out end the session on the server, and to detect a stolen token.</p>
+      <p>In your browser the app keeps a ten-minute access token for the open tab, a 30-day sign-in cookie
+        that page scripts cannot read, your theme and language, requests waiting for a connection, and any
+        SOS raised with no signal (encrypted on the device, and deleted 24 hours after it reaches us). It also
+        caches app files and map tiles so it works offline. The Android app stores its session encrypted with
+        a key held in Android's Keystore, and its data is excluded from device backups.</p>
+    </div>
+
+    <div class="item" id="logs">
+      <h3>Logs and the audit record</h3>
+      <p><span class="k">Server logs:</span> for each request, the method, the address requested (including its
+        query, for example the coordinates of a map lookup), your IP address, the response status and timing.
+        Sign-in codes, tokens and request bodies are not logged, though an unexpected server error can write the
+        failing database statement, with its values, to the log. The one address that carries a Google sign-in
+        code has its query removed. Our own operation logs remove phone numbers, email addresses, coordinates,
+        medical fields, symptoms and notes. On the live demo the text messages that would have been sent are
+        logged with the number cut to its last four digits and any sign-in code hidden.</p>
+      <p><span class="k">Audit record:</span> sign-ins, SOS events, booking changes, Telegram links and similar
+        actions are written to a tamper-evident log with the account id, role, action, time and IP address.</p>
+      <p><span class="k">Operator alerts:</span> the project owner is emailed when someone signs in or confirms an
+        SOS, or one raised with no signal arrives: the phone number cut to its last three digits, a role, the event and the time. Never a name,
+        position, IP address or device.</p>
+    </div>
+
+    <div class="item" id="sms-line">
+      <h3>Text messages to the RoadAssist number</h3>
+      <p>When an SMS gateway is connected (it is not on the live demo), people can raise an SOS or ask for help
+        by text. We then store the sending number and act on the message. If a number texts STOP, we record
+        that and stop texting it.</p>
+    </div>
+  </section>
+
+  <section id="where" aria-labelledby="where-h">
+    <h2 id="where-h">Where it is stored</h2>
+    <p>The live demo runs on <strong>Render</strong> (application server, Singapore region) with a
+      <strong>Neon</strong> Postgres database (Singapore, <code>ap-southeast-1</code>). Requests reach Render
+      through <strong>Cloudflare</strong>'s network. Your data is therefore stored and processed
+      <strong>outside India</strong>, because those providers' free plans offer no Indian region. Moving to an
+      Indian region has been prepared but is not live. The project page at roadassistbharat.online is served
+      by <strong>GitHub Pages</strong>, which sees the IP address of anyone who visits it.</p>
+  </section>
+
+  <section id="share" aria-labelledby="share-h">
+    <h2 id="share-h">Who receives it</h2>
+    <p><strong>We never sell your data.</strong> There are no adverts, no analytics, no tracking pixels, no
+      crash reporters and no social-media widgets, in the web app or the Android app. Our web pages load
+      nothing from any other website: fonts, maps and scripts all come from our own server, so your browser
+      does not contact a third party just by opening a page. No AI or language-model service receives your
+      data: the road detector runs on your device.</p>
+    <p>Our server, not your browser, contacts these services, so they never see your IP address. Each
+      receives only what is listed:</p>
+    <ul>
+      <li><strong>OpenStreetMap tile servers</strong>: the map squares being drawn. Fetched by our server and
+        cached; no account or user is attached.</li>
+      <li><strong>Nominatim</strong> (OpenStreetMap Foundation): a position rounded to about 110 m, to turn it
+        into an address.</li>
+      <li><strong>OSRM</strong> (project-osrm.org): two positions rounded to about 110 m, for road distances and
+        driving times.</li>
+      <li><strong>Overpass API</strong>: a search point rounded to about 1 km and a radius, to find nearby
+        hospitals, police, fuel and repair shops.</li>
+      <li><strong>Open-Meteo</strong>: weather and air quality for fixed points on the monitored highway
+        corridor, never your own position.</li>
+      <li><strong>USGS</strong>: a fixed map area and a date, for recent earthquakes. Nothing about you.</li>
+      <li><strong>Telegram</strong>, only if switched on and only for contacts who opted in: the alert
+        described above (first name, incident reference, time, position link). Never a phone number.</li>
+      <li><strong>Google</strong>, only if you use Google sign-in: our server exchanges the one-time code your
+        browser brought back for Google's statement of who you are, and fetches Google's public signing keys
+        to check it. Pressing the Google button takes your browser to Google's own sign-in page, which Google
+        runs under its own privacy policy. On Android, Google sign-in goes through Android's Credential
+        Manager.</li>
+      <li><strong>Resend</strong> (email): the operator alerts described above, and sign-in codes for the few
+        operator accounts that sign in by email. Nothing else about citizens.</li>
+      <li><strong>SMS gateways</strong> (MSG91, or Twilio as a fallback) would receive a phone number and the
+        message text. <strong>Not active on the live demo</strong>, where messages are only logged.</li>
+      <li><strong>Razorpay</strong> would receive order and payment references for a booking.
+        <strong>Not active on the live demo</strong>, where payments are simulated.</li>
+    </ul>
+    <p>People who see your data because of what you do: the mechanic assigned to your booking (above), your
+      emergency contacts when you confirm an SOS, and administrator and officer accounts that review hazard
+      reports and run the platform. On the live demo no real road authority or responder is connected.</p>
+    <p>We would disclose data to a government authority only where Indian law requires it.</p>
+  </section>
+
+  <section id="keep" aria-labelledby="keep-h">
+    <h2 id="keep-h">How long it is kept</h2>
+    <p>Plainly: <strong>most data has no automatic deletion yet.</strong> Your account, name, vehicles,
+      contacts, medical notes, bookings, emergency records, hazard reports, sessions and sign-in code records
+      stay in the database until we delete them by hand. What does get removed on its own:</p>
+    <ul>
+      <li>Removing an emergency contact or replacing a vehicle document hides the old row from the app; the
+        row itself stays, marked as deleted.</li>
+      <li>A hazard photo is deleted outright when an authority rejects its report.</li>
+      <li>Google sign-in check values (one-time numbers, stored as hashes) are deleted a day after they
+        expire.</li>
+      <li>An emailed sign-in code that could not be delivered is deleted at once.</li>
+      <li>On your device, an SOS saved with no signal is deleted 24 hours after it reaches us. One that never
+        reached us is kept until it does.</li>
+      <li>A refresh token stops working after 30 days, or when you sign out.</li>
+    </ul>
+    <p>The audit record is append-only by design: its entries cannot be edited or deleted, even by us through
+      the app. Server logs are kept by Render for the period its plan provides; we do not copy them anywhere
+      else.</p>
+  </section>
+
+  <section id="rights" aria-labelledby="rights-h">
+    <h2 id="rights-h">Your choices and your rights</h2>
+    <h3>What you can do in the app</h3>
+    <ul>
+      <li>See your profile, vehicles, contacts, bookings, emergencies, hazard reports, medical notes, and who
+        has read your medical notes.</li>
+      <li>Change or clear your name, edit your medical notes, add or remove emergency contacts, and replace a
+        vehicle document's details.</li>
+      <li>Sign out. This ends the session on the server too, not only on your device.</li>
+      <li>Turn off location or camera access in your browser or phone settings. SOS still works without a
+        position.</li>
+      <li>Clear the site's data in your browser, or the app's storage in Android settings, to remove what is
+        kept on your device.</li>
+      <li>A contact who no longer wants Telegram alerts can send <code>/stop</code> to the bot. When SMS is
+        connected, texting STOP to the RoadAssist number stops texts to that number.</li>
+    </ul>
+    <h3>What you have to ask us for</h3>
+    <p>There is no button yet to <strong>unlink Google</strong>, <strong>download a copy of your data</strong>
+      or <strong>delete your account</strong>. Ask us and we will do it by hand. Removing RoadAssist from your
+      Google Account's connected apps (<a href="https://myaccount.google.com/connections">Google Account
+      connections</a>) stops Google sharing with us in future, but does not remove the Google id we already
+      hold: ask us for that too. When we delete an account we remove its personal data from the database;
+      audit entries that refer to it by id remain, as explained above.</p>
+    <h3>India's data protection law</h3>
+    <p>Under the Digital Personal Data Protection Act, 2023 you can ask what personal data we hold about you
+      and how it is used, have it corrected, completed or erased, withdraw consent, have a grievance answered,
+      and nominate someone to act for you if you cannot. We aim to honour these requests for this demo. We do
+      not claim any compliance certification and have not appointed a data protection officer: this is a
+      student project. If we do not resolve a grievance, you can complain to the Data Protection Board of
+      India.</p>
+    <p>To make a request, open an issue as described in <a href="#contact">Contact</a>. Please do not post your
+      phone number or other personal details in the issue: say what you want, and we will reply there to
+      arrange how to confirm the account is yours.</p>
+  </section>
+
+  <section id="children" aria-labelledby="children-h">
+    <h2 id="children-h">Children</h2>
+    <p>RoadAssist Bharat is not intended for anyone under 18, and we do not knowingly collect children's data.
+      If you are under 18, please do not create an account. If you believe a child has given us personal data,
+      tell us and we will delete it.</p>
+  </section>
+
+  <section id="security" aria-labelledby="security-h">
+    <h2 id="security-h">Security</h2>
+    <p>Connections are encrypted (HTTPS). Sign-in codes, refresh tokens and invite codes are stored only as
+      hashes. Pages run under a strict content security policy, requests are rate-limited, and the server
+      connects to the database with an account that cannot change its structure or rewrite the audit record.
+      No system is perfectly secure, and this is a demo: please do not store anything in it that would harm you
+      if it were exposed.</p>
+  </section>
+
+  <section id="changes" aria-labelledby="changes-h">
+    <h2 id="changes-h">Changes to this policy</h2>
+    <p>When the platform changes what it collects or where data goes, we update this page and its effective
+      date. Earlier versions are kept in the project's public source history.</p>
+  </section>
+
+  <section id="contact" aria-labelledby="contact-h">
+    <h2 id="contact-h">Contact</h2>
+    <p>Open an issue at
+      <a href="https://github.com/saatwik-1157/roadassist-bharat/issues">github.com/saatwik-1157/roadassist-bharat/issues</a>.
+      Issues are public, so describe the request without personal details. See also the
+      <a href="/terms.html">Terms of use</a>.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>RoadAssist Bharat · working demo, not an emergency service · call 112</span>
+  <a href="/terms.html">Terms of use</a>
+  <a href="/app.html">Open the app</a>
+</footer>
+</body>
+</html>

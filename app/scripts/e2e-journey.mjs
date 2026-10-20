@@ -2050,6 +2050,37 @@ console.log("\n42. Sign in with Google");
   }
 }
 
+// ── 43. Privacy policy and Terms of use (apps/web/privacy.html, terms.html) ─
+// Google asks for both before the OAuth app is published. Fetched from the
+// running server: 200, the platform's CSP, the key sections, and no tag that
+// makes a browser fetch another host.
+console.log("\n43. Privacy policy and Terms of use");
+{
+  const legal = {
+    "/privacy.html": ["What we collect", "Where it is stored", "Who receives it", "How long it is kept",
+      "Your choices and your rights", "Children", "Effective 15 October 2026", "<strong>112</strong>"],
+    "/terms.html": ["A working demo, provided as is", "No emergency-service guarantee", "Acceptable use",
+      "demo data", "AI detections can be wrong", "Limitation of liability", "laws of India"],
+  };
+  for (const [path, needles] of Object.entries(legal)) {
+    const res = await fetch(BASE + path);
+    const html = await res.text();
+    ok(`${path} is served`, res.status === 200 && /^text\/html/.test(res.headers.get("content-type") ?? ""),
+       `${res.status} ${res.headers.get("content-type")}`);
+    ok(`${path} carries the platform's CSP`, /default-src 'self'/.test(res.headers.get("content-security-policy") ?? ""));
+    const missing = needles.filter((n) => !html.includes(n));
+    ok(`${path} has its key sections`, missing.length === 0, missing.join(" | "));
+    const loads = [...html.matchAll(/\bsrc\s*=\s*["']([^"']+)|<link\b[^>]*\bhref\s*=\s*["']([^"']+)|url\(\s*["']?([^"')]+)/gi)]
+      .filter((m) => !/rel\s*=\s*["']?canonical/i.test(m[0]))
+      .map((m) => m[1] ?? m[2] ?? m[3]).filter((u) => /^(https?:)?\/\//i.test(u));
+    ok(`${path} loads nothing third-party`, loads.length === 0, loads.join(" "));
+    ok(`${path} gives GitHub issues as the only contact`,
+       html.includes("github.com/saatwik-1157/roadassist-bharat/issues\"") && !/mailto:/i.test(html));
+  }
+  const sw = await (await fetch(BASE + "/sw.js")).text();
+  ok("the service worker caches both pages", sw.includes('"/privacy.html"') && sw.includes('"/terms.html"'));
+}
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

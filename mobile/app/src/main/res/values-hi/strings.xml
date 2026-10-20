@@ -306,4 +306,10 @@
         <item quantity="one">ऑनलाइन होते ही सेव की गई %1$d खतरे की रिपोर्ट भेजी गई</item>
         <item quantity="other">ऑनलाइन होते ही सेव की गई %1$d खतरे की रिपोर्टें भेजी गईं</item>
     </plurals>
+
+    <!-- 1.1.6 (Privacy policy and Terms of use links in More). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="privacy_policy">गोपनीयता नीति</string>
+    <string name="terms_of_use">उपयोग की शर्तें</string>
 </resources>

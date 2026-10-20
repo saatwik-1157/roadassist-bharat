@@ -8,8 +8,8 @@ without reading any code.
 | Sheet | What it holds | Strings |
 |---|---|---|
 | `review-sms-server.csv` | SMS replies a feature phone receives (`app/apps/api/src/i18n.ts`) | 20 |
-| `review-web-app.csv` | The citizen web app (`app/apps/web/i18n.js`) | 81 |
-| `review-android.csv` | The Android app (`mobile/app/src/main/res/values-*/strings.xml`) | 271 (270 keys; the one plural has a row per form) |
+| `review-web-app.csv` | The citizen web app (`app/apps/web/i18n.js`) | 83 |
+| `review-android.csv` | The Android app (`mobile/app/src/main/res/values-*/strings.xml`) | 273 (272 keys; the one plural has a row per form) |
 
 ## How to review
 

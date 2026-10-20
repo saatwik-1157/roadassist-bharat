@@ -266,6 +266,29 @@ if (expiring.offers.length) {
     const late = await call("POST", `/v1/offers/${expiring.offers[0].id}/accept`, { token: acceptToken });
     ok("an offer accepted after its window is refused", late.status === 409, `${late.status} ${late.error?.code}`);
     ok("…and the refusal says it expired", late.error?.code === "offer_expired", late.error?.code);
+
+    // The server's own sweeper must close an offer nobody answered, without a
+    // client touching it. It only queries when an offer can be due, and a bug
+    // there (a NaN due time) once stopped it for good while every refusal at
+    // accept time still passed.
+    const untouched = expiring.offers[expiring.offers.length - 1];
+    const { default: postgres } = await import("postgres");
+    const sweepSql = postgres(
+      process.env.DATABASE_URL ?? "postgres://roadassist:devpassword@localhost:5434/roadassist",
+      { max: 1, onnotice: () => {} },
+    );
+    let status = null;
+    try {
+      const deadline = Date.now() + (Number(process.env.OFFER_SWEEP_SECONDS ?? 10) + 6) * 1000;
+      while (Date.now() < deadline) {
+        [{ status } = {}] = await sweepSql`SELECT status FROM dispatch_offers WHERE id = ${untouched.id}`;
+        if (status === "EXPIRED") break;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    } finally {
+      await sweepSql.end();
+    }
+    ok("the sweeper expires an offer nobody answered, on its own", status === "EXPIRED", status);
   } else {
     console.log("  – expiry check skipped (run the API with OFFER_TTL_SECONDS=2 to include it)");
   }

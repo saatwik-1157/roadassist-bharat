@@ -111,6 +111,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.content.edit
+import androidx.core.net.toUri
 import androidx.core.graphics.scale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -1780,9 +1781,41 @@ private fun MoreScreen(
                 Text(stringResource(R.string.about_body),
                     color = Muted, style = RaType.sub, modifier = Modifier.padding(top = 4.dp))
                 FontLicences()
+                LegalLinks()
             }
         }
         LineButton(stringResource(R.string.action_sign_out)) { onSignOut() }
+    }
+}
+
+/**
+ * The public Privacy policy and Terms of use, opened in the browser.
+ *
+ * Fixed public addresses, not Api.base: the policy describes the hosted
+ * service, and a phone pointed at a local test server should still read the
+ * real one. No WebView here - the map's WebView guard allows only the API
+ * origin, and a policy is a document to read in the browser anyway.
+ */
+internal const val PRIVACY_URL = "https://app.roadassistbharat.online/privacy.html"
+internal const val TERMS_URL = "https://app.roadassistbharat.online/terms.html"
+
+@Composable
+private fun LegalLinks() {
+    val ctx = LocalContext.current
+    Row(Modifier.offset(x = -RaSpace.s3), verticalAlignment = Alignment.CenterVertically) {
+        listOf(R.string.privacy_policy to PRIVACY_URL, R.string.terms_of_use to TERMS_URL).forEach { (label, url) ->
+            TextButton(
+                onClick = {
+                    try {
+                        ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        android.widget.Toast.makeText(ctx, url, android.widget.Toast.LENGTH_LONG).show()
+                    }
+                },
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = RaSpace.s3, vertical = RaSpace.s2),
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) { Text(stringResource(label), color = Gold, style = RaType.caption, fontWeight = FontWeight.SemiBold) }
+        }
     }
 }
 

@@ -239,9 +239,18 @@ const run = async () => {
     `);
     check(overflow <= 0, "no horizontal overflow at 390px", `overflow=${overflow}px`);
 
+    // Google asks for both before the OAuth app is published; they show whether or not Google is on.
+    const legal = await page.eval(`
+      var links = Array.prototype.slice.call(document.querySelectorAll("#scr-auth .legal-links a"));
+      return links.filter(function (a) { return a.offsetParent !== null; }).map(function (a) { return a.getAttribute("href"); });
+    `);
+    check(legal.includes("/privacy.html") && legal.includes("/terms.html"),
+      "the sign-in screen links the Privacy policy and the Terms of use", legal.join(" "));
+
     // ══ 1b. Every surface still loads ═══════════════════════════════════════
     // The citizen app and the mechanic console get driven properly below; these
-    // four only have to load, render and stay quiet in the console.
+    // six only have to load, render and stay quiet in the console (the two legal
+    // pages included: their theme boot runs under the CSP like every other page).
     //
     // map.html, raksha.html and showcase.html share ds.css, so a token change
     // can break them silently. index.html does NOT — it keeps its own
@@ -249,7 +258,7 @@ const run = async () => {
     // file), which is exactly why it needs its own smoke check: nothing else
     // here would notice if that separate stylesheet broke.
     section("1b. All surfaces load");
-    for (const surface of ["index.html", "map.html", "raksha.html", "showcase.html"]) {
+    for (const surface of ["index.html", "map.html", "raksha.html", "showcase.html", "privacy.html", "terms.html"]) {
       page.errors.length = 0;
       await page.goto(`${BASE}/${surface}`);
       await sleep(1200);
@@ -263,6 +272,21 @@ const run = async () => {
       const errs = page.errors.filter((e) => !/favicon|manifest|geolocation|Permission|401|Sign in/i.test(e));
       check(state.body > 50 && errs.length === 0, `${surface} renders without error`,
         errs.length ? errs[0].slice(0, 90) : `"${state.title}"`);
+    }
+    // A CSP refusal is not a console error this harness hears, so prove the legal
+    // pages' one inline script (the theme boot) RAN: a stored dark choice must
+    // reach the page before paint, and nothing may overflow a 390 px phone.
+    for (const surface of ["privacy.html", "terms.html"]) {
+      await page.eval(`try { localStorage.setItem("ra.theme", "dark"); } catch (e) {} return true;`);
+      await page.goto(`${BASE}/${surface}`);
+      await sleep(600);
+      const st = await page.eval(`
+        var t = document.documentElement.getAttribute("data-theme");
+        try { localStorage.removeItem("ra.theme"); } catch (e) {}
+        return { t: t, overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+      `);
+      check(st.t === "dark" && st.overflow <= 0, `${surface}: its inline script runs under the CSP, no overflow at 390px`,
+        `data-theme=${st.t} overflow=${st.overflow}px`);
     }
     page.errors.length = 0;
     await page.goto(`${BASE}/app.html`);

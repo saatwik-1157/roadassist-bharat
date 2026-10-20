@@ -303,4 +303,10 @@
         <item quantity="one">ಆನ್‌ಲೈನ್ ಆದ ಕೂಡಲೆ ಉಳಿಸಿದ %1$d ಅಪಾಯದ ವರದಿ ಕಳಿಸಲಾಗಿದೆ</item>
         <item quantity="other">ಆನ್‌ಲೈನ್ ಆದ ಕೂಡಲೆ ಉಳಿಸಿದ %1$d ಅಪಾಯದ ವರದಿಗಳನ್ನು ಕಳಿಸಲಾಗಿದೆ</item>
     </plurals>
+
+    <!-- 1.1.6 (Privacy policy and Terms of use links in More). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="privacy_policy">ಗೌಪ್ಯತಾ ನೀತಿ</string>
+    <string name="terms_of_use">ಬಳಕೆಯ ನಿಯಮಗಳು</string>
 </resources>

@@ -303,4 +303,10 @@
         <item quantity="one">ऑनलाइन होताच जतन केलेली %1$d धोक्याची तक्रार पाठवली</item>
         <item quantity="other">ऑनलाइन होताच जतन केलेल्या %1$d धोक्याच्या तक्रारी पाठवल्या</item>
     </plurals>
+
+    <!-- 1.1.6 (Privacy policy and Terms of use links in More). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="privacy_policy">गोपनीयता धोरण</string>
+    <string name="terms_of_use">वापराच्या अटी</string>
 </resources>

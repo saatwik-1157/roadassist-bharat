@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en" class="volt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RoadAssist — Terms of use</title>
+<meta name="description" content="The terms for using RoadAssist Bharat, a working student demo provided as is. Not an emergency service: call 112.">
+<link rel="canonical" href="https://app.roadassistbharat.online/terms.html">
+<!-- Theme boot: the same key the other pages write, so the choice carries over. -->
+<script>
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("ra.theme"); } catch (e) { /* storage blocked */ }
+    if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<!-- Everything is served by the platform itself: no font CDN, no script from anywhere else. -->
+<link rel="stylesheet" href="vendor/fonts.css">
+<link rel="stylesheet" href="ds.css">
+<style>
+  /* The citizen app's tokens (ds.css, which app.css builds on): near-black and lime
+     in the dark theme, paper and olive in the light one. A document, so one column. */
+  body { --text-3: var(--aa-text-3); min-height: 100dvh; }
+  .skip { position: absolute; left: 12px; top: -60px; z-index: 50; padding: 10px 14px; border-radius: var(--r-sm);
+    background: var(--ink); color: var(--ink-on); font-weight: 650; }
+  .skip:focus { top: 12px; }
+  .bar { position: sticky; top: 0; z-index: 30; background: var(--glass-strong); border-bottom: 1px solid var(--line); }
+  .bar-in { max-width: 760px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: calc(10px + var(--safe-t)) 16px 10px; }
+  .brand .mark { width: 28px; height: 28px; }
+  .brand .wordmark { font-family: var(--display); font-weight: 650; font-size: 17px; letter-spacing: -0.02em; }
+  .bar nav { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .bar nav a { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0 10px; border-radius: var(--r-full);
+    font-size: 13px; font-weight: 600; color: var(--text-2); }
+  .bar nav a[aria-current="page"] { color: var(--brand); background: var(--brand-soft); }
+  .doc { max-width: 760px; margin: 0 auto; padding: 28px 16px 64px; overflow-wrap: anywhere; }
+  .doc h1 { font-family: var(--display); font-size: clamp(30px, 7vw, 42px); letter-spacing: -0.03em; line-height: 1.08; }
+  .doc h1 em { font-style: normal; color: var(--brand); }
+  .doc .dates { margin-top: 10px; color: var(--text-2); font-size: 13px; }
+  .doc h2 { font-family: var(--display); font-size: 22px; margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .doc h3 { font-size: 15.5px; margin-top: 22px; }
+  .doc p, .doc li { font-size: 15px; line-height: 1.7; color: var(--text); }
+  .doc p { margin-top: 10px; }
+  .doc ul { margin-top: 8px; padding-left: 20px; }
+  .doc li + li { margin-top: 6px; }
+  .doc a { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+  .doc code { font-family: var(--mono); font-size: 13px; padding: 1px 5px; border-radius: 5px; background: var(--surface-2); }
+  .doc .muted { color: var(--text-2); }
+  .alert { margin-top: 22px; padding: 16px 18px; border-radius: var(--r-lg); border: 1px solid var(--red);
+    background: var(--red-soft); }
+  .alert p { margin-top: 0; }
+  .alert p + p { margin-top: 8px; }
+  .alert strong { color: var(--text); }
+  .short { margin-top: 18px; padding: 16px 18px; border-radius: var(--r-lg); background: var(--surface);
+    border: 1px solid var(--line-brand); }
+  .short h2 { margin-top: 0; padding-top: 0; border-top: 0; font-size: 18px; }
+  .item { margin-top: 14px; padding: 14px 16px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--line); }
+  .item h3 { margin-top: 0; }
+  .item p { font-size: 14.5px; }
+  .item .k { color: var(--text-2); font-weight: 650; }
+  .toc { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13.5px; }
+  .foot { max-width: 760px; margin: 0 auto; padding: 22px 16px 40px; border-top: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; color: var(--text-2); }
+  .foot a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the terms</a>
+<header class="bar">
+  <div class="bar-in">
+    <a class="brand" href="/" aria-label="RoadAssist home"><img class="mark" src="icon.svg" alt=""><span class="wordmark">Road<i>Assist</i></span></a>
+    <nav aria-label="Legal">
+      <a href="/privacy.html">Privacy</a>
+      <a href="/terms.html" aria-current="page">Terms</a>
+      <a href="/app.html">Open the app</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc" id="main">
+  <h1>Terms of <em>use.</em></h1>
+  <p class="dates">Effective 15 October 2026 · RoadAssist Bharat</p>
+
+  <div class="alert" role="note" id="not-emergency">
+    <p><strong>Not an emergency service.</strong> In an emergency in India, call <strong>112</strong>.
+      Never wait for RoadAssist to get help for you.</p>
+  </div>
+
+  <p>These terms apply to the RoadAssist Bharat web app and consoles at
+    <a href="https://app.roadassistbharat.online/">app.roadassistbharat.online</a>, the Android app and the
+    Telegram bot. By using them you accept these terms. If you do not, please do not use them. How we handle
+    your data is in the <a href="/privacy.html">Privacy policy</a>.</p>
+
+  <section id="demo" aria-labelledby="demo-h">
+    <h2 id="demo-h">1. A working demo, provided as is</h2>
+    <p>RoadAssist Bharat is a student project run by its project team, not a company and not a commercial
+      service. It is free and provided <strong>as is</strong> and <strong>as available</strong>, with no
+      promise that it works, is accurate, is secure or stays online. The live demo runs on a free hosting plan
+      that goes to sleep when idle and can take about a minute to wake. We may change, reset or switch off any
+      part of it at any time, with or without notice.</p>
+  </section>
+
+  <section id="emergency" aria-labelledby="emergency-h">
+    <h2 id="emergency-h">2. No emergency-service guarantee</h2>
+    <p>RoadAssist is not connected to 112, the police, ambulances or any other responder. On the live demo an
+      SOS creates a record and looks up the nearest simulated unit, but contacts nobody: text alerts to your
+      emergency contacts are only written to a log, not sent. Telegram alerts, where switched on, reach only
+      contacts who opted in, and their delivery is not guaranteed. Nothing in the app, including a message that
+      an alert was sent, means that help is coming. <strong>Call 112.</strong></p>
+  </section>
+
+  <section id="accounts" aria-labelledby="accounts-h">
+    <h2 id="accounts-h">3. Accounts</h2>
+    <p>On the live demo, phone sign-in accepts only published demo numbers and shows the sign-in code on
+      screen, so those accounts are shared with anyone who uses the same number. Do not enter real personal
+      details, real emergency contacts or real medical information into them. If you sign in with Google, the
+      account is yours; keep your Google account secure, because anyone who controls it can enter your
+      RoadAssist account. You must be 18 or older to create an account.</p>
+  </section>
+
+  <section id="use" aria-labelledby="use-h">
+    <h2 id="use-h">4. Acceptable use</h2>
+    <p>Use RoadAssist lawfully and for its purpose. Do not:</p>
+    <ul>
+      <li>raise false emergencies or hazard reports meant to mislead, or report hazards you have not seen;</li>
+      <li>add someone as an emergency contact without their agreement, or enter anyone else's personal data
+        without the right to;</li>
+      <li>upload photos or notes that are unlawful, abusive, or intended to identify or track a person;</li>
+      <li>try to get into accounts or data that are not yours, test the platform's security without the
+        team's permission, get around its rate limits, or overload it with automated traffic;</li>
+      <li>use the platform to send spam or to harass anyone, including through the Telegram bot.</li>
+    </ul>
+    <p>We may remove content, or suspend or close an account, that breaks these rules.</p>
+  </section>
+
+  <section id="mechanics" aria-labelledby="mechanics-h">
+    <h2 id="mechanics-h">5. Mechanics, bookings and payments</h2>
+    <p>On the live demo, the mechanics, service partners, responder units and road-monitoring devices are
+      <strong>demo data</strong>: simulated accounts and equipment, not real businesses or people. A booking
+      will not bring anyone to you, and quotes, invoices and payments are simulated, so no money moves. We do
+      not vouch for any mechanic, price or repair.</p>
+  </section>
+
+  <section id="ai" aria-labelledby="ai-h">
+    <h2 id="ai-h">6. AI detections can be wrong</h2>
+    <p>The road scan and the road-monitoring dashboard use computer-vision models to suggest potholes and road
+      damage. They miss real hazards and report ones that are not there. A detection, or the absence of one, is
+      a suggestion, never a statement that a road is safe. Watch the road, not the screen, and never use the
+      app while driving. Map data, addresses, distances, travel times, weather and nearby places come from
+      open data and free services and can also be wrong or out of date.</p>
+  </section>
+
+  <section id="content" aria-labelledby="content-h">
+    <h2 id="content-h">7. What you submit</h2>
+    <p>You keep the rights to the photos, notes and reports you submit. You allow us to store them and to show
+      them as the Privacy policy describes, for example a hazard's position on the live map, for as long as
+      the demo holds them. Map data is © OpenStreetMap contributors.</p>
+  </section>
+
+  <section id="liability" aria-labelledby="liability-h">
+    <h2 id="liability-h">8. Limitation of liability</h2>
+    <p>Because this is a free student demo, you use it at your own risk. To the fullest extent Indian law
+      allows, the project team is not liable for any loss, injury or damage that comes from using RoadAssist,
+      from relying on anything it shows, or from it being unavailable, wrong or insecure. This includes a
+      missed or delayed emergency alert, a booking nobody answers, and a wrong detection or route. Nothing in
+      these terms excludes a liability that the law does not allow to be excluded.</p>
+  </section>
+
+  <section id="law" aria-labelledby="law-h">
+    <h2 id="law-h">9. Governing law</h2>
+    <p>These terms are governed by the laws of India, and the courts of India have jurisdiction over any
+      dispute about them.</p>
+  </section>
+
+  <section id="changes" aria-labelledby="changes-h">
+    <h2 id="changes-h">10. Changes</h2>
+    <p>We may update these terms. The new version applies from the effective date shown at the top of this
+      page. Earlier versions are kept in the project's public source history.</p>
+  </section>
+
+  <section id="contact" aria-labelledby="contact-h">
+    <h2 id="contact-h">11. Contact</h2>
+    <p>Open an issue at
+      <a href="https://github.com/saatwik-1157/roadassist-bharat/issues">github.com/saatwik-1157/roadassist-bharat/issues</a>.
+      Issues are public, so do not include personal details.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>RoadAssist Bharat · working demo, not an emergency service · call 112</span>
+  <a href="/privacy.html">Privacy policy</a>
+  <a href="/app.html">Open the app</a>
+</footer>
+</body>
+</html>

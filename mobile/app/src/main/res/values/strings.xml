@@ -350,4 +350,9 @@
         <item quantity="one">%1$d saved hazard report sent now that you are online</item>
         <item quantity="other">%1$d saved hazard reports sent now that you are online</item>
     </plurals>
+
+    <!-- 1.1.6: More → About links to the public Privacy policy and Terms of use
+         pages (app.roadassistbharat.online/privacy.html, /terms.html), opened in the browser. -->
+    <string name="privacy_policy">Privacy policy</string>
+    <string name="terms_of_use">Terms of use</string>
 </resources>

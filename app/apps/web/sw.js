@@ -55,7 +55,9 @@
 // v32: "Continue with Google" on sign-in, the add-your-number card a Google sign-up gets, and
 //      Link Google in Settings (app.html, app.css, i18n.js; google-signin.js and phone.js are new in the shell,
 //      and normalizeMsisdn moved from app.html into phone.js).
-const VERSION = "ra-v32";
+// v33: the Privacy policy and Terms of use (privacy.html, terms.html) join the shell, linked from
+//      sign-in and Settings (app.html, app.css, i18n.js; landing.html links them too).
+const VERSION = "ra-v33";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -79,6 +81,9 @@ const SHELL_ASSETS = [
   "/mechanic.html",
   // The public Impact page: live counts, labelled as live, with the last copy offline.
   "/impact.html",
+  // The Privacy policy and Terms of use, linked from sign-in: readable offline too.
+  "/privacy.html",
+  "/terms.html",
   // The live road scan. Only the small files: the model and the engine are SCAN, below.
   "/scan.html",
   "/scan.css",

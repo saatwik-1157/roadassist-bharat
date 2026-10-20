@@ -287,8 +287,11 @@ Google verification review**.
    consoles: **Google Auth Platform → Branding / Audience / Data access**):
    - User type / audience: **External**.
    - App name `RoadAssist Bharat`, a support email, and the developer contact
-     email. Optionally the home page `https://app.roadassistbharat.online` and
-     authorised domain `roadassistbharat.online`.
+     email. The home page `https://app.roadassistbharat.online`, the privacy
+     policy `https://app.roadassistbharat.online/privacy.html`, the terms of
+     service `https://app.roadassistbharat.online/terms.html`, and the
+     authorised domain `roadassistbharat.online`. Google asks for the two
+     policy links before the app can be published; the home page links to both.
    - Scopes / data access: add only `openid`, `.../auth/userinfo.email` and
      `.../auth/userinfo.profile`. Nothing else. The app asks for `openid email`.
    - Publishing status: press **Publish app** so it is **In production**. With
@@ -518,7 +521,7 @@ The image is not trusted because it built. `.github/workflows/publish-image.yml`
 boots it against a real PostGIS and runs the suites **against the running
 container** before publishing:
 
-- 341 end-to-end assertions and 106 security attacks, `API=` pointed at the
+- 352 end-to-end assertions and 106 security attacks, `API=` pointed at the
   container
 - every surface answers 200: `/app.html`, `/mechanic.html`, `/raksha.html`,
   `/map.html`, `/health`, `/v1/ping`

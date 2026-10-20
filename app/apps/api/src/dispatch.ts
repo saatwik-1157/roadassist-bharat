@@ -245,6 +245,7 @@ export async function sendWave(
       expiresAt: new Date(Date.now() + env.offerTtlSeconds * 1000), usedFallback: true,
     })),
   ).returning();
+  for (const o of offers) noteOfferExpiry(o.expiresAt);
 
   const userIds = await exec.select({ id: S.mechanics.id, userId: S.mechanics.userId })
     .from(S.mechanics).where(inArray(S.mechanics.id, offerable.map((m) => m.id)));
@@ -514,11 +515,51 @@ export async function providerStateFor(mechanicId: string): Promise<ProviderStat
 /** Started at boot; stopped on shutdown. */
 let sweeper: NodeJS.Timeout | null = null;
 
+/**
+ * When the next SENT offer can expire (ms since epoch). The sweeper touches
+ * the database only once this is due, so an idle server lets a scale-to-zero
+ * database sleep: a 10 s sweep that always queried kept Neon's free compute
+ * awake around the clock and spent the month's quota in 20 days (2026-10-20).
+ * 0 = unknown (boot, or after a failed sweep): sweep, then ask the table.
+ * Infinity = no SENT offer exists. Offers are created only by this process
+ * (one instance), and every creation calls `noteOfferExpiry`.
+ */
+let sweepDueAt = 0;
+
+export function noteOfferExpiry(expiresAt: Date | number) {
+  const t = typeof expiresAt === "number" ? expiresAt : expiresAt.getTime();
+  // NaN would make every later comparison false and stop the sweeper for good.
+  sweepDueAt = Math.min(sweepDueAt, Number.isNaN(t) ? 0 : t);
+}
+
+/** For tests: whether the next tick would touch the database. */
+export const offerSweepDue = (now = Date.now()) => now >= sweepDueAt;
+
+async function nextSentExpiry(): Promise<number> {
+  const [row] = await db.select({ next: raw<Date | null>`min(${S.dispatchOffers.expiresAt})` })
+    .from(S.dispatchOffers).where(eq(S.dispatchOffers.status, "SENT"));
+  return row?.next ? new Date(row.next).getTime() : Infinity;
+}
+
+export async function sweepIfDue(now = Date.now()): Promise<{ expired: number; escalated: number } | null> {
+  if (!offerSweepDue(now)) return null;
+  const due = sweepDueAt;
+  sweepDueAt = Infinity; // an offer created while this runs lowers it again
+  try {
+    const r = await sweepExpiredOffers();
+    noteOfferExpiry(await nextSentExpiry());
+    return r;
+  } catch (err) {
+    sweepDueAt = Math.min(sweepDueAt, due === Infinity ? 0 : due); // retry next tick
+    throw err;
+  }
+}
+
 export function startOfferSweeper(log: { info: (o: object, m: string) => void; warn: (o: object, m: string) => void }) {
   if (sweeper) return;
   sweeper = setInterval(() => {
-    sweepExpiredOffers()
-      .then((r) => { if (r.expired) log.info({ ...r, op: "dispatch.sweep" }, "expired dispatch offers swept"); })
+    sweepIfDue()
+      .then((r) => { if (r?.expired) log.info({ ...r, op: "dispatch.sweep" }, "expired dispatch offers swept"); })
       .catch((err) => log.warn({ err: String(err), op: "dispatch.sweep" }, "offer sweep failed"));
   }, env.offerSweepSeconds * 1000);
   sweeper.unref?.();

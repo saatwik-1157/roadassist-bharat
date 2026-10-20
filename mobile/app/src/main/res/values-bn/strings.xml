@@ -303,4 +303,10 @@
         <item quantity="one">অনলাইনে আসতেই সেভ করা %1$dটি বিপদের রিপোর্ট পাঠানো হয়েছে</item>
         <item quantity="other">অনলাইনে আসতেই সেভ করা %1$dটি বিপদের রিপোর্ট পাঠানো হয়েছে</item>
     </plurals>
+
+    <!-- 1.1.6 (Privacy policy and Terms of use links in More). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="privacy_policy">গোপনীয়তা নীতি</string>
+    <string name="terms_of_use">ব্যবহারের শর্তাবলি</string>
 </resources>

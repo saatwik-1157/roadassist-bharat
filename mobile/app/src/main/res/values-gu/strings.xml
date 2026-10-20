@@ -303,4 +303,10 @@
         <item quantity="one">ઑનલાઇન થતાં જ સાચવેલો %1$d જોખમનો રિપોર્ટ મોકલાયો</item>
         <item quantity="other">ઑનલાઇન થતાં જ સાચવેલા %1$d જોખમના રિપોર્ટ મોકલાયા</item>
     </plurals>
+
+    <!-- 1.1.6 (Privacy policy and Terms of use links in More). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. -->
+    <string name="privacy_policy">ગોપનીયતા નીતિ</string>
+    <string name="terms_of_use">ઉપયોગની શરતો</string>
 </resources>
