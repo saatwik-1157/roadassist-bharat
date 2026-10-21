@@ -192,11 +192,30 @@ test("incident references carry the entropy their length claims", () => {
   // `byte % 30` maps 16 letters to nine byte values and 14 to eight, making the
   // first half of the alphabet 12.5% likelier — far outside sampling noise over
   // 60,000 characters, so this pins the rejection sampling down.
-  const expected = (DRAWS * 6) / ALPHABET.length;
+  //
+  // Tested as one group statistic, not 30 per-letter bands. Per letter, `% 30`
+  // moves a count only ~6% (9/256 or 8/256 against 1/30), while sampling noise
+  // is ~2.2%; a per-letter band tight enough to see that fails a fair
+  // generator about one run in a hundred (it used to: 8% bands, 30 letters).
+  // The first 16 letters' combined share is 16/30 = 0.5333 when fair and
+  // 16 * 9/256 = 0.5625 with the modulo bias: a 0.029 gap against a standard
+  // error of 0.002, so a 0.012 bound (six sigma) fails a fair generator about
+  // once in a billion runs and a biased one every time.
+  const total = DRAWS * 6;
+  const firstSixteen = ALPHABET.slice(0, 16).split("").reduce((sum, ch) => sum + (counts.get(ch) ?? 0), 0);
+  const share = firstSixteen / total;
+  assert.ok(
+    Math.abs(share - 16 / 30) < 0.012,
+    `the first 16 letters filled ${(share * 100).toFixed(2)}% of positions, expected 53.33% — the draw is biased`,
+  );
+
+  // And no letter is missing or grossly over-drawn (a broken alphabet): a 15%
+  // band is ~7 sigma per letter, so it never fires on a fair generator.
+  const expected = total / ALPHABET.length;
   for (const [ch, n] of counts) {
     const drift = Math.abs(n - expected) / expected;
     assert.ok(
-      drift < 0.08,
+      drift < 0.15,
       `"${ch}" appeared ${n} times, expected about ${expected} (${(drift * 100).toFixed(1)}% off)`,
     );
   }

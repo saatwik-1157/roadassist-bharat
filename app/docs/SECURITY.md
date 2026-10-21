@@ -3,7 +3,7 @@
 Threat model: [`security/threat-model.md`](security/threat-model.md) — STRIDE,
 20 threats mapped to controls.
 Penetration suite: [`../scripts/security-audit.mjs`](../scripts/security-audit.mjs) —
-**135 attacks, every one refused.**
+**144 attacks, every one refused.**
 
 Everything below has been executed. A control described here without a test
 beside it says so.
@@ -46,7 +46,7 @@ would be worth nothing.
 - Rotation is `rotateSession()` at `apps/api/src/auth.ts:165`. The claim is the
   conditional UPDATE at `apps/api/src/auth.ts:216`, so of two simultaneous
   presentations of one token exactly one wins; presenting a token that was
-  already rotated burns the family at `apps/api/src/auth.ts:191`.
+  already rotated burns the family at `apps/api/src/auth.ts:202`.
 
 ### Email sign-in for protected accounts
 
@@ -119,6 +119,17 @@ Free SOS alerts over the Telegram Bot API, off unless `TELEGRAM_BOT_TOKEN`,
   typed as a name cannot leak) or "a RoadAssist user", the incident reference,
   the time and a map link. Never a phone number. The chat id never leaves the
   server: the contact list says only `telegramLinked`.
+- **In the user's language.** The alert is written in the app language the
+  app sends with the confirm (`lang` on `POST /v1/sos/:id/confirm`; the SMS
+  path uses the language the account set with `LANG`), else English, and the
+  bot's replies (`/start`, `/stop`, `/help`, a bad link) in the language the
+  invite was made in (`telegram_link_codes.lang`, copied to the contact as
+  `telegram_lang`). All eight app languages, machine-translated and not yet
+  native-reviewed (`domain/telegram-i18n.ts`, `docs/translations/review-telegram.csv`).
+  A missing translation falls back to English per message; an unknown `lang`
+  is ignored, never refused. The structure is identical in every language:
+  who, the reference, the IST time, the two map links, "automated demo alert;
+  call 112" and `/stop`.
 - **The SOS is never held hostage.** Sends run in parallel with a 4-second
   timeout per attempt, up to three attempts, and a 7-second budget; failures
   are logged (without the chat id or the token) and the answer's
@@ -190,6 +201,66 @@ refused by the state, PKCE and the nonce **each on its own**: with any one of
 them in place the case still passes, and with all three removed the victim is
 signed in to the attacker's account and the case fails.
 
+### Deleting an account and unlinking Google
+
+`POST /v1/me/delete` and `DELETE /v1/me/google` (`apps/api/src/routes/account.ts`,
+rules in `apps/api/src/domain/account-deletion.ts`), on the web under Settings
+-> Account and on Android under More.
+
+- **Citizen accounts only.** Any other role (admin, mechanic, support, fleet,
+  `gov_officer` for RAKSHA), an account with no role at all, and any number in
+  `EMAIL_SIGNIN` are refused (`privileged_account`, `email_signin_account`)
+  and keep the by-request path in privacy.html: they hold other people's work.
+  On a deployment that shows the phone code on screen, a published demo number
+  is refused too (`shared_demo_account`): everyone shares it.
+- **A deliberate confirmation, two parts.** The body must carry the exact
+  phrase `DELETE MY ACCOUNT` (else `confirmation_required`), and the sign-in
+  must be **fresh**: the session's refresh-token family began less than 10
+  minutes ago (else `reauth_required`). Freshness was chosen over an OTP
+  re-verification because it works for every way a citizen signs in (a
+  Google sign-up with no phone has no number to send a code to), costs no SMS
+  and adds no second code path to rate-limit, and is measured from the
+  family's FIRST session: a refresh mints a new session row in the same
+  family, so a stolen refresh token, which rotates for 30 days, never makes a
+  session fresh. Only signing in again does.
+- **Nothing open.** A booking that is not `PAID` or `CANCELLED`
+  (`active_booking`: a mechanic may be on the way or is owed) or an incident
+  that is not `CANCELLED` or `RESOLVED` (`active_sos`) blocks it, checked again
+  under the row lock.
+- **One transaction, idempotent.** The user row is locked `FOR UPDATE`; a
+  second delete waits, finds `deleted_at` set and changes nothing. Afterwards
+  every session carries `revoked_reason = account_deleted`, so the old access
+  token answers 401 `AUTH_REVOKED` (`reason: account_deleted`) and the refresh
+  token 401 `account_deleted`, never "reuse detected". The session rows are
+  kept (scrubbed of IP and user agent) precisely so a still-unexpired access
+  token finds its sid refused. The audit entry `account.deleted` (subject id
+  and row counts, no number or name) is written after the commit by the audit
+  chain's own serial writer, as every route's is.
+
+What happens to each table:
+
+| | Tables | Why |
+|---|---|---|
+| **Deleted** | `emergency_contacts` (with `telegram_chat_id`), `telegram_link_codes`, `devices` (push tokens), `medical_profiles`, `notification_channels`, `google_auth_nonces`, `idempotency_keys`, `otp_challenges` for the number, `vehicle_documents`, `user_vehicles` | Personal data nobody else needs |
+| **Scrubbed** | `users` (msisdn, full name, email, `google_sub`, `google_email` set NULL, so the phone and the Google account can sign up again as a NEW account; `deleted_at` set), `sessions` (revoked, IP and user agent NULL), `vehicles` only this account had (plate replaced with `DEL-<id>` so it can be registered again, nickname NULL), `bookings` (address, symptoms, highway marker, position NULL), `reviews` (comment NULL), `diagnostic_sessions` (detached, symptom text NULL), `sync_operations` (payload emptied), `incident_signals` (typed `note` and texted `text` removed) | The row is still needed; the personal part is not |
+| **Detached** | `incidents` (`user_id`, `vehicle_id` NULL; status, times and position stay), citizen `raksha_detections` (`raw.reportedBy` removed) | SOS history is the record whoever responded relies on; a hazard report is public road data |
+| **Kept** | `bookings`, `booking_events`, `invoices`, `payments`, review ratings, `consents`, `break_glass_access`, `sms_opt_outs`, `audit_log` | The mechanic's record of work and money and their score; proof that processing had a basis; who read the medical notes; a STOP keeps protecting the number; the audit log is append-only and hash-chained, so rewriting it would break the chain that proves nothing else was rewritten. They refer to the account by an id that no longer leads to a person. |
+
+**Unlink Google** is allowed only when the account has a verified phone (else
+409 `phone_required`, or the person could not sign in again), and the UPDATE is
+conditional on that phone still being there.
+
+**Verified by:** `account-deletion.test.ts` (phrase, roles, freshness, order of
+refusals, unlink rule, plate), `e2e-journey.mjs` §44 (a real deletion: contacts
+and Telegram links gone, Google link gone, the vehicle plate free again, the
+incident detached, the old access and refresh tokens refused, the phone signing
+up again as a NEW account that sees none of the old data, a bystander's data
+untouched, a repeat changing nothing) and `security-audit.mjs` §16 (wrong
+phrase, stale session, an admin and a mechanic refused, unlink without a phone
+refused, another account's token cannot delete this one). The freshness check,
+the phrase check, the role check, the session revocation and the unlink phone
+check were each reverted in turn: each made at least one case fail.
+
 ## Authorization
 
 Two independent layers, and the second is the one that matters.
@@ -246,7 +317,7 @@ client save up an hour of allowance and spend it in one second.
 - a double tap is absorbed by **idempotency**, not throttling;
 - and `POST /v1/sos/:id/confirm` — the call that actually summons help — is
   **never rate limited at all**: its route carries `authenticate` and nothing
-  else (`apps/api/src/routes/emergency.ts:388`).
+  else (`apps/api/src/routes/emergency.ts:390`).
 
 Verified: ten genuine SOS in a row are all accepted; a booking flood is
 throttled; every 429 carries `retryAfterSeconds` so a client can back off
@@ -322,14 +393,50 @@ happened. There is no route to it for any other role. The role gate and the
 reason's length sit at the top of the route; the live-incident check is
 `apps/api/src/server.ts:1908`.
 
-**Logging.** `observability.ts` redacts, at any depth (the field list is
-`apps/api/src/observability.ts:26`): tokens, authorization
-headers, passwords, secrets, OTP codes, signatures, API keys, phone numbers,
-email addresses, **coordinates**, blood group, allergies, conditions,
-medications, symptoms and free-text notes. A log aggregator is not a place to
-build a movement history of somebody who called for help. The redaction is
-unit-tested, including the nested case where a whole row is spread into a log
-call.
+**Logging.** A log aggregator is not a place to build a movement history of
+somebody who called for help, so no log line carries a position, a phone
+number or a client address (`apps/api/src/logging.ts`,
+`apps/api/src/domain/log-redaction.ts`):
+
+- **The access log** records the method, the path and the host. Not the IP or
+  port, and not the query string: only allow-listed keys that are never
+  personal (`link`, `limit`, `type`, `source`, `overdueOnly`, `radiusKm`,
+  `detail`) are kept, and the URL ends in `[redacted]` when anything was
+  dropped. Before this, every `/v1/map/live?lat=..&lng=..`, `/v1/geo/*` and
+  break-glass `?reason=` was logged in full beside the caller's address. Map
+  tiles (`/tiles/z/x/y`, `/basemap/z/x/y`) are logged by zoom only, since x/y
+  name the square somebody was looking at; the tile-failure line likewise.
+- **Errors** are serialized as type, scrubbed message and stack, and code:
+  never a driver's `query` / `parameters`, and Drizzle's `params: ...` line in
+  a failed query's message is replaced. Outside development the console copy
+  of an unhandled error is the scrubbed message only.
+- **Every line, from any call site** (ours or Fastify's), passes a formatter
+  that replaces personal field names at any depth (lat/lng and the route's
+  `fromLat`..., msisdn/phone, Telegram chat ids, Google sub and email, ID
+  tokens, nonces, tokens, cookies, passwords, IPs, full names) and scrubs every
+  string, the message included: phone numbers to their last four digits,
+  emails masked, coordinates, IPv4 addresses to their /24, bearer tokens, JWTs
+  and bot tokens.
+- **A coarse address only where it earns its place**: the rate limiter's
+  "limit exceeded" line, which is what an abuse report starts from, logs the
+  principal as an account id, an address truncated to its /24 (IPv4) or /48
+  (IPv6), or a sending number cut to its last four digits. A truncated prefix
+  rather than a daily-salted hash because the action an investigation leads to
+  is blocking a range at the edge, which a hash cannot express; it needs no
+  secret to keep or rotate, and a /24 is shared by up to 256 addresses (on
+  Indian mobile networks, by a carrier NAT pool), so it does not single out a
+  person.
+- `observability.ts` still redacts, at any depth, the wider list for operation
+  logs (tokens, OTP codes, signatures, API keys, phone numbers, email
+  addresses, coordinates, medical fields, symptoms and notes).
+
+Pinned by `logging.test.ts`: a Fastify instance with the server's exact logger
+configuration is sent a request carrying coordinates, a phone number and an
+email from a public address, and a failing query with bound values; none of
+them appears in any line. With the old serializer put back (full URL,
+`remoteAddress`), the test fails. Sessions (`sessions.ip`) and the audit log
+still store the full address in the database, for the session list and the
+audit trail; that is storage with access control, not a log stream.
 
 **Error bodies** carry `code`, `title`, `retryable` and `requestId` — never a
 stack trace, an internal path or SQL. The developer `detail` field exists only
@@ -495,7 +602,7 @@ live database: `pg_stat_activity` shows the running service connected as
 
 ## Known gaps
 
-1. **No external penetration test.** 135 self-written attacks is not the same
+1. **No external penetration test.** 144 self-written attacks is not the same
    thing.
 2. **Rate limiting is per-instance.** See above.
 3. **No column-level encryption at rest in Postgres.** Medical data is protected

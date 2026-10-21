@@ -309,4 +309,28 @@
          docs/translations/review-android.csv. -->
     <string name="privacy_policy">ಗೌಪ್ಯತಾ ನೀತಿ</string>
     <string name="terms_of_use">ಬಳಕೆಯ ನಿಯಮಗಳು</string>
+
+    <!-- 1.1.7 (More -> Account: Unlink Google, Delete my account). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. The %1$s in account_delete_type is the
+         English phrase DELETE MY ACCOUNT, shown as it is in every language. -->
+    <string name="account_title">ಖಾತೆ</string>
+    <string name="google_unlink">Google ಸಂಪರ್ಕ ತೆಗೆದುಹಾಕಿ</string>
+    <string name="google_unlinked">Google ಖಾತೆಯ ಸಂಪರ್ಕ ತೆಗೆದುಹಾಕಲಾಗಿದೆ</string>
+    <string name="google_unlink_failed">Google ಸಂಪರ್ಕ ತೆಗೆದುಹಾಕಲಾಗಲಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.</string>
+    <string name="google_unlink_phone_required">ಮೊದಲು ಒಂದು ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ಸೇರಿಸಿ ದೃಢೀಕರಿಸಿ. ಅದಿಲ್ಲದೆ, Google ಸಂಪರ್ಕ ತೆಗೆದ ನಂತರ ಈ ಖಾತೆಗೆ ಸೈನ್ ಇನ್ ಮಾಡಲಾಗುವುದಿಲ್ಲ.</string>
+    <string name="account_delete">ನನ್ನ ಖಾತೆ ಅಳಿಸಿ</string>
+    <string name="account_delete_title">ನಿಮ್ಮ ಖಾತೆ ಅಳಿಸಬೇಕೆ?</string>
+    <string name="account_delete_body">ಇದು ನಿಮ್ಮ ತುರ್ತು ಸಂಪರ್ಕಗಳು, Telegram ಲಿಂಕ್‌ಗಳು, Google ಲಿಂಕ್, ವಾಹನಗಳು, ಸಾಧನಗಳು ಮತ್ತು ಪ್ರೊಫೈಲ್ ಅನ್ನು ಅಳಿಸುತ್ತದೆ. ನಿಮ್ಮ SOS ಇತಿಹಾಸ, ಮೆಕ್ಯಾನಿಕ್‌ಗಳೊಂದಿಗಿನ ಬುಕಿಂಗ್ ಮತ್ತು ಪಾವತಿಗಳು, ಮತ್ತು ಆಡಿಟ್ ಲಾಗ್ ಉಳಿಯುತ್ತವೆ, ಆದರೆ ಇನ್ನು ನಿಮಗೆ ಜೋಡಣೆಯಾಗಿರುವುದಿಲ್ಲ. ಇದನ್ನು ಹಿಂಪಡೆಯಲಾಗುವುದಿಲ್ಲ.</string>
+    <string name="account_delete_type">ದೃಢೀಕರಿಸಲು, %1$s ಅನ್ನು ತೋರಿಸಿದಂತೆಯೇ ಟೈಪ್ ಮಾಡಿ.</string>
+    <string name="account_delete_field">ದೃಢೀಕರಣ ವಾಕ್ಯ</string>
+    <string name="account_delete_confirm">ಅಳಿಸಿ</string>
+    <string name="account_deleted">ನಿಮ್ಮ ಖಾತೆ ಅಳಿಸಲಾಗಿದೆ.</string>
+    <string name="account_delete_failed">ಖಾತೆ ಅಳಿಸಲಾಗಲಿಲ್ಲ. ಸಂಪರ್ಕ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.</string>
+    <string name="account_delete_phrase_wrong">ವಾಕ್ಯ ಹೊಂದಿಕೆಯಾಗುತ್ತಿಲ್ಲ. ತೋರಿಸಿದಂತೆಯೇ ಟೈಪ್ ಮಾಡಿ.</string>
+    <string name="account_delete_reauth">ನಿಮ್ಮ ಸುರಕ್ಷತೆಗಾಗಿ, ಅಳಿಸಲು ಇತ್ತೀಚಿನ ಸೈನ್ ಇನ್ ಬೇಕು. ಸೈನ್ ಔಟ್ ಮಾಡಿ, ಮತ್ತೆ ಸೈನ್ ಇನ್ ಮಾಡಿ, 10 ನಿಮಿಷಗಳ ಒಳಗೆ ಅಳಿಸಿ.</string>
+    <string name="account_delete_by_request">ಈ ರೀತಿಯ ಖಾತೆಯನ್ನು (ಮೆಕ್ಯಾನಿಕ್, ಅಡ್ಮಿನ್, ಆಪರೇಟರ್, RAKSHA ಅಥವಾ ಇಮೇಲ್ ಸೈನ್ ಇನ್) ವಿನಂತಿಯ ಮೇರೆಗೆ ಅಳಿಸಲಾಗುತ್ತದೆ. ಗೌಪ್ಯತಾ ನೀತಿಯಲ್ಲಿ ಹೇಳಿದಂತೆ ನಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸಿ.</string>
+    <string name="account_delete_active_booking">ಮೊದಲು ನಿಮ್ಮ ತೆರೆದಿರುವ ಬುಕಿಂಗ್ ಪೂರ್ಣಗೊಳಿಸಿ ಅಥವಾ ರದ್ದುಮಾಡಿ, ನಂತರ ಖಾತೆ ಅಳಿಸಿ.</string>
+    <string name="account_delete_active_sos">ಮೊದಲು ನಿಮ್ಮ ತೆರೆದಿರುವ SOS ಬಗೆಹರಿಸಿ ಅಥವಾ ರದ್ದುಮಾಡಿ, ನಂತರ ಖಾತೆ ಅಳಿಸಿ.</string>
+    <string name="account_delete_contact">ಈ ಖಾತೆ ಅಳಿಸಲು ನಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸಿ (ಗೌಪ್ಯತಾ ನೀತಿ).</string>
 </resources>

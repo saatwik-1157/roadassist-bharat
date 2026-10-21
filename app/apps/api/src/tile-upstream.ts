@@ -74,7 +74,8 @@ export function sendTileFailure<R>(
   key: string,
   got: Extract<TileResult, { ok: false }>,
 ): R {
-  req.log.warn({ tile: key, status: got.status, cause: got.cause }, "tile upstream failed");
+  // The zoom only: a tile's x/y name the square somebody was looking at.
+  req.log.warn({ zoom: key.split("/")[0], status: got.status, cause: got.cause }, "tile upstream failed");
   return reply.code(got.status).header("cache-control", got.cacheControl)
     .send({ error: { ...got.error, requestId: req.id } });
 }

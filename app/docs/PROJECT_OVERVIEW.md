@@ -64,32 +64,32 @@ service in Singapore over Neon Postgres in Singapore, with the showcase on GitHu
 Pages at <https://roadassistbharat.online>.
 
 - **60 tables**, 65 foreign keys, 151 indexes, 5 GiST spatial indexes,
-  12 migrations
-- **84 routes**, 81 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
+  13 migrations
+- **86 routes**, 83 of them under `/v1`, uniform `{data, meta}` / `{error}` envelope
 - **6 web surfaces**: citizen app, mechanic console, authority dashboard, live
   map, landing, showcase
 - **13 ADRs**, an enforced module-boundary check, and a 20-row failure matrix
 
 ## Verification
 
-**1527 assertions executed across six suites, no failures**, against a real
+**1596 assertions executed across six suites, no failures**, against a real
 PostgreSQL + PostGIS and a real Chrome:
 
 | Suite | Assertions |
 |---|---|
-| Unit | 584 |
-| End-to-end | 352 |
+| Unit | 618 |
+| End-to-end | 378 |
 | Concurrency + real-time | 112 |
-| Security (attacks that must fail) | 135 |
+| Security (attacks that must fail) | 144 |
 | Gateway security | 58 |
 | Browser / offline | 286 |
-| **Total** | **1527** |
+| **Total** | **1596** |
 
 Not in that total: 22 Razorpay checks (`npm run test:razorpay`). They need no
 Razorpay account — the script stubs the Orders API locally — but they only run
 against an API started with `PAYMENTS_PROVIDER=razorpay`, were not re-run for
 these figures, and are not described as passing. Separately, the Android client
-has 342 tests and the AI pipeline 49, on their own runners.
+has 356 tests and the AI pipeline 49, on their own runners.
 
 Plus: clean typecheck, zero lint errors, module boundaries clean, a production
 Docker image that the full suite passes **against**, and a rehearsed

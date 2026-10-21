@@ -142,6 +142,7 @@ describe("sendTileFailure", () => {
     assert.deepEqual(sent.body, { error: { ...r.error, requestId: "req-1" } });
     // The upstream's own words go to the log, never to the client.
     assert.ok(!JSON.stringify(sent.body).includes("fetch failed"));
-    assert.deepEqual(warned, [{ tile: "5/20/13", status: 502, cause: r.cause }]);
+    // The zoom, never the tile's x/y: those name the square somebody was looking at.
+    assert.deepEqual(warned, [{ zoom: "5", status: 502, cause: r.cause }]);
   });
 });

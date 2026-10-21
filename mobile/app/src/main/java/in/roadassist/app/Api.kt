@@ -383,7 +383,7 @@ object Api {
 
     private suspend fun request(method: String, path: String, body: JSONObject?): JSONObject {
         val (code, json) = raw(method, path, body)
-        if (code == 401 && refreshToken != null && !path.startsWith("/v1/auth/") && !notASessionProblem(json)) {
+        if (code == 401 && refreshToken != null && !path.startsWith("/v1/auth/") && !notASessionProblem(path, json)) {
             // One transparent rotation, then replay the original request.
             if (refresh()) {
                 val (code2, json2) = raw(method, path, body)
@@ -400,10 +400,16 @@ object Api {
      * expired code (adding a phone, POST /v1/me/phone) or a Google token the
      * server refused (POST /v1/me/google). Refreshing and replaying those would
      * rotate the session for nothing and spend a second code attempt.
+     *
+     * And AUTH_REVOKED on POST /v1/me/delete: the account is gone and its
+     * sessions with it, so that answer means the delete already went through
+     * (AccountDeletion.outcome). A refresh would only fail and end the session
+     * as "lost" before the screen could say the account was deleted.
      */
-    private fun notASessionProblem(json: JSONObject): Boolean {
+    private fun notASessionProblem(path: String, json: JSONObject): Boolean {
         val code = json.optJSONObject("error")?.optString("code").orEmpty()
-        return code.startsWith("otp_") || code in GOOGLE_TOKEN_REFUSALS
+        return code.startsWith("otp_") || code in GOOGLE_TOKEN_REFUSALS ||
+            (path == AccountDeletion.DELETE_PATH && code == "AUTH_REVOKED")
     }
 
     private val GOOGLE_TOKEN_REFUSALS = setOf(

@@ -453,6 +453,10 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
     var googleEmail by rememberSaveable { mutableStateOf<String?>(null) }
     var askPhone by rememberSaveable { mutableStateOf(false) }
     var canLinkGoogle by rememberSaveable { mutableStateOf(false) }
+    // More -> Account (AccountDeletion.kt): Unlink Google only while one is
+    // linked; Delete my account only where the server lets the person do it.
+    var googleLinked by rememberSaveable { mutableStateOf(false) }
+    var selfDelete by rememberSaveable { mutableStateOf(true) }
     // Whether this server has Google sign-in for the app, and its client id
     // (/health). Asked once; no answer is "off" and the button is not drawn.
     var googleFeature by remember { mutableStateOf(GoogleSignIn.Feature(false, null)) }
@@ -469,11 +473,16 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
         hasPhone = GoogleSignIn.hasPhone(me)
         googleEmail = GoogleSignIn.linkedEmail(me)
         canLinkGoogle = GoogleSignIn.canLink(me.optJSONArray("roles"))
+        googleLinked = AccountDeletion.showUnlink(me)
+        selfDelete = AccountDeletion.selfDelete(me)
     }
     // Who is signed in, on screen: the number, or the Google address until one is added.
     val who = if (hasPhone && msisdn.isNotBlank()) msisdn
         else googleEmail ?: stringResource(R.string.account_no_phone)
-    val resetAccount = { hasPhone = true; googleEmail = null; askPhone = false; canLinkGoogle = false }
+    val resetAccount = {
+        hasPhone = true; googleEmail = null; askPhone = false; canLinkGoogle = false
+        googleLinked = false; selfDelete = true
+    }
     // A mechanic tapped on the live map ("Request assistance"), handed to Book.
     var requestedMechanic by remember { mutableStateOf<JSONObject?>(null) }
     var showReport by rememberSaveable { mutableStateOf(false) }
@@ -832,7 +841,19 @@ fun RoadAssistApp(isDark: Boolean, onToggleTheme: () -> Unit) {
                                 hasPhone = hasPhone, googleEmail = googleEmail, canLinkGoogle = canLinkGoogle,
                                 google = googleFeature,
                                 onAddPhone = { askPhone = true },
-                                onGoogleLinked = { email -> googleEmail = email },
+                                onGoogleLinked = { email -> googleEmail = email; googleLinked = true },
+                                googleLinked = googleLinked, selfDelete = selfDelete,
+                                onGoogleUnlinked = { googleEmail = null; googleLinked = false },
+                                onAccount = adoptMe,
+                                onAccountDeleted = {
+                                    // Signed out here exactly as Sign out does, but
+                                    // without POST /v1/auth/logout: deleting the
+                                    // account already revoked every session.
+                                    Api.clear(); signedIn = false; bookingId = null; bookingRef = null
+                                    onDraft(BookingDraft.State())
+                                    resetAccount()
+                                    toast = ctx.getString(R.string.account_deleted)
+                                },
                                 onToast = { toast = it },
                                 onSignOut = {
                                     // Snapshot first: a server switch has already
@@ -1425,6 +1446,14 @@ private fun MoreScreen(
     google: GoogleSignIn.Feature,
     onAddPhone: () -> Unit,
     onGoogleLinked: (String?) -> Unit,
+    googleLinked: Boolean,
+    /** DELETE /v1/me/google answered: no Google account is linked any more. */
+    onGoogleUnlinked: () -> Unit,
+    selfDelete: Boolean,
+    /** A fresh GET /v1/me, for the app-wide account state (RoadAssistApp's adoptMe). */
+    onAccount: (JSONObject) -> Unit,
+    /** POST /v1/me/delete went through: back to sign-in, saying so. */
+    onAccountDeleted: () -> Unit,
     onToast: (String) -> Unit,
     onSignOut: () -> Unit,
 ) {
@@ -1469,6 +1498,17 @@ private fun MoreScreen(
         } catch (_: Exception) {}
     }
     LaunchedEffect(Unit) { loadContacts() }
+    // The account as the server has it now (a link made or removed on the web
+    // shows here), for the Account card. No answer keeps what is known.
+    suspend fun reloadMe() {
+        try {
+            onAccount(Api.get("/v1/me").getJSONObject("data"))
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {}
+    }
+    LaunchedEffect(Unit) { reloadMe() }
+    var showDelete by rememberSaveable { mutableStateOf(false) }
 
     val ra = LocalRa.current
     val riskColor = { r: String -> when (r) {
@@ -1495,8 +1535,9 @@ private fun MoreScreen(
                         GoldButton(stringResource(R.string.phone_add_title)) { onAddPhone() }
                     }
                     if (showLink) {
-                        if (googleEmail != null) {
-                            Text(stringResource(R.string.google_linked_as, googleEmail), color = Muted,
+                        if (googleEmail != null || googleLinked) {
+                            Text(googleEmail?.let { stringResource(R.string.google_linked_as, it) }
+                                ?: stringResource(R.string.google_linked), color = Muted,
                                 style = RaType.sub, modifier = Modifier.padding(top = if (hasPhone) 0.dp else RaSpace.s4))
                         } else {
                             GoogleButton(stringResource(R.string.google_link), enabled = !gBusy,
@@ -1520,6 +1561,51 @@ private fun MoreScreen(
                     }
                 }
             }
+        }
+
+        // ── Account (AccountDeletion.kt) ──────────────────────────────────────
+        // Unlink Google while one is linked; Delete my account for a plain
+        // citizen, and for every other account the way to ask for it.
+        RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s5)) {
+            Column(Modifier.padding(CardPad)) {
+                Text(stringResource(R.string.account_title), color = Cream, style = RaType.title)
+                if (googleLinked) {
+                    var uBusy by remember { mutableStateOf(false) }
+                    RaOutlineButton(stringResource(R.string.google_unlink), color = Muted, enabled = !uBusy,
+                        modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3)) {
+                        uBusy = true
+                        scope.launch {
+                            try {
+                                Api.delete(AccountDeletion.GOOGLE_PATH)
+                                onGoogleUnlinked()
+                                onToast(ctx.getString(R.string.google_unlinked))
+                                reloadMe()
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (e: ApiException) {
+                                onToast(AccountDeletion.unlinkMessage(e.code)?.let { ctx.getString(it) }
+                                    ?: e.message ?: ctx.getString(R.string.google_unlink_failed))
+                            } catch (_: Exception) { onToast(ctx.getString(R.string.google_unlink_failed)) }
+                            uBusy = false
+                        }
+                    }
+                }
+                if (selfDelete) {
+                    RaOutlineButton(stringResource(R.string.account_delete), color = Alarm,
+                        modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s3)) { showDelete = true }
+                } else {
+                    Text(stringResource(R.string.account_delete_contact), color = Muted, style = RaType.sub,
+                        modifier = Modifier.padding(top = 4.dp))
+                    PrivacyLink()
+                }
+            }
+        }
+        if (showDelete && selfDelete) {
+            DeleteAccountDialog(
+                onClose = { showDelete = false },
+                onDeleted = { showDelete = false; onAccountDeleted() },
+                onSignOut = { showDelete = false; onSignOut() },
+            )
         }
 
         RaCard(modifier = Modifier.fillMaxWidth().padding(top = RaSpace.s5)) {
@@ -1654,7 +1740,8 @@ private fun MoreScreen(
                                         tgFailed = null
                                         scope.launch {
                                             val link = try {
-                                                TelegramInvite.link(Api.post("/v1/me/emergency-contacts/$id/telegram-invite"))
+                                                TelegramInvite.link(Api.post("/v1/me/emergency-contacts/$id/telegram-invite",
+                                                    AlertLanguage.body(AlertLanguage.current(ctx))))
                                             } catch (_: Exception) { null }
                                             if (link != null) tgLinks = tgLinks + (id to link) else tgFailed = id
                                             cBusy = false
@@ -1801,22 +1888,111 @@ internal const val TERMS_URL = "https://app.roadassistbharat.online/terms.html"
 
 @Composable
 private fun LegalLinks() {
-    val ctx = LocalContext.current
     Row(Modifier.offset(x = -RaSpace.s3), verticalAlignment = Alignment.CenterVertically) {
         listOf(R.string.privacy_policy to PRIVACY_URL, R.string.terms_of_use to TERMS_URL).forEach { (label, url) ->
-            TextButton(
-                onClick = {
-                    try {
-                        ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
-                    } catch (_: android.content.ActivityNotFoundException) {
-                        android.widget.Toast.makeText(ctx, url, android.widget.Toast.LENGTH_LONG).show()
-                    }
-                },
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = RaSpace.s3, vertical = RaSpace.s2),
-                modifier = Modifier.heightIn(min = 48.dp),
-            ) { Text(stringResource(label), color = Gold, style = RaType.caption, fontWeight = FontWeight.SemiBold) }
+            LegalLink(label, url)
         }
     }
+}
+
+/** The Privacy policy on its own: where an account that cannot delete itself asks for it. */
+@Composable
+private fun PrivacyLink() {
+    Row(Modifier.offset(x = -RaSpace.s3)) { LegalLink(R.string.privacy_policy, PRIVACY_URL) }
+}
+
+@Composable
+private fun LegalLink(label: Int, url: String) {
+    val ctx = LocalContext.current
+    TextButton(
+        onClick = {
+            try {
+                ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, url.toUri()))
+            } catch (_: android.content.ActivityNotFoundException) {
+                android.widget.Toast.makeText(ctx, url, android.widget.Toast.LENGTH_LONG).show()
+            }
+        },
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = RaSpace.s3, vertical = RaSpace.s2),
+        modifier = Modifier.heightIn(min = 48.dp),
+    ) { Text(stringResource(label), color = Gold, style = RaType.caption, fontWeight = FontWeight.SemiBold) }
+}
+
+/**
+ * "Delete my account": what goes and what stays, then the phrase typed out
+ * (AccountDeletion.PHRASE, English in every language: the server compares it
+ * exactly). Delete is enabled only for that phrase. A refusal is said in the
+ * person's language, with the one thing that fixes it where there is one:
+ * Sign out for a sign-in older than ten minutes, the Privacy policy for an
+ * account that is deleted on request.
+ */
+@Composable
+private fun DeleteAccountDialog(onClose: () -> Unit, onDeleted: () -> Unit, onSignOut: () -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var typed by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var refused by remember { mutableStateOf<AccountDeletion.Outcome?>(null) }
+    val ready = !busy && AccountDeletion.phraseMatches(typed)
+    AlertDialog(
+        onDismissRequest = { if (!busy) onClose() },
+        containerColor = Panel,
+        shape = RoundedCornerShape(RaRadius.xl),
+        title = { Text(stringResource(R.string.account_delete_title), color = Cream, style = RaType.title) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.account_delete_body), color = Muted, style = RaType.sub)
+                Text(stringResource(R.string.account_delete_type, AccountDeletion.PHRASE), color = Cream,
+                    style = RaType.sub, modifier = Modifier.padding(top = 10.dp))
+                Field(typed, { typed = it; error = null; refused = null },
+                    stringResource(R.string.account_delete_field), enabled = !busy)
+                error?.let { Text(it, color = Alarm, style = RaType.caption, modifier = Modifier.padding(top = 10.dp)) }
+                val r = refused
+                if (r != null && AccountDeletion.offersSignOut(r)) {
+                    TextButton(onClick = onSignOut, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text(stringResource(R.string.action_sign_out), color = Gold, style = RaType.button)
+                    }
+                }
+                if (r != null && AccountDeletion.offersPrivacy(r)) PrivacyLink()
+                if (busy) Loading()
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = ready, modifier = Modifier.heightIn(min = 48.dp), onClick = {
+                busy = true; error = null; refused = null
+                scope.launch {
+                    val outcome = try {
+                        val answer = Api.post(AccountDeletion.DELETE_PATH, AccountDeletion.body())
+                        if (AccountDeletion.deleted(answer)) AccountDeletion.Outcome.DELETED else null
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: ApiException) {
+                        AccountDeletion.outcome(e.status, e.code).also {
+                            if (it == AccountDeletion.Outcome.OTHER) error = e.message
+                        }
+                    } catch (_: Exception) { null }
+                    busy = false
+                    when (outcome) {
+                        AccountDeletion.Outcome.DELETED -> onDeleted()
+                        null -> error = ctx.getString(R.string.account_delete_failed)
+                        else -> {
+                            refused = outcome
+                            AccountDeletion.message(outcome)?.let { error = ctx.getString(it) }
+                            if (error == null) error = ctx.getString(R.string.account_delete_failed)
+                        }
+                    }
+                }
+            }) {
+                Text(stringResource(R.string.account_delete_confirm), color = if (ready) Alarm else Muted,
+                    style = RaType.button)
+            }
+        },
+        dismissButton = {
+            TextButton(enabled = !busy, onClick = onClose, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(R.string.action_cancel), color = Muted, style = RaType.button)
+            }
+        },
+    )
 }
 
 /**
@@ -2584,7 +2760,9 @@ private fun SosPanel(
  */
 private suspend fun sosDataSummary(ctx: android.content.Context, pos: SosPosition, ref: String): String {
     val raised = Api.post("/v1/sos", SosPosition.apiBody(pos, ref)).getJSONObject("data")
-    val c = Api.post("/v1/sos/${raised.getString("id")}/confirm").getJSONObject("data")
+    // The language on screen goes with it, for the Telegram alerts (AlertLanguage).
+    val c = Api.post("/v1/sos/${raised.getString("id")}/confirm", AlertLanguage.body(AlertLanguage.current(ctx)))
+        .getJSONObject("data")
     val where = ctx.getString(
         if (raised.optBoolean("locationKnown", pos is SosPosition.Located)) R.string.sos_where_gps
         else R.string.sos_where_unknown,

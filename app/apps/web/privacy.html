@@ -81,7 +81,7 @@
 
 <main class="doc" id="main">
   <h1>Privacy <em>policy.</em></h1>
-  <p class="dates">Effective 15 October 2026 · RoadAssist Bharat</p>
+  <p class="dates">Effective 15 October 2026 · updated 21 October 2026 · RoadAssist Bharat</p>
 
   <div class="alert" role="note" id="not-emergency">
     <p><strong>This is a working demo, not an emergency service.</strong> In an emergency in India, call
@@ -104,8 +104,9 @@
       <li>It is stored in Singapore (Render and Neon), not in India.</li>
       <li>We never sell it, show no ads and use no analytics or trackers. Our pages load nothing from any
         other website.</li>
-      <li>Most records are kept until someone deletes them by hand: there is no automatic deletion yet.
-        To have your data deleted, ask us (see <a href="#rights">Your rights</a>).</li>
+      <li>Most records are kept until someone deletes them: there is no automatic deletion yet. A citizen
+        account can delete itself in Settings (web) or More (Android); other accounts ask us (see
+        <a href="#rights">Your rights</a>).</li>
       <li>On the live demo, phone sign-in works only for published demo numbers, and the sign-in code is
         shown on screen, so anyone can open those accounts. Do not put real personal details into one.</li>
     </ul>
@@ -179,8 +180,7 @@
           stored with the report.</li>
         <li><span class="k">"Near you", addresses and road distances:</span> your position is sent to our
           server, which rounds it before asking a map service (see <a href="#share">Who receives it</a>). It is
-          not saved in our database, but the server's access log records the request address, which contains
-          the position that was asked about (see <a href="#logs">Logs</a>).</li>
+          not saved in our database, and the server's logs leave it out (see <a href="#logs">Logs</a>).</li>
         <li><span class="k">Mechanic accounts:</span> a mechanic's position is stored while they are on duty,
           so jobs can be offered to the nearest one.</li>
       </ul>
@@ -200,8 +200,9 @@
         it and press <em>Start</em> do we store their Telegram chat id against that contact. We never receive
         their Telegram phone number. Invite codes are stored only as a hash and expire after seven days.
         <span class="k">Why:</span> to send that contact a free alert when you confirm an SOS: your first name,
-        the incident reference, the time and your position as a map link. Sending <code>/stop</code> to the bot
-        removes the chat id from every contact entry it is on.</p>
+        the incident reference, the time and your position as a map link, in the language your app is set to.
+        We also store the language the invite was made in, so the bot answers your contact in it. Sending
+        <code>/stop</code> to the bot removes the chat id from every contact entry it is on.</p>
     </div>
 
     <div class="item" id="medical">
@@ -251,13 +252,15 @@
 
     <div class="item" id="logs">
       <h3>Logs and the audit record</h3>
-      <p><span class="k">Server logs:</span> for each request, the method, the address requested (including its
-        query, for example the coordinates of a map lookup), your IP address, the response status and timing.
-        Sign-in codes, tokens and request bodies are not logged, though an unexpected server error can write the
-        failing database statement, with its values, to the log. The one address that carries a Google sign-in
-        code has its query removed. Our own operation logs remove phone numbers, email addresses, coordinates,
-        medical fields, symptoms and notes. On the live demo the text messages that would have been sent are
-        logged with the number cut to its last four digits and any sign-in code hidden.</p>
+      <p><span class="k">Server logs:</span> for each request, the method, the path, the response status and
+        timing. <strong>Not</strong> your IP address, and not the query string: only a few keys that are never
+        personal (such as a page size) are kept, so the coordinates of a map lookup never reach the log, and a
+        map square is logged by its zoom level only. Sign-in codes, tokens and request bodies are not logged.
+        Every log line is also scrubbed of phone numbers (cut to the last four digits), email addresses,
+        coordinates, Telegram chat ids, tokens and the values of a failed database statement. Where an address
+        helps stop abuse (a "too many requests" line), it is cut to its network (the first three parts of an
+        IPv4 address, shared by up to 256 addresses). On the live demo the text messages that would have been
+        sent are logged with the number cut to its last four digits and any sign-in code hidden.</p>
       <p><span class="k">Audit record:</span> sign-ins, SOS events, booking changes, Telegram links and similar
         actions are written to a tamper-evident log with the account id, role, action, time and IP address.</p>
       <p><span class="k">Operator alerts:</span> the project owner is emailed when someone signs in or confirms an
@@ -328,7 +331,8 @@
     <h2 id="keep-h">How long it is kept</h2>
     <p>Plainly: <strong>most data has no automatic deletion yet.</strong> Your account, name, vehicles,
       contacts, medical notes, bookings, emergency records, hazard reports, sessions and sign-in code records
-      stay in the database until we delete them by hand. What does get removed on its own:</p>
+      stay in the database until you delete your account (see <a href="#rights">Your rights</a>) or we delete
+      them by hand. What does get removed on its own:</p>
     <ul>
       <li>Removing an emergency contact or replacing a vehicle document hides the old row from the app; the
         row itself stays, marked as deleted.</li>
@@ -360,14 +364,34 @@
         kept on your device.</li>
       <li>A contact who no longer wants Telegram alerts can send <code>/stop</code> to the bot. When SMS is
         connected, texting STOP to the RoadAssist number stops texts to that number.</li>
+      <li><strong>Unlink Google</strong> (Settings &rarr; Account on the web, More on Android). This removes the
+        Google id and address we hold. It needs a verified phone number on the account first, so you can still
+        sign in afterwards. Removing RoadAssist from your Google Account's connected apps
+        (<a href="https://myaccount.google.com/connections">Google Account connections</a>) also stops Google
+        sharing with us in future.</li>
+      <li><strong>Delete your account</strong> (the same place), for a citizen account. You type
+        <code>DELETE MY ACCOUNT</code> to confirm, within 10 minutes of signing in (sign in again if it has been
+        longer), with no booking or SOS still open. It happens at once, in one step:
+        <ul>
+          <li><strong>Deleted:</strong> your emergency contacts with their Telegram links and invite codes, your
+            Google link, your devices and push tokens, your medical notes, your vehicles' documents and your
+            links to your vehicles, and the sign-in code records for your number. Every session is signed out.</li>
+          <li><strong>Removed from what stays:</strong> your phone number, name, email and Google id (so the number
+            or the Google account can sign up again later, as a new and empty account), your vehicles'
+            registration numbers and nicknames, the address, symptoms and position on your bookings, your review
+            comments, and any note you typed into an SOS.</li>
+          <li><strong>Kept, with nothing that names you:</strong> your SOS records (for whoever responded; no
+            longer linked to any account), your bookings, invoices and payments (the mechanic's record of work and
+            money), the star ratings you gave (part of a mechanic's score), hazard reports (public road data, no
+            longer linked to you), consent records (the record that we had a basis to process), and the audit
+            record, which is append-only and refers to the account by an id that no longer leads to a person.</li>
+        </ul></li>
     </ul>
     <h3>What you have to ask us for</h3>
-    <p>There is no button yet to <strong>unlink Google</strong>, <strong>download a copy of your data</strong>
-      or <strong>delete your account</strong>. Ask us and we will do it by hand. Removing RoadAssist from your
-      Google Account's connected apps (<a href="https://myaccount.google.com/connections">Google Account
-      connections</a>) stops Google sharing with us in future, but does not remove the Google id we already
-      hold: ask us for that too. When we delete an account we remove its personal data from the database;
-      audit entries that refer to it by id remain, as explained above.</p>
+    <p>There is no button yet to <strong>download a copy of your data</strong>. Ask us and we will do it by
+      hand. Mechanic, administrator, operator and RAKSHA officer accounts, and accounts that sign in by email,
+      cannot delete themselves from the app, because they hold other people's work (jobs, reviews, verified
+      hazards, registered devices): ask us and we will delete them by hand, the same way.</p>
     <h3>India's data protection law</h3>
     <p>Under the Digital Personal Data Protection Act, 2023 you can ask what personal data we hold about you
       and how it is used, have it corrected, completed or erased, withdraw consent, have a grievance answered,

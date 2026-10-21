@@ -57,7 +57,9 @@
 //      and normalizeMsisdn moved from app.html into phone.js).
 // v33: the Privacy policy and Terms of use (privacy.html, terms.html) join the shell, linked from
 //      sign-in and Settings (app.html, app.css, i18n.js; landing.html links them too).
-const VERSION = "ra-v33";
+// v34: Settings -> Account: Unlink Google and Delete my account (account.js is new in the shell;
+//      app.html, app.css, i18n.js), and the SOS confirm and Telegram invite send the app language.
+const VERSION = "ra-v34";
 const SHELL = `${VERSION}-shell`;
 // Versioned: the basemap URL is stable but its upstream is not, so a changed
 // tile source has to be able to retire everything cached under the old one.
@@ -99,6 +101,8 @@ const SHELL_ASSETS = [
   "/ui.js",
   "/email-signin.js",
   "/google-signin.js",
+  // Unlink Google and Delete my account, in Settings.
+  "/account.js",
   "/phone.js",
   // The session and its refresh cookie; without it a cached page cannot sign in.
   "/session.js",

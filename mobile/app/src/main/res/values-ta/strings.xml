@@ -309,4 +309,28 @@
          docs/translations/review-android.csv. -->
     <string name="privacy_policy">தனியுரிமைக் கொள்கை</string>
     <string name="terms_of_use">பயன்பாட்டு விதிமுறைகள்</string>
+
+    <!-- 1.1.7 (More -> Account: Unlink Google, Delete my account). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. The %1$s in account_delete_type is the
+         English phrase DELETE MY ACCOUNT, shown as it is in every language. -->
+    <string name="account_title">கணக்கு</string>
+    <string name="google_unlink">Google இணைப்பை நீக்கு</string>
+    <string name="google_unlinked">Google கணக்கின் இணைப்பு நீக்கப்பட்டது</string>
+    <string name="google_unlink_failed">Google இணைப்பை நீக்க முடியவில்லை. மீண்டும் முயலவும்.</string>
+    <string name="google_unlink_phone_required">முதலில் ஒரு கைபேசி எண்ணைச் சேர்த்துச் சரிபார்க்கவும். அது இல்லாமல், Google இணைப்பை நீக்கிய பிறகு இந்தக் கணக்கில் உள்நுழைய முடியாது.</string>
+    <string name="account_delete">என் கணக்கை நீக்கு</string>
+    <string name="account_delete_title">உங்கள் கணக்கை நீக்கவா?</string>
+    <string name="account_delete_body">இது உங்கள் அவசரத் தொடர்புகள், Telegram இணைப்புகள், Google இணைப்பு, வாகனங்கள், சாதனங்கள் மற்றும் சுயவிவரத்தை நீக்கும். உங்கள் SOS வரலாறு, மெக்கானிக்குகளுடனான முன்பதிவுகள் மற்றும் கட்டணங்கள், தணிக்கைப் பதிவு ஆகியவை வைக்கப்படும், ஆனால் இனி உங்களுடன் இணைக்கப்படாது. இதைத் திரும்பப் பெற முடியாது.</string>
+    <string name="account_delete_type">உறுதிப்படுத்த, %1$s என்பதைக் காட்டியபடியே தட்டச்சு செய்யவும்.</string>
+    <string name="account_delete_field">உறுதிப்படுத்தும் சொற்றொடர்</string>
+    <string name="account_delete_confirm">நீக்கு</string>
+    <string name="account_deleted">உங்கள் கணக்கு நீக்கப்பட்டது.</string>
+    <string name="account_delete_failed">கணக்கை நீக்க முடியவில்லை. இணைப்பைச் சரிபார்த்து மீண்டும் முயலவும்.</string>
+    <string name="account_delete_phrase_wrong">சொற்றொடர் பொருந்தவில்லை. காட்டியபடியே தட்டச்சு செய்யவும்.</string>
+    <string name="account_delete_reauth">உங்கள் பாதுகாப்பிற்காக, நீக்குவதற்குச் சமீபத்திய உள்நுழைவு தேவை. வெளியேறி, மீண்டும் உள்நுழைந்து, 10 நிமிடங்களுக்குள் நீக்கவும்.</string>
+    <string name="account_delete_by_request">இந்த வகைக் கணக்கு (மெக்கானிக், நிர்வாகி, ஆபரேட்டர், RAKSHA அல்லது மின்னஞ்சல் உள்நுழைவு) கோரிக்கையின் பேரில் நீக்கப்படும். தனியுரிமைக் கொள்கையில் உள்ளபடி எங்களைத் தொடர்புகொள்ளவும்.</string>
+    <string name="account_delete_active_booking">முதலில் உங்கள் திறந்த முன்பதிவை முடிக்கவும் அல்லது ரத்து செய்யவும், பிறகு கணக்கை நீக்கவும்.</string>
+    <string name="account_delete_active_sos">முதலில் உங்கள் திறந்த SOS-ஐத் தீர்க்கவும் அல்லது ரத்து செய்யவும், பிறகு கணக்கை நீக்கவும்.</string>
+    <string name="account_delete_contact">இந்தக் கணக்கை நீக்க எங்களைத் தொடர்புகொள்ளவும் (தனியுரிமைக் கொள்கை).</string>
 </resources>

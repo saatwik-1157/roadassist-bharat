@@ -22,6 +22,8 @@
  * reduced to letters, so a number typed into the name field cannot leak.
  */
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import type { Locale } from "../i18n.js";
+import { telegramText } from "./telegram-i18n.js";
 
 // ── configuration ──────────────────────────────────────────────────────────
 
@@ -179,23 +181,27 @@ export function displayFirstName(fullName: string | null | undefined): string | 
   return /\p{L}/u.test(clean) ? clean : null;
 }
 
-const SOMEONE = "a RoadAssist user";
-
-export function linkedMessage(ownerFirstName: string | null): string {
-  return `You are now an emergency contact for ${ownerFirstName ?? SOMEONE}. ` +
-    "You will get a message here if they raise an SOS.\n\n" +
-    "Send /stop at any time to stop these messages.";
+/**
+ * The confirmation a contact gets when an invite links their chat, in the
+ * invite's language (domain/telegram-i18n.ts; English when it has none).
+ */
+export function linkedMessage(ownerFirstName: string | null, locale: Locale | null = null): string {
+  return telegramText(locale, "linked", { name: ownerFirstName ?? telegramText(locale, "linked.someone") });
 }
 
-export const MESSAGES = {
-  stopped: "Unlinked. You will no longer get RoadAssist SOS alerts in this chat.",
-  stoppedNothing: "This chat is not linked to anyone on RoadAssist, so there is nothing to stop.",
-  badCode: "This invite link has expired or was already used. Ask the person who sent it for a new one.",
-  noCode: "To become someone's emergency contact, open the invite link they sent you.",
-  help: "RoadAssist sends an SOS alert here for each person whose invite link you opened. " +
-    "Send /stop to stop all of them.",
-  notPrivate: "Emergency alerts can only go to a private chat. Open the invite link in a one-to-one chat with this bot.",
-} as const;
+/** The bot's fixed replies, in a given language (English by default). */
+export type BotReply = "stopped" | "stoppedNothing" | "badCode" | "noCode" | "help" | "notPrivate";
+export const botReply = (key: BotReply, locale: Locale | null = null): string => telegramText(locale, key);
+
+/** The English replies, as they were before the bot learnt other languages. */
+export const MESSAGES: Record<BotReply, string> = {
+  stopped: botReply("stopped"),
+  stoppedNothing: botReply("stoppedNothing"),
+  badCode: botReply("badCode"),
+  noCode: botReply("noCode"),
+  help: botReply("help"),
+  notPrivate: botReply("notPrivate"),
+};
 
 /** Map links, written as constants: they go into a message, the server never fetches them. */
 const GOOGLE_MAP = "https://www.google.com/maps?q=";
@@ -217,32 +223,37 @@ export function istTime(at: Date): string {
   }).replace(/[\u202f\u00a0]/g, " ") + " IST";   // newer ICU puts a narrow no-break space before "pm"
 }
 
-export const DEMO_DISCLAIMER = "This is an automated RoadAssist demo alert; call 112 in an emergency.";
+export const DEMO_DISCLAIMER = telegramText("en", "alert.disclaimer");
 
 /**
  * The SOS alert. Who, the incident reference, when, where if known, and the
- * disclaimer. There is no parameter for a phone number, by design.
+ * disclaimer, in `locale` (the user's app language; English when null, and
+ * per line when a translation is missing). There is no parameter for a phone
+ * number, by design. The map links and the IST time are the same in every
+ * language: they are read by a map app and a clock, not translated.
  */
 export function sosAlertMessage(input: {
   ownerFirstName: string | null;
   ref: string;
   at: Date;
   position: { lat: number; lng: number } | null;
+  locale?: Locale | null;
 }): string {
-  const who = input.ownerFirstName ?? "A RoadAssist user who listed you as an emergency contact";
+  const l = input.locale ?? null;
+  const who = input.ownerFirstName ?? telegramText(l, "alert.someone");
   const lines = [
-    `SOS: ${who} has raised an emergency on RoadAssist.`,
+    telegramText(l, "alert.headline", { who }),
     "",
-    `Ref: ${input.ref}`,
-    `Time: ${istTime(input.at)}`,
+    telegramText(l, "alert.ref", { ref: input.ref }),
+    telegramText(l, "alert.time", { time: istTime(input.at) }),
   ];
   if (input.position) {
     const links = mapLinks(input.position.lat, input.position.lng);
-    lines.push(`Location: ${links.google}`, `OpenStreetMap: ${links.osm}`);
+    lines.push(telegramText(l, "alert.location", { url: links.google }), telegramText(l, "alert.osm", { url: links.osm }));
   } else {
-    lines.push("Location: not known (the phone had no GPS fix).");
+    lines.push(telegramText(l, "alert.noLocation"));
   }
-  lines.push("", DEMO_DISCLAIMER, "Send /stop to stop these alerts.");
+  lines.push("", telegramText(l, "alert.disclaimer"), telegramText(l, "alert.stopHint"));
   return lines.join("\n");
 }
 

@@ -50,11 +50,11 @@ const DECLARED_EGRESS = {
     "OUTSIDE INDIA - the RDD2022 training dataset is downloaded from here at TRAINING time only. " +
     "Carries nothing: it is an outbound download, never reached by the running platform.",
   "api.open-meteo.com":
-    "OUTSIDE INDIA (Germany) - trip weather. Carries the USER'S COORDINATES, which is personal " +
-    "data, so this is the one declared host that sits in tension with non-negotiable #4. It is " +
-    "server-side (no visitor IP) and degrades to null, but the position is real. Coarsening the " +
-    "coordinates before the call, or dropping the feature, is an open decision - see ADR-0011 " +
-    "for the shape of that argument.",
+    "OUTSIDE INDIA (Germany) - trip weather for GET /v1/trip/prepare (raksha.ts forecast()). " +
+    "Carries only two FIXED corridor points - the midpoints of the first and last monitored road " +
+    "segments, read from road_segments - never a user's position: the route takes no coordinates " +
+    "at all. Server-side (no visitor IP), degrades to null. (This note used to say the call carried " +
+    "the user's coordinates; the code has never sent them.)",
   "api.resend.com":
     "OUTSIDE INDIA (USA) - OPTIONAL operator alerts, off unless ALERT_EMAIL_TO is set, and sent " +
     "SERVER-SIDE so no visitor address reaches it. Each email carries a phone number MASKED to its " +
@@ -63,7 +63,7 @@ const DECLARED_EGRESS = {
   "nominatim.openstreetmap.org":
     "OUTSIDE INDIA (OSMF, EU) - addresses for a point (routes/geo.ts). Carries a signed-in user's " +
     "position COARSENED to 3 decimals (~110 m) - still personal data, so it is in the same tension " +
-    "with non-negotiable #4 as Open-Meteo. Server-side, cached 24 h, one request a second, off in " +
+    "with non-negotiable #4. Server-side, cached 24 h, one request a second, off in " +
     "development/test/CI. The production answer is a self-hosted Nominatim in an Indian region.",
   "overpass-api.de":
     "OUTSIDE INDIA (Germany) - nearest hospitals, police, fuel, EV chargers and repair shops " +
@@ -85,7 +85,7 @@ const DECLARED_EGRESS = {
     "TELEGRAM_BOT_USERNAME and TELEGRAM_WEBHOOK_SECRET are all set. Sent SERVER-SIDE, so no visitor " +
     "address reaches it, and only to a chat whose owner opened a one-time invite and pressed Start. " +
     "An SOS alert carries the user's FIRST NAME, the incident reference, the time and the POSITION " +
-    "as a map link - personal data, in the same tension with non-negotiable #4 as Open-Meteo, and " +
+    "as a map link - personal data, in the same tension with non-negotiable #4 as Nominatim, and " +
     "accepted because the alternative on the demo is that nobody is told. Never a phone number " +
     "(apps/api/test/telegram.test.ts fails if one appears).",
   "oauth2.googleapis.com":

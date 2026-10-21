@@ -168,6 +168,13 @@ export const emergencyContacts = pgTable("emergency_contacts", {
    * pass through a JavaScript number. Never returned to a client.
    */
   telegramChatId: varchar("telegram_chat_id", { length: 32 }),
+  /**
+   * The language the bot answers this chat in: the one recorded on the invite
+   * that linked it (telegram_link_codes.lang), so /stop and /help are answered
+   * the way the invite was written. NULL means English. The SOS alert itself
+   * goes in the USER's app language, not this one (telegram-alerts.ts).
+   */
+  telegramLang: varchar("telegram_lang", { length: 8 }),
 }, (t) => ({
   userIdx: index("emg_contacts_user_idx").on(t.userId),
   tgChatIdx: index("emg_contacts_tg_chat_idx").on(t.telegramChatId),
@@ -187,6 +194,12 @@ export const telegramLinkCodes = pgTable("telegram_link_codes", {
   contactId: uuid("contact_id").notNull().references(() => emergencyContacts.id),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   usedAt: timestamp("used_at", { withTimezone: true }),
+  /**
+   * The app language the invite was made in (one of the eight i18n locales),
+   * so the bot's replies to whoever opens it - the confirmation, /stop, /help -
+   * are in that language. NULL (an older invite, or none sent) means English.
+   */
+  lang: varchar("lang", { length: 8 }),
 }, (t) => ({
   codeUq: uniqueIndex("telegram_link_codes_hash_uq").on(t.codeHash),
   contactIdx: index("telegram_link_codes_contact_idx").on(t.contactId),

@@ -31,7 +31,9 @@ import { emergencyRoutes } from "./routes/emergency.js";
 import { telecomRoutes } from "./routes/telecom.js";
 import { telegramRoutes } from "./routes/telegram.js";
 import { googleAuthRoutes, googleFeature } from "./routes/google-auth.js";
-import { urlForLog } from "./domain/log-redaction.js";
+import { accountRoutes, canSelfDelete } from "./routes/account.js";
+import { urlForLog, scrubLogText } from "./domain/log-redaction.js";
+import { loggerOptions } from "./logging.js";
 import { mechanicRoutes } from "./routes/mechanic.js";
 import { geoRoutes } from "./routes/geo.js";
 import { optedOutAmong } from "./sms-opt-out.js";
@@ -66,17 +68,10 @@ validateEnv();
 assertProductionSafe();
 
 const app = Fastify({
-  logger: {
-    level: env.nodeEnv === "test" ? "silent" : "info",
-    // Fastify's own request line, with the Google callback's one-time code
-    // and state left out of it (log-redaction.ts urlForLog).
-    serializers: {
-      req: (req) => ({
-        method: req.method, url: urlForLog(req.url), host: req.host,
-        remoteAddress: req.ip, remotePort: req.socket?.remotePort,
-      }),
-    },
-  },
+  // No client address, no query values (only allow-listed keys), no tile
+  // coordinates, and every line scrubbed of phones, emails, coordinates and
+  // tokens - logging.ts, pinned by test/logging.test.ts.
+  logger: loggerOptions({ level: env.nodeEnv === "test" ? "silent" : "info" }),
   genReqId: () => randomUUID(),
   // Off unless TRUST_PROXY says otherwise — see env.ts. Without it every
   // request behind a tunnel or load balancer reports the proxy's address, and
@@ -184,7 +179,10 @@ app.setErrorHandler((err, req, reply) => {
   }
 
   req.log.error({ err }, "unhandled");
-  console.error("[error]", req.method, req.url, "\n", err);
+  // The full error, stack and all, only on a developer's own terminal; a
+  // hosted log gets the structured line above, which is scrubbed (logging.ts).
+  if (isLocalEnv(env.nodeEnv)) console.error("[error]", req.method, urlForLog(req.url), "\n", err);
+  else console.error("[error]", req.method, urlForLog(req.url), scrubLogText(err instanceof Error ? err.message : String(err)));
   return reply.code(500).send({
     error: {
       code: "internal", title: "Something went wrong on our side", retryable: true, requestId: req.id,
@@ -551,6 +549,9 @@ app.get("/v1/me", { preHandler: authenticate }, async (req) => {
     user: { id: user.id, msisdn: user.msisdn, fullName: user.fullName },
     hasPhone: Boolean(user.msisdn),
     google: { linked: Boolean(user.googleSub), email: user.googleSub ? user.googleEmail : null },
+    // Whether "Delete my account" is offered: citizen accounts only; the
+    // rest are deleted on request (routes/account.ts, privacy.html).
+    selfDelete: await canSelfDelete(user.id, req.user!.roles),
     roles: req.user!.roles, vehicles,
   });
 });
@@ -2265,6 +2266,7 @@ await app.register(emergencyRoutes);
 await app.register(telecomRoutes);
 await app.register(telegramRoutes);   // Telegram invites and the bot webhook (free contact alerts)
 await app.register(googleAuthRoutes); // Sign in with Google (web + Android) and adding a phone afterwards
+await app.register(accountRoutes);    // Delete my account, Unlink Google (routes/account.ts)
 await app.register(mechanicRoutes);
 await app.register(paymentRoutes);
 await app.register(rakshaRoutes);

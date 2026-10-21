@@ -542,7 +542,7 @@
           <p class="meta" id="s-meta" style="margin-top:4px">—</p>
           <div id="g-account"></div><!-- add your number, Link Google (google-signin.js) --><p class="legal-links left"><a href="/privacy.html" target="_blank" rel="noopener" data-i18n="legal.privacy">Privacy policy</a><span aria-hidden="true"> · </span><a href="/terms.html" target="_blank" rel="noopener" data-i18n="legal.terms">Terms of use</a></p>
           <button class="btn ghost" id="s-out" style="margin-top:12px">Sign out</button>
-        </div>
+        </div><div class="card" id="acct-card" hidden></div><!-- Unlink Google, Delete my account (account.js); the SOS confirm and Telegram invite send { lang } so the contact's Telegram message is in the app's language -->
       </div>
     </section>
   </main>
@@ -625,7 +625,7 @@
 </div>
 
 <script src="email-signin.js"></script>
-<script src="phone.js"></script><script src="google-signin.js"></script>
+<script src="phone.js"></script><script src="google-signin.js"></script><script src="account.js"></script>
 <script src="session.js"></script>
 <script src="journey.js"></script>
 <script src="near.js"></script>
@@ -1132,7 +1132,7 @@
     stopBookingPoll();
     streamStop();
     state.token = null; state.refresh = null; state.bookingId = null; state.userId = null; state.stale = false;
-    state.googleEmail = null; if (account) account.reset();
+    state.googleEmail = null; if (account) account.reset(); if (accountUi) accountUi.reset();
     clearSession();
     Object.keys(sosOpen).forEach(function (id) { trackIncident(id, null); });   // the next user's are not these
     // Nor is anything else the last person left: the code they were sent, the
@@ -1552,7 +1552,7 @@
   var normalizeMsisdn = window.RAPhone.normalize;   // ten digits, a leading 0 or 91, read as E.164 (phone.js)
   // Google sign-in, Link Google and the number a Google sign-up adds (google-signin.js, phone.js).
   var account = window.RAGoogle && RAGoogle.mount({ api: API, headers: sess.headers, $: $, tr: tr, toast: toast, busy: busy, fieldError: fieldError, nav: nav, call: api,
-    refresh: refreshSession, token: function () { return state.token; }, onPhone: function (n) { state.msisdn = n; saveSession(); $("home-sub").textContent = $("s-meta").textContent = who(); } });
+    refresh: refreshSession, token: function () { return state.token; }, onPhone: function (n) { state.msisdn = n; saveSession(); $("home-sub").textContent = $("s-meta").textContent = who(); } }); var accountUi = window.RAAccount && RAAccount.mount({ $: $, call: api, tr: tr, toast: toast, busy: busy, refresh: refreshSession, onMe: function (me) { if (account) account.update(me); }, signOut: function () { sess.logout(state.token); signedOut(); }, onDeleted: function () { signedOut(); toast(tr("acct.deleted", "Your account was deleted."), "ok"); } });   // Unlink Google, Delete my account (account.js): a deleted account's sessions are already ended server-side
 
   $("a-send").onclick = busy($("a-send"), async function () {
     // Checked here as well as on the server so the answer is instant and lands
@@ -1619,7 +1619,7 @@
     var me = await api("GET", "/v1/me", null, { force: true });
     state.userId = me.data.user.id;
     state.fullName = me.data.user.fullName || "";
-    state.msisdn = me.data.user.msisdn || null; state.googleEmail = me.data.google && me.data.google.email; if (account) account.update(me.data);
+    state.msisdn = me.data.user.msisdn || null; state.googleEmail = me.data.google && me.data.google.email; if (account) account.update(me.data); if (accountUi) accountUi.update(me.data);
     $("p-name").value = state.fullName;
     // Greet the person, not the phone number, once they have told us who they are.
     $("home-sub").textContent = (state.fullName ? state.fullName + " · " : "") +
@@ -3334,7 +3334,7 @@
     $("sos-copy").textContent = "Alerting now.";
     $("sos-out").innerHTML = "<div class='card'><div class='sk line w45'></div><div class='sk line'></div></div>";
     try {
-      var c = await api("POST", "/v1/sos/" + sosId + "/confirm", {}, { force: true });
+      var c = await api("POST", "/v1/sos/" + sosId + "/confirm", { lang: window.I18N && I18N.get() }, { force: true });
       // The headline says only what the server's answer reports it did
       // (journey.js sosOutcome). It used to read "Help is on the way." after
       // every confirm, including one that reached no contact and no responder:
@@ -3875,7 +3875,7 @@
       $("ec-list").querySelectorAll("[data-tg]").forEach(function (b) {
         b.onclick = busy(b, async function () {
           try {
-            var inv = await api("POST", "/v1/me/emergency-contacts/" + b.getAttribute("data-tg") + "/telegram-invite", {}, { force: true });
+            var inv = await api("POST", "/v1/me/emergency-contacts/" + b.getAttribute("data-tg") + "/telegram-invite", { lang: window.I18N && I18N.get() }, { force: true });
             var link = String(inv.data.link || ""), out = b.parentNode.nextSibling;
             // Only ever a t.me link: it is the one thing this box may hand on.
             if (link.indexOf("https://t.me/") !== 0) throw new Error("Unexpected invite link");
@@ -4193,7 +4193,7 @@
    */
   async function escalate(id, attempt) {
     try {
-      trackIncident(id, (await api("POST", "/v1/sos/" + id + "/confirm", {}, { force: true })).data.status);
+      trackIncident(id, (await api("POST", "/v1/sos/" + id + "/confirm", { lang: window.I18N && I18N.get() }, { force: true })).data.status);
       delete confirmRetry[id];
       return true;
     } catch (e) {

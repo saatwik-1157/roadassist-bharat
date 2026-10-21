@@ -20,6 +20,7 @@ import * as S from "@roadassist/db";
 import { db } from "./db.js";
 import { telegram } from "./providers.js";
 import { displayFirstName, sosAlertMessage } from "./domain/telegram.js";
+import type { Locale } from "./i18n.js";
 
 const SEND_BUDGET_MS = 7_000;
 
@@ -39,6 +40,12 @@ export async function alertContactsOnTelegram(input: {
   ownerId: string;
   contacts: Array<{ telegramChatId: string | null }>;
   log: FastifyBaseLogger;
+  /**
+   * The user's app language (domain/telegram-i18n.ts): what the app sent at
+   * confirm time, else the account's stored language, else English. The
+   * contact reads the alert in the language of the person in trouble.
+   */
+  locale?: Locale | null;
 }): Promise<TelegramAlertResult> {
   if (!telegram.enabled) return NO_TELEGRAM;
   // One message per chat: one person who opened the invites for two of this
@@ -58,6 +65,7 @@ export async function alertContactsOnTelegram(input: {
       ref: inc?.ref ?? input.incidentId.slice(0, 8),
       at: inc?.at ? new Date(inc.at) : new Date(),
       position: inc?.lat != null && inc?.lng != null ? { lat: Number(inc.lat), lng: Number(inc.lng) } : null,
+      locale: input.locale ?? null,
     });
 
     const result = { sent: 0, failed: 0, pending: 0 };

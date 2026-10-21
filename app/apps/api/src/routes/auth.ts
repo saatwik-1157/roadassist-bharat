@@ -274,7 +274,9 @@ export async function authRoutes(app: FastifyInstance) {
             ? "For your security every session has been signed out. Please sign in again."
             : result.reason === "signed_out"
               ? "You signed out of this session. Sign in again."
-              : "Your session has expired. Sign in again.",
+              : result.reason === "account_deleted"
+                ? "This account was deleted."
+                : "Your session has expired. Sign in again.",
           retryable: false,
         },
       });

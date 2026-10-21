@@ -2081,6 +2081,233 @@ console.log("\n43. Privacy policy and Terms of use");
   ok("the service worker caches both pages", sw.includes('"/privacy.html"') && sw.includes('"/terms.html"'));
 }
 
+// ── 44. Delete my account, Unlink Google (routes/account.ts) ───────────────
+// A real deletion, read back from the database: what goes, what is scrubbed,
+// what is kept and detached; the old tokens refused; the phone signing up
+// again as a NEW account that sees none of it; a bystander untouched. Telegram
+// and Google parts run against the local stubs when the server has them on.
+console.log("\n44. Delete my account, Unlink Google");
+{
+  const { default: postgres } = await import("postgres");
+  const sql = postgres(process.env.DATABASE_URL ??
+    "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+  const { telegramStub } = await import("./telegram-stub.mjs");
+  const { googleStub } = await import("./google-stub.mjs");
+  const PHRASE = "DELETE MY ACCOUNT";
+  const newNumber = () => "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+  const otpSignIn = async (n) => {
+    const r = await call("POST", "/v1/auth/otp/request", { body: { msisdn: n } });
+    return (await call("POST", "/v1/auth/otp/verify", { body: { msisdn: n, code: r.meta?.devOtp } }));
+  };
+  const sidOf = (tok) => JSON.parse(Buffer.from(String(tok).split(".")[1] ?? "", "base64url").toString() || "{}").sid;
+  const health = await fetch(`${BASE}/health`).then((r) => r.json()).catch(() => ({}));
+  const gFeature = health.data?.features?.googleSignin;
+  const probe = await call("GET", "/v1/me/emergency-contacts", { token });
+  const tg = probe.meta?.telegram?.enabled ? await telegramStub() : null;
+  let gStub = null;
+  try {
+    // ── an account with something in every table the deletion touches ──
+    const nA = newNumber();
+    const a = (await otpSignIn(nA)).data;
+    const tA = a?.accessToken, idA = a?.user?.id;
+    await call("PATCH", "/v1/me", { token: tA, body: { fullName: "Meera Iyer" } });
+    const regA = "DL07" + Math.random().toString(36).slice(2, 4).toUpperCase() + Math.floor(1000 + Math.random() * 8999);
+    const vehA = await call("POST", "/v1/vehicles", { token: tA, body: { registrationNo: regA, vehicleClass: "car", nickname: "Blue i10" } });
+    const cA1 = (await call("POST", "/v1/me/emergency-contacts", { token: tA, body: { name: "Appa", msisdn: newNumber() } })).data;
+    await call("POST", "/v1/me/emergency-contacts", { token: tA, body: { name: "Kavya", msisdn: newNumber() } });
+    await call("PUT", "/v1/me/medical", { token: tA, body: { bloodGroup: "B+", allergies: "penicillin" } });
+    let chatA = null;
+    if (tg) {
+      const inv = await call("POST", `/v1/me/emergency-contacts/${cA1?.id}/telegram-invite`, { token: tA });
+      chatA = tg.newChatId();
+      await tg.deliver(BASE, chatA, `/start ${new URL(inv.data.link).searchParams.get("start")}`);
+    }
+    const sosA = await call("POST", "/v1/sos", { token: tA, body: { lat: 19.0761, lng: 72.8775, source: "manual" } });
+    await call("POST", `/v1/sos/${sosA.data?.id}/cancel`, { token: tA });
+    gStub = gFeature?.web && gFeature?.android ? await googleStub() : null;
+    let subA = null;
+    if (gStub) {
+      subA = gStub.newSub();
+      const n = await call("POST", "/v1/auth/google/nonce", { token: tA, body: { purpose: "link" } });
+      await call("POST", "/v1/me/google", { token: tA, body: { idToken: gStub.mint({ sub: subA, nonce: n.data?.nonce }), nonce: n.data?.nonce } });
+    }
+    const meA = await call("GET", "/v1/me", { token: tA });
+    ok("GET /v1/me offers a citizen self-serve deletion", meA.data?.selfDelete === true, JSON.stringify(meA.data?.selfDelete));
+
+    // A bystander with data of their own.
+    const nB = newNumber();
+    const b = (await otpSignIn(nB)).data;
+    await call("POST", "/v1/me/emergency-contacts", { token: b?.accessToken, body: { name: "Ravi", msisdn: newNumber() } });
+
+    // ── the deliberate confirmation ─────────────────────────────────
+    const wrong = await call("POST", "/v1/me/delete", { token: tA, body: { confirm: "delete my account" } });
+    const none = await call("POST", "/v1/me/delete", { token: tA });
+    ok("a wrong or missing phrase deletes nothing (400 confirmation_required)",
+       wrong.status === 400 && wrong.error?.code === "confirmation_required" &&
+       none.status === 400 && none.error?.code === "confirmation_required", `${wrong.status} ${none.status}`);
+    await sql`UPDATE sessions SET created_at = now() - interval '11 minutes'
+               WHERE family_id = (SELECT family_id FROM sessions WHERE id = ${sidOf(tA)})`;
+    const stale = await call("POST", "/v1/me/delete", { token: tA, body: { confirm: PHRASE } });
+    ok("a sign-in older than ten minutes is refused (403 reauth_required)",
+       stale.status === 403 && stale.error?.code === "reauth_required", `${stale.status} ${stale.error?.code}`);
+    const rot = await call("POST", "/v1/auth/refresh", { body: { refreshToken: a?.refreshToken } });
+    const staleAfterRefresh = await call("POST", "/v1/me/delete", { token: rot.data?.accessToken, body: { confirm: PHRASE } });
+    ok("…and refreshing the token does not make it fresh: only signing in again does",
+       rot.status === 200 && staleAfterRefresh.status === 403 && staleAfterRefresh.error?.code === "reauth_required",
+       `${rot.status} ${staleAfterRefresh.status}`);
+    const fresh = (await otpSignIn(nA)).data;
+    const booking = await call("POST", "/v1/bookings", { token: fresh?.accessToken, body: {
+      vehicleId: vehA.data?.id, serviceTypeCode: "battery_jumpstart", lat: 19.0761, lng: 72.8775 } });
+    const blocked = await call("POST", "/v1/me/delete", { token: fresh?.accessToken, body: { confirm: PHRASE } });
+    ok("an open booking blocks it (409 active_booking)",
+       booking.status === 201 && blocked.status === 409 && blocked.error?.code === "active_booking", `${booking.status} ${blocked.status}`);
+    await call("POST", `/v1/bookings/${booking.data?.id}/transition`, { token: fresh?.accessToken, body: { command: "cancel" } });
+
+    // ── the deletion ─────────────────────────────────────────────────
+    const del = await call("POST", "/v1/me/delete", { token: fresh?.accessToken, body: { confirm: PHRASE } });
+    ok("a fresh sign-in with the phrase deletes the account",
+       del.status === 200 && del.data?.deleted === true && del.data?.alreadyDeleted === false &&
+       del.data?.contactsDeleted === 2 && del.data?.telegramLinksRemoved === (tg ? 1 : 0),
+       `${del.status} ${JSON.stringify(del.data)}`);
+    const [row] = await sql`SELECT msisdn, full_name, email, google_sub, google_email, deleted_at FROM users WHERE id = ${idA}`;
+    ok("the user row keeps no phone, name, email or Google id, and is marked deleted",
+       row && row.msisdn === null && row.full_name === null && row.email === null && row.google_sub === null &&
+       row.google_email === null && row.deleted_at !== null);
+    const [counts] = await sql`SELECT
+        (SELECT count(*)::int FROM emergency_contacts WHERE user_id = ${idA}) AS contacts,
+        (SELECT count(*)::int FROM emergency_contacts WHERE telegram_chat_id = ${chatA ?? "none"}) AS chats,
+        (SELECT count(*)::int FROM medical_profiles WHERE user_id = ${idA}) AS medical,
+        (SELECT count(*)::int FROM user_vehicles WHERE user_id = ${idA}) AS links,
+        (SELECT count(*)::int FROM devices WHERE user_id = ${idA}) AS devices,
+        (SELECT count(*)::int FROM sessions WHERE user_id = ${idA} AND (revoked_reason IS DISTINCT FROM 'account_deleted' OR ip IS NOT NULL)) AS live,
+        (SELECT count(*)::int FROM incidents WHERE id = ${sosA.data?.id} AND user_id IS NULL) AS detached,
+        (SELECT registration_no FROM vehicles WHERE id = ${vehA.data?.id}) AS plate,
+        (SELECT address_text IS NULL AND location IS NULL FROM bookings WHERE id = ${booking.data?.id}) AS scrubbed`;
+    ok("contacts, their Telegram chat, medical notes, vehicle links and devices are gone",
+       counts.contacts === 0 && counts.chats === 0 && counts.medical === 0 && counts.links === 0 && counts.devices === 0,
+       JSON.stringify(counts));
+    ok("every session is ended as account_deleted and keeps no IP",
+       counts.live === 0, `${counts.live} left`);
+    ok("the SOS record stays, detached from the person; the booking stays, without address or position",
+       counts.detached === 1 && counts.scrubbed === true);
+    ok("the vehicle's plate is replaced, so the real one can be registered again", /^DEL-[0-9A-F]{12}$/.test(counts.plate ?? ""), counts.plate);
+    const [aud] = await sql`SELECT after FROM audit_log WHERE action = 'account.deleted' AND entity_id = ${idA}`;
+    ok("one audit entry, with counts and no phone number or name",
+       Boolean(aud) && !JSON.stringify(aud.after).includes(nA.slice(3)) && !JSON.stringify(aud.after).includes("Meera"));
+
+    // ── the old tokens ───────────────────────────────────────────────
+    const oldMe = await call("GET", "/v1/me", { token: fresh?.accessToken });
+    const oldStale = await call("GET", "/v1/me/emergency-contacts", { token: rot.data?.accessToken });
+    const oldRefresh = await call("POST", "/v1/auth/refresh", { body: { refreshToken: fresh?.refreshToken } });
+    ok("the old access tokens are refused (401 AUTH_REVOKED, account_deleted)",
+       oldMe.status === 401 && oldMe.error?.code === "AUTH_REVOKED" && oldMe.error?.reason === "account_deleted" &&
+       oldStale.status === 401, `${oldMe.status} ${oldMe.error?.code} ${oldStale.status}`);
+    ok("…and the refresh token too, as account_deleted rather than reuse detected",
+       oldRefresh.status === 401 && oldRefresh.error?.code === "account_deleted", `${oldRefresh.status} ${oldRefresh.error?.code}`);
+    const again = await call("POST", "/v1/me/delete", { token: fresh?.accessToken, body: { confirm: PHRASE } });
+    const [stillOne] = await sql`SELECT count(*)::int AS n FROM audit_log WHERE action = 'account.deleted' AND entity_id = ${idA}`;
+    ok("a repeat changes nothing (refused at the door, still one audit entry)", again.status === 401 && stillOne.n === 1);
+
+    // ── the phone signs up again: a NEW account ──────────────────────
+    const reborn = await otpSignIn(nA);
+    const tR = reborn.data?.accessToken;
+    const meR = await call("GET", "/v1/me", { token: tR });
+    const contactsR = await call("GET", "/v1/me/emergency-contacts", { token: tR });
+    const incR = await call("GET", "/v1/me/incidents", { token: tR });
+    const bookR = await call("GET", "/v1/bookings", { token: tR });
+    const medR = await call("GET", "/v1/me/medical", { token: tR });
+    ok("the same phone signs up again as a NEW account",
+       reborn.status === 200 && reborn.meta?.newAccount === true && reborn.data?.user?.id !== idA,
+       `${reborn.status} new=${reborn.meta?.newAccount}`);
+    ok("…which sees none of the old data: no name, vehicles, contacts, SOS, bookings or medical notes",
+       meR.data?.user?.fullName === null && meR.data?.vehicles?.length === 0 && contactsR.data?.length === 0 &&
+       (incR.data ?? []).length === 0 && (bookR.data ?? []).length === 0 && !medR.data?.bloodGroup,
+       `vehicles=${meR.data?.vehicles?.length} contacts=${contactsR.data?.length} sos=${(incR.data ?? []).length}`);
+    const reAdd = await call("POST", "/v1/vehicles", { token: tR, body: { registrationNo: regA, vehicleClass: "car" } });
+    ok("…and can register the old vehicle's plate again", reAdd.status === 201, `${reAdd.status}`);
+    if (gStub && subA) {
+      const n = await call("POST", "/v1/auth/google/nonce", { body: { purpose: "signin" } });
+      const g = await call("POST", "/v1/auth/google/token", { body: { idToken: gStub.mint({ sub: subA, nonce: n.data?.nonce }), nonce: n.data?.nonce } });
+      ok("the freed Google account also signs up again as a NEW account",
+         g.status === 200 && g.meta?.newAccount === true && g.data?.user?.id !== idA, `${g.status} new=${g.meta?.newAccount}`);
+    }
+    const meB = await call("GET", "/v1/me/emergency-contacts", { token: b?.accessToken });
+    ok("the bystander's session and contacts are untouched", meB.status === 200 && meB.data?.length === 1, `${meB.status} ${meB.data?.length}`);
+
+    // ── Unlink Google ────────────────────────────────────────────────
+    if (gStub) {
+      const c = (await otpSignIn(newNumber())).data;
+      const n = await call("POST", "/v1/auth/google/nonce", { token: c?.accessToken, body: { purpose: "link" } });
+      await call("POST", "/v1/me/google", { token: c?.accessToken, body: { idToken: gStub.mint({ sub: gStub.newSub(), nonce: n.data?.nonce }), nonce: n.data?.nonce } });
+      const un = await call("DELETE", "/v1/me/google", { token: c?.accessToken });
+      const meC = await call("GET", "/v1/me", { token: c?.accessToken });
+      ok("Unlink Google with a verified phone removes the link",
+         un.status === 200 && un.data?.unlinked === true && meC.data?.google?.linked === false, `${un.status}`);
+      const n2 = await call("POST", "/v1/auth/google/nonce", { body: { purpose: "signin" } });
+      const gOnly = (await call("POST", "/v1/auth/google/token", { body: { idToken: gStub.mint({ sub: gStub.newSub(), nonce: n2.data?.nonce }), nonce: n2.data?.nonce } })).data;
+      const refused = await call("DELETE", "/v1/me/google", { token: gOnly?.accessToken });
+      const meG = await call("GET", "/v1/me", { token: gOnly?.accessToken });
+      ok("…and is refused without a phone, leaving the link (409 phone_required)",
+         refused.status === 409 && refused.error?.code === "phone_required" && meG.data?.google?.linked === true,
+         `${refused.status} ${refused.error?.code}`);
+    } else {
+      console.log("  - Unlink Google skipped: this server has Google sign-in off");
+    }
+  } finally {
+    await sql.end({ timeout: 5 });
+    if (tg) await tg.close();
+    if (gStub) await gStub.close();
+  }
+}
+
+// ── 45. Telegram alerts in the user's language (domain/telegram-i18n.ts) ────
+console.log("\n45. Telegram alerts in the user's language");
+{
+  const { telegramStub } = await import("./telegram-stub.mjs");
+  const probe = await call("GET", "/v1/me/emergency-contacts", { token });
+  const stub = probe.meta?.telegram?.enabled ? await telegramStub() : { why: "this server has Telegram off" };
+  if (stub.why) {
+    console.log(`  - skipped: ${stub.why}`);
+  } else {
+    try {
+      const n = "+91" + (9000000000 + Math.floor(Math.random() * 899999999));
+      const r = await call("POST", "/v1/auth/otp/request", { body: { msisdn: n } });
+      const u = (await call("POST", "/v1/auth/otp/verify", { body: { msisdn: n, code: r.meta?.devOtp } })).data;
+      const tk = u?.accessToken;
+      await call("PATCH", "/v1/me", { token: tk, body: { fullName: "Priya Sharma" } });
+      const c = (await call("POST", "/v1/me/emergency-contacts", { token: tk, body: { name: "Amma", msisdn: "+91" + (9000000000 + Math.floor(Math.random() * 899999999)) } })).data;
+      const inv = await call("POST", `/v1/me/emergency-contacts/${c?.id}/telegram-invite`, { token: tk, body: { lang: "hi" } });
+      const chat = stub.newChatId();
+      await stub.deliver(BASE, chat, `/start ${new URL(inv.data.link).searchParams.get("start")}`);
+      ok("an invite made in Hindi is answered in Hindi when the contact presses Start",
+         inv.data?.lang === "hi" && (stub.to(chat).at(-1)?.text ?? "").startsWith("अब आप Priya के आपातकालीन संपर्क हैं।"),
+         (stub.to(chat).at(-1)?.text ?? "").slice(0, 40));
+      const sos = await call("POST", "/v1/sos", { token: tk, body: { lat: 28.4595, lng: 77.0266, source: "manual" } });
+      const conf = await call("POST", `/v1/sos/${sos.data?.id}/confirm`, { token: tk, body: { lang: "hi" } });
+      const hi = stub.to(chat).at(-1)?.text ?? "";
+      // Compared as text, never fetched (as in section 41).
+      const GMAP_HI = "https://www.google.com/maps?q=28.45950,77.02660";
+      ok("a Hindi-locale SOS sends the Hindi alert, with the same structure and map links",
+         conf.data?.contactsAlertedTelegram === 1 && hi.startsWith("SOS: Priya ने RoadAssist पर आपातकालीन मदद माँगी है।") &&
+         hi.includes(GMAP_HI) && / IST$/m.test(hi) &&
+         hi.includes("आपात स्थिति में 112 पर कॉल करें") && hi.includes("/stop") && !hi.includes(n.slice(3)), hi.split("\n")[0]);
+      await call("POST", `/v1/sos/${sos.data?.id}/resolve`, { token: tk, body: { outcome: "false_alarm" } });
+      const sos2 = await call("POST", "/v1/sos", { token: tk, body: { lat: 28.46, lng: 77.03, source: "manual" } });
+      await call("POST", `/v1/sos/${sos2.data?.id}/confirm`, { token: tk, body: { lang: "xx-unknown" } });
+      const en = stub.to(chat).at(-1)?.text ?? "";
+      ok("an unknown locale falls back to English",
+         en.startsWith("SOS: Priya has raised an emergency on RoadAssist.") &&
+         en.includes("This is an automated RoadAssist demo alert; call 112 in an emergency."), en.split("\n")[0]);
+      await call("POST", `/v1/sos/${sos2.data?.id}/resolve`, { token: tk, body: { outcome: "false_alarm" } });
+      await stub.deliver(BASE, chat, "/stop");
+      ok("/stop is answered in the invite's language", (stub.to(chat).at(-1)?.text ?? "").startsWith("लिंक हटा दिया गया।"),
+         (stub.to(chat).at(-1)?.text ?? "").slice(0, 30));
+    } finally {
+      await stub.close();
+    }
+  }
+}
+
 console.log(`\n${"─".repeat(58)}`);
 console.log(`  ${pass} passed, ${fail} failed`);
 console.log(`${"─".repeat(58)}\n`);

@@ -13,6 +13,7 @@ import { env } from "./env.js";
 import { db as appDb, type Db } from "./db.js";
 import * as S from "@roadassist/db";
 import { endSessionStreams } from "./realtime.js";
+import { ACCOUNT_DELETED_REASON } from "./domain/account-deletion.js";
 import {
   WEB_CLIENT_HEADER, carriesRefreshCookie, refreshCookie as buildRefreshCookie,
   refreshTokenFromCookies, webClientSlot as slotOf,
@@ -91,6 +92,13 @@ export async function rolesForMsisdn(db: Db, msisdn: string): Promise<string[]> 
 
 /** Why a session was ended by its owner; authenticate refuses these sids. */
 export const LOGOUT_REASON = "logout";
+/**
+ * Every session of an account its owner deleted (routes/account.ts) carries
+ * this reason; authenticate refuses it like a sign-out, and a refresh with
+ * one of its tokens is "account_deleted", never "reuse detected".
+ */
+export { ACCOUNT_DELETED_REASON };
+const ENDED_BY_OWNER: ReadonlySet<string> = new Set([LOGOUT_REASON, ACCOUNT_DELETED_REASON]);
 
 /**
  * Sign out: end the caller's refresh-token family, and every access token
@@ -186,6 +194,9 @@ export async function rotateSession(db: Db, presented: string, meta: { ip?: stri
   if (row.revokedAt && row.revokedReason === LOGOUT_REASON) {
     return { ok: false as const, reason: "signed_out" };
   }
+  if (row.revokedAt && row.revokedReason === ACCOUNT_DELETED_REASON) {
+    return { ok: false as const, reason: "account_deleted" };
+  }
 
   if (row.revokedAt) {
     await burnFamily();
@@ -229,6 +240,7 @@ export async function rotateSession(db: Db, presented: string, meta: { ip?: stri
       const [now] = await tx.select({ reason: S.sessions.revokedReason })
         .from(S.sessions).where(eq(S.sessions.id, row.id)).limit(1);
       if (now?.reason === LOGOUT_REASON) return { reason: "signed_out" as const };
+      if (now?.reason === ACCOUNT_DELETED_REASON) return { reason: "account_deleted" as const };
       await tx.update(S.sessions)
         .set({ revokedAt: new Date(), revokedReason: "reuse_detected", updatedAt: new Date() })
         .where(and(eq(S.sessions.familyId, row.familyId), isNull(S.sessions.revokedAt)));
@@ -244,8 +256,8 @@ export async function rotateSession(db: Db, presented: string, meta: { ip?: stri
   });
 
   if ("reason" in outcome) {
-    return outcome.reason === "signed_out"
-      ? { ok: false as const, reason: "signed_out" }
+    return outcome.reason === "signed_out" || outcome.reason === "account_deleted"
+      ? { ok: false as const, reason: outcome.reason }
       : { ok: false as const, reason: "reuse_detected", familyId: row.familyId };
   }
   const { created } = outcome;
@@ -328,7 +340,7 @@ export function deliverSession<T extends { refreshToken: string }>(
 export async function sessionOfRefreshToken(db: Db, token: string) {
   const [row] = await db.select({ id: S.sessions.id, userId: S.sessions.userId, reason: S.sessions.revokedReason })
     .from(S.sessions).where(eq(S.sessions.refreshHash, sha256(token))).limit(1);
-  return row ? { id: row.id, userId: row.userId, signedOut: row.reason === LOGOUT_REASON } : null;
+  return row ? { id: row.id, userId: row.userId, signedOut: ENDED_BY_OWNER.has(row.reason ?? "") } : null;
 }
 
 // ── request guards ─────────────────────────────────────────────────────────
@@ -380,12 +392,16 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply) {
     });
   }
   if (claims.sid) {
-    const revoked = await sessionSignedOut(claims.sid);
+    const revoked = await sessionEndedBy(claims.sid);
     if (revoked) {
       return reply.code(401).send({
         error: {
-          code: "AUTH_REVOKED", title: "You signed out of this session. Sign in again.",
+          code: "AUTH_REVOKED",
+          title: revoked === ACCOUNT_DELETED_REASON
+            ? "This account was deleted."
+            : "You signed out of this session. Sign in again.",
           retryable: false, requestId: req.id,
+          ...(revoked === ACCOUNT_DELETED_REASON ? { reason: ACCOUNT_DELETED_REASON } : {}),
         },
       });
     }
@@ -395,12 +411,15 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply) {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** True when the token's session was ended by sign-out. A malformed sid fails closed. */
-async function sessionSignedOut(sid: string): Promise<boolean> {
-  if (!UUID.test(sid)) return true;
+/**
+ * Why the token's session was ended by its owner - a sign-out, or deleting
+ * the account - or null while it is wanted. A malformed sid fails closed.
+ */
+async function sessionEndedBy(sid: string): Promise<string | null> {
+  if (!UUID.test(sid)) return LOGOUT_REASON;
   const [row] = await appDb.select({ reason: S.sessions.revokedReason })
     .from(S.sessions).where(eq(S.sessions.id, sid)).limit(1);
-  return row?.reason === LOGOUT_REASON;
+  return row?.reason && ENDED_BY_OWNER.has(row.reason) ? row.reason : null;
 }
 
 /** Role gate. Resource ownership is checked separately, at the resource. */

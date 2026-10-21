@@ -30,6 +30,7 @@
  *     caps how many incidents an hour one account can text contacts for —
  *     past it the incident still escalates, only the texts are not sent.
  */
+import { principalForLog } from "./domain/log-redaction.js";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 interface Window { count: number; resetAt: number }
@@ -156,7 +157,9 @@ export function limit(name: keyof typeof LIMITS, keyOf?: (req: FastifyRequest) =
 
     if (!verdict.allowed) {
       reply.header("retry-after", String(verdict.resetInSeconds));
-      req.log.warn({ principal, route: name, resetInSeconds: verdict.resetInSeconds },
+      // The principal coarsened (log-redaction.ts principalForLog): an address
+      // to its /24 or /48, a sending number to its last four digits.
+      req.log.warn({ principal: principalForLog(principal), route: name, resetInSeconds: verdict.resetInSeconds },
         "rate limit exceeded");
       return reply.code(429).send({
         error: {

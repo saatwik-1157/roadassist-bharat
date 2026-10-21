@@ -145,7 +145,7 @@ async function escalateSmsSos(
 
   let contactsAlerted = 0, contactsFailed = 0, tg = NO_TELEGRAM;
   if (!withheld) {
-    const telegramSends = alertContactsOnTelegram({ incidentId, ownerId, contacts: telegramTargets, log });
+    const telegramSends = alertContactsOnTelegram({ incidentId, ownerId, contacts: telegramTargets, log, locale });
     for (const c of reachable) {
       try {
         await sms.send(c.msisdn, t(locale, "sos.contact.alert", { url: `https://roadassist.in/i/${incidentId}` }));

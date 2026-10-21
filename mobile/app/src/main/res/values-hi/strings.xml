@@ -312,4 +312,28 @@
          docs/translations/review-android.csv. -->
     <string name="privacy_policy">गोपनीयता नीति</string>
     <string name="terms_of_use">उपयोग की शर्तें</string>
+
+    <!-- 1.1.7 (More -> Account: Unlink Google, Delete my account). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. The %1$s in account_delete_type is the
+         English phrase DELETE MY ACCOUNT, shown as it is in every language. -->
+    <string name="account_title">खाता</string>
+    <string name="google_unlink">Google अलग करें</string>
+    <string name="google_unlinked">Google खाता अलग कर दिया गया</string>
+    <string name="google_unlink_failed">Google अलग नहीं हो सका। फिर से कोशिश करें।</string>
+    <string name="google_unlink_phone_required">पहले एक मोबाइल नंबर जोड़ें और सत्यापित करें। उसके बिना, Google अलग करने के बाद आप इस खाते में साइन इन नहीं कर पाएँगे।</string>
+    <string name="account_delete">मेरा खाता हटाएँ</string>
+    <string name="account_delete_title">अपना खाता हटाएँ?</string>
+    <string name="account_delete_body">इससे आपके आपात संपर्क, Telegram लिंक, Google लिंक, वाहन, डिवाइस और प्रोफ़ाइल हट जाएँगे। आपका SOS इतिहास, मैकेनिक के साथ बुकिंग और भुगतान, और ऑडिट लॉग रखे जाते हैं, पर अब आपसे जुड़े नहीं रहेंगे। इसे वापस नहीं लिया जा सकता।</string>
+    <string name="account_delete_type">पुष्टि के लिए %1$s ठीक वैसा ही टाइप करें जैसा दिखाया गया है।</string>
+    <string name="account_delete_field">पुष्टि वाक्यांश</string>
+    <string name="account_delete_confirm">हटाएँ</string>
+    <string name="account_deleted">आपका खाता हटा दिया गया।</string>
+    <string name="account_delete_failed">खाता नहीं हटाया जा सका। अपना कनेक्शन जाँचें और फिर से कोशिश करें।</string>
+    <string name="account_delete_phrase_wrong">वाक्यांश मेल नहीं खाता। इसे ठीक वैसा ही टाइप करें जैसा दिखाया गया है।</string>
+    <string name="account_delete_reauth">आपकी सुरक्षा के लिए खाता हटाने से पहले हाल में साइन इन ज़रूरी है। साइन आउट करें, फिर से साइन इन करें और 10 मिनट के भीतर हटाएँ।</string>
+    <string name="account_delete_by_request">इस तरह का खाता (मैकेनिक, एडमिन, ऑपरेटर, RAKSHA या ईमेल साइन-इन) अनुरोध पर हटाया जाता है। गोपनीयता नीति में बताए तरीके से हमसे संपर्क करें।</string>
+    <string name="account_delete_active_booking">पहले अपनी खुली बुकिंग पूरी या रद्द करें, फिर खाता हटाएँ।</string>
+    <string name="account_delete_active_sos">पहले अपना खुला SOS सुलझाएँ या रद्द करें, फिर खाता हटाएँ।</string>
+    <string name="account_delete_contact">यह खाता हटाने के लिए हमसे संपर्क करें (गोपनीयता नीति)।</string>
 </resources>

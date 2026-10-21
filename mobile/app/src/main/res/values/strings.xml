@@ -355,4 +355,28 @@
          pages (app.roadassistbharat.online/privacy.html, /terms.html), opened in the browser. -->
     <string name="privacy_policy">Privacy policy</string>
     <string name="terms_of_use">Terms of use</string>
+
+    <!-- 1.1.7: More -> Account (AccountDeletion.kt). Unlink Google (DELETE /v1/me/google)
+         and Delete my account (POST /v1/me/delete). The phrase typed to confirm is
+         AccountDeletion.PHRASE, passed into account_delete_type as %1$s and never
+         translated: the server compares it exactly. -->
+    <string name="account_title">Account</string>
+    <string name="google_unlink">Unlink Google</string>
+    <string name="google_unlinked">Google account unlinked</string>
+    <string name="google_unlink_failed">Could not unlink Google. Try again.</string>
+    <string name="google_unlink_phone_required">Add and verify a mobile number first. Without one, you could not sign in to this account once Google is unlinked.</string>
+    <string name="account_delete">Delete my account</string>
+    <string name="account_delete_title">Delete your account?</string>
+    <string name="account_delete_body">This deletes your emergency contacts, Telegram links, Google link, vehicles, devices and profile. Your SOS history, bookings and payments with mechanics, and the audit log are kept, but no longer linked to you. This cannot be undone.</string>
+    <string name="account_delete_type">To confirm, type %1$s exactly as shown.</string>
+    <string name="account_delete_field">Confirmation phrase</string>
+    <string name="account_delete_confirm">Delete</string>
+    <string name="account_deleted">Your account was deleted.</string>
+    <string name="account_delete_failed">Could not delete the account. Check your connection and try again.</string>
+    <string name="account_delete_phrase_wrong">The phrase does not match. Type it exactly as shown.</string>
+    <string name="account_delete_reauth">For your safety, deleting needs a recent sign-in. Sign out, sign in again, and delete within 10 minutes.</string>
+    <string name="account_delete_by_request">This kind of account (mechanic, admin, operator, RAKSHA or email sign-in) is deleted on request. Contact us as the Privacy policy describes.</string>
+    <string name="account_delete_active_booking">Finish or cancel your open booking first, then delete the account.</string>
+    <string name="account_delete_active_sos">Resolve or cancel your open SOS first, then delete the account.</string>
+    <string name="account_delete_contact">To delete this account, contact us (Privacy policy).</string>
 </resources>

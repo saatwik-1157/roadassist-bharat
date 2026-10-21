@@ -32,6 +32,7 @@ import { alerts } from "../alerts.js";
 import { hit, limit, LIMITS } from "../ratelimit.js";
 import { sms, telegram } from "../providers.js";
 import { alertContactsOnTelegram, NO_TELEGRAM } from "../telegram-alerts.js";
+import { telegramLocale } from "../domain/telegram-i18n.js";
 import { publish } from "../realtime.js";
 import { authenticate } from "../auth.js";
 import { t, resolveLocale } from "../i18n.js";
@@ -388,6 +389,10 @@ export async function emergencyRoutes(app: FastifyInstance) {
   /** Escalation ladder. Each rung is timed so the <10s claim is measured, not asserted. */
   app.post("/v1/sos/:id/confirm", { preHandler: authenticate }, async (req, reply) => {
     const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    // The app's current language, for the Telegram alert (domain/telegram-i18n.ts).
+    // Optional and never a reason to refuse: an emergency is not the place to
+    // reject a request over a malformed hint, so anything unknown means "not given".
+    const appLang = telegramLocale((req.body as { lang?: unknown } | undefined)?.lang);
     const [inc] = await db.select().from(S.incidents).where(eq(S.incidents.id, id)).limit(1);
     if (!inc) return reply.code(404).send({ error: { code: "not_found", title: "Incident not found", retryable: false } });
     // Same ownership rule as cancel: escalating someone else's incident would
@@ -546,6 +551,8 @@ export async function emergencyRoutes(app: FastifyInstance) {
       // never throws, so it cannot fail or stall the escalation.
       const telegramSends = alertContactsOnTelegram({
         incidentId: id, ownerId: inc.userId!, contacts: telegramTargets, log: req.log,
+        // The user's app language if the app said; else the stored one; else English.
+        locale: appLang ?? contactLocale,
       });
       for (const c of contacts) {
         // One contact's failed send must not stop the next contact being texted,

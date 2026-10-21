@@ -19,14 +19,16 @@
  *      emergency into a broadcast.
  *   4. "/stop" in that chat unlinks it from every contact entry it is on.
  *
- * Replies name the user by first name only, never by phone number.
+ * Replies name the user by first name only, never by phone number, and are in
+ * the language the invite was made in (telegram_link_codes.lang, copied to the
+ * contact as telegram_lang when it links), or English.
  *
  * When the bot is not configured (env.telegram, all three variables), the
  * invite answers 404 telegram_disabled and the webhook 404, and the apps do
  * not show the button: GET /v1/me/emergency-contacts says enabled: false.
  */
 import type { FastifyInstance } from "fastify";
-import { and, eq, gt, isNull, sql as raw } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql as raw } from "drizzle-orm";
 import { z } from "zod";
 
 import * as S from "@roadassist/db";
@@ -38,9 +40,11 @@ import { authenticate } from "../auth.js";
 import { limit } from "../ratelimit.js";
 import { telegram } from "../providers.js";
 import {
-  MESSAGES, displayFirstName, hashLinkCode, inviteLink, linkCodeState, linkedMessage, newLinkCode,
+  botReply, displayFirstName, hashLinkCode, inviteLink, linkCodeState, linkedMessage, newLinkCode,
   parseChatCommand, webhookSecretMatches,
 } from "../domain/telegram.js";
+import { telegramLocale } from "../domain/telegram-i18n.js";
+import type { Locale } from "../i18n.js";
 
 /** What Telegram sends for a message; everything else in an update is ignored. */
 const updateSchema = z.object({
@@ -65,6 +69,9 @@ export async function telegramRoutes(app: FastifyInstance) {
           retryable: false, requestId: req.id } });
       }
       const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+      // The app language the invite is made in: the bot answers whoever opens
+      // it in that language (domain/telegram-i18n.ts). Unknown or absent: English.
+      const lang = telegramLocale((req.body as { lang?: unknown } | undefined)?.lang);
       const { code, hash, expiresAt } = newLinkCode();
 
       // Owner-scoped, like the delete next door: a contact id alone is not
@@ -81,7 +88,7 @@ export async function telegramRoutes(app: FastifyInstance) {
         await tx.update(S.telegramLinkCodes).set({ deletedAt: new Date(), updatedAt: new Date() })
           .where(and(eq(S.telegramLinkCodes.contactId, id), isNull(S.telegramLinkCodes.usedAt),
                      isNull(S.telegramLinkCodes.deletedAt)));
-        await tx.insert(S.telegramLinkCodes).values({ codeHash: hash, contactId: id, expiresAt });
+        await tx.insert(S.telegramLinkCodes).values({ codeHash: hash, contactId: id, expiresAt, lang });
         return contact;
       });
       if (!made) {
@@ -90,12 +97,13 @@ export async function telegramRoutes(app: FastifyInstance) {
       }
       await audit({
         actorId: req.user!.sub, actorRole: "citizen", action: "telegram.invite_created",
-        entity: "emergency_contact", entityId: id, after: { expiresAt: expiresAt.toISOString() }, ip: req.ip,
+        entity: "emergency_contact", entityId: id, after: { expiresAt: expiresAt.toISOString(), lang: lang ?? "en" }, ip: req.ip,
       });
       return reply.code(201).send(ok({
         link: inviteLink(telegram.botUsername, code),
         expiresAt: expiresAt.toISOString(),
         linked: Boolean(made.chat),
+        lang: lang ?? "en",
       }, {
         note: "Send this link to your contact. It works once, for 7 days; making a new one cancels this one.",
       }));
@@ -121,32 +129,52 @@ export async function telegramRoutes(app: FastifyInstance) {
     if (!message || !command) return ok({ handled: false });
 
     const chatId = String(message.chat.id);
+    const codeHash = command.cmd === "start" && command.code ? hashLinkCode(command.code) : null;
+    /**
+     * The language to answer in: the invite's, when this message carries one
+     * (a /start link, even a used or expired one), else the language this chat
+     * was linked in (a /stop or /help from a linked chat), else English.
+     */
+    const replyLang = async (): Promise<Locale | null> => {
+      if (codeHash) {
+        const [row] = await db.select({ lang: S.telegramLinkCodes.lang }).from(S.telegramLinkCodes)
+          .where(eq(S.telegramLinkCodes.codeHash, codeHash)).limit(1);
+        if (row) return telegramLocale(row.lang);
+      }
+      const [linkedRow] = await db.select({ lang: S.emergencyContacts.telegramLang }).from(S.emergencyContacts)
+        .where(and(eq(S.emergencyContacts.telegramChatId, chatId), isNull(S.emergencyContacts.deletedAt)))
+        .orderBy(desc(S.emergencyContacts.updatedAt)).limit(1);
+      return telegramLocale(linkedRow?.lang);
+    };
     const answer = async (text: string, outcome: string) => {
       const sent = await telegram.send(chatId, text, { deadlineMs: 5_000 });
       if (!sent.ok) req.log.error({ outcome, attempts: sent.attempts, reason: sent.error }, "telegram reply not delivered");
       return ok({ handled: true, outcome, replied: sent.ok });
     };
 
-    if (message.chat.type !== "private") return answer(MESSAGES.notPrivate, "not_private");
+    if (message.chat.type !== "private") return answer(botReply("notPrivate", await replyLang()), "not_private");
 
-    if (command.cmd === "help") return answer(MESSAGES.help, "help");
+    if (command.cmd === "help") return answer(botReply("help", await replyLang()), "help");
 
     if (command.cmd === "stop") {
+      // Read before the unlink clears it: the "Unlinked" reply is in the
+      // language this chat was linked in.
+      const stopLang = await replyLang();
       const unlinked = await db.update(S.emergencyContacts)
-        .set({ telegramChatId: null, updatedAt: new Date() })
+        .set({ telegramChatId: null, telegramLang: null, updatedAt: new Date() })
         .where(eq(S.emergencyContacts.telegramChatId, chatId))
         .returning({ id: S.emergencyContacts.id });
       for (const c of unlinked) {
         await audit({ actorRole: "telegram_contact", action: "telegram.unlinked",
                       entity: "emergency_contact", entityId: c.id, after: { via: "/stop" } });
       }
-      return answer(unlinked.length ? MESSAGES.stopped : MESSAGES.stoppedNothing,
+      return answer(botReply(unlinked.length ? "stopped" : "stoppedNothing", stopLang),
                     unlinked.length ? "unlinked" : "nothing_to_stop");
     }
 
     // /start
-    if (!command.code) return answer(MESSAGES.noCode, "no_code");
-    const hash = hashLinkCode(command.code);
+    if (!command.code || !codeHash) return answer(botReply("noCode", await replyLang()), "no_code");
+    const hash = codeHash;
 
     /**
      * The claim. Unused, unexpired and not withdrawn, in the WHERE of one
@@ -159,13 +187,14 @@ export async function telegramRoutes(app: FastifyInstance) {
         .set({ usedAt: new Date(), updatedAt: new Date() })
         .where(and(eq(S.telegramLinkCodes.codeHash, hash), isNull(S.telegramLinkCodes.usedAt),
                    isNull(S.telegramLinkCodes.deletedAt), gt(S.telegramLinkCodes.expiresAt, raw`now()`)))
-        .returning({ contactId: S.telegramLinkCodes.contactId });
+        .returning({ contactId: S.telegramLinkCodes.contactId, lang: S.telegramLinkCodes.lang });
       if (!claim) return null;
+      const lang = telegramLocale(claim.lang);
       const [contact] = await tx.update(S.emergencyContacts)
-        .set({ telegramChatId: chatId, updatedAt: new Date() })
+        .set({ telegramChatId: chatId, telegramLang: lang, updatedAt: new Date() })
         .where(and(eq(S.emergencyContacts.id, claim.contactId), isNull(S.emergencyContacts.deletedAt)))
         .returning({ id: S.emergencyContacts.id, userId: S.emergencyContacts.userId });
-      return contact ?? null;
+      return contact ? { ...contact, lang } : null;
     });
 
     if (!linked) {
@@ -174,13 +203,13 @@ export async function telegramRoutes(app: FastifyInstance) {
       const [row] = await db.select().from(S.telegramLinkCodes)
         .where(eq(S.telegramLinkCodes.codeHash, hash)).limit(1);
       req.log.info({ state: linkCodeState(row, new Date()) }, "telegram link code refused");
-      return answer(MESSAGES.badCode, "refused");
+      return answer(botReply("badCode", telegramLocale(row?.lang)), "refused");
     }
 
     const [owner] = await db.select({ fullName: S.users.fullName }).from(S.users)
       .where(eq(S.users.id, linked.userId)).limit(1);
     await audit({ actorRole: "telegram_contact", action: "telegram.linked",
                   entity: "emergency_contact", entityId: linked.id, after: { via: "/start" } });
-    return answer(linkedMessage(displayFirstName(owner?.fullName)), "linked");
+    return answer(linkedMessage(displayFirstName(owner?.fullName), linked.lang), "linked");
   });
 }

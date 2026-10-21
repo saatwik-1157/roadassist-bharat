@@ -418,7 +418,8 @@ object Emergency {
                 "/v1/sos",
                 SosPosition.apiBody(SosPosition.ofQueueEntry(o), ref),
             ).getJSONObject("data")
-            Api.post("/v1/sos/${raised.getString("id")}/confirm")
+            // In the language on screen, for the Telegram alerts (AlertLanguage).
+            Api.post("/v1/sos/${raised.getString("id")}/confirm", AlertLanguage.body(AlertLanguage.current(ctx)))
         }
         if (replay.done.isNotEmpty()) {
             synchronized(queueLock) {

@@ -309,4 +309,28 @@
          docs/translations/review-android.csv. -->
     <string name="privacy_policy">ગોપનીયતા નીતિ</string>
     <string name="terms_of_use">ઉપયોગની શરતો</string>
+
+    <!-- 1.1.7 (More -> Account: Unlink Google, Delete my account). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. The %1$s in account_delete_type is the
+         English phrase DELETE MY ACCOUNT, shown as it is in every language. -->
+    <string name="account_title">ખાતું</string>
+    <string name="google_unlink">Google અલગ કરો</string>
+    <string name="google_unlinked">Google એકાઉન્ટ અલગ કર્યું</string>
+    <string name="google_unlink_failed">Google અલગ કરી શકાયું નહીં. ફરી પ્રયાસ કરો.</string>
+    <string name="google_unlink_phone_required">પહેલાં એક મોબાઇલ નંબર ઉમેરીને ચકાસો. તેના વિના, Google અલગ કર્યા પછી તમે આ ખાતામાં સાઇન ઇન કરી શકશો નહીં.</string>
+    <string name="account_delete">મારું ખાતું કાઢી નાખો</string>
+    <string name="account_delete_title">તમારું ખાતું કાઢી નાખવું છે?</string>
+    <string name="account_delete_body">આનાથી તમારા કટોકટી સંપર્કો, Telegram લિંક, Google લિંક, વાહનો, ઉપકરણો અને પ્રોફાઇલ કાઢી નખાશે. તમારો SOS ઇતિહાસ, મિકેનિક સાથેની બુકિંગ અને ચુકવણીઓ, અને ઑડિટ લૉગ રાખવામાં આવે છે, પણ હવે તમારી સાથે જોડાયેલા રહેતા નથી. આ પાછું ફેરવી શકાશે નહીં.</string>
+    <string name="account_delete_type">ખાતરી કરવા માટે %1$s બરાબર બતાવ્યા પ્રમાણે ટાઇપ કરો.</string>
+    <string name="account_delete_field">ખાતરીનું વાક્ય</string>
+    <string name="account_delete_confirm">કાઢી નાખો</string>
+    <string name="account_deleted">તમારું ખાતું કાઢી નાખવામાં આવ્યું.</string>
+    <string name="account_delete_failed">ખાતું કાઢી શકાયું નહીં. કનેક્શન તપાસીને ફરી પ્રયાસ કરો.</string>
+    <string name="account_delete_phrase_wrong">વાક્ય મેળ ખાતું નથી. બરાબર બતાવ્યા પ્રમાણે ટાઇપ કરો.</string>
+    <string name="account_delete_reauth">તમારી સલામતી માટે, કાઢી નાખવા માટે તાજેતરનું સાઇન ઇન જરૂરી છે. સાઇન આઉટ કરો, ફરી સાઇન ઇન કરો અને 10 મિનિટમાં કાઢી નાખો.</string>
+    <string name="account_delete_by_request">આ પ્રકારનું ખાતું (મિકેનિક, એડમિન, ઑપરેટર, RAKSHA અથવા ઇમેઇલ સાઇન-ઇન) વિનંતી પર કાઢી નખાય છે. ગોપનીયતા નીતિમાં જણાવ્યા મુજબ અમારો સંપર્ક કરો.</string>
+    <string name="account_delete_active_booking">પહેલાં તમારી ખુલ્લી બુકિંગ પૂરી કરો અથવા રદ કરો, પછી ખાતું કાઢી નાખો.</string>
+    <string name="account_delete_active_sos">પહેલાં તમારો ખુલ્લો SOS ઉકેલો અથવા રદ કરો, પછી ખાતું કાઢી નાખો.</string>
+    <string name="account_delete_contact">આ ખાતું કાઢી નાખવા માટે અમારો સંપર્ક કરો (ગોપનીયતા નીતિ).</string>
 </resources>

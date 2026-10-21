@@ -8,8 +8,9 @@ without reading any code.
 | Sheet | What it holds | Strings |
 |---|---|---|
 | `review-sms-server.csv` | SMS replies a feature phone receives (`app/apps/api/src/i18n.ts`) | 20 |
-| `review-web-app.csv` | The citizen web app (`app/apps/web/i18n.js`) | 83 |
-| `review-android.csv` | The Android app (`mobile/app/src/main/res/values-*/strings.xml`) | 273 (272 keys; the one plural has a row per form) |
+| `review-telegram.csv` | Telegram SOS alerts and bot replies (`app/apps/api/src/domain/telegram-i18n.ts`) | 17 |
+| `review-web-app.csv` | The citizen web app (`app/apps/web/i18n.js`) | 103 |
+| `review-android.csv` | The Android app (`mobile/app/src/main/res/values-*/strings.xml`) | 292 (291 keys; the one plural has a row per form) |
 
 ## How to review
 
@@ -23,7 +24,8 @@ without reading any code.
 5. SMS strings must fit one message: 70 characters in any Indic script, because
    one non-Latin SMS segment holds 70. `i18n.test.ts` enforces this, so a longer
    correction fails the build. Say so in the notes if a correct translation
-   cannot fit.
+   cannot fit. Telegram messages (`review-telegram.csv`) have no such limit,
+   but keep `/stop` and `112` exactly as written.
 6. Send the sheet back. Corrections are applied to the source files, and the
    language is then marked as reviewed in `app/docs/TESTING.md`.
 

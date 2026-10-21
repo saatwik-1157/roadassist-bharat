@@ -928,6 +928,96 @@ section("15. Google sign-in: CSRF, replay, forged tokens, privileged accounts, c
   }
 }
 
+section("16. Delete my account and Unlink Google: confirmation, fresh sign-in, privileged accounts, other people");
+{
+  const { default: postgres } = await import("postgres");
+  const sql = postgres(process.env.DATABASE_URL ??
+    "postgres://roadassist:devpassword@localhost:5434/roadassist", { max: 1, onnotice: () => {} });
+  const PHRASE = "DELETE MY ACCOUNT";
+  const sidOf = (tok) => JSON.parse(Buffer.from(String(tok).split(".")[1] ?? "", "base64url").toString() || "{}").sid;
+  const alive = async (userId) => (await sql`SELECT deleted_at IS NULL AS a FROM users WHERE id = ${userId}`)[0]?.a === true;
+  const age = (tok) => sql`UPDATE sessions SET created_at = now() - interval '11 minutes'
+                            WHERE family_id = (SELECT family_id FROM sessions WHERE id = ${sidOf(tok)})`;
+  try {
+    // ── the phrase ──
+    const v = await signIn();
+    const odd = [undefined, {}, { confirm: "" }, { confirm: "delete my account" }, { confirm: "DELETE MY ACCOUNT!" },
+      { confirm: ["DELETE MY ACCOUNT"] }, { confirm: true }, { phrase: PHRASE }];
+    const results = [];
+    for (const body of odd) results.push(await call("POST", "/v1/me/delete", { token: v.token, body }));
+    ok("no body, a wrong phrase, a near miss, an array or the wrong field deletes nothing",
+       results.every((r) => r.status === 400 && r.error?.code === "confirmation_required") && await alive(v.userId),
+       results.map((r) => r.status).join(","));
+
+    // ── the fresh sign-in ──
+    await age(v.token);
+    const stale = await call("POST", "/v1/me/delete", { token: v.token, body: { confirm: PHRASE } });
+    ok("a session whose sign-in is older than ten minutes cannot delete (403 reauth_required)",
+       stale.status === 403 && stale.error?.code === "reauth_required" && await alive(v.userId), `${stale.status}`);
+    const rot = await call("POST", "/v1/auth/refresh", { body: { refreshToken: v.refresh } });
+    const rotDel = await call("POST", "/v1/me/delete", { token: rot.data?.accessToken, body: { confirm: PHRASE } });
+    ok("a stolen refresh token, rotated into a new access token, is still not a fresh sign-in",
+       rotDel.status === 403 && rotDel.error?.code === "reauth_required" && await alive(v.userId), `${rotDel.status}`);
+
+    // ── privileged accounts keep the by-request path ──
+    const opReq = await call("POST", "/v1/auth/otp/request", { body: { msisdn: "+919999900001" } });
+    const op = opReq.meta?.devOtp
+      ? (await call("POST", "/v1/auth/otp/verify", { body: { msisdn: "+919999900001", code: opReq.meta.devOtp } })).data : null;
+    if (op?.accessToken) {
+      const r = await call("POST", "/v1/me/delete", { token: op.accessToken, body: { confirm: PHRASE } });
+      const me = await call("GET", "/v1/me", { token: op.accessToken });
+      ok("an admin cannot delete itself (403 privileged_account), and /v1/me does not offer it",
+         r.status === 403 && r.error?.code === "privileged_account" && me.data?.selfDelete === false && await alive(op.user?.id),
+         `${r.status} ${r.error?.code}`);
+    } else skipped("an admin cannot delete itself", "no dev OTP echo for the seeded admin");
+    const [mech] = await sql`SELECT u.msisdn FROM users u JOIN user_roles ur ON ur.user_id = u.id AND ur.deleted_at IS NULL
+                              JOIN roles ro ON ro.id = ur.role_id AND ro.name = 'mechanic'
+                             WHERE u.msisdn IS NOT NULL AND u.deleted_at IS NULL LIMIT 1`;
+    if (mech) {
+      const mr = await call("POST", "/v1/auth/otp/request", { body: { msisdn: mech.msisdn } });
+      const m = mr.meta?.devOtp ? (await call("POST", "/v1/auth/otp/verify", { body: { msisdn: mech.msisdn, code: mr.meta.devOtp } })).data : null;
+      const r = m?.accessToken ? await call("POST", "/v1/me/delete", { token: m.accessToken, body: { confirm: PHRASE } }) : null;
+      ok("a mechanic cannot delete itself (403 privileged_account)",
+         r?.status === 403 && r?.error?.code === "privileged_account" && await alive(m?.user?.id), `${r?.status} ${r?.error?.code}`);
+    } else skipped("a mechanic cannot delete itself", "no seeded mechanic with a phone");
+
+    // ── nobody else is touched, and the old token is dead ──
+    const victim = await signIn();
+    await call("POST", "/v1/me/emergency-contacts", { token: victim.token, body: { name: "Didi", msisdn: newMsisdn() } });
+    const doer = await signIn();
+    const bodyForOther = await call("POST", "/v1/me/delete", { token: doer.token, body: { confirm: PHRASE, userId: victim.userId } });
+    const victimMe = await call("GET", "/v1/me/emergency-contacts", { token: victim.token });
+    ok("a delete deletes only the caller: an id in the body is ignored, the other account and its contacts stay",
+       bodyForOther.status === 200 && !(await alive(doer.userId)) && await alive(victim.userId) &&
+       victimMe.status === 200 && victimMe.data?.length === 1, `${bodyForOther.status} ${victimMe.data?.length}`);
+    const after = await call("GET", "/v1/me", { token: doer.token });
+    const afterRefresh = await call("POST", "/v1/auth/refresh", { body: { refreshToken: doer.refresh } });
+    ok("the deleted account's access and refresh tokens are refused",
+       after.status === 401 && after.error?.code === "AUTH_REVOKED" && afterRefresh.status === 401, `${after.status} ${afterRefresh.status}`);
+    const reuse = await call("POST", "/v1/me/delete", { token: doer.token, body: { confirm: PHRASE } });
+    ok("…including for a second delete", reuse.status === 401, `${reuse.status}`);
+
+    // ── Unlink Google without a phone ──
+    const { googleStub } = await import("./google-stub.mjs");
+    const health = await call("GET", "/health");
+    const feature = health.data?.features?.googleSignin;
+    const stub = feature?.android ? await googleStub() : { why: "this server has Google sign-in off" };
+    if (stub.why) skipped("Unlink Google is refused without a phone", stub.why);
+    else {
+      try {
+        const n = await call("POST", "/v1/auth/google/nonce", { body: { purpose: "signin" } });
+        const g = (await call("POST", "/v1/auth/google/token", { body: { idToken: stub.mint({ sub: stub.newSub(), nonce: n.data?.nonce }), nonce: n.data?.nonce } })).data;
+        const un = await call("DELETE", "/v1/me/google", { token: g?.accessToken });
+        const [row] = await sql`SELECT google_sub IS NOT NULL AS linked FROM users WHERE id = ${g?.user?.id}`;
+        ok("Unlink Google is refused for an account with no phone, which would otherwise be locked out (409 phone_required)",
+           un.status === 409 && un.error?.code === "phone_required" && row?.linked === true, `${un.status} ${un.error?.code}`);
+      } finally { await stub.close(); }
+    }
+  } finally {
+    await sql.end({ timeout: 5 });
+  }
+}
+
 // ── clean up anything still holding a provider ─────────────────────────────
 if (bookingId) await call("POST", `/v1/bookings/${bookingId}/transition`, { token: alice.token, body: { command: "cancel" } });
 if (bobBooking?.data?.id) await call("POST", `/v1/bookings/${bobBooking.data.id}/transition`, { token: bob.token, body: { command: "cancel" } });

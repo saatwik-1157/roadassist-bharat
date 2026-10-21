@@ -930,3 +930,13 @@ body {
 .legal-links.left { text-align: left; margin-top: 12px; }
 .legal-links a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px;
   display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 4px; }
+
+/* Settings -> Account: the Delete my account confirmation (account.js). */
+.acct-dialog {
+  max-width: min(440px, calc(100vw - 32px)); width: 100%;
+  border: 1px solid var(--line); border-radius: 18px; padding: 20px;
+  background: var(--surface); color: var(--text);
+}
+.acct-dialog::backdrop { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.acct-dialog .meta { margin-top: 8px; }
+.acct-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }

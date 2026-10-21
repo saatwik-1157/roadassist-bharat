@@ -309,4 +309,28 @@
          docs/translations/review-android.csv. -->
     <string name="privacy_policy">গোপনীয়তা নীতি</string>
     <string name="terms_of_use">ব্যবহারের শর্তাবলি</string>
+
+    <!-- 1.1.7 (More -> Account: Unlink Google, Delete my account). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. The %1$s in account_delete_type is the
+         English phrase DELETE MY ACCOUNT, shown as it is in every language. -->
+    <string name="account_title">অ্যাকাউন্ট</string>
+    <string name="google_unlink">Google বিচ্ছিন্ন করুন</string>
+    <string name="google_unlinked">Google অ্যাকাউন্ট বিচ্ছিন্ন হয়েছে</string>
+    <string name="google_unlink_failed">Google বিচ্ছিন্ন করা গেল না। আবার চেষ্টা করুন।</string>
+    <string name="google_unlink_phone_required">আগে একটি মোবাইল নম্বর যোগ করে যাচাই করুন। সেটি ছাড়া Google বিচ্ছিন্ন করার পর এই অ্যাকাউন্টে আর সাইন ইন করতে পারবেন না।</string>
+    <string name="account_delete">আমার অ্যাকাউন্ট মুছুন</string>
+    <string name="account_delete_title">আপনার অ্যাকাউন্ট মুছবেন?</string>
+    <string name="account_delete_body">এতে আপনার জরুরি পরিচিতি, Telegram লিংক, Google লিংক, গাড়ি, ডিভাইস আর প্রোফাইল মুছে যাবে। আপনার SOS ইতিহাস, মেকানিকের সঙ্গে বুকিং ও পেমেন্ট, এবং অডিট লগ রাখা হয়, তবে আর আপনার সঙ্গে যুক্ত থাকে না। এটি ফেরানো যাবে না।</string>
+    <string name="account_delete_type">নিশ্চিত করতে %1$s ঠিক যেমন দেখানো হয়েছে তেমন টাইপ করুন।</string>
+    <string name="account_delete_field">নিশ্চিতকরণ বাক্যাংশ</string>
+    <string name="account_delete_confirm">মুছুন</string>
+    <string name="account_deleted">আপনার অ্যাকাউন্ট মুছে ফেলা হয়েছে।</string>
+    <string name="account_delete_failed">অ্যাকাউন্ট মোছা গেল না। সংযোগ দেখে আবার চেষ্টা করুন।</string>
+    <string name="account_delete_phrase_wrong">বাক্যাংশ মিলছে না। ঠিক যেমন দেখানো হয়েছে তেমন টাইপ করুন।</string>
+    <string name="account_delete_reauth">আপনার নিরাপত্তার জন্য মোছার আগে সাম্প্রতিক সাইন ইন দরকার। সাইন আউট করুন, আবার সাইন ইন করুন এবং 10 মিনিটের মধ্যে মুছুন।</string>
+    <string name="account_delete_by_request">এই ধরনের অ্যাকাউন্ট (মেকানিক, অ্যাডমিন, অপারেটর, RAKSHA বা ইমেল সাইন-ইন) অনুরোধ করলে মোছা হয়। গোপনীয়তা নীতিতে যেভাবে বলা আছে সেভাবে আমাদের সঙ্গে যোগাযোগ করুন।</string>
+    <string name="account_delete_active_booking">আগে আপনার খোলা বুকিং শেষ বা বাতিল করুন, তারপর অ্যাকাউন্ট মুছুন।</string>
+    <string name="account_delete_active_sos">আগে আপনার খোলা SOS মীমাংসা বা বাতিল করুন, তারপর অ্যাকাউন্ট মুছুন।</string>
+    <string name="account_delete_contact">এই অ্যাকাউন্ট মুছতে আমাদের সঙ্গে যোগাযোগ করুন (গোপনীয়তা নীতি)।</string>
 </resources>

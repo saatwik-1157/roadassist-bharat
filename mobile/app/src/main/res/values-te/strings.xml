@@ -309,4 +309,28 @@
          docs/translations/review-android.csv. -->
     <string name="privacy_policy">గోప్యతా విధానం</string>
     <string name="terms_of_use">వినియోగ నిబంధనలు</string>
+
+    <!-- 1.1.7 (More -> Account: Unlink Google, Delete my account). Machine-translated
+         and NOT yet reviewed by a native speaker; listed for review in
+         docs/translations/review-android.csv. The %1$s in account_delete_type is the
+         English phrase DELETE MY ACCOUNT, shown as it is in every language. -->
+    <string name="account_title">ఖాతా</string>
+    <string name="google_unlink">Google లింక్ తీసివేయండి</string>
+    <string name="google_unlinked">Google ఖాతా లింక్ తీసివేయబడింది</string>
+    <string name="google_unlink_failed">Google లింక్ తీసివేయలేకపోయాం. మళ్లీ ప్రయత్నించండి.</string>
+    <string name="google_unlink_phone_required">ముందు ఒక మొబైల్ నంబర్ జోడించి ధృవీకరించండి. అది లేకుండా, Google లింక్ తీసివేశాక ఈ ఖాతాలో సైన్ ఇన్ చేయలేరు.</string>
+    <string name="account_delete">నా ఖాతాను తొలగించు</string>
+    <string name="account_delete_title">మీ ఖాతాను తొలగించాలా?</string>
+    <string name="account_delete_body">ఇది మీ అత్యవసర పరిచయాలు, Telegram లింక్‌లు, Google లింక్, వాహనాలు, పరికరాలు మరియు ప్రొఫైల్‌ను తొలగిస్తుంది. మీ SOS చరిత్ర, మెకానిక్‌లతో బుకింగ్‌లు మరియు చెల్లింపులు, ఆడిట్ లాగ్ ఉంచబడతాయి, కానీ ఇకపై మీతో లింక్ కావు. దీన్ని రద్దు చేయలేరు.</string>
+    <string name="account_delete_type">నిర్ధారించడానికి, %1$s ను చూపిన విధంగానే టైప్ చేయండి.</string>
+    <string name="account_delete_field">నిర్ధారణ వాక్యం</string>
+    <string name="account_delete_confirm">తొలగించు</string>
+    <string name="account_deleted">మీ ఖాతా తొలగించబడింది.</string>
+    <string name="account_delete_failed">ఖాతాను తొలగించలేకపోయాం. మీ కనెక్షన్ చూసి మళ్లీ ప్రయత్నించండి.</string>
+    <string name="account_delete_phrase_wrong">వాక్యం సరిపోలలేదు. చూపిన విధంగానే టైప్ చేయండి.</string>
+    <string name="account_delete_reauth">మీ భద్రత కోసం, తొలగించడానికి ఇటీవలి సైన్ ఇన్ అవసరం. సైన్ అవుట్ చేసి, మళ్లీ సైన్ ఇన్ చేసి, 10 నిమిషాల్లోపు తొలగించండి.</string>
+    <string name="account_delete_by_request">ఈ రకమైన ఖాతా (మెకానిక్, అడ్మిన్, ఆపరేటర్, RAKSHA లేదా ఇమెయిల్ సైన్ ఇన్) అభ్యర్థనపై తొలగించబడుతుంది. గోప్యతా విధానంలో చెప్పినట్లు మమ్మల్ని సంప్రదించండి.</string>
+    <string name="account_delete_active_booking">ముందు మీ తెరిచి ఉన్న బుకింగ్‌ను పూర్తి చేయండి లేదా రద్దు చేయండి, తర్వాత ఖాతాను తొలగించండి.</string>
+    <string name="account_delete_active_sos">ముందు మీ తెరిచి ఉన్న SOS ను పరిష్కరించండి లేదా రద్దు చేయండి, తర్వాత ఖాతాను తొలగించండి.</string>
+    <string name="account_delete_contact">ఈ ఖాతాను తొలగించడానికి మమ్మల్ని సంప్రదించండి (గోప్యతా విధానం).</string>
 </resources>

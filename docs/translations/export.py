@@ -11,6 +11,7 @@ row, by key, so re-exporting never throws a reviewer's work away.
                          (translatable strings, in the order values/ lists them)
   review-web-app.csv     app/apps/web/i18n.js     (MESSAGES)
   review-sms-server.csv  app/apps/api/src/i18n.ts (MESSAGES)
+  review-telegram.csv    app/apps/api/src/domain/telegram-i18n.ts (TELEGRAM_MESSAGES)
 
 Standard library only. Written UTF-8 with a BOM, so Excel shows Indic scripts.
 """
@@ -123,3 +124,4 @@ if __name__ == "__main__":
     write("review-android.csv", android_rows())
     write("review-web-app.csv", js_rows("app/apps/web/i18n.js"))
     write("review-sms-server.csv", js_rows("app/apps/api/src/i18n.ts"))
+    write("review-telegram.csv", js_rows("app/apps/api/src/domain/telegram-i18n.ts"))

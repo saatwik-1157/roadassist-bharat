@@ -87,8 +87,8 @@ in the live demo.*
   ([ADR-0002](../app/docs/adr/0002-boundaries-in-ci.md)).
 - **One database**: PostgreSQL 16 with the PostGIS extension
   ([ADR-0003](../app/docs/adr/0003-postgres-postgis.md)). The schema has
-  60 tables, 151 indexes and 12 migrations (`measured.json`).
-- **84 routes**, 81 of them under `/v1`; the other three are `/tiles`, `/basemap`
+  60 tables, 151 indexes and 13 migrations (`measured.json`).
+- **86 routes**, 83 of them under `/v1`; the other three are `/tiles`, `/basemap`
   and `/health`.
 - **Real-time updates** use server-sent events with a heartbeat, and polling
   underneath ([ADR-0010](../app/docs/adr/0010-realtime-and-concurrency.md)).
@@ -150,7 +150,7 @@ because each is attack surface (`app/Dockerfile` stage 3).
 | PostGIS | 3.4 locally and in CI (image `postgis/postgis:16-3.4`); the PostGIS extension on Neon | Geometry columns, GiST spatial indexes, and `ST_DWithin` to rank the nearest mechanics | A hard requirement: the first migration runs `CREATE EXTENSION postgis`, which ruled out free hosts without it (DEPLOYMENT.md) |
 
 Database facts from `measured.json`: 60 tables, 65 foreign keys, 151 indexes
-(94 unique, 5 GiST), 12 migrations. The audit log is append-only: Postgres
+(94 unique, 5 GiST), 13 migrations. The audit log is append-only: Postgres
 `RULES` turn `UPDATE` and `DELETE` into no-ops, and each row is hash-chained to
 the one before it.
 
@@ -387,7 +387,7 @@ declarations, summarised:
 | `nominatim.openstreetmap.org` | Address for a point (`GET /v1/geo/address`) | Position rounded to 3 decimals (about 110 m) | Outside India (OSMF, EU) | `IMPLEMENTED` |
 | `overpass-api.de` | Nearby hospitals, police, fuel, EV charging, repair, tyres (`GET /v1/geo/nearby`) | Point rounded to 2 decimals (about 1 km) and a radius | Outside India (Germany) | `IMPLEMENTED` |
 | `router.project-osrm.org` | Road distance and driving time, no live traffic (`GET /v1/geo/route`) | Both points rounded to about 110 m | Outside India (FOSSGIS, Germany) | `IMPLEMENTED` |
-| `api.open-meteo.com` | Weather for the RAKSHA corridor report | Coordinates (declared as personal data) | Outside India (Germany) | `IMPLEMENTED` |
+| `api.open-meteo.com` | Weather for the RAKSHA corridor report | Two fixed corridor points (segment midpoints), never a user's position | Outside India (Germany) | `IMPLEMENTED` |
 | `air-quality-api.open-meteo.com` | Air quality in the corridor report; a "poor air quality" risk above US AQI 150 | Fixed corridor midpoints, never a user's position | Outside India (Germany) | `IMPLEMENTED` |
 | `earthquake.usgs.gov` | Magnitude 4+ earthquakes in and around India, last 7 days (`GET /v1/geo/earthquakes`) | A fixed area and a date, nothing about any user | Outside India (USA) | `IMPLEMENTED` |
 | `api.resend.com` | Operator alerts and email sign-in codes | A phone number masked to its last three digits, a role, an event and a time | Outside India (USA) | `IMPLEMENTED`, needs `EMAIL_API_KEY` |
@@ -502,16 +502,16 @@ database migrated from empty, then seeded).
 
 | Suite | Count | What it proves | Runs |
 |---|---|---|---|
-| Unit (`npm test`) | 584 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
-| End-to-end (`npm run test:e2e`) | 352 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
+| Unit (`npm test`) | 618 | Pure logic: diagnosis rules, booking and incident state machines, backoff, log redaction, and a guard that the on-device rule table matches the server's | CI and `verify` |
+| End-to-end (`npm run test:e2e`) | 378 | The whole API journey against real Postgres, including the SMS feature-phone journey and off-grid sync | CI, and against the built container |
 | Concurrency (`npm run test:concurrency`) | 112 | Races: two mechanics accepting one job, three SOS taps at once, live event delivery | CI |
 | Gateway security (`npm run test:gateway`) | 58 | Webhook signatures, append-only audit rules, sign-in code limits per number and per IP | CI |
-| Security audit (`npm run test:security`) | 135 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
+| Security audit (`npm run test:security`) | 144 | Attacks that must all be refused: cross-tenant access, role escalation, SQL injection, forged and `alg:none` tokens, unsigned webhooks, oversized input, error leakage | CI, and against the built container |
 | Browser (`npm run test:ui`) | 286 | Drives real Chrome: offline payment refused, session survives reload, the full Off-Grid Mode scenario | CI |
-| **Total** | **1527** | Six suites, zero failures | |
-| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1527, and never described as passing | By hand only |
-| Android (Gradle) | 342 | Android unit tests, run with lint and both APK builds | CI `android` job |
-| SOS ladder | 21 | The subset of the Android tests over `SosLadder.kt`, the emergency fallback decisions | CI `android` job |
+| **Total** | **1596** | Six suites, zero failures | |
+| Payment sandbox (`npm run test:razorpay`) | 22 | Razorpay negative cases against a local stub. Needs an API started with `PAYMENTS_PROVIDER=razorpay`, so it is outside every npm test run, not part of the 1596, and never described as passing | By hand only |
+| Android (Gradle) | 356 | Android unit tests, run with lint and both APK builds | CI `android` job |
+| SOS ladder | 27 | The subset of the Android tests over `SosLadder.kt`, the emergency fallback decisions | CI `android` job |
 | CV pipeline | 49 | The Python pipeline tests (standard library only) | CI `ai` job |
 
 CI also stops PostgreSQL under a running API and checks that `/health` answers
@@ -537,7 +537,7 @@ CI also stops PostgreSQL under a running API and checks that `/health` answers
 
 ### What is not done (from `app/docs/SECURITY.md`)
 
-- **No external penetration test.** 135 self-written attacks is not the same thing.
+- **No external penetration test.** 144 self-written attacks is not the same thing.
 - **Rate limiting is per instance.** Several servers would each allow the full limit.
 - **No column-level encryption at rest** in Postgres; medical data is protected by
   access control and audit.
