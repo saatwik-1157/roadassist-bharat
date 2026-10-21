@@ -44,6 +44,14 @@ const newMsisdn = () => "+91" + (9000000000 + Math.floor(Math.random() * 8999999
 async function signIn() {
   const msisdn = newMsisdn();
   const req = await call("POST", "/v1/auth/otp/request", { body: { msisdn } });
+  // Every caller needs a real account. A refused code (429 otp_ip_limited when
+  // the server runs the production per-IP ceiling) used to come back as
+  // undefined tokens, and surfaced several sections later as unrelated
+  // "VULNERABLE" lines and a postgres UNDEFINED_VALUE crash. Say what happened.
+  if (!req.meta?.devOtp) {
+    throw new Error(`signIn: OTP request refused (${req.status} ${req.error?.code ?? "no devOtp echo"}); ` +
+      "a server shared by several suites needs OTP_IP_MAX raised, as ci.yml and publish-image.yml do");
+  }
   const v = await call("POST", "/v1/auth/otp/verify", { body: { msisdn, code: req.meta?.devOtp } });
   return { msisdn, token: v.data?.accessToken, refresh: v.data?.refreshToken, userId: v.data?.user?.id };
 }

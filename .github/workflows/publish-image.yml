@@ -98,10 +98,18 @@ jobs:
             -e DATABASE_URL="postgres://roadassist:ci-only-not-a-secret@ra-db:5432/roadassist" \
             roadassist:seeder npm run seed:raksha -w @roadassist/db
 
+      # OTP_IP_MAX for the same reason as ci.yml: the per-IP OTP ceiling defaults
+      # to 30 codes in 15 minutes, and every suite below signs in from the one
+      # address the runner reaches the container through. The security audit
+      # alone now requests more than 30, so with the default its later sign-ins
+      # got 429 otp_ip_limited and the checks after them failed on undefined
+      # tokens. The limiter itself is tested by the gateway suite in ci.yml,
+      # which runs its own server with a ceiling of 3.
       - name: Boot the container
         run: |
           docker run -d --name ra-api --network ra-net -p 8099:8080 \
             -e NODE_ENV=ci \
+            -e OTP_IP_MAX=2000 \
             -e ALERT_EMAIL_TO=ops@example.com \
             -e PORT=8080 \
             -e JWT_SECRET="ci-only-not-a-secret-$GITHUB_RUN_ID" \
