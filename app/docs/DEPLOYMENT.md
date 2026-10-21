@@ -159,6 +159,42 @@ the proxy (`127.0.0.1,::1`), never `true`. Trusting every hop lets any client se
 through the per-IP OTP ceiling. It is off by default and the server logs a
 warning if you set it to `true`.
 
+### Client IP on Render
+
+Render runs the service behind its own edge (Cloudflare), so the TCP peer is
+always Render's proxy and `X-Forwarded-For`'s leftmost entry is whatever the
+client wrote. With `TRUST_PROXY=true` and no `CLIENT_IP_HEADER`, that entry is
+`req.ip`, and the per-IP OTP ceiling and signed-out rate limits can be dodged
+with a fresh fake address per request. The boot log says so.
+
+1. **See which header arrives.** Every access line (`incoming request`)
+   carries `req.ipHeaders`, e.g.
+   `{"cfConnectingIp":true,"trueClientIp":false,"xRealIp":false,"xffEntries":2}`:
+   booleans and a count, never a value or an address.
+2. **Set `CLIENT_IP_HEADER`** to the header shown present on every request:
+   `cf-connecting-ip`, or `true-client-ip`. Cloudflare writes these itself,
+   replacing anything the client sent. From then on that header is the only
+   source of the address (`apps/api/src/client-ip.ts`): a request without a
+   valid IP in it is keyed on the socket peer, never on `X-Forwarded-For`. The
+   boot line changes to `client address: from cf-connecting-ip ...` and the
+   `TRUST_PROXY=true` warning goes. `render.yaml` declares
+   `cf-connecting-ip`, but the live service's environment can differ from the
+   blueprint, so go by the boot line, not the file. If neither header shows `true`, do not set
+   it: every request would then share the proxy's one address, and a few
+   legitimate users could exhaust the ceiling between them.
+3. **`TRUST_PROXY`: the trade-off.** Once `CLIENT_IP_HEADER` is set,
+   `TRUST_PROXY` no longer decides the client address. It still decides
+   `req.protocol` from `X-Forwarded-Proto`, and two things depend on that: the
+   refresh cookie's `Secure; SameSite=None` (the showcase's cross-site embed
+   needs it) and Google sign-in, whose start route redirects to the registered
+   `https` origin until the request looks like `https`. **Unset** it and nothing
+   forwarded is believed, but Render's TLS-terminated requests look like `http`:
+   the cookie loses `Secure` and Google sign-in redirects in a loop. A **hop
+   count** is not an option: it is rejected at startup (GHSA-3m5p-2c4r-xxw2).
+   So on Render, keep `TRUST_PROXY=true` *with* `CLIENT_IP_HEADER` set. It can be
+   narrowed to Render's internal proxy range (a CIDR list) once that range is
+   known. Do not guess it, because a wrong range turns every request into `http`.
+
 **`GEO_SERVICES` is not mandatory, but its default flips.** It switches the
 location services (`/v1/geo/*` and the corridor report's air quality,
 [ADR-0012](adr/0012-open-map-location-services.md)), which call OpenStreetMap

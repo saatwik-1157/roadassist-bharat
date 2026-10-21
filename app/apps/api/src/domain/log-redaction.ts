@@ -1,3 +1,5 @@
+import { networkInterfaces } from "node:os";
+
 /**
  * What the console SMS provider may print.
  *
@@ -186,13 +188,61 @@ const BEARER = /\bBearer\s+[\w.~+/=-]+/gi;
 const PARAMS = /\bparams:[^\n]*/g;
 
 /**
+ * Fastify's own boot line, exactly as it writes it (`Server listening at
+ * http://10.25.232.17:8080`), and nothing after it.
+ */
+const LISTEN_LINE = /^Server listening at https?:\/\/(\[[0-9a-f:.]+\]|[^\s/:[\]]+)(?::\d{1,5})?\/?$/i;
+
+let ownAddresses: Set<string> | null = null;
+/** Every address on this machine's own interfaces, read once. */
+function ownInterfaceAddresses(): Set<string> {
+  if (!ownAddresses) {
+    ownAddresses = new Set();
+    try {
+      for (const list of Object.values(networkInterfaces())) {
+        for (const a of list ?? []) ownAddresses.add(a.address.toLowerCase());
+      }
+    } catch { /* no interface list: only the private ranges below are kept */ }
+  }
+  return ownAddresses;
+}
+
+/** Loopback, unspecified, RFC 1918 and link-local: an address no member of the public connects from. */
+function isNonPublicV4(ip: string): boolean {
+  const m = /^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(ip);
+  if (!m) return false;
+  const a = Number(m[1]), b = Number(m[2]);
+  return a === 127 || a === 10 || ip === "0.0.0.0" ||
+    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+}
+
+/**
+ * True for the line in which the server reports where it is listening, when
+ * that address is the server's own: one of this machine's interfaces, or a
+ * loopback/private/link-local address. It is written once at boot by Fastify,
+ * names no client, and scrubbed to a /24 it reads as nonsense ("listening at
+ * http://10.25.232.0/24:8080"). The match is the whole line, so a client
+ * address cannot ride along after it; any other line, and a listen line
+ * naming some other public address, is scrubbed as usual.
+ */
+export function isOwnListenLine(text: string): boolean {
+  const m = LISTEN_LINE.exec(text);
+  if (!m) return false;
+  const host = m[1].replace(/^\[|\]$/g, "").toLowerCase();
+  if (!/^[0-9a-f:.]+$/.test(host)) return true;   // a hostname (localhost): no address in it
+  return isNonPublicV4(host) || host === "::1" || host === "::" || ownInterfaceAddresses().has(host);
+}
+
+/**
  * Scrub a free-text log message or field: bound query parameters, bearer
  * tokens and JWTs, bot tokens, email addresses (masked), phone numbers (last
  * four kept), coordinates and IPv4 addresses (to their /24). The last line
  * of defence for text a call site did not build itself - an error message
- * from a driver or a vendor, a template string.
+ * from a driver or a vendor, a template string. The server's own listen line
+ * is left as written (isOwnListenLine).
  */
 export function scrubLogText(text: string): string {
+  if (isOwnListenLine(text)) return text;
   return text
     .replace(PARAMS, "params: [redacted]")
     .replace(BEARER, "Bearer [redacted]")

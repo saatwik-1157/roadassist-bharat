@@ -2321,10 +2321,21 @@ void import("./demo/raksha-demo-seed.js")
 // through the per-IP OTP ceiling. It is a legitimate setting behind an ingress
 // that is genuinely the only way in — and a hole everywhere else — so it is
 // never applied silently.
-if (env.trustProxy === true) {
-  app.log.warn(
-    "TRUST_PROXY=true trusts X-Forwarded-For from every peer, so the per-IP OTP " +
-    "ceiling can be bypassed by anyone who can reach this port. Set it to your " +
-    "proxy's address instead (127.0.0.1,::1 for a local tunnel).",
-  );
+// With CLIENT_IP_HEADER set the address no longer comes from X-Forwarded-For
+// at all (client-ip.ts), so the line says where it does come from instead.
+{
+  const clientIpHeader = process.env.CLIENT_IP_HEADER?.trim().toLowerCase();
+  if (clientIpHeader) {
+    app.log.info(`client address: from ${clientIpHeader} when it holds a valid IP, else the socket peer ` +
+      "(never X-Forwarded-For)");
+  } else if (env.trustProxy === true) {
+    app.log.warn(
+      "TRUST_PROXY=true trusts X-Forwarded-For from every peer, so the per-IP OTP " +
+      "ceiling can be bypassed by anyone who can reach this port. Behind Render " +
+      "(Cloudflare at the edge) set CLIENT_IP_HEADER=cf-connecting-ip, or " +
+      "true-client-ip - whichever the access log's ipHeaders shows present; see " +
+      "docs/DEPLOYMENT.md, \"Client IP on Render\". Elsewhere set TRUST_PROXY to " +
+      "your proxy's address instead (127.0.0.1,::1 for a local tunnel).",
+    );
+  }
 }

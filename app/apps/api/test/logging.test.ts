@@ -10,6 +10,7 @@
  */
 import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
+import { networkInterfaces } from "node:os";
 import Fastify from "fastify";
 import { loggerOptions } from "../src/logging.js";
 import {
@@ -66,6 +67,32 @@ describe("the access log and every other line", () => {
     await app.close();
   });
 
+  it("the access line says which client-address headers arrived, as booleans and a count only", async () => {
+    const { app, text } = await serverWithCapturedLog();
+    await app.inject({
+      method: "GET", url: "/v1/me", remoteAddress: "10.25.232.17",
+      headers: { "cf-connecting-ip": CLIENT_IP, "x-real-ip": "198.51.100.4", "x-forwarded-for": `${CLIENT_IP}, 198.51.100.4` },
+    });
+    const lines = text().split("\n").filter(Boolean).map((l) => JSON.parse(l) as { msg?: string; req?: { ipHeaders?: unknown } });
+    const access = lines.find((l) => l.msg === "incoming request");
+    assert.deepEqual(access?.req?.ipHeaders, { cfConnectingIp: true, trueClientIp: false, xRealIp: true, xffEntries: 2 }, text());
+    for (const v of Object.values(access!.req!.ipHeaders as object)) assert.ok(typeof v === "boolean" || typeof v === "number");
+    for (const leak of [CLIENT_IP, "203.0.113", "198.51.100", "10.25.232"]) {
+      assert.ok(!text().includes(leak), `log contains ${leak}:\n${text()}`);
+    }
+    await app.close();
+  });
+
+  it("the server's own listen line keeps its address; a client's is still scrubbed", async () => {
+    const { app, text } = await serverWithCapturedLog();
+    app.log.info("Server listening at http://10.25.232.17:8080");   // what Render's boot printed as 10.25.232.0/24
+    app.log.info("peer 10.25.232.17 refused");
+    const log = text();
+    assert.ok(log.includes("Server listening at http://10.25.232.17:8080"), log);
+    assert.ok(log.includes("peer 10.25.232.0/24 refused"), log);
+    await app.close();
+  });
+
   it("a map tile is logged by its zoom only", async () => {
     const { app, text } = await serverWithCapturedLog();
     await app.inject({ method: "GET", url: "/tiles/16/46782/27512.png" });
@@ -115,6 +142,23 @@ describe("scrubLogText / scrubLogObject", () => {
   it("leaves ordinary text, UUIDs, versions and loopback alone", () => {
     const keep = "incident 7d0c1e9a-1234-4567-8901-123456789012 v1.2.3 on 127.0.0.1:4693 took 12.5 ms";
     assert.equal(scrubLogText(keep), keep);
+  });
+  it("leaves the server's own listen addresses alone and nothing else", () => {
+    for (const own of [
+      "Server listening at http://10.25.232.17:8080", "Server listening at http://172.20.0.4:4000",
+      "Server listening at http://192.168.1.20:4000", "Server listening at http://127.0.0.1:8080",
+      "Server listening at http://0.0.0.0:8080", "Server listening at http://[::1]:8080",
+      "Server listening at https://localhost:4000",
+    ]) assert.equal(scrubLogText(own), own);
+    const mine = Object.values(networkInterfaces()).flat()
+      .find((a) => a && a.family === "IPv4" && !a.internal && !/^(10|127|192\.168|169\.254|172\.(1[6-9]|2\d|3[01]))\./.test(a.address));
+    if (mine) assert.equal(scrubLogText(`Server listening at http://${mine.address}:8080`), `Server listening at http://${mine.address}:8080`);
+    // Not this machine's, not private: a client's address, whatever the line looks like.
+    assert.equal(scrubLogText(`Server listening at http://${CLIENT_IP}:8080`), "Server listening at http://203.0.113.0/24:8080");
+    // Only the whole line is exempt: nothing may ride along after it.
+    assert.equal(scrubLogText(`Server listening at http://10.0.0.5:8080 for ${CLIENT_IP}`),
+      "Server listening at http://10.0.0.0/24:8080 for 203.0.113.0/24");
+    assert.equal(scrubLogText("from 10.25.232.17"), "from 10.25.232.0/24", "a private address elsewhere is still coarsened");
   });
   it("replaces personal field names at any depth and keeps the rest", () => {
     assert.deepEqual(scrubLogObject({ op: "sos.escalate", from: "CONFIRMED", nested: { lat: 1, lng: 2, chatId: "9" } }),

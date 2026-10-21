@@ -6,7 +6,10 @@
  *
  *   1. The request serializer: the access line carries the method, the path
  *      with only allow-listed query keys (log-redaction.ts urlForLog) and the
- *      host. No client address, no port, no headers.
+ *      host. No client address, no port, no header values - only which of
+ *      the client-address headers arrived (ipHeaders: booleans and an
+ *      X-Forwarded-For entry count, client-ip.ts), so an operator can tell
+ *      which one to name in CLIENT_IP_HEADER.
  *   2. The error serializer: type, scrubbed message and stack, and a code -
  *      never a driver's `query`/`parameters`, which hold bound values.
  *   3. Every other line, from any call site (ours or Fastify's): field names
@@ -18,11 +21,12 @@
  * under them, not a licence.
  */
 import type { FastifyServerOptions } from "fastify";
+import { ipHeaderPresence } from "./client-ip.js";
 import { errForLog, scrubLogObject, scrubLogText, urlForLog } from "./domain/log-redaction.js";
 
 type LoggerOptions = Exclude<FastifyServerOptions["logger"], boolean | undefined>;
 
-interface LoggableRequest { method?: string; url?: string; host?: string }
+interface LoggableRequest { method?: string; url?: string; host?: string; headers?: Record<string, unknown> }
 
 export function loggerOptions(o: { level: string; stream?: { write(line: string): void } }): LoggerOptions {
   return {
@@ -31,6 +35,7 @@ export function loggerOptions(o: { level: string; stream?: { write(line: string)
     serializers: {
       req: (req: LoggableRequest) => ({
         method: req.method, url: urlForLog(String(req.url ?? "")), host: req.host,
+        ipHeaders: ipHeaderPresence(req.headers),
       }),
       err: errForLog,
     },
