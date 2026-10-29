@@ -10,7 +10,7 @@
   ],
   "scripts": {
     "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run claims && npm run citations && npm run no-llm && npm run residency && npm run bounded && npm test",
-    "typecheck": "tsc -b --pretty",
+    "typecheck": "tsc -b --force --pretty",
     "lint": "eslint .",
     "boundaries": "node scripts/check-boundaries.mjs",
     "claims": "node scripts/check-claims.mjs",
