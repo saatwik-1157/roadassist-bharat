@@ -298,6 +298,16 @@ injection payload inside free text (stored as text, not executed), and the
 database confirmed intact afterwards. Oversized fields, malformed JSON, wrong
 types and out-of-range coordinates all return `400`.
 
+**Collections are capped, and the cap is enforced.** zod keeps one issue per
+failing array element (GHSA-mrhx-c7xc-m3w5). Measured against this API: a
+1 MiB body of 524,000 failing elements cost 172 MB of heap on zod 3 and
+301 MB on zod 4.6.7 when the array had no cap. With a `.max(n)` on the array,
+4.6.6+ refuses the same body at the cap, with one issue, about 0 MB and 10 ms.
+So zod is pinned at `^4.6.7`, every request array is capped, and
+`scripts/check-bounded-collections.mjs` fails the build on any `z.array`,
+`z.set` or `.array()` without `.max()` or `.length()`. Its unit test also
+checks that zod still stops at the cap.
+
 **XSS.** The API is a JSON service and stores what it is given, byte-identical;
 escaping is the client's job and the browser suite asserts the DOM does it.
 Responses are served as `application/json`, so a payload cannot execute in the

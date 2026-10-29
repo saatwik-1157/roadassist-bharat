@@ -72,18 +72,18 @@ Pages at <https://roadassistbharat.online>.
 
 ## Verification
 
-**1603 assertions executed across six suites, no failures**, against a real
+**1612 assertions executed across six suites, no failures**, against a real
 PostgreSQL + PostGIS and a real Chrome:
 
 | Suite | Assertions |
 |---|---|
-| Unit | 625 |
+| Unit | 634 |
 | End-to-end | 378 |
 | Concurrency + real-time | 112 |
 | Security (attacks that must fail) | 144 |
 | Gateway security | 58 |
 | Browser / offline | 286 |
-| **Total** | **1603** |
+| **Total** | **1612** |
 
 Not in that total: 22 Razorpay checks (`npm run test:razorpay`). They need no
 Razorpay account — the script stubs the Orders API locally — but they only run

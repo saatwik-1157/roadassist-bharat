@@ -278,6 +278,13 @@ jobs:
       - name: No cross-module imports outside the contract
         run: node scripts/check-boundaries.mjs
 
+      # zod 4.6.6+ refuses an oversized collection at its cap, but only if it
+      # HAS one: an uncapped z.array validates every element of a hostile 1 MiB
+      # body and costs ~300 MB of heap per request (GHSA-mrhx-c7xc-m3w5). The
+      # upgrade is half the fix and the cap is the half a new route can forget.
+      - name: Every zod array and set has a length cap
+        run: node scripts/check-bounded-collections.mjs
+
       # The documents must agree with the code. This project's whole argument is
       # that every claim is demonstrable, and the same number has now gone stale
       # in twenty-odd files three separate times — each caught by a human reading

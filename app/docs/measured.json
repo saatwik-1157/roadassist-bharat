@@ -11,13 +11,13 @@
     "file. Dated evidence (a record of what was true for a past build) is exempt,",
     "because correcting it would falsify the record."
   ],
-  "measuredOn": "2026-10-21",
+  "measuredOn": "2026-10-29",
   "measuredAgainst": "a database migrated from empty, then seeded (npm run demo:reset)",
   "assertions": {
-    "total": 1603,
+    "total": 1612,
     "how": "sum of the six suites below; each printed by its own runner",
     "suites": {
-      "unit": 625,
+      "unit": 634,
       "e2e": 378,
       "concurrency": 112,
       "gatewaySecurity": 58,

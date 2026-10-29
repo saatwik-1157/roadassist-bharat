@@ -9,7 +9,7 @@
     "apps/*"
   ],
   "scripts": {
-    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run claims && npm run citations && npm run no-llm && npm run residency && npm test",
+    "verify": "npm run typecheck && npm run lint && npm run boundaries && npm run claims && npm run citations && npm run no-llm && npm run residency && npm run bounded && npm test",
     "typecheck": "tsc -b --pretty",
     "lint": "eslint .",
     "boundaries": "node scripts/check-boundaries.mjs",
@@ -17,6 +17,7 @@
     "citations": "node scripts/check-citations.mjs",
     "no-llm": "node scripts/check-no-llm.mjs",
     "residency": "node scripts/check-data-residency.mjs",
+    "bounded": "node scripts/check-bounded-collections.mjs",
     "verify:deployment": "node scripts/verify-deployment.mjs",
     "test": "node --import tsx --test packages/db/test/*.test.ts apps/api/test/*.test.ts",
     "build": "npm run build -w @roadassist/db && npm run build -w @roadassist/api",
