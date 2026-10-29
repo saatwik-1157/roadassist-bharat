@@ -1701,7 +1701,7 @@ app.post("/v1/sync/operations", { preHandler: [authenticate, limit("sync")] }, a
       /** Which row the operation is about, when it is about an existing one. */
       entityId: z.string().uuid().optional(),
       operation: z.enum(["create", "update", "delete"]),
-      payload: z.record(z.unknown()),
+      payload: z.record(z.string(), z.unknown()),
       clientUpdatedAt: z.coerce.date(),
     })).max(200),
   }).parse(req.body);

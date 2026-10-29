@@ -71,6 +71,14 @@ describe("validateEnv", { concurrency: true }, () => {
       DATABASE_URL: "postgres://localhost:5434/roadassist_env_test", ...vars,
     };
     delete env.CORS_ORIGINS; // unrelated problems would mask the one under test
+    // Same reason. A shell that has sourced CI's stub configuration carries
+    // GOOGLE_API_BASE and an http GOOGLE_REDIRECT_URI, both refused outside
+    // development, so "boots with a long secret" failed with nothing wrong with
+    // the secret. Blanked rather than deleted: an empty value reads as unset,
+    // and a deleted one would be filled back in from the developer's .env.
+    for (const name of Object.keys(env)) {
+      if (name.startsWith("GOOGLE_") || name.startsWith("TELEGRAM_")) env[name] = "";
+    }
     const r = spawnSync(process.execPath, [
       "--import", "tsx", "--input-type=module", "-e",
       `const m = await import(${JSON.stringify(ENV_TS)}); m.validateEnv(); console.log("BOOTED");`,
