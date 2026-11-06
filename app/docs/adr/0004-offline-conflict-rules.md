@@ -1,6 +1,6 @@
 # ADR-0004 — Offline conflict rules are decided before any sync code is written
 
-**Status:** Accepted · 2026-08-04 · Owner: P1 (Saatwik) + P2 (Nirisha)
+**Status:** Accepted · 2026-08-04 · Owner: Saatwik
 
 ## Context
 

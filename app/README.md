@@ -440,11 +440,6 @@ Start with [`docs/architecture/README.md`](docs/architecture/README.md).
 
 ---
 
-## Team
+## Author
 
-| | Owner | Area |
-|---|---|---|
-| P1 | V Saatwik Sairaam (24MIC7131) | Backend, database, API contracts |
-| P2 | P Sai Nirisha Chowdary (24MIC7122) | Frontend, mobile, offline client |
-| P3 | T V S Jignesh (24MIC7190) | AI services, data pipeline |
-| P4 | G Parthavi (24MIC7145) | DevOps, QA, security, CI/CD |
+V Saatwik Sairaam (24MIC7131)

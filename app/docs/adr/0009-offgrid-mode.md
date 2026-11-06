@@ -1,6 +1,6 @@
 # ADR-0009 — Off-Grid Mode: the platform degrades in public, never in secret
 
-**Status:** Accepted · 2026-09-06 · Owner: P1 (Saatwik) + P2 (Nirisha) + P4 (Parthavi)
+**Status:** Accepted · 2026-09-06 · Owner: Saatwik
 
 ## Context
 

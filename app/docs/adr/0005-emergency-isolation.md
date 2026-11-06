@@ -1,6 +1,6 @@
 # ADR-0005 — The emergency path is isolated and the model can never dispatch
 
-**Status:** Accepted · 2026-08-04 · Owner: P1 (Saatwik) + P4 (Parthavi)
+**Status:** Accepted · 2026-08-04 · Owner: Saatwik
 
 ## Context
 

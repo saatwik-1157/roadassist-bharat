@@ -36,7 +36,7 @@ built for the roads where coverage is worst.
 ## Contents
 
 - [What it is](#what-it-is)
-- [Team](#team)
+- [Author](#author)
 - [What runs today](#what-runs-today)
 - [Architecture](#architecture)
 - [Which half is AI](#which-half-is-ai)
@@ -73,21 +73,10 @@ plain SMS from a feature phone.
 - **Feature phones are users.** A complete booking works over SMS, in eight
   languages, with no app at all.
 
-## Team
+## Author
 
 Built by [V. Saatwik Sairaam](https://github.com/saatwik-1157) (24MIC7131) as a project for
 **SWE4004: Cloud Computing and Applications**.
-
----|---|---|
-| [V. Saatwik Sairaam](https://github.com/saatwik-1157) | 24MIC7131 | Backend & cloud database |
-| P. Sai Nirisha Chowdary | 24MIC7122 | Frontend & mobile |
-| T. V. S. Jignesh | 24MIC7190 | AI & data services |
-| G. Parthavi | 24MIC7145 | DevOps, QA & cloud security |
-
-The 18-phase plan divided the work into four lead workstreams, D1 to D4,
-which map onto the four members in that order. The repository is pushed from a single account, so
-`git log` shows one committer. That reflects how the code reached GitHub, not
-how the work was split.
 
 ---
 

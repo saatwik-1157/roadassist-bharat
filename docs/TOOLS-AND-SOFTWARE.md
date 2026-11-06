@@ -4,14 +4,7 @@
 
 SWE4004: Cloud Computing and Applications · VIT-AP University
 
-| Member | Reg. no. | Workstream |
-|---|---|---|
-| V. Saatwik Sairaam | 24MIC7131 | Backend & cloud database |
-| P. Sai Nirisha Chowdary | 24MIC7122 | Frontend & mobile |
-| T. V. S. Jignesh | 24MIC7190 | AI & data services |
-| G. Parthavi | 24MIC7145 | DevOps, QA & cloud security |
-
-Names and workstreams are as listed in the repository [README](../README.md#team).
+Built by V. Saatwik Sairaam (24MIC7131).
 
 > **How to read this document.** Each section starts in plain language and then
 > gives the technical detail. Every tool, version and number here comes from the
