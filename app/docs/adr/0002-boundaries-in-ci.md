@@ -1,6 +1,6 @@
 # ADR-0002 — Module boundaries are enforced by CI, not by convention
 
-**Status:** Accepted · 2026-08-04 · Owner: P4 (Parthavi)
+**Status:** Accepted · 2026-08-04 · Owner: Saatwik
 
 ## Context
 

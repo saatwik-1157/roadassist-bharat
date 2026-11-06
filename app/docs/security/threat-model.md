@@ -1,6 +1,6 @@
 # Threat Model (STRIDE) — Phase 2
 
-**Owner:** P4 (Parthavi) with P1 (Saatwik) · Module 6 evidence for Review 1
+**Owner:** Saatwik · Module 6 evidence for Review 1
 
 Each threat names the control **and the phase that implements it**, so nothing is
 left as an intention.

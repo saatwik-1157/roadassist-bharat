@@ -4,7 +4,7 @@
 
 ## Context
 
-The architecture slide shows twelve services. A four-person team presenting in
+The architecture slide shows twelve services. A project presenting in
 eighteen weeks has to *operate* whatever it builds — every independently deployed
 service adds a pipeline, a dashboard, an alert route and a failure mode.
 

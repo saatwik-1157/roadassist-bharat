@@ -1,6 +1,6 @@
 # ADR-0006 — Every AI capability ships rules-first, behind a stable contract
 
-**Status:** Accepted · 2026-08-04 · Owner: P3 (Jignesh) + P1 (Saatwik)
+**Status:** Accepted · 2026-08-04 · Owner: Saatwik
 
 ## Context
 

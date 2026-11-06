@@ -1,6 +1,6 @@
 # ADR-0010 — Real-time over SSE, and one job is assigned exactly once
 
-**Status:** Accepted · 2026-09-06 · Owner: P1 (Saatwik) + P4 (Parthavi)
+**Status:** Accepted · 2026-09-06 · Owner: Saatwik
 
 ## Context
 

@@ -1,6 +1,6 @@
 # Failure-mode matrix
 
-**Status:** Owner P4 (Parthavi) · reviewed by P1 · last verified 2026-09-06
+**Status:** Owner Saatwik · last verified 2026-09-06
 
 Every row is a failure that will happen in production, with four columns that
 have to be answerable: **how it is detected**, **what the user sees**, **what

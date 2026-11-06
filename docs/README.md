@@ -55,8 +55,8 @@ the v1.0.0-RC1 dated evidence (`release/`, `verification/`), the demo and viva
 preparation packs (`demo/`, `viva/`, `app/docs/VIVA.md`), `addons.txt`, the
 `review-plan/` folder and the exported Tools and Software PDF were taken out of
 the working tree so the repository holds only the product, its technical
-documentation, the website, the demo videos and the brand. The team table now
-lives in the root [`README.md`](../README.md#team).
+documentation, the website, the demo videos and the brand. The author note now
+lives in the root [`README.md`](../README.md#author).
 
 Nothing was lost: every one of those files is still in git history. Read one
 with `git show 95672c2:<path>`, for example
