@@ -75,10 +75,10 @@ plain SMS from a feature phone.
 
 ## Team
 
-A four-person team project for **SWE4004: Cloud Computing and Applications**.
+Built by [V. Saatwik Sairaam](https://github.com/saatwik-1157) (24MIC7131) as a project for
+**SWE4004: Cloud Computing and Applications**.
 
-| Member | Reg. no. | Workstream |
-|---|---|---|
+---|---|---|
 | [V. Saatwik Sairaam](https://github.com/saatwik-1157) | 24MIC7131 | Backend & cloud database |
 | P. Sai Nirisha Chowdary | 24MIC7122 | Frontend & mobile |
 | T. V. S. Jignesh | 24MIC7190 | AI & data services |
